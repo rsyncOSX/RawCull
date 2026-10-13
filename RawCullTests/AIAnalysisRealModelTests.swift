@@ -21,7 +21,7 @@ struct AIAnalysisRealModelTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let directory = try URL(fileURLWithPath: #require(env["RAWCULL_ANALYSIS_DIRECTORY"]))
         let names = try JSONDecoder().decode([String].self, from: Data(#require(env["RAWCULL_ANALYSIS_NAMES"]).utf8))
-        try #require((1...6).contains(names.count) && Set(names).count == names.count)
+        try #require((1 ... 6).contains(names.count) && Set(names).count == names.count)
         try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
         let files = try names.map { name in
             let url = directory.appendingPathComponent(name)
@@ -53,9 +53,9 @@ struct AIAnalysisRealModelTests {
                     case "sam-clip":
                         let signature = BurstGroupSignature(memberKeys: [file.name])
                         await deep.start(.init(groupID: index, groupSignature: signature,
-                            candidates: [.init(fileID: file.id, fileName: file.name, url: file.url, burstRank: 1,
-                                               normalSharpnessScore: nil, subjectLabel: nil, normalizedAFPoint: nil)],
-                            preset: .auto, scoringSource: .embeddedPreview))
+                                               candidates: [.init(fileID: file.id, fileName: file.name, url: file.url, burstRank: 1,
+                                                                  normalSharpnessScore: nil, subjectLabel: nil, normalizedAFPoint: nil)],
+                                               preset: .auto, scoringSource: .embeddedPreview))
                         try writeDump(deep.state, to: output)
                         if deep.completedCandidates.first(where: { $0.fileID == file.id })?.isCompleted != true {
                             failure = "SAM analysis did not complete; see state dump"
@@ -67,12 +67,14 @@ struct AIAnalysisRealModelTests {
                         let embedding = try await provider.embedding(for: image).values
                         try writeDump(embedding, to: root.appendingPathComponent("clip-\(index + 1).txt"))
                         #expect(!embedding.isEmpty && embedding.allSatisfy(\.isFinite))
+
                     case "qwen":
                         let feature = RawCullQwenAnalysisFeature(inference: recording)
                         feature.updateModelStatus(status)
                         await feature.analyze([file])
                         try writeDump(feature.results, to: output)
                         failure = feature.results.first?.failure ?? (feature.results.isEmpty ? "No Qwen result" : nil)
+
                     default:
                         let feature = RawCullObjectAnalysisFeature(inference: recording, maskStores: [runtime.objectMaskMemoryStore])
                         feature.install(segmentation: runtime.objectSegmentation, qwenStatus: status)
@@ -89,7 +91,9 @@ struct AIAnalysisRealModelTests {
                 summary.append(row)
                 try JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted, .sortedKeys])
                     .write(to: root.appendingPathComponent("progress.json"), options: .atomic)
-                if let failure { Issue.record("\(stage) \(file.name): \(failure)") }
+                if let failure {
+                    Issue.record("\(stage) \(file.name): \(failure)")
+                }
             }
         }
         await recording.clear()
@@ -110,15 +114,31 @@ private actor AnalysisRecordingInference: QwenInferenceServing {
     let root: URL
     var stage = "setup"
     var sequence = 0
-    init(root: URL) { self.root = root }
-    func setStage(_ value: String) { stage = value }
-    func validate(url: URL) async -> QwenModelStatus { await live.validate(url: url) }
-    func inputCapabilities() async -> QwenInputCapabilities? { await live.inputCapabilities() }
-    func clear() async { await live.clear() }
+    init(root: URL) {
+        self.root = root
+    }
+
+    func setStage(_ value: String) {
+        stage = value
+    }
+
+    func validate(url: URL) async -> QwenModelStatus {
+        await live.validate(url: url)
+    }
+
+    func inputCapabilities() async -> QwenInputCapabilities? {
+        await live.inputCapabilities()
+    }
+
+    func clear() async {
+        await live.clear()
+    }
+
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse {
         try await QwenModelResponse.decode(respond(to: .init(instruction: QwenInferenceRuntime.assessmentInstruction(criteria: criteria),
-                                                           image: image, maximumResponseTokens: 512)))
+                                                             image: image, maximumResponseTokens: 512)))
     }
+
     func respond(to request: QwenVisionRequest) async throws -> String {
         sequence += 1
         let prefix = root.appendingPathComponent("\(stage)-request-\(sequence)")

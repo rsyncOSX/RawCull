@@ -10,10 +10,10 @@ struct ObjectAnalysisBoundaryTests {
         let response = #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"soft","focusEvidence":null,"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.8}"#
         var document = try #require(JSONSerialization.jsonObject(with: Data(response.utf8)) as? [String: Any])
         var objects = try #require(document["objects"] as? [[String: Any]])
-        objects[0]["strengths"] = (0..<counts.0).map { "Visible strength \($0)" }
-        objects[0]["strengthEvidence"] = (0..<counts.1).map { _ in ["cropID": "1", "observation": "Visible subject contrast"] }
+        objects[0]["strengths"] = (0 ..< counts.0).map { "Visible strength \($0)" }
+        objects[0]["strengthEvidence"] = (0 ..< counts.1).map { _ in ["cropID": "1", "observation": "Visible subject contrast"] }
         document["objects"] = objects
-        let invalid = String(decoding: try JSONSerialization.data(withJSONObject: document), as: UTF8.self)
+        let invalid = try String(decoding: JSONSerialization.data(withJSONObject: document), as: UTF8.self)
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"])
         }
@@ -35,9 +35,9 @@ struct ObjectAnalysisBoundaryTests {
 
     @Test func `Undecodable feedback preserves typed errors and supplies a default`() {
         #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{", fallback: .incompleteJSON)
-                == ObjectResponseIssue.incompleteJSON.localizedDescription)
+            == ObjectResponseIssue.incompleteJSON.localizedDescription)
         #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{")
-                == ObjectResponseIssue.assessmentFailed.localizedDescription)
+            == ObjectResponseIssue.assessmentFailed.localizedDescription)
     }
 
     @Test func `Focus and claims require their own crop evidence and unverified expression abstains`() throws {

@@ -10,8 +10,10 @@ nonisolated enum ReviewImageError: Error, LocalizedError {
         case .invalidGeometry: "The review source or crop has invalid dimensions."
         case .decodeFailed: "The selected review source could not be decoded."
         case .sourceChanged: "The image changed during source preparation. Rerun with current settings."
+
         case .memoryAdmissionDenied:
             "The full-resolution source exceeds Combined Review's memory limits. For a RAW file, choose High-quality preview, then Rerun with current settings. Resume keeps the saved source setting."
+
         case .unsupportedAlignment: "The review source and mask cannot be aligned safely."
         }
     }
@@ -138,8 +140,7 @@ nonisolated struct ReviewRegion: Sendable {
 
     static func make(sourceID: String, space: ReviewCoordinateSpace, rect: CGRect,
                      padding: CGFloat = 0.15, purpose: String,
-                     encoder: ReviewEncoderGeometry) throws -> Self
-    {
+                     encoder: ReviewEncoderGeometry) throws -> Self {
         guard rect.isFiniteReviewRect, padding.isFinite, padding >= 0, padding <= 1,
               space.bounds.contains(rect), !purpose.isEmpty
         else {

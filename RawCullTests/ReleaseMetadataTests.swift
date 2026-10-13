@@ -119,7 +119,7 @@ struct ReleaseMetadataTests {
         let expectedDestinations = [
             "rawcull-clip-datacomp": "Models/CLIP-DataComp",
             "rawcull-sam3": "Models/SAM3",
-            "rawcull-qwen3-vl-2b": "Models/Qwen/qwen3_vl_2b",
+            "rawcull-qwen3-vl-2b": "Models/Qwen/qwen3_vl_2b"
         ]
         var actualDestinations: [String: String] = [:]
         for assetPack in manifest.assetPacks {
@@ -220,7 +220,7 @@ struct ReleaseMetadataTests {
             "OpenCLIP-DataComp-MIT.txt": "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986",
             "OpenAI-CLIP-Tokenizer-MIT.txt": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e",
             "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
-            "Qwen3-VL-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+            "Qwen3-VL-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
         ]
         for (filename, expectedHash) in bundledLicenceHashes {
             let data = try repositoryData("RawCull/Resources/ModelLicences/\(filename)")

@@ -225,10 +225,10 @@ struct QwenFeatureTests {
             try QwenPhotoAssessment.decodeResponse(content.replacingOccurrences(of: "\"eyesOpen\":null", with: "\"eyesOpen\":true"))
         }
         let failed = QwenPhotoAnalysisResult(fileID: UUID(), fileName: "bird.ARW", assessment: nil,
-                                            freeformResponse: content, failure: "Invalid assessment")
+                                             freeformResponse: content, failure: "Invalid assessment")
         #expect(!failed.isSuccessful)
         let feature = RawCullQwenAnalysisFeature(inference: QwenInferenceStub(response: .rejected(content)),
-                                                imageLoader: QwenImageLoaderStub())
+                                                 imageLoader: QwenImageLoaderStub())
         feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
         await feature.analyze([makeFile(name: "invalid.ARW")])
         let result = try #require(feature.results.first)

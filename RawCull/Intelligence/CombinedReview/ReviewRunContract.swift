@@ -105,7 +105,7 @@ nonisolated enum ReviewPipelineContract {
 }
 
 nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
-    var diagnosticRetention: ReviewDiagnosticRetention? = nil
+    var diagnosticRetention: ReviewDiagnosticRetention?
     let id: UUID
     let files: [ReviewFileSnapshot]
     let criteria: String
@@ -158,8 +158,7 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
     }
 
     static func make(snapshot: ReviewRunSnapshot, image: ReviewFileSnapshot, stage: ReviewStage,
-                     sourceRender: String = "", region: String = "") throws -> Self
-    {
+                     sourceRender: String = "", region: String = "") throws -> Self {
         var fields = ["file": image.fingerprint, "render": snapshot.renderVersion,
                       "sourcePreference": snapshot.sourcePreference, "sourceRender": sourceRender,
                       "pipeline": snapshot.pipelineVersion, "stage": stage.rawValue,

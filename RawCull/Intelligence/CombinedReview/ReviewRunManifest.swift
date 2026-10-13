@@ -23,7 +23,7 @@ nonisolated struct ReviewWorkItem: Codable, Sendable {
     var state: ReviewWorkState = .pending
     var attempts = 0
     var reason: String?
-    var diagnostic: ReviewFailureDiagnostic? = nil
+    var diagnostic: ReviewFailureDiagnostic?
     var artifactKey: String?
 }
 
@@ -32,8 +32,8 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
     var work: [ReviewWorkItem]
     var budget: ReviewBudget
     var cancelled = false
-    var retainedDiagnosticBytes: Int? = nil
-    var evidenceOnlySummaries: [String: ReviewEvidenceOnlySummary]? = nil
+    var retainedDiagnosticBytes: Int?
+    var evidenceOnlySummaries: [String: ReviewEvidenceOnlySummary]?
 
     func validate() throws {
         try snapshot.validate()
@@ -78,10 +78,11 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
         try Dictionary(uniqueKeysWithValues: work.map { item in
             guard let file = snapshot.files.first(where: { $0.id == item.imageID }),
                   snapshot.stageVersions[item.stage] != nil else { throw ReviewRunError.incompatible }
-            return (item.id, try ReviewCompatibility.make(
+            return try (item.id, ReviewCompatibility.make(
                 snapshot: snapshot, image: file, stage: item.stage,
                 sourceRender: item.compatibility.fields["sourceRender"] ?? "",
-                region: item.compatibility.fields["region"] ?? ""))
+                region: item.compatibility.fields["region"] ?? "",
+            ))
         })
     }
 

@@ -120,7 +120,7 @@ struct ReviewDiagnosticsTests {
         var response = ""
         for (alias, criterion) in [("lighting", "exposure"), ("subject visibility", "visibility"), ("behavior", "visibility")] {
             let generated = ReviewClaim(text: "Soft illumination", type: alias, evidence: claim.evidence, uncertainty: "Limited", contradictions: [])
-            response = String(decoding: try JSONEncoder().encode(["claims": [generated]]), as: UTF8.self)
+            response = try String(decoding: JSONEncoder().encode(["claims": [generated]]), as: UTF8.self)
             let report = try CombinedReviewResponse.report(response, imageID: value.file.id, allowed: Set(claim.evidence), limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
             #expect(report.claims.first?.type == criterion)
         }
@@ -156,14 +156,14 @@ struct ReviewDiagnosticsTests {
         let grounding = ReviewSynthesisGrounding(result: value)
         let good = ReviewClaim(text: "Visible texture", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
         let bad = ReviewClaim(text: "Flower texture", type: "detail", evidence: [.init(kind: .measurement, id: "metric-a")], uncertainty: "Limited", contradictions: [])
-        let text = String(decoding: try JSONEncoder().encode(["claims": [good, bad]]), as: UTF8.self)
+        let text = try String(decoding: JSONEncoder().encode(["claims": [good, bad]]), as: UTF8.self)
         let allowed = Set(good.evidence + bad.evidence)
         let report = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
         #expect(report.claims.count == 1)
         #expect(report.claims.first?.subjectID?.rawValue == "a")
         #expect(report.incomplete)
         #expect(report.limitations.contains { $0.reason.contains("synthesis.observationRequired") })
-        let rejected = String(decoding: try JSONEncoder().encode(["claims": [bad]]), as: UTF8.self)
+        let rejected = try String(decoding: JSONEncoder().encode(["claims": [bad]]), as: UTF8.self)
         #expect(throws: ReviewValidationIssue.self) {
             try CombinedReviewResponse.report(rejected, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
         }
@@ -176,7 +176,7 @@ struct ReviewDiagnosticsTests {
             ("{}", .schema, "schema.requiredFieldOrType"),
             (crop.replacingOccurrences(of: #""region""#, with: #""wrong""#), .unknownID, "crop.expectedRegionID"),
             (crop.replacingOccurrences(of: "Texture visible", with: "Sharp eye detail"), .unsupportedDomain, "crop.supportedDomain"),
-            (crop.replacingOccurrences(of: "Texture visible", with: String(repeating: "x", count: 501)), .responseLength, "text.characterAllowance"),
+            (crop.replacingOccurrences(of: "Texture visible", with: String(repeating: "x", count: 501)), .responseLength, "text.characterAllowance")
         ]
         for (text, code, check) in cases {
             do {
@@ -260,7 +260,7 @@ struct ReviewDiagnosticsTests {
         let mixed = ReviewClaim(text: claim.text, type: claim.type, evidence: [reference, .init(kind: .measurement, id: "metric-b")], uncertainty: "Limited", contradictions: [])
         #expect(throws: ReviewValidationIssue.self) { try grounding.validate(mixed) }
         var otherImage = value
-        let origin = ReviewEvidenceProvenance(workID: .init(rawValue: "crop"), imageID: .init(rawValue: "other"), sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.cropObservation]!]), modelIdentity: nil, inputReference: nil)
+        let origin = try ReviewEvidenceProvenance(workID: .init(rawValue: "crop"), imageID: .init(rawValue: "other"), sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": #require(ReviewPipelineContract.stageVersions[.cropObservation])]), modelIdentity: nil, inputReference: nil)
         otherImage.observations[0] = .init(targetIdentified: true, id: .init(rawValue: "crop-a"), regionID: .init(rawValue: "region-a"), text: "Texture", uncertainty: "Limited", availability: .available, provenance: origin)
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: otherImage).validate(claim) }
     }
@@ -281,7 +281,7 @@ struct ReviewDiagnosticsTests {
         }
         var overview = result("overview")
         let original = overview.observations[0]
-        let origin = ReviewEvidenceProvenance(workID: original.provenance.workID, imageID: overview.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.overview]!]), modelIdentity: nil, inputReference: nil)
+        let origin = try ReviewEvidenceProvenance(workID: original.provenance.workID, imageID: overview.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": #require(ReviewPipelineContract.stageVersions[.overview])]), modelIdentity: nil, inputReference: nil)
         overview.observations[0] = .init(id: original.id, regionID: nil, text: "Whole scene in focus", uncertainty: "Limited", availability: .available, provenance: origin)
         let focus = ReviewClaim(text: "Whole scene in focus", type: "composition", evidence: [.init(kind: .observation, id: original.id.rawValue)], uncertainty: "Limited", contradictions: [])
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: overview).validate(focus) }
@@ -436,7 +436,7 @@ struct ReviewDiagnosticsTests {
         value.observations[0] = .init(targetIdentified: true, criteria: criteria, id: original.id, regionID: original.regionID, text: "General subject scene.", uncertainty: "Species identity unknown.", availability: .available, provenance: original.provenance)
         let grounding = ReviewSynthesisGrounding(result: value)
         for type in ReviewCriterionObservations.types {
-            let claim = ReviewClaim(text: criteria[type]!.text, type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            let claim = try ReviewClaim(text: #require(criteria[type]?.text), type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
             #expect(try grounding.validate(claim).subjectID?.rawValue == "a")
         }
         for (text, type) in [("Subject left of center.", "exposure"), ("Soft illumination.", "visibility"), ("Species identity unknown.", "visibility"), ("General subject scene.", "detail")] {
@@ -455,14 +455,15 @@ struct ReviewDiagnosticsTests {
             composition: .init(supported: true, text: "Subject beside a fence"),
             exposure: .init(supported: true, text: "Soft lighting"),
             visibility: .init(supported: true, text: visibility),
-            detail: .init(supported: false, text: ""))
+            detail: .init(supported: false, text: ""),
+        )
         value.observations[0] = .init(targetIdentified: true, criteria: criteria, id: original.id,
-            regionID: original.regionID, text: "Subject beside a fence Soft lighting " + visibility,
-            uncertainty: "", availability: .available, provenance: original.provenance)
+                                      regionID: original.regionID, text: "Subject beside a fence Soft lighting " + visibility,
+                                      uncertainty: "", availability: .available, provenance: original.provenance)
         let claim = ReviewClaim(text: visibility, type: "visibility", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "", contradictions: [])
         #expect(try ReviewSynthesisGrounding(result: value).validate(claim).subjectID?.rawValue == "a")
         value.observations[0] = .init(targetIdentified: false, criteria: criteria, id: original.id,
-            regionID: original.regionID, text: visibility, uncertainty: "", availability: .available, provenance: original.provenance)
+                                      regionID: original.regionID, text: visibility, uncertainty: "", availability: .available, provenance: original.provenance)
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
     }
 
@@ -553,7 +554,7 @@ struct ReviewDiagnosticsTests {
         let candidates = ["exposure": ["o3": exposure], "composition": ["o2": composition]]
         func parse(_ response: String, preferred: [String: String]) throws -> ReviewImageReport {
             try CombinedReviewResponse.selectedReport(response, imageID: .init(rawValue: "image"), candidates: candidates,
-                limitations: [], regions: [], uninspected: [], incomplete: false, preferredRows: preferred)
+                                                      limitations: [], regions: [], uninspected: [], incomplete: false, preferredRows: preferred)
         }
         let wrong = #"{"composition":"o2","exposure":"o2,o3","visibility":null,"detail":"o3"}"#
         let recovered = try parse(wrong, preferred: ["exposure": "o3", "detail": "o3"])
@@ -590,7 +591,7 @@ struct ReviewDiagnosticsTests {
         #expect(fixtures.count == 4)
         for fixture in fixtures {
             if fixture.stage == "crop" {
-                #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(fixture.response, regionID: fixture.regionID!, requireCriteria: true) }
+                #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(fixture.response, regionID: #require(fixture.regionID), requireCriteria: true) }
             } else {
                 #expect(throws: (any Error).self) { try CombinedReviewResponse.report(fixture.response, imageID: .init(rawValue: "image"), allowed: [.init(kind: .observation, id: "o1")], limitations: [], regions: [], uninspected: [], incomplete: false) }
             }

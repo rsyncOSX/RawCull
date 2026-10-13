@@ -24,7 +24,7 @@ nonisolated struct SubjectMaskContract: Codable, Equatable, Sendable {
     }
 
     func validate(mask: CGImage, sourceIdentity: String) throws {
-        guard self == (try Self.make(mask: mask, sourceIdentity: sourceIdentity)) else {
+        guard try self == (Self.make(mask: mask, sourceIdentity: sourceIdentity)) else {
             throw SubjectMaskDecodingError.unsafeRegistration
         }
     }
@@ -32,7 +32,9 @@ nonisolated struct SubjectMaskContract: Codable, Equatable, Sendable {
 
 nonisolated enum SubjectMaskDecodingError: String, Error, LocalizedError {
     case unsupportedEncoding, unsafeRegistration, emptyForeground, insufficientUsablePixels
-    var errorDescription: String? { "Subject mask: \(rawValue)" }
+    var errorDescription: String? {
+        "Subject mask: \(rawValue)"
+    }
 }
 
 nonisolated struct SubjectMaskForeground: Sendable {
@@ -41,8 +43,13 @@ nonisolated struct SubjectMaskForeground: Sendable {
     let height: Int
     let foregroundCount: Int
     let bounds: CGRect?
-    var totalCoverage: Float { Float(foregroundCount) / Float(pixels.count) }
-    var suspectNearFullOccupancy: Bool { totalCoverage >= 0.95 }
+    var totalCoverage: Float {
+        Float(foregroundCount) / Float(pixels.count)
+    }
+
+    var suspectNearFullOccupancy: Bool {
+        totalCoverage >= 0.95
+    }
 
     static func channel(_ mask: CGImage) throws -> SubjectMaskContract.Channel {
         guard !mask.isMask, mask.bitsPerComponent == 8, mask.width > 0, mask.height > 0,
@@ -70,6 +77,7 @@ nonisolated struct SubjectMaskForeground: Sendable {
             foreground = (0 ..< height).flatMap { y in
                 Array(UnsafeBufferPointer(start: bytes + y * mask.bytesPerRow, count: width))
             }
+
         case .alpha:
             var rgba = [UInt8](repeating: 0, count: width * height * 4)
             guard let context = CGContext(data: &rgba, width: width, height: height, bitsPerComponent: 8,
@@ -82,7 +90,9 @@ nonisolated struct SubjectMaskForeground: Sendable {
         }
         var count = 0, minX = width, minY = height, maxX = -1, maxY = -1
         for y in 0 ..< height {
-            if y & 0x3F == 0 { try Task.checkCancellation() }
+            if y & 0x3F == 0 {
+                try Task.checkCancellation()
+            }
             for x in 0 ..< width where foreground[y * width + x] > 16 {
                 count += 1
                 minX = min(minX, x); minY = min(minY, y)

@@ -4,14 +4,14 @@ import OSLog
 import PhotoAnalysisKit
 
 nonisolated struct SubjectMaskFocusEvidence: Equatable, Sendable {
-    var scorerVersion: String? = nil
-    var foregroundCount: Int? = nil
-    var totalPixelCount: Int? = nil
-    var usableForegroundCount: Int? = nil
-    var interiorPixelCount: Int? = nil
-    var borderPixels: Int? = nil
-    var foregroundBounds: CGRect? = nil
-    var suspectNearFullOccupancy: Bool? = nil
+    var scorerVersion: String?
+    var foregroundCount: Int?
+    var totalPixelCount: Int?
+    var usableForegroundCount: Int?
+    var interiorPixelCount: Int?
+    var borderPixels: Int?
+    var foregroundBounds: CGRect?
+    var suspectNearFullOccupancy: Bool?
     let finalScore: Float
     let broadSubjectScore: Float?
     let localDetailScore: Float?

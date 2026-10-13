@@ -12,8 +12,13 @@ struct CombinedReviewInspector: View {
     @State private var tint: CGImage?
     @State private var crop: CGImage?
 
-    private var subject: ReviewSubjectRecord? { subjects.first { $0.id.rawValue == subjectID } }
-    private var region: ReviewRegionRecord? { regions.first { $0.id.rawValue == regionID } }
+    private var subject: ReviewSubjectRecord? {
+        subjects.first { $0.id.rawValue == subjectID }
+    }
+
+    private var region: ReviewRegionRecord? {
+        regions.first { $0.id.rawValue == regionID }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -30,33 +35,47 @@ struct CombinedReviewInspector: View {
                 CombinedReviewInspectionCanvas(image: image, tint: tint, sourceSize: CGSize(width: source.width, height: source.height), region: region)
                     .frame(height: 320)
                 Text("Mask tint: cyan. Rectangles: requested yellow, padded orange, clipped green, encoder-retained pink.").font(.caption)
-            } else { Text("Retained overview unavailable.") }
+            } else {
+                Text("Retained overview unavailable.")
+            }
             if let region {
                 Text("Region " + region.id.rawValue).font(.caption2).textSelection(.enabled)
                 if let crop {
                     Image(decorative: crop, scale: 1).resizable().scaledToFit().frame(maxHeight: 240)
-                } else { Text("Retained crop unavailable: compact retention, eviction or cleanup.") }
+                } else {
+                    Text("Retained crop unavailable: compact retention, eviction or cleanup.")
+                }
                 Text("Retained request crop before model preprocessing. Encoder geometry is a declared simulation, not a saved tensor: \(Int(region.encoderSize.width)) × \(Int(region.encoderSize.height)).").font(.caption)
                 if let support = region.support {
                     Text("Foreground retained: crop \(support.subjectForegroundRetained.formatted(.percent)), encoder \(support.encoderForegroundRetained.formatted(.percent)); source edge contact: \(support.sourceEdgeContact ? "yes" : "no").")
                     Text(support.anatomicalSupport).font(.caption)
-                } else { Text("Registration support unavailable for this historical region.").font(.caption) }
+                } else {
+                    Text("Registration support unavailable for this historical region.").font(.caption)
+                }
             }
             if let subject {
                 Text("Subject " + subject.id.rawValue).font(.caption2).textSelection(.enabled)
                 Text("Priority: " + (subject.relevance?.role.rawValue ?? "unknown") + "; " + (subject.relevance?.uncertainty ?? "Historical priority unavailable")).font(.caption)
                 Text(subject.relevance?.provenance ?? "").font(.caption2).textSelection(.enabled)
-                if let contract = subject.maskContract { Text("\(contract.width) × \(contract.height), \(contract.channel.rawValue), \(contract.origin)").font(.caption) }
+                if let contract = subject.maskContract {
+                    Text("\(contract.width) × \(contract.height), \(contract.channel.rawValue), \(contract.origin)").font(.caption)
+                }
                 if let registration = subject.registration {
                     Text(registration.transform).font(.caption)
-                    if let warning = registration.warning { Text(warning).foregroundStyle(.orange) }
-                    if registration.touchesSourceEdge { Text("Foreground touches the original source edge; visibility may be partial.").font(.caption) }
+                    if let warning = registration.warning {
+                        Text(warning).foregroundStyle(.orange)
+                    }
+                    if registration.touchesSourceEdge {
+                        Text("Foreground touches the original source edge; visibility may be partial.").font(.caption)
+                    }
                 }
             }
         }
         .task(id: inputKey) {
             image = await feature.exactInput(inputKey)
-            if !regions.contains(where: { $0.id.rawValue == regionID }) { regionID = regions.first?.id.rawValue ?? "" }
+            if !regions.contains(where: { $0.id.rawValue == regionID }) {
+                regionID = regions.first?.id.rawValue ?? ""
+            }
         }
         .task(id: subject?.maskInputReference) {
             tint = nil
@@ -92,7 +111,9 @@ struct CombinedReviewInspectionCanvas: View {
             let size = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
             ZStack(alignment: .topLeading) {
                 Image(decorative: image, scale: 1).resizable().frame(width: size.width, height: size.height)
-                if let tint { Image(decorative: tint, scale: 1).resizable().frame(width: size.width, height: size.height) }
+                if let tint {
+                    Image(decorative: tint, scale: 1).resizable().frame(width: size.width, height: size.height)
+                }
                 if let region {
                     outline(region.requestedRect, color: .yellow, size: size)
                     outline(region.paddedRect, color: .orange, size: size)

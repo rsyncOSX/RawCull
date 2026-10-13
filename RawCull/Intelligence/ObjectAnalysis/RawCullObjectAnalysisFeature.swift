@@ -298,7 +298,7 @@ final class RawCullObjectAnalysisFeature {
             let assessmentStart = Date()
             let instruction = Self.analysisInstruction(ids: board.objectIDs, concepts: descriptors, criteria: criteria)
             var feedback = ""
-            for attempt in 0..<2 {
+            for attempt in 0 ..< 2 {
                 try Task.checkCancellation()
                 let response = try await inference.respond(to: QwenVisionRequest(
                     instruction: instruction + feedback,
@@ -309,7 +309,7 @@ final class RawCullObjectAnalysisFeature {
                 try Task.checkCancellation()
                 do {
                     let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs),
-                        expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
+                                                                              expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
                     return makeResult(file, mode: mode, concepts: concepts,
                                       descriptors: descriptors, assessment: assessment,
                                       freeform: nil, failure: nil, modelIdentity: modelIdentity,
@@ -369,7 +369,7 @@ final class RawCullObjectAnalysisFeature {
         )
     }
 
-    // Objects-only feedback supplements strict validation without repairing model claims.
+    /// Objects-only feedback supplements strict validation without repairing model claims.
     nonisolated static func assessmentValidationFeedback(_ response: String, fallback: ObjectResponseIssue = .assessmentFailed) -> String {
         var issues: [String] = []
         // Inspect enum values before typed decoding, which rejects unknown values.
@@ -406,9 +406,9 @@ final class RawCullObjectAnalysisFeature {
                     }
                 }
             }
-            if object.focusQuality != .uncertain && object.focusEvidence == nil {
+            if object.focusQuality != .uncertain, object.focusEvidence == nil {
                 issues.append("\(prefix): focusQuality is \(object.focusQuality.rawValue), so focusEvidence cannot be null. Supply {\"cropID\":\"\(object.id)\",\"observation\":\"short visible focus evidence from this crop\"}. If focus cannot be judged, set focusQuality to uncertain and focusEvidence to null; do not invent evidence.")
-            } else if object.focusQuality == .uncertain && object.focusEvidence != nil {
+            } else if object.focusQuality == .uncertain, object.focusEvidence != nil {
                 issues.append("\(prefix): uncertain focusQuality requires focusEvidence to be null.")
             } else if let evidence = object.focusEvidence, evidence.cropID != object.id {
                 issues.append("\(prefix): focusEvidence.cropID must be the string \(object.id).")

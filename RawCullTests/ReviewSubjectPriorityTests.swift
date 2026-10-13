@@ -85,7 +85,7 @@ struct ReviewSubjectPriorityTests {
         let data = Data((0 ..< 64 * 48).map { index in ((index % 64 >= 32) == right) ? UInt8(255) : 0 })
         let provider = try #require(CGDataProvider(data: data as CFData))
         return try #require(CGImage(width: 64, height: 48, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: 64,
-                                   space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+                                    space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                                    provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
     }
 }

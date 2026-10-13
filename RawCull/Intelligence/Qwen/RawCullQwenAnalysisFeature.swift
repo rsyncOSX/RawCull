@@ -110,6 +110,7 @@ final class RawCullQwenAnalysisFeature {
                         assessment = nil
                         freeformResponse = value
                         failure = nil
+
                     case let .rejected(value):
                         assessment = nil
                         freeformResponse = value
@@ -162,11 +163,11 @@ final class RawCullQwenAnalysisFeature {
         drainingTasks.removeAll { $0 == task }
     }
 
-    // Tab-specific diagnostics: shared decoding and Combined Review are unchanged.
+    /// Tab-specific diagnostics: shared decoding and Combined Review are unchanged.
     private nonisolated static func validationFeedback(_ response: String) -> String {
         if let opening = response.firstIndex(of: "{"), let closing = response.lastIndex(of: "}"),
            opening <= closing,
-           let object = try? JSONSerialization.jsonObject(with: Data(response[opening...closing].utf8)) as? [String: Any] {
+           let object = try? JSONSerialization.jsonObject(with: Data(response[opening ... closing].utf8)) as? [String: Any] {
             let oversized = object.keys.sorted().flatMap { key -> [String] in
                 if let text = object[key] as? String, text.count > 240 {
                     return ["\(key) has \(text.count) characters (maximum 240)"]
@@ -178,7 +179,9 @@ final class RawCullQwenAnalysisFeature {
                 }
                 return []
             }
-            if !oversized.isEmpty { return "Invalid photo assessment: " + oversized.joined(separator: "; ") }
+            if !oversized.isEmpty {
+                return "Invalid photo assessment: " + oversized.joined(separator: "; ")
+            }
         }
         return QwenModelError.invalidStructuredResponse.localizedDescription
     }

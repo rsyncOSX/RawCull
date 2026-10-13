@@ -18,7 +18,10 @@ nonisolated struct ReviewSubjectRelevance: Codable, Equatable, Sendable {
     let provenance: String
     let uncertainty: String
     var rank: Int {
-        switch role { case .primaryCandidate: 0; case .equallyImportantCandidate: 1; case .unassigned: 2; case .contextual: 3 }
+        switch role { case .primaryCandidate: 0; 
+case .equallyImportantCandidate: 1; 
+case .unassigned: 2; 
+case .contextual: 3 }
     }
 }
 
@@ -47,18 +50,20 @@ nonisolated enum ReviewSubjectPriority {
                     let y = min(mask.height - 1, Int(point.y * CGFloat(mask.height)))
                     return foreground.pixels[y * mask.width + x] > 16
                 }
-            } else { pointed = matching }
+            } else {
+                pointed = matching
+            }
             for subject in pointed.isEmpty ? matching : pointed {
                 let role: ReviewSubjectRelevance.Role = pointed.count == 1 ? .primaryCandidate : .equallyImportantCandidate
                 roles[subject.id] = .init(role: role, provenance: provenance + ": " + cue.reason,
-                                         uncertainty: role == .primaryCandidate ? "Overview nomination; photographic importance is unverified" : "Ambiguous or equally important instances; stable ID order shares priority")
+                                          uncertainty: role == .primaryCandidate ? "Overview nomination; photographic importance is unverified" : "Ambiguous or equally important instances; stable ID order shares priority")
             }
         }
         return subjects.map { subject in
             var value = subject
             value.relevance = roles[subject.id] ?? .init(role: contextual.contains(subject.concept) ? .contextual : .unassigned,
-                                                       provenance: provenance,
-                                                       uncertainty: contextual.contains(subject.concept) ? "Overview declared contextual; importance unverified" : "No supported main-subject assignment")
+                                                         provenance: provenance,
+                                                         uncertainty: contextual.contains(subject.concept) ? "Overview declared contextual; importance unverified" : "No supported main-subject assignment")
             return value
         }.sorted {
             let left = $0.relevance?.rank ?? 2, right = $1.relevance?.rank ?? 2

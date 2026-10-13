@@ -715,7 +715,9 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             return "{\"comparability\":\"unrelated\",\"decision\":\"abstain\",\"preferred\":[],\"reason\":\"Different scenes; retain individual reviews\",\"claims\":[]}"
         }
         if instruction.contains("concepts") {
-            if let overviewResponse { return overviewResponse }
+            if let overviewResponse {
+                return overviewResponse
+            }
             return "{\"observations\":\"Centered visible subject. Soft illumination.\",\"uncertainty\":\"Overview lacks fine detail\",\"concepts\":[{\"query\":\"bird\",\"displayName\":\"Bird\",\"reason\":\"Visible subject\"}]}"
         }
         if let line = instruction.split(separator: "\n").first(where: { $0.contains("Region ID:") }) {
@@ -729,16 +731,16 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
             let criteria = ReviewNullableCriteria(composition: "Centered subject", exposure: "Soft illumination", visibility: "Visible subject",
-                                                 detail: forbiddenCrop && !instruction.contains("Previous response failed validation:") ? "A bird with a yellow eye" : "Visible texture")
+                                                  detail: forbiddenCrop && !instruction.contains("Previous response failed validation:") ? "A bird with a yellow eye" : "Visible texture")
             struct Crop: Encodable {
                 let regionID: String; let criteria: ReviewNullableCriteria; let uncertainty: String; let targetIdentified: Bool?
             }
             let response = Crop(regionID: region, criteria: criteria, uncertainty: "Limited resolution",
                                 targetIdentified: repairableResponses && !instruction.contains("Previous response failed validation:") ? nil : true)
-            return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+            return try String(decoding: JSONEncoder().encode(response), as: UTF8.self)
         }
         synthesisInstructions.append(instruction)
-        if repairableResponses && !instruction.contains("Previous response failed validation:") {
+        if repairableResponses, !instruction.contains("Previous response failed validation:") {
             return "{\"claims\":[{\"text\":\"Visible subject\",\"type\":\"composition\",\"evidence\":[\"observation prose\"],\"uncertainty\":\"Limited detail\"}]}"
         }
         let allowed = instruction.components(separatedBy: "Allowed row IDs by category:\n").last ?? ""
@@ -748,8 +750,8 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             let id = line.map { String($0.dropFirst(type.count + 2)).components(separatedBy: ",").first ?? "" } ?? ""
             choices[type] = .some(invalidReport || (invalidExposureSelection && type == "exposure") ? "invented" : id.isEmpty ? nil : id)
         }
-        let response = ReviewNullableCriteria(composition: choices["composition"] ?? nil,
-            exposure: choices["exposure"] ?? nil, visibility: choices["visibility"] ?? nil, detail: choices["detail"] ?? nil)
+        let response = ReviewNullableCriteria(composition: choices["composition"],
+                                              exposure: choices["exposure"], visibility: choices["visibility"], detail: choices["detail"])
         return try String(decoding: JSONEncoder().encode(response), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
 

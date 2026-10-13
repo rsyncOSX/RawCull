@@ -41,12 +41,13 @@ nonisolated struct ReviewCriterionObservations: Codable, Sendable {
         default: nil
         }
     }
+
     static let types = ["composition", "exposure", "visibility", "detail"]
 }
 
 nonisolated struct ReviewObservation: Codable, Sendable {
-    var targetIdentified: Bool? = nil
-    var criteria: ReviewCriterionObservations? = nil
+    var targetIdentified: Bool?
+    var criteria: ReviewCriterionObservations?
     let id: ReviewObservationID
     let regionID: ReviewRegionID?
     let text: String
@@ -56,9 +57,9 @@ nonisolated struct ReviewObservation: Codable, Sendable {
 }
 
 nonisolated struct ReviewMeasurement: Codable, Sendable {
-    var scorerVersion: String? = nil
-    var maskContract: SubjectMaskContract? = nil
-    var foregroundBounds: CGRect? = nil
+    var scorerVersion: String?
+    var maskContract: SubjectMaskContract?
+    var foregroundBounds: CGRect?
     var hasCurrentMaskSemantics: Bool {
         availability == .available && scorerVersion == SubjectMaskFocusScorer.semanticsVersion
             && maskContract?.version == SubjectMaskContract.version
@@ -79,8 +80,8 @@ nonisolated struct ReviewLimitation: Codable, Sendable {
 }
 
 nonisolated struct ReviewClaim: Codable, Sendable {
-    var subjectID: ReviewSubjectID? = nil
-    var regionID: ReviewRegionID? = nil
+    var subjectID: ReviewSubjectID?
+    var regionID: ReviewRegionID?
     let text: String
     let type: String
     let evidence: [ReviewEvidenceReference]
@@ -144,9 +145,9 @@ nonisolated struct ReviewSourceRecord: Codable, Sendable {
 }
 
 nonisolated struct ReviewSubjectRecord: Codable, Sendable {
-    var maskContract: SubjectMaskContract? = nil
-    var registration: ReviewMaskRegistration? = nil
-    var relevance: ReviewSubjectRelevance? = nil
+    var maskContract: SubjectMaskContract?
+    var registration: ReviewMaskRegistration?
+    var relevance: ReviewSubjectRelevance?
     let id: ReviewSubjectID
     let imageID: ReviewImageID
     let concept: String
@@ -158,7 +159,7 @@ nonisolated struct ReviewSubjectRecord: Codable, Sendable {
 }
 
 nonisolated struct ReviewRegionRecord: Codable, Sendable {
-    var support: ReviewCropSupport? = nil
+    var support: ReviewCropSupport?
     let id: ReviewRegionID
     let imageID: ReviewImageID
     let subjectID: ReviewSubjectID?
