@@ -1,5 +1,7 @@
 # Local AI Analysis diagnostics
 
+Current run results and remaining qualification gates: [AI verification summary](ai-verification-summary.md).
+
 Run from the repository root:
 
 ```sh

@@ -1,5 +1,7 @@
 # Opt-in full six-ARW regression runner
 
+Current run results and remaining qualification gates: [AI verification summary](../ai-verification-summary.md).
+
 Run from the repository with the installed local models:
 
 ```sh

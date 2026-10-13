@@ -1,7 +1,7 @@
 # Subject-grounded synthesis — delivery step 6
 
 Implemented 11 October 2026. This is delivery step 6 in
-[evaluationphase1_5.md](evaluationphase1_5.md), not the original phase 6 resource milestone.
+[the consolidated AI verification summary](ai-verification-summary.md), not the original phase 6 resource milestone.
 
 ## Structural support
 
