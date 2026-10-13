@@ -4,6 +4,7 @@ import CoreAIQwenBackend
 import CoreGraphics
 import Foundation
 import FoundationModels
+import ImageIO
 
 nonisolated enum QwenModelStatus: Equatable, Sendable {
     case notConfigured
@@ -145,8 +146,53 @@ actor QwenInferenceRuntime: QwenInferenceServing {
         try Task.checkCancellation()
         guard modelGeneration == generation else { throw CancellationError() }
         let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        captureDiagnostic(request: request, response: content)
         guard !content.isEmpty else { throw QwenModelError.emptyResponse }
         return content
+    }
+
+    /// Opt-in retention of the request raster before backend preprocessing, not an encoder tensor.
+    private func captureDiagnostic(request: QwenVisionRequest, response: String) {
+        guard let path = ProcessInfo.processInfo.environment["RAWCULL_AI_CAPTURE_DIR"], !path.isEmpty else { return }
+        struct Capture: Encodable {
+            let instruction: String
+            let response: String
+            let textTruncated: Bool
+            let maximumResponseTokens: Int
+            let inputWidth: Int
+            let inputHeight: Int
+            let imageFileName: String
+            let inputStage: String
+            let capabilities: QwenInputCapabilities?
+        }
+        let directory = URL(filePath: path, directoryHint: .isDirectory)
+        let stem = UUID().uuidString
+        let imageName = stem + ".png"
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+            let permissions = try FileManager.default.attributesOfItem(atPath: directory.path)[.posixPermissions] as? NSNumber
+            guard let permissions, permissions.intValue & 0o077 == 0 else { return }
+            let png = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(png, "public.png" as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(destination, request.image, nil)
+            guard CGImageDestinationFinalize(destination) else { return }
+            let imageURL = directory.appendingPathComponent(imageName)
+            try (png as Data).write(to: imageURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: imageURL.path)
+            let capture = Capture(instruction: String(request.instruction.prefix(16384)),
+                                  response: String(response.prefix(8192)),
+                                  textTruncated: request.instruction.count > 16384 || response.count > 8192,
+                                  maximumResponseTokens: request.maximumResponseTokens,
+                                  inputWidth: request.image.width, inputHeight: request.image.height,
+                                  imageFileName: imageName, inputStage: "request raster before backend preprocessing",
+                                  capabilities: capabilities)
+            let jsonURL = directory.appendingPathComponent(stem + ".json")
+            try JSONEncoder().encode(capture).write(to: jsonURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: jsonURL.path)
+        } catch {
+            // Optional diagnostic capture must not change inference outcomes.
+        }
     }
 
     func inputCapabilities() async -> QwenInputCapabilities? {
@@ -167,16 +213,27 @@ actor QwenInferenceRuntime: QwenInferenceServing {
         If the request is a photo assessment, return exactly one JSON object and no
         Markdown using this schema:
         {
+          "schemaVersion": 2,
           "subject": "short description of the main subject",
-          "compositionScore": 1-5,
-          "exposureScore": 1-5,
-          "subjectVisibilityScore": 1-5,
-          "eyesOpen": true, false, or null,
+          "compositionScore": 1-5 or null,
+          "compositionEvidence": "visible framing evidence" or null,
+          "exposureScore": 1-5 or null,
+          "exposureEvidence": "visible lighting or tonal evidence" or null,
+          "subjectVisibilityScore": 1-5 or null,
+          "subjectVisibilityEvidence": "visible extent or occlusion of the main subject" or null,
+          "eyesOpen": null,
           "problems": ["up to four short visible problems"],
           "strengths": ["up to four short visible strengths"],
           "confidence": 0.0-1.0
         }
 
+        Include every key. Scores and confidence are model judgments, not measurements.
+        Each score needs its own criterion evidence sentence (maximum 240 characters).
+        When unsupported, return null for both that score and its evidence. Do not use
+        background visibility or texture as evidence of main-subject visibility or detail.
+        Eyes and expression remain unknown: this path has no qualified anatomical evidence.
+        Assess only the supplied preview; camera processing, resizing and model input
+        resolution limit fine detail. Do not infer RAW recovery, eye detail or focus accuracy.
         Base the answer only on visible evidence. If the user's request does not fit
         this assessment schema, answer it normally in plain text.
         """

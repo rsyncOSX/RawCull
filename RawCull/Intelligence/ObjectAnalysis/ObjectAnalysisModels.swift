@@ -157,12 +157,21 @@ private nonisolated struct ObjectTextList: Decodable {
     }
 }
 
+/// A model observation tied to the rendered crop, not independent verification.
+nonisolated struct ObjectClaimEvidence: Codable, Equatable, Sendable {
+    let cropID: String
+    let observation: String
+}
+
 nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let concept: String
     let description: String
     let visibility: ObjectVisibility
     let focusQuality: ObjectFocusQuality
+    let focusEvidence: ObjectClaimEvidence?
+    let strengthEvidence: [ObjectClaimEvidence]
+    let problemEvidence: [ObjectClaimEvidence]
     let expression: String?
     let obstructions: [String]
     let strengths: [String]
@@ -171,6 +180,7 @@ nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable 
 
     private enum CodingKeys: String, CodingKey {
         case id, concept, description, visibility, focusQuality, expression
+        case focusEvidence, strengthEvidence, problemEvidence
         case obstructions, strengths, problems, confidence
     }
 
@@ -181,6 +191,12 @@ nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable 
         description = try values.decode(String.self, forKey: .description)
         visibility = try values.decode(ObjectVisibility.self, forKey: .visibility)
         focusQuality = try values.decode(ObjectFocusQuality.self, forKey: .focusQuality)
+        guard values.contains(.focusEvidence), values.contains(.expression) else {
+            throw DecodingError.keyNotFound(CodingKeys.focusEvidence, .init(codingPath: decoder.codingPath, debugDescription: "Explicit evidence/abstention required"))
+        }
+        focusEvidence = try values.decodeIfPresent(ObjectClaimEvidence.self, forKey: .focusEvidence)
+        strengthEvidence = try values.decode([ObjectClaimEvidence].self, forKey: .strengthEvidence)
+        problemEvidence = try values.decode([ObjectClaimEvidence].self, forKey: .problemEvidence)
         expression = try values.decodeIfPresent(String.self, forKey: .expression)
         obstructions = try values.decode(ObjectTextList.self, forKey: .obstructions).values
         strengths = try values.decode(ObjectTextList.self, forKey: .strengths).values
@@ -190,6 +206,8 @@ nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable 
 }
 
 nonisolated struct ObjectPhotoAssessment: Codable, Equatable, Sendable {
+    static let schemaVersion = 2
+    let schemaVersion: Int
     let imageSummary: String?
     let objects: [ObjectAssessment]
     let relationships: [String]
@@ -199,12 +217,13 @@ nonisolated struct ObjectPhotoAssessment: Codable, Equatable, Sendable {
     let confidence: Float
 
     private enum CodingKeys: String, CodingKey {
-        case imageSummary, objects, relationships, strengths, problems
+        case schemaVersion, imageSummary, objects, relationships, strengths, problems
         case preferredObjectIDs, confidence
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
         imageSummary = try values.decodeIfPresent(String.self, forKey: .imageSummary)
         objects = try values.decode([ObjectAssessment].self, forKey: .objects)
         relationships = try values.decode([String].self, forKey: .relationships)

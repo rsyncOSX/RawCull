@@ -158,7 +158,7 @@ enum RawCullAccessibilityPresentation {
             } else {
                 "No reliable winner"
             }
-            return "Completed. \(recommendation). \(confidence(cachedResult.confidence)) confidence."
+            return "Completed. \(recommendation). \(confidence(cachedResult.confidence)) relative ranking confidence."
         }
         return switch state {
         case .ready, .completed:

@@ -254,7 +254,7 @@ private struct ObjectPhotoDetailView: View {
                                 if let summary = assessment.imageSummary {
                                     Text(summary).font(.body)
                                 }
-                                Text("Qwen assessment confidence: \(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))")
+                                Text("Qwen model confidence: \(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))")
                                     .font(.caption)
                                 if let object = assessment.objects.first(where: { $0.id == selectedObjectID }) {
                                     ObjectAssessmentDetail(object: object)
@@ -272,7 +272,7 @@ private struct ObjectPhotoDetailView: View {
                                     Text("Preferred objects: \(assessment.preferredObjectIDs.joined(separator: ", "))")
                                 }
                             } else if let response = result.freeformResponse {
-                                Text("Free-form Qwen response").font(.headline)
+                                Text("Rejected Qwen assessment").font(.headline)
                                 Text(response)
                             }
                         }
@@ -406,13 +406,32 @@ private struct ObjectAssessmentDetail: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Object \(object.id): \(object.concept)").font(.headline)
             Text(object.description)
-            Text("Visibility: \(object.visibility.rawValue); focus: \(object.focusQuality.rawValue)")
-            if let expression = object.expression {
-                Text("Expression: \(expression)")
+            Text("Model judgments — visibility: \(object.visibility.rawValue); focus: \(object.focusQuality.rawValue)")
+            if let evidence = object.focusEvidence {
+                Text("Focus evidence, crop \(evidence.cropID): \(evidence.observation)")
             }
+            Text("Expression: unknown; anatomy unverified")
+            Text("Analysis uses a 2048-pixel board of crops from a thumbnail requested at up to 4320 pixels. Preview processing and model input resolution limit detail; RAW recovery is untested.")
+                .font(.caption).foregroundStyle(.secondary)
             ForEach(object.obstructions, id: \.self) { Text("Obstruction: \($0)") }
-            ForEach(object.strengths, id: \.self) { Text("Strength: \($0)") }
-            ForEach(object.problems, id: \.self) { Text("Problem: \($0)") }
+            ForEach(Array(object.strengths.enumerated()), id: \.element) { index, strength in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Strength: \(strength)")
+                    if object.strengthEvidence.indices.contains(index) {
+                        let evidence = object.strengthEvidence[index]
+                        Text("Crop \(evidence.cropID): \(evidence.observation)").font(.caption)
+                    }
+                }
+            }
+            ForEach(Array(object.problems.enumerated()), id: \.element) { index, problem in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Problem: \(problem)")
+                    if object.problemEvidence.indices.contains(index) {
+                        let evidence = object.problemEvidence[index]
+                        Text("Crop \(evidence.cropID): \(evidence.observation)").font(.caption)
+                    }
+                }
+            }
         }
     }
 }

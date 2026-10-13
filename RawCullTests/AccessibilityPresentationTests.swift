@@ -137,6 +137,6 @@ struct AccessibilityPresentationTests {
         #expect(RawCullAccessibilityPresentation.deepReviewValue(
             state: .completed(result),
             cachedResult: result,
-        ) == "Completed. Recommends winner.ARW. High confidence.")
+        ) == "Completed. Recommends winner.ARW. High relative ranking confidence.")
     }
 }
