@@ -2,18 +2,18 @@ import Foundation
 import PhotoAIContracts
 
 nonisolated struct CombinedReviewOverview: Codable, Sendable {
-    var validationNotes: [String]? = nil
-    var primarySubjects: [ReviewPrimarySubjectCue]? = nil
-    var contextualConcepts: [String]? = nil
+    var validationNotes: [String]?
+    var primarySubjects: [ReviewPrimarySubjectCue]?
+    var contextualConcepts: [String]?
     let observations: String
     let uncertainty: String
     let concepts: [String]
 }
 
 nonisolated struct CombinedReviewInspection: Codable, Sendable {
-    var validationNotes: [String]? = nil
-    var targetIdentified: Bool? = nil
-    var criteria: ReviewCriterionObservations? = nil
+    var validationNotes: [String]?
+    var targetIdentified: Bool?
+    var criteria: ReviewCriterionObservations?
     let regionID: String
     let observations: String
     let uncertainty: String
@@ -31,6 +31,7 @@ nonisolated struct ReviewNullableCriteria: Codable, Sendable {
     init(composition: String?, exposure: String?, visibility: String?, detail: String?) {
         self.composition = composition; self.exposure = exposure; self.visibility = visibility; self.detail = detail
     }
+
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         composition = try values.decode(String?.self, forKey: .composition)
@@ -38,6 +39,7 @@ nonisolated struct ReviewNullableCriteria: Codable, Sendable {
         visibility = try values.decode(String?.self, forKey: .visibility)
         detail = try values.decode(String?.self, forKey: .detail)
     }
+
     func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(composition, forKey: .composition)
@@ -45,8 +47,11 @@ nonisolated struct ReviewNullableCriteria: Codable, Sendable {
         try values.encode(visibility, forKey: .visibility)
         try values.encode(detail, forKey: .detail)
     }
+
     var observations: ReviewCriterionObservations {
-        func entry(_ text: String?) -> ReviewCriterionObservation { .init(supported: text != nil, text: text ?? "") }
+        func entry(_ text: String?) -> ReviewCriterionObservation {
+            .init(supported: text != nil, text: text ?? "")
+        }
         return .init(composition: entry(composition), exposure: entry(exposure), visibility: entry(visibility), detail: entry(detail))
     }
 }
@@ -83,7 +88,7 @@ nonisolated enum CombinedReviewResponse {
                 uncertainty = try container.decode(String.self, forKey: .uncertainty)
                 concepts = try container.decode([Concept].self, forKey: .concepts)
                 var notes: [String] = []
-                func hints<Value: Decodable>(_ type: Value.Type, key: CodingKeys) -> [Value]? {
+                func hints<Value: Decodable>(_: Value.Type, key: CodingKeys) -> [Value]? {
                     do {
                         return try container.decodeIfPresent([Value].self, forKey: key)
                     } catch {
@@ -103,14 +108,17 @@ nonisolated enum CombinedReviewResponse {
               !payload.observations.lowercased().contains("maximum 500 characters"),
               !payload.uncertainty.lowercased().contains("at most 200 characters"),
               !payload.uncertainty.lowercased().contains("maximum 200 characters"),
-              !payload.uncertainty.lowercased().contains("maximum 500 characters") else {
+              !payload.uncertainty.lowercased().contains("maximum 500 characters")
+        else {
             throw ReviewValidationIssue(.grounding, "overview.copiedInstruction", field: "observations")
         }
         guard payload.concepts.count <= 3 else { throw ReviewValidationIssue(.responseLength, "overview.conceptCount", field: "concepts") }
         var queries: [String] = []
         var names: [String: Set<String>] = [:]
         var notes = payload.decodingNotes
-        func key(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        func key(_ text: String) -> String {
+            text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
         for entry in payload.concepts {
             let query = try SegmentationConcept(entry.query).query
             try validateText(entry.displayName, maximum: 80, field: "concepts.displayName")
@@ -120,12 +128,16 @@ nonisolated enum CombinedReviewResponse {
                 notes.append("overview.objectQuery: discarded abstract action or lighting concept")
                 continue
             }
-            if !queries.contains(where: { key($0) == key(query) }) { queries.append(query) }
+            if !queries.contains(where: { key($0) == key(query) }) {
+                queries.append(query)
+            }
             let canonical = queries.first { key($0) == key(query) }!
             names[key(entry.displayName), default: []].insert(canonical)
         }
         func resolve(_ text: String) -> String? {
-            if let query = queries.first(where: { key($0) == key(text) }) { return query }
+            if let query = queries.first(where: { key($0) == key(text) }) {
+                return query
+            }
             guard let matches = names[key(text)], matches.count == 1 else { return nil }
             notes.append("overview.conceptAlias: resolved unique display name to its discovered query")
             return matches.first
@@ -153,7 +165,9 @@ nonisolated enum CombinedReviewResponse {
                 notes.append("overview.discoveredContextualConcept: discarded undiscovered or ambiguous optional context")
                 continue
             }
-            if !contextual.contains(query) { contextual.append(query) }
+            if !contextual.contains(query) {
+                contextual.append(query)
+            }
         }
         return .init(validationNotes: Array(Set(notes)).sorted(), primarySubjects: primary, contextualConcepts: contextual,
                      observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
@@ -166,23 +180,22 @@ nonisolated enum CombinedReviewResponse {
 
     static func repairInstruction(for issue: ReviewValidationIssue) -> String {
         let field = issue.fieldPath ?? "JSON"
-        let action: String
-        if field.hasPrefix("selection") || issue.check.hasPrefix("selection.") {
-            action = "Return composition, exposure, visibility and detail keys, each an eligible row ID STRING or null. Use only the allowed IDs for that category. Never return claim prose or evidence objects."
+        let action = if field.hasPrefix("selection") || issue.check.hasPrefix("selection.") {
+            "Return composition, exposure, visibility and detail keys, each an eligible row ID STRING or null. Use only the allowed IDs for that category. Never return claim prose or evidence objects."
         } else if field.hasPrefix("criteria") || issue.check.hasPrefix("crop.") {
             switch issue.check {
-            case "crop.criterionLength": action = "Shorten each criterion to at most 120 characters; aim for 80. Preserve meaning; use null if unsupported."
-            case "crop.criterionTargetConsistency": action = "Determine visible generic-target presence from the image, not species or individual identity. If absent or indistinguishable, targetIdentified=false and detail=null. No resolved target texture also requires detail=null. Never infer presence from Purpose."
-            case "crop.supportedDomain": action = "Replace prohibited criterion text with permitted evidence or null. Never repeat anatomy or focus claims."
-            case "crop.exposureEvidence": action = "criteria.exposure must describe illumination/tonal contrast, or be null; sky color alone is insufficient."
-            case "crop.visibilityEvidence": action = "criteria.visibility must describe extent/occlusion, or be null; put identity uncertainty in uncertainty."
-            case "crop.duplicateCriterionText": action = "Use different criterion-specific strings; set unsupported criteria to null."
-            default: action = "criteria must contain composition, exposure, visibility and detail, each a string or null. No supported/text objects. Include targetIdentified Boolean and uncertainty string."
+            case "crop.criterionLength": "Shorten each criterion to at most 120 characters; aim for 80. Preserve meaning; use null if unsupported."
+            case "crop.criterionTargetConsistency": "Determine visible generic-target presence from the image, not species or individual identity. If absent or indistinguishable, targetIdentified=false and detail=null. No resolved target texture also requires detail=null. Never infer presence from Purpose."
+            case "crop.supportedDomain": "Replace prohibited criterion text with permitted evidence or null. Never repeat anatomy or focus claims."
+            case "crop.exposureEvidence": "criteria.exposure must describe illumination/tonal contrast, or be null; sky color alone is insufficient."
+            case "crop.visibilityEvidence": "criteria.visibility must describe extent/occlusion, or be null; put identity uncertainty in uncertainty."
+            case "crop.duplicateCriterionText": "Use different criterion-specific strings; set unsupported criteria to null."
+            default: "criteria must contain composition, exposure, visibility and detail, each a string or null. No supported/text objects. Include targetIdentified Boolean and uncertainty string."
             }
         } else if field.hasPrefix("claims") || issue.check.hasPrefix("report.") || issue.check.hasPrefix("synthesis.") {
-            action = "Each claim needs text STRING, type STRING, evidence ARRAY of supplied {kind,id} objects, uncertainty STRING and contradictions ARRAY. Observation prose belongs in text, never evidence. Omit unsupported claims."
+            "Each claim needs text STRING, type STRING, evidence ARRAY of supplied {kind,id} objects, uncertainty STRING and contradictions ARRAY. Observation prose belongs in text, never evidence. Omit unsupported claims."
         } else {
-            action = "Return the complete original schema with every required field and exact type; use supplied IDs."
+            "Return the complete original schema with every required field and exact type; use supplied IDs."
         }
         return "Previous response failed validation: " + issue.check + ", field " + field + ".\n" + action
     }
@@ -258,8 +271,12 @@ nonisolated enum CombinedReviewResponse {
         let forbidden = containsForbiddenClaimDomain(value.observations)
         guard !forbidden else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "observations") }
         guard value.regionID == regionID else { throw ReviewValidationIssue(.unknownID, "crop.expectedRegionID", field: "regionID", reference: .init(kind: .region, id: regionID)) }
-        if !requireCriteria || !value.insufficientEvidence { try validateText(value.observations, maximum: 500, field: "observations") }
-        if !requireCriteria || !value.uncertainty.isEmpty { try validateText(value.uncertainty, maximum: 200, field: "uncertainty") }
+        if !requireCriteria || !value.insufficientEvidence {
+            try validateText(value.observations, maximum: 500, field: "observations")
+        }
+        if !requireCriteria || !value.uncertainty.isEmpty {
+            try validateText(value.uncertainty, maximum: 200, field: "uncertainty")
+        }
         guard requireCriteria || !(value.insufficientEvidence && value.targetIdentified == true) else { throw ReviewValidationIssue(.grounding, "crop.targetSupportConsistency", field: "targetIdentified") }
         return value
     }
@@ -287,28 +304,29 @@ nonisolated enum CombinedReviewResponse {
                 let issue = ReviewValidationIssue(.unknownID, "selection.eligibleCriterionRow", field: "selection." + type)
                 firstIssue = firstIssue ?? issue
                 rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":rejected-selection:" + type),
-                    reason: "Selected " + type + " rejected: " + issue.check, relatedEvidence: []))
+                                      reason: "Selected " + type + " rejected: " + issue.check, relatedEvidence: []))
                 // Recover only a prequalified criterion from the caller's stable priority order.
                 // Null remains an explicit model abstention and never reaches this path.
                 if let row = preferredRows[type], let fallback = candidates[type]?[row], fallback.type == type {
                     claims.append(fallback)
                     rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":selection-fallback:" + type),
-                        reason: "Selected " + type + " replaced with the highest-priority validated criterion row " + row + ".", relatedEvidence: fallback.evidence))
+                                          reason: "Selected " + type + " replaced with the highest-priority validated criterion row " + row + ".", relatedEvidence: fallback.evidence))
                 }
                 continue
             }
             claims.append(claim)
             acceptedSelection = true
         }
-        if !acceptedSelection, let firstIssue { throw firstIssue }
+        if !acceptedSelection, let firstIssue {
+            throw firstIssue
+        }
         return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: claims,
-            limitations: limitations + rejected, incomplete: incomplete || claims.isEmpty || !rejected.isEmpty,
-            inspectedRegions: regions, uninspectedRegions: uninspected)
+                     limitations: limitations + rejected, incomplete: incomplete || claims.isEmpty || !rejected.isEmpty,
+                     inspectedRegions: regions, uninspectedRegions: uninspected)
     }
 
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
-                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool, qualify: ((ReviewClaim) throws -> ReviewClaim)? = nil) throws -> ReviewImageReport
-    {
+                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool, qualify: ((ReviewClaim) throws -> ReviewClaim)? = nil) throws -> ReviewImageReport {
         let payload = try ObjectJSONEnvelope.decode(ReviewSynthesisPayload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewValidationIssue(.responseLength, "report.claimCount", field: "claims") }
         var accepted: [ReviewClaim] = []
@@ -327,8 +345,8 @@ nonisolated enum CombinedReviewResponse {
                 // These exact aliases are documented criterion names, not new claim domains.
                 let type = ["lighting": "exposure", "subject visibility": "visibility", "behavior": "visibility", "texture": "detail"][claim.type] ?? claim.type
                 let canonical = type != claim.type ? ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text,
-                                                                       type: type, evidence: claim.evidence, uncertainty: claim.uncertainty, contradictions: claim.contradictions) : claim
-                accepted.append(try qualify?(canonical) ?? canonical)
+                                                                 type: type, evidence: claim.evidence, uncertainty: claim.uncertainty, contradictions: claim.contradictions) : claim
+                try accepted.append(qualify?(canonical) ?? canonical)
             } catch {
                 guard qualify != nil else { throw error }
                 let issue = ReviewValidationIssue.classify(error)
@@ -337,7 +355,9 @@ nonisolated enum CombinedReviewResponse {
                                       reason: "Generated claim \(index + 1) rejected: \(issue.code.rawValue): \(issue.check)", relatedEvidence: []))
             }
         }
-        if accepted.isEmpty, let firstIssue { throw firstIssue }
+        if accepted.isEmpty, let firstIssue {
+            throw firstIssue
+        }
         return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: accepted,
                      limitations: limitations + rejected, incomplete: incomplete || accepted.isEmpty || !rejected.isEmpty, inspectedRegions: regions, uninspectedRegions: uninspected)
     }

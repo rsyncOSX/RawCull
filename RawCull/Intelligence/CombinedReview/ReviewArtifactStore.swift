@@ -48,7 +48,9 @@ actor ReviewArtifactStore {
                 return try? loadManifest(id)
             }
             .sorted {
-                if $0.snapshot.created != $1.snapshot.created { return $0.snapshot.created > $1.snapshot.created }
+                if $0.snapshot.created != $1.snapshot.created {
+                    return $0.snapshot.created > $1.snapshot.created
+                }
                 return $0.snapshot.id.uuidString > $1.snapshot.id.uuidString
             }
     }
@@ -138,17 +140,21 @@ actor ReviewArtifactStore {
 
     func clearRejectedResponses() throws {
         let directory = root.appendingPathComponent("rejected")
-        if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
+        if FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.removeItem(at: directory)
+        }
     }
 
     func usage() throws -> Int {
         guard FileManager.default.fileExists(atPath: root.path) else { return 0 }
         guard let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-                                                        options: [.skipsHiddenFiles]) else { return 0 }
+                                                         options: [.skipsHiddenFiles]) else { return 0 }
         var bytes = 0
         for case let url as URL in files {
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            if values.isRegularFile == true { bytes += values.fileSize ?? 0 }
+            if values.isRegularFile == true {
+                bytes += values.fileSize ?? 0
+            }
         }
         return bytes
     }

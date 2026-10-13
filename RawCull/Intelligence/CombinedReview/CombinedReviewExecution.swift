@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 
 nonisolated struct CombinedReviewPlan: Codable, Sendable {
-    var omissions: [ReviewRegionOmission]? = nil
+    var omissions: [ReviewRegionOmission]?
     let subjects: [ReviewSubjectRecord]
     let regions: [ReviewRegionRecord]
     let uninspected: [ReviewRegionID]
@@ -31,8 +31,7 @@ nonisolated struct CombinedReviewPair: Sendable {
 
 extension CombinedReviewFeature {
     func perform<Value: Codable & Sendable>(_ id: ReviewWorkID, category: ReviewAttemptCategory? = nil,
-                                            operation: () async throws -> Value) async throws -> Value?
-    {
+                                            operation: () async throws -> Value) async throws -> Value? {
         try Task.checkCancellation()
         guard let item = manifest?.work.first(where: { $0.id == id }) else { throw ReviewRunError.invalidDependency }
         if item.state == .completed, let key = item.artifactKey {
@@ -109,8 +108,7 @@ extension CombinedReviewFeature {
         var diagnostic = ReviewFailureDiagnostic(stage: item.stage, workID: item.id, code: issue.code,
                                                  check: issue.check, fieldPath: issue.fieldPath, evidenceReference: issue.evidenceReference)
         if let rejection = error as? ReviewResponseRejection,
-           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText
-        {
+           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText {
             let used = manifest?.retainedDiagnosticBytes ?? 0
             let cap = min(ReviewDiagnosticLimits.perResponseBytes, max(0, ReviewDiagnosticLimits.perRunBytes - used))
             let bounded = ReviewDiagnosticLimits.bounded(rejection.response, maximumBytes: cap)
@@ -243,7 +241,9 @@ extension CombinedReviewFeature {
         }
         result?.overview = overview
         if let overview {
-            for note in overview.validationNotes ?? [] { limitation(note) }
+            for note in overview.validationNotes ?? [] {
+                limitation(note)
+            }
             let origin = try provenance(overviewID, source: source, input: overviewInput)
             result?.observations.append(.init(id: .init(rawValue: file.id.rawValue + ":overview"), regionID: nil,
                                               text: overview.observations, uncertainty: overview.uncertainty, availability: .available,
@@ -412,8 +412,7 @@ extension CombinedReviewFeature {
     }
 
     func inspect(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan,
-                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID]
-    {
+                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID] {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
         guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference) else { throw ReviewRunError.invalidSnapshot }
@@ -510,7 +509,9 @@ extension CombinedReviewFeature {
                 return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue, requireCriteria: true, preserveValidCriteria: true) }
             }
             if let inspection {
-                for note in inspection.validationNotes ?? [] { limitation("Crop " + region.id.rawValue + ": " + note) }
+                for note in inspection.validationNotes ?? [] {
+                    limitation("Crop " + region.id.rawValue + ": " + note)
+                }
                 if inspection.targetIdentified != true || inspection.insufficientEvidence {
                     limitation("Crop \(region.id.rawValue) cannot establish target-specific detail; target support is absent or unknown.")
                 }
@@ -610,13 +611,14 @@ extension CombinedReviewFeature {
             let eligibleTypes = observation.criteria == nil ? "composition,visibility" : support.claimTypes
             let scope = " subject=\(subjectLabel) region=\(regionLabel) targetSupported=\(support.crop) subjectDetailSupported=\(support.subjectDetailSupported) types=\(eligibleTypes)"
             let ref = ReviewEvidenceReference(kind: .observation, id: "o\(aliases.count + 1)")
-            let evidenceText: String
-            if let criteria = observation.criteria {
-                evidenceText = ReviewCriterionObservations.types.compactMap { type in
+            let evidenceText: String = if let criteria = observation.criteria {
+                ReviewCriterionObservations.types.compactMap { type in
                     guard let entry = criteria[type], entry.supported else { return nil }
                     return type + ": " + entry.text
                 }.joined(separator: " | ")
-            } else { evidenceText = observation.text }
+            } else {
+                observation.text
+            }
             let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + scope + " " + evidenceText
             rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
@@ -696,8 +698,8 @@ extension CombinedReviewFeature {
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\nAllowed row IDs by category:\n" + allowed, model: qwen, outputTokens: snapshot.responseTokens)
         return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
             let generated = try CombinedReviewResponse.selectedReport(text, imageID: value.file.id, candidates: candidates,
-                limitations: result?.limitations ?? [], regions: inspected, uninspected: missing,
-                incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") }), preferredRows: preferredRows)
+                                                                      limitations: result?.limitations ?? [], regions: inspected, uninspected: missing,
+                                                                      incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") }), preferredRows: preferredRows)
             let missingCriteria = ["composition", "exposure", "visibility", "detail"].filter { criterion in
                 !generated.claims.contains { $0.type == criterion }
             }

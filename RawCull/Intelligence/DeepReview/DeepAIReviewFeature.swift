@@ -84,7 +84,10 @@ nonisolated struct DeepAIReviewCandidate: Equatable, Identifiable, Sendable {
     let autofocusInsideMask: Bool?
     /// Legacy name: indicates a usable mask from the requested prompt, not verified anatomy.
     let promptVerified: Bool?
-    var requestedPromptObtained: Bool? { promptVerified }
+    var requestedPromptObtained: Bool? {
+        promptVerified
+    }
+
     let usedFallbackMask: Bool
     let issues: [DeepAIReviewCandidateIssue]
 }

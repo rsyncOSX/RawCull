@@ -44,7 +44,8 @@ nonisolated struct QwenPhotoAssessment: Codable, Equatable, Sendable {
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   ["schemaVersion", "subject", "compositionScore", "exposureScore", "subjectVisibilityScore",
                    "compositionEvidence", "exposureEvidence", "subjectVisibilityEvidence", "eyesOpen",
-                   "problems", "strengths", "confidence"].allSatisfy({ object.keys.contains($0) }) else {
+                   "problems", "strengths", "confidence"].allSatisfy({ object.keys.contains($0) })
+            else {
                 throw QwenModelError.invalidStructuredResponse
             }
             let decoded = try JSONDecoder().decode(
@@ -74,7 +75,8 @@ nonisolated struct QwenPhotoAssessment: Codable, Equatable, Sendable {
               confidence.isFinite, (0 ... 1).contains(confidence),
               [problems, strengths].allSatisfy({ list in
                   list.count <= 4 && Set(list).count == list.count && list.allSatisfy { validText($0, limit: 240) }
-              }) else {
+              })
+        else {
             throw QwenModelError.invalidStructuredResponse
         }
         return self

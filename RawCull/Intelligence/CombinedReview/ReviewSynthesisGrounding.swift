@@ -18,9 +18,14 @@ nonisolated struct ReviewSynthesisGrounding {
         }
 
         /// Prompt eligibility follows the same structural boundary as validation.
-        var subjectDetailSupported: Bool { crop && subjectID != nil && regionID != nil && !measurement && (criteria?.detail.supported ?? ReviewSynthesisGrounding.hasTexture(observationText)) }
+        var subjectDetailSupported: Bool {
+            crop && subjectID != nil && regionID != nil && !measurement && (criteria?.detail.supported ?? ReviewSynthesisGrounding.hasTexture(observationText))
+        }
+
         var claimTypes: String {
-            if measurement { return "none" }
+            if measurement {
+                return "none"
+            }
             if let criteria {
                 let types = ReviewCriterionObservations.types.filter { criteria[$0]?.supported == true && ($0 != "detail" || subjectDetailSupported) }
                 return types.isEmpty ? "none" : types.joined(separator: ",")
@@ -48,12 +53,14 @@ nonisolated struct ReviewSynthesisGrounding {
             }
             return .init(subjectID: region.subjectID, regionID: regionID,
                          crop: observation.targetIdentified == true, measurement: false, observationText: observation.text, criteria: observation.criteria)
+
         case .measurement:
             guard let measurement = result.measurements.first(where: { $0.id.rawValue == reference.id }),
                   measurement.provenance.imageID == result.file.id, measurement.hasCurrentMaskSemantics,
                   measurement.values.values.allSatisfy(\.isFinite),
                   result.subjects.contains(where: { $0.id == measurement.subjectID && $0.imageID == result.file.id && $0.availability == .available && $0.registration?.version == ReviewMaskRegistration.version && $0.registration?.sourceIdentity == measurement.maskContract?.sourceIdentity }) else { throw reject("synthesis.qualifiedSubjectMeasurement") }
             return .init(subjectID: measurement.subjectID, regionID: nil, crop: false, measurement: true)
+
         default: throw reject("synthesis.supportKind")
         }
     }

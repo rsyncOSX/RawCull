@@ -86,6 +86,7 @@ struct ImageSourceSelectorView: View {
     private func helpText(for source: ImagePreviewSource) -> String {
         switch source {
         case .thumbnail: "Show thumbnail"
+
         case .embeddedJPG: "Show embedded JPG"
 
         case .developedRAW:

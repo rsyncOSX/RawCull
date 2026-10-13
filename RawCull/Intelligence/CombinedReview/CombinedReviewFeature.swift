@@ -173,8 +173,7 @@ final class CombinedReviewFeature {
 
     init(store: ReviewArtifactStore = ReviewArtifactStore(), sourceLoader: any ReviewImageSourceLoading = ReviewImageSourceService(),
          scorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(), lease: CombinedReviewLease = .shared,
-         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing)
-    {
+         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing) {
         self.store = store; self.sourceLoader = sourceLoader; self.scorer = scorer; self.lease = lease; self.backendFactory = backendFactory
     }
 
@@ -298,8 +297,13 @@ final class CombinedReviewFeature {
         progress = "Ready"
     }
 
-    func rejectedResponse(_ key: String) async -> ReviewRejectedResponse? { try? await store.rejectedResponse(key) }
-    func clearRejectedResponses() async { try? await store.clearRejectedResponses() }
+    func rejectedResponse(_ key: String) async -> ReviewRejectedResponse? {
+        try? await store.rejectedResponse(key)
+    }
+
+    func clearRejectedResponses() async {
+        try? await store.clearRejectedResponses()
+    }
 
     func clearRetainedInputs() async {
         try? await store.clearInputs()

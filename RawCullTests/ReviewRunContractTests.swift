@@ -32,7 +32,9 @@ struct ReviewRunContractTests {
         var budget = try ReviewBudget(depth: .standard, images: 2)
         let image = ReviewImageID(rawValue: "first")
         let limit = try #require(budget.perImageLimits[.repair])
-        for _ in 0 ..< limit { try budget.consume(.repair, imageID: image) }
+        for _ in 0 ..< limit {
+            try budget.consume(.repair, imageID: image)
+        }
         #expect(throws: ReviewRunError.self) { try budget.consume(.repair, imageID: image) }
         try budget.consume(.report, imageID: image)
         #expect(budget.attempts[.repair] == limit)
@@ -177,7 +179,7 @@ struct ReviewRunContractTests {
         let expectedID = max(first.snapshot.id.uuidString, second.snapshot.id.uuidString)
         let olderID = min(first.snapshot.id.uuidString, second.snapshot.id.uuidString)
         try FileManager.default.setAttributes([.modificationDate: Date.distantFuture],
-            ofItemAtPath: root.appendingPathComponent("runs/\(olderID).json").path)
+                                              ofItemAtPath: root.appendingPathComponent("runs/\(olderID).json").path)
         #expect(try await store.latestManifest()?.snapshot.id.uuidString == expectedID)
     }
 

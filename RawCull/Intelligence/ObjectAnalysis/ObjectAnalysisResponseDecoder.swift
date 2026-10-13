@@ -56,14 +56,16 @@ nonisolated enum ObjectAnalysisResponseDecoder {
             guard object.strengthEvidence.count == object.strengths.count,
                   object.problemEvidence.count == object.problems.count,
                   object.strengthEvidence.allSatisfy(validEvidence),
-                  object.problemEvidence.allSatisfy(validEvidence) else {
+                  object.problemEvidence.allSatisfy(validEvidence)
+            else {
                 throw ObjectResponseIssue.invalidValue("object \(object.id) claim evidence")
             }
             if object.focusQuality == .uncertain {
                 guard object.focusEvidence == nil else { throw ObjectResponseIssue.invalidValue("uncertain focus evidence") }
             } else {
                 guard let evidence = object.focusEvidence, validEvidence(evidence),
-                      focusDescription(evidence.observation, supports: object.focusQuality) else {
+                      focusDescription(evidence.observation, supports: object.focusQuality)
+                else {
                     throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                 }
             }
@@ -86,7 +88,7 @@ nonisolated enum ObjectAnalysisResponseDecoder {
             .replacingOccurrences(of: #"\b(?:not|lacks?) (?:in )?(?:sharply\s+focused|sharp(?:ly defined)?|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
     }
 
-    // Conservative wording checks catch explicit contradictions, not visual truth.
+    /// Conservative wording checks catch explicit contradictions, not visual truth.
     private static func mentionsSharp(_ text: String) -> Bool {
         ["sharp", "crisp", "well-focused", "well focused"].contains { text.contains($0) }
     }
@@ -101,17 +103,20 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         case .sharp:
             let resolvedDetail = text.range(
                 of: #"\b(?:clearly|distinctly|well) (?:resolved|defined)\b|\b(?:distinct|well-defined) edges\b"#,
-                options: .regularExpression
+                options: .regularExpression,
             ) != nil
             let unsupported = text.range(
                 of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)\s+)?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
-                options: .regularExpression
+                options: .regularExpression,
             ) != nil
             return (mentionsSharp(text) || resolvedDetail) && !mentionsBlur(text) && !unsupported
+
         case .soft:
             return ["soft", "lack", "not crisp", "not sharp"].contains { text.contains($0) } && !text.contains("smeared")
+
         case .blurred:
             return mentionsBlur(text) && !text.contains("not blurred")
+
         case .uncertain:
             return false
         }

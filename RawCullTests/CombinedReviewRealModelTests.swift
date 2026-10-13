@@ -71,7 +71,9 @@ struct CombinedReviewRealModelTests {
         try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
         let frozen = environment["RAWCULL_COMBINED_SIX_FROZEN"] == "1"
         let urls = names.map { directory.appendingPathComponent($0) }
-        for url in urls { try #require(FileManager.default.fileExists(atPath: url.path)) }
+        for url in urls {
+            try #require(FileManager.default.fileExists(atPath: url.path))
+        }
         let modelURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_QWEN"]))
         let samURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_SAM3"]))
         let clipURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_CLIP"]))
@@ -106,7 +108,9 @@ struct CombinedReviewRealModelTests {
         }
         for result in feature.results {
             #expect(result.overview != nil, "Discovery: \(result.file.displayName)")
-            if frozen { #expect(!result.subjects.isEmpty, "Subject coverage: \(result.file.displayName)") }
+            if frozen {
+                #expect(!result.subjects.isEmpty, "Subject coverage: \(result.file.displayName)")
+            }
             #expect(!result.clip.isEmpty)
             if frozen || !result.subjects.isEmpty {
                 #expect(result.measurements.contains { $0.hasCurrentMaskSemantics })
@@ -118,7 +122,9 @@ struct CombinedReviewRealModelTests {
                     #expect(report.limitations.contains { $0.id.rawValue == result.file.id.rawValue + ":coverage:" + criterion },
                             "Explicit abstention: \(result.file.displayName) \(criterion)")
                 }
-            } else { Issue.record("Missing synthesized report: \(result.file.displayName)") }
+            } else {
+                Issue.record("Missing synthesized report: \(result.file.displayName)")
+            }
             for measurement in result.measurements where measurement.availability == .available {
                 #expect(measurement.hasCurrentMaskSemantics)
                 #expect(measurement.values.values.allSatisfy { $0.isFinite })

@@ -43,7 +43,9 @@ nonisolated struct ReviewMaskRegistration: Codable, Equatable, Sendable {
         var retained = 0
         for y in 0 ..< foreground.height {
             for x in 0 ..< foreground.width where foreground.pixels[y * foreground.width + x] > 16 {
-                if rect.contains(CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5)) { retained += 1 }
+                if rect.contains(CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5)) {
+                    retained += 1
+                }
             }
         }
         return Double(retained) / Double(foreground.foregroundCount)
@@ -56,5 +58,7 @@ nonisolated struct ReviewCropSupport: Codable, Equatable, Sendable {
     let encoderForegroundRetained: Double
     let sourceEdgeContact: Bool
     let anatomicalSupport: String
-    var qualifiesWholeSubject: Bool { subjectForegroundRetained == 1 && encoderForegroundRetained == 1 }
+    var qualifiesWholeSubject: Bool {
+        subjectForegroundRetained == 1 && encoderForegroundRetained == 1
+    }
 }

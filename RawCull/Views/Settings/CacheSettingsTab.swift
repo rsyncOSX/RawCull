@@ -100,14 +100,20 @@ struct CacheSettingsTab: View {
             Text(cachePendingPurge?.confirmationMessage ?? "The cache will be rebuilt as needed.")
         }
         .alert("Could not clear Combined Reviews", isPresented: Binding(
-            get: { purgeError != nil }, set: { if !$0 { purgeError = nil } }
+            get: { purgeError != nil }, set: {
+                if !$0 {
+                    purgeError = nil
+                }
+            },
         )) {
             Button("OK") { purgeError = nil }
         } message: {
             Text(purgeError ?? "")
         }
         .onChange(of: combinedReviewFeature.isRunning) { _, running in
-            if !running { Task { await refreshDiskCacheUsage() } }
+            if !running {
+                Task { await refreshDiskCacheUsage() }
+            }
         }
         .task {
             await SharedMemoryCache.shared.refreshConfig()
@@ -155,7 +161,7 @@ struct CacheSettingsTab: View {
         currentSimilarityArtifactCacheCount = similarityArtifacts.entryCount
         currentBurstAnalysisCacheSize = burstAnalysis.size
         currentBurstAnalysisCacheCount = burstAnalysis.fileCount
-        combinedReviewSize = (try? await combinedReviewFeature.store.usage()) ?? 0
+        combinedReviewSize = await (try? combinedReviewFeature.store.usage()) ?? 0
         isLoadingDiskCaches = false
     }
 
@@ -178,8 +184,7 @@ struct CacheSettingsTab: View {
                 await BurstAnalysisCache.shared.clear()
 
             case .combinedReviews:
-                do { try await combinedReviewFeature.clearAllReviews() }
-                catch { purgeError = error.localizedDescription }
+                do { try await combinedReviewFeature.clearAllReviews() } catch { purgeError = error.localizedDescription }
             }
 
             await refreshDiskCacheUsage()

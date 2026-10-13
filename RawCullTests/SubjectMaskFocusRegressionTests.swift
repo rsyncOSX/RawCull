@@ -36,14 +36,14 @@ struct SubjectMaskFocusRegressionTests {
         let image = try Self.image()
         let gray = try Self.mask(right: true)
         let context = try #require(CGContext(data: nil, width: 128, height: 128, bitsPerComponent: 8,
-                                            bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-                                            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue))
+                                             bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue))
         context.clear(CGRect(x: 0, y: 0, width: 128, height: 128))
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(CGRect(x: 64, y: 0, width: 64, height: 128))
         let alpha = try #require(context.makeImage())
         let foreground = try SubjectMaskForeground.decode(gray, width: 128, height: 128)
-        #expect(foreground.pixels == (try SubjectMaskForeground.decode(alpha, width: 128, height: 128)).pixels)
+        #expect(try foreground.pixels == (SubjectMaskForeground.decode(alpha, width: 128, height: 128)).pixels)
         #expect(foreground.foregroundCount == 8192)
         #expect(foreground.bounds == CGRect(x: 64, y: 0, width: 64, height: 128))
         let scorer = SubjectMaskFocusScorer()
@@ -82,9 +82,9 @@ struct SubjectMaskFocusRegressionTests {
     @Test func `padded grayscale rows preserve raw threshold and contract registration`() throws {
         let provider = try #require(CGDataProvider(data: Data([0, 16, 17, 255, 99, 99, 255, 17, 16, 0, 99, 99]) as CFData))
         let mask = try #require(CGImage(width: 4, height: 2, bitsPerComponent: 8, bitsPerPixel: 8,
-                                      bytesPerRow: 6, space: CGColorSpaceCreateDeviceGray(),
-                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-                                      provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+                                        bytesPerRow: 6, space: CGColorSpaceCreateDeviceGray(),
+                                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
         let decoded = try SubjectMaskForeground.decode(mask, width: 4, height: 2)
         #expect(decoded.pixels == [0, 16, 17, 255, 255, 17, 16, 0])
         #expect(decoded.foregroundCount == 4)
@@ -92,7 +92,7 @@ struct SubjectMaskFocusRegressionTests {
         #expect(try JSONDecoder().decode(SubjectMaskContract.self, from: JSONEncoder().encode(contract)) == contract)
         #expect(throws: SubjectMaskDecodingError.unsafeRegistration) { try contract.validate(mask: mask, sourceIdentity: "other") }
         let rgb = try #require(CGContext(data: nil, width: 4, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
-                                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage())
+                                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage())
         #expect(throws: SubjectMaskDecodingError.unsupportedEncoding) { try SubjectMaskForeground.decode(rgb, width: 4, height: 2) }
     }
 
@@ -115,8 +115,8 @@ struct SubjectMaskFocusRegressionTests {
     private nonisolated static func gray(_ pixels: [UInt8], width: Int, height: Int) throws -> CGImage {
         let provider = try #require(CGDataProvider(data: Data(pixels) as CFData))
         return try #require(CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8,
-                                   bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
-                                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider,
-                                   decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+                                    bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
+                                    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider,
+                                    decode: nil, shouldInterpolate: false, intent: .defaultIntent))
     }
 }

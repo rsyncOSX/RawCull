@@ -127,7 +127,7 @@ private let expectedTaggedSuites: Set<String> = [
     "TypedAIPersistenceMatrixTests",
     "ZoomOverlayKeyActionTests",
     "ZoomOverlayNavigationContextTests",
-    "ZoomViewportMathTests",
+    "ZoomViewportMathTests"
 ]
 
 private func smokeManifestSelectors() throws -> [String] {
@@ -179,8 +179,7 @@ private func sourceSuitesTaggedForSmoke() throws -> Set<String> {
                     if activeAttribute == .suite, isSmoke {
                         pendingTaggedSuite = true
                     } else if activeAttribute == .test, isSmoke,
-                              let currentTopLevelStruct
-                    {
+                              let currentTopLevelStruct {
                         taggedSuites.insert(currentTopLevelStruct)
                     }
                     attributeKind = nil

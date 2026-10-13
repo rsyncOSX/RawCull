@@ -19,7 +19,9 @@ nonisolated struct ReviewSynthesisPayload: Decodable {
         }
 
         func resolve(allowed: Set<ReviewEvidenceReference>) throws -> ReviewEvidenceReference {
-            if let explicit { return explicit }
+            if let explicit {
+                return explicit
+            }
             let matches = allowed.filter { $0.id == shorthand }
             guard matches.count == 1, let reference = matches.first, reference.kind == .observation else {
                 throw ReviewValidationIssue(.unknownID, "report.shorthandObservationReference", field: "claims.evidence")

@@ -55,8 +55,7 @@ nonisolated struct ReviewImageSource: Sendable {
     }
 
     func region(rect: CGRect, padding: CGFloat = 0.15, purpose: String,
-                encoder: ReviewEncoderGeometry) throws -> ReviewRegion
-    {
+                encoder: ReviewEncoderGeometry) throws -> ReviewRegion {
         try ReviewRegion.make(sourceID: metadata.identity, space: metadata.sourceSpace,
                               rect: rect, padding: padding, purpose: purpose, encoder: encoder)
     }
@@ -154,8 +153,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
         if let filter = CIRAWFilter(imageURL: url) {
             let size = filter.nativeSize
             if !size.width.isFinite || !size.height.isFinite || size.width <= 0 || size.height <= 0 ||
-                size.width >= CGFloat(Int.max) || size.height >= CGFloat(Int.max)
-            {
+                size.width >= CGFloat(Int.max) || size.height >= CGFloat(Int.max) {
                 availability.rawDisabledReason = "RAW decoding does not provide valid image dimensions."
             } else if (try? Self.admit(width: Int(size.width), height: Int(size.height), request: request)) == nil {
                 availability.rawDisabledReason = "The full-resolution RAW exceeds Combined Review’s memory limit."
@@ -220,7 +218,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight),
-                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceShouldCacheImmediately: true
             ] as CFDictionary) else { throw ReviewImageError.decodeFailed }
             decoded = image
             fidelity = .fullRaster
@@ -231,8 +229,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
             var rawEstimate: Int?
             if request.preference == .rawDetail, let filter = CIRAWFilter(imageURL: request.url),
                filter.nativeSize.width.isFinite, filter.nativeSize.height.isFinite,
-               filter.nativeSize.width > 0, filter.nativeSize.height > 0
-            {
+               filter.nativeSize.width > 0, filter.nativeSize.height > 0 {
                 filter.scaleFactor = 1
                 filter.isDraftModeEnabled = false
                 filter.extendedDynamicRangeAmount = 0
