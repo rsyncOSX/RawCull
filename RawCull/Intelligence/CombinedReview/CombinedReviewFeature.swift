@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Observation
 import RawParserKit
 
@@ -173,7 +174,8 @@ final class CombinedReviewFeature {
 
     init(store: ReviewArtifactStore = ReviewArtifactStore(), sourceLoader: any ReviewImageSourceLoading = ReviewImageSourceService(),
          scorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(), lease: CombinedReviewLease = .shared,
-         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing) {
+         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing)
+    {
         self.store = store; self.sourceLoader = sourceLoader; self.scorer = scorer; self.lease = lease; self.backendFactory = backendFactory
     }
 
@@ -279,7 +281,19 @@ final class CombinedReviewFeature {
 
     func exactInput(_ key: String) async -> CGImage? {
         guard let bytes = try? await store.input(key) else { return nil }
-        return OrientationNormalizedImageLoader.loadCGImage(from: bytes)
+        return await Self.decodeRetainedInput(bytes)
+    }
+
+    @concurrent private static func decodeRetainedInput(_ bytes: Data) async -> CGImage? {
+        guard !Task.isCancelled,
+              let source = CGImageSourceCreateWithData(bytes as CFData, nil) else { return nil }
+        // Retained inputs are orientation-normalized PNGs produced by pngData(for:).
+        // Force raster decoding here instead of deferring decompression to UI rendering.
+        let image = CGImageSourceCreateImageAtIndex(source, 0, [
+            kCGImageSourceShouldCache: true,
+            kCGImageSourceShouldCacheImmediately: true,
+        ] as CFDictionary)
+        return Task.isCancelled ? nil : image
     }
 
     func clearAllReviews() async throws {
