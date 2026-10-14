@@ -387,7 +387,9 @@ private struct CombinedReviewResizableColumns<Leading: View, Trailing: View>: Vi
             Rectangle().fill(.quaternary)
                 .overlay { Image(systemName: "line.3.horizontal").rotationEffect(.degrees(90)).font(.caption2).foregroundStyle(.secondary) }
                 .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                // The divider moves with offset. Local gesture coordinates would move with it
+                // and feed the resize back into translation, making the panes oscillate.
+                .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { value in
                     if dragStart == nil {
                         dragStart = offset
                     }
