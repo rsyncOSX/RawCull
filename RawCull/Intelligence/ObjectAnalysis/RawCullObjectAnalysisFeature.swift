@@ -304,7 +304,7 @@ final class RawCullObjectAnalysisFeature {
             for attempt in 0 ..< 2 {
                 try Task.checkCancellation()
                 let response = try await inference.respond(to: QwenVisionRequest(
-                    instruction: instruction + feedback,
+                    instruction: feedback + instruction,
                     image: board.image, maximumResponseTokens: tokenLimit,
                 ))
                 captureDiagnostic(response, file: file, stage: attempt == 0 ? "assessment" : "assessment-retry", tokenLimit: tokenLimit)
@@ -320,7 +320,7 @@ final class RawCullObjectAnalysisFeature {
                 } catch {
                     let details = Self.assessmentValidationFeedback(response, fallback: (error as? ObjectResponseIssue) ?? .assessmentFailed)
                     if attempt == 0 {
-                        feedback = "\nThe previous response failed validation: \(details)\nRegenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments."
+                        feedback = "The previous response failed validation: \(details)\nResolve every listed issue independently before returning JSON. Correcting global lists alone is insufficient when object focus evidence also failed. Reassess each flagged crop; if its detail cannot substantiate focus, use uncertain with null evidence and remove unsupported focus claims. Regenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments.\n\n"
                         continue
                     }
                     return makeResult(file, mode: mode, concepts: concepts,
@@ -431,8 +431,8 @@ final class RawCullObjectAnalysisFeature {
         Registered concepts (copy the concept exactly for each ID): \(concepts.map { "\($0.id)=\($0.concept)" }.joined(separator: "; ")).
         The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
         Additional criteria: \(criteria)
-        JSON template only: replace every angle-bracket placeholder with an observation from this board. Never copy placeholder text as evidence. Choose focusQuality from the permitted values; for uncertain focus replace focusEvidence with null. Repeat one object per registered ID:
-        {"schemaVersion":2,"imageSummary":"Short scene description","objects":[{"id":"1","concept":"registered concept","description":"Short visible description","visibility":"uncertain","focusQuality":"<sharp, soft, blurred, or uncertain>","focusEvidence":{"cropID":"1","observation":"<describe visible texture or edges on this numbered subject>"},"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.5}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.5}
+        JSON template only: replace descriptions with observations from this board. This template demonstrates abstention, not a focus judgment to copy. Change uncertain only when the numbered subject's visible detail supports sharp, soft or blurred, supplying its own focusEvidence object. Repeat one object per registered ID:
+        {"schemaVersion":2,"imageSummary":"Short scene description","objects":[{"id":"1","concept":"registered concept","description":"Short visible description","visibility":"uncertain","focusQuality":"uncertain","focusEvidence":null,"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.5}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.5}
         For a supported focus judgment, focusEvidence is an object such as {"cropID":"1","observation":"<describe visible texture or edges on this numbered subject>"}, never a string. A supported strength/problem uses the same object shape in its evidence array, one per claim. IDs, cropIDs and preferredObjectIDs entries MUST be quoted strings. Never return null for list fields.
         Return exactly one JSON object and no Markdown with these keys:
         schemaVersion (2), imageSummary (short string), objects (array of {id, concept, description, visibility,
