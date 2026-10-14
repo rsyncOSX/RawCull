@@ -23,6 +23,13 @@ struct AIAnalysisView: View {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
 
+    private var isAnalysisRunning: Bool {
+        deepAIReviewController.isRunning
+            || qwenAnalysisFeature.isRunning
+            || objectAnalysisFeature.isRunning
+            || combinedReviewFeature.isRunning
+    }
+
     private var hasStoredResults: Bool {
         switch activeTool {
         case .samCLIP:
@@ -59,6 +66,7 @@ struct AIAnalysisView: View {
                     .labelsHidden()
                     .frame(maxWidth: 620)
                     .accessibilityLabel("Analysis mode")
+                    .disabled(isAnalysisRunning)
 
                     Picker("Source", selection: $inputSource) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
@@ -70,6 +78,7 @@ struct AIAnalysisView: View {
                     .labelsHidden()
                     .frame(maxWidth: 220)
                     .accessibilityLabel("Image source")
+                    .disabled(isAnalysisRunning)
 
                     Spacer(minLength: 0)
                 }
@@ -91,7 +100,7 @@ struct AIAnalysisView: View {
                 } else {
                     switch activeTool {
                     case .combined:
-                        CombinedReviewView(feature: combinedReviewFeature, files: inputFiles)
+                        CombinedReviewView(feature: combinedReviewFeature, viewModel: viewModel, files: inputFiles)
 
                     case .samCLIP:
                         SAMCLIPAnalysisView(
@@ -133,7 +142,7 @@ struct AIAnalysisView: View {
                     viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
+                    thumbnailSize: activeTool == .combined ? min(SettingsViewModel.shared.thumbnailSizeGrid, 140) : SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }

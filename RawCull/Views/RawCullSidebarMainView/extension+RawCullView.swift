@@ -12,7 +12,10 @@ extension RawCullMainView {
         SharedMainToolbarContent(
             viewModel: viewModel,
             semanticSearchFeature: semanticSearchFeature,
-            isDisabled: deepAIReviewController.isRunning || qwenAnalysisFeature.isRunning,
+            isDisabled: deepAIReviewController.isRunning
+                || qwenAnalysisFeature.isRunning
+                || objectAnalysisFeature.isRunning
+                || combinedReviewFeature.isRunning,
             toggleMetadataPanel: toggleLoupeMetadataPanel,
         )
     }

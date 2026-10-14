@@ -7,7 +7,7 @@ struct CombinedReviewInspector: View {
     let subjects: [ReviewSubjectRecord]
     let regions: [ReviewRegionRecord]
     @State private var subjectID = ""
-    @State private var regionID = ""
+    @Binding var regionID: String
     @State private var image: CGImage?
     @State private var tint: CGImage?
     @State private var crop: CGImage?
@@ -25,11 +25,15 @@ struct CombinedReviewInspector: View {
             Text("Source, mask and retained crop").font(.headline)
             Picker("Subject", selection: $subjectID) {
                 Text("No mask").tag("")
-                ForEach(subjects, id: \.id) { Text($0.concept + " · " + $0.id.rawValue).tag($0.id.rawValue) }
+                ForEach(subjects, id: \.id) { Text($0.concept).tag($0.id.rawValue) }
             }
             Picker("Region", selection: $regionID) {
-                Text("No region").tag("")
-                ForEach(regions, id: \.id) { Text($0.purpose + " · " + $0.id.rawValue).tag($0.id.rawValue) }
+                Text("Overview only").tag("")
+                ForEach(regions, id: \.id) { region in
+                    Text(CombinedReviewPresentation.regionName(region, subjects: subjects) + " · " +
+                        "\(Int(region.sourceRect.width)) × \(Int(region.sourceRect.height))")
+                        .tag(region.id.rawValue)
+                }
             }
             if let image, let source {
                 CombinedReviewInspectionCanvas(image: image, tint: tint, sourceSize: CGSize(width: source.width, height: source.height), region: region)
@@ -39,13 +43,17 @@ struct CombinedReviewInspector: View {
                 Text("Retained overview unavailable.")
             }
             if let region {
-                Text("Region " + region.id.rawValue).font(.caption2).textSelection(.enabled)
                 if let crop {
                     Image(decorative: crop, scale: 1).resizable().scaledToFit().frame(maxHeight: 240)
                 } else {
                     Text("Retained crop unavailable: compact retention, eviction or cleanup.")
                 }
-                Text("Retained request crop before model preprocessing. Encoder geometry is a declared simulation, not a saved tensor: \(Int(region.encoderSize.width)) × \(Int(region.encoderSize.height)).").font(.caption)
+                Text("Retained request crop · \(Int(region.sourceRect.width)) × \(Int(region.sourceRect.height))").font(.caption)
+                DisclosureGroup("Crop geometry & provenance") {
+                    Text(region.purpose).font(.caption)
+                    Text("Region " + region.id.rawValue).font(.caption).textSelection(.enabled)
+                    Text("Encoder geometry is a declared simulation, not a saved tensor: \(Int(region.encoderSize.width)) × \(Int(region.encoderSize.height)).").font(.caption)
+                }
                 if let support = region.support {
                     Text("Foreground retained: crop \(support.subjectForegroundRetained.formatted(.percent)), encoder \(support.encoderForegroundRetained.formatted(.percent)); source edge contact: \(support.sourceEdgeContact ? "yes" : "no").")
                     Text(support.anatomicalSupport).font(.caption)
@@ -54,27 +62,32 @@ struct CombinedReviewInspector: View {
                 }
             }
             if let subject {
-                Text("Subject " + subject.id.rawValue).font(.caption2).textSelection(.enabled)
-                Text("Priority: " + (subject.relevance?.role.rawValue ?? "unknown") + "; " + (subject.relevance?.uncertainty ?? "Historical priority unavailable")).font(.caption)
-                Text(subject.relevance?.provenance ?? "").font(.caption2).textSelection(.enabled)
-                if let contract = subject.maskContract {
-                    Text("\(contract.width) × \(contract.height), \(contract.channel.rawValue), \(contract.origin)").font(.caption)
-                }
-                if let registration = subject.registration {
-                    Text(registration.transform).font(.caption)
-                    if let warning = registration.warning {
-                        Text(warning).foregroundStyle(.orange)
+                DisclosureGroup("Subject registration & provenance") {
+                    Text("Subject " + subject.id.rawValue).font(.caption2).textSelection(.enabled)
+                    Text("Priority: " + (subject.relevance?.role.rawValue ?? "unknown") + "; " + (subject.relevance?.uncertainty ?? "Historical priority unavailable")).font(.caption)
+                    Text(subject.relevance?.provenance ?? "").font(.caption2).textSelection(.enabled)
+                    if let contract = subject.maskContract {
+                        Text("\(contract.width) × \(contract.height), \(contract.channel.rawValue), \(contract.origin)").font(.caption)
                     }
-                    if registration.touchesSourceEdge {
-                        Text("Foreground touches the original source edge; visibility may be partial.").font(.caption)
+                    if let registration = subject.registration {
+                        Text(registration.transform).font(.caption)
+                        if let warning = registration.warning {
+                            Text(warning).foregroundStyle(.orange)
+                        }
+                        if registration.touchesSourceEdge {
+                            Text("Foreground touches the original source edge; visibility may be partial.").font(.caption)
+                        }
                     }
                 }
             }
         }
         .task(id: inputKey) {
-            image = await feature.exactInput(inputKey)
+            image = nil
+            let loaded = await feature.exactInput(inputKey)
+            guard !Task.isCancelled else { return }
+            image = loaded
             if !regions.contains(where: { $0.id.rawValue == regionID }) {
-                regionID = regions.first?.id.rawValue ?? ""
+                regionID = ""
             }
         }
         .task(id: subject?.maskInputReference) {
@@ -87,8 +100,8 @@ struct CombinedReviewInspector: View {
         }
         .task(id: region?.id) {
             crop = nil
+            subjectID = region?.subjectID?.rawValue ?? ""
             if let region {
-                subjectID = region.subjectID?.rawValue ?? ""
                 if let key = region.inputReference {
                     let loaded = await feature.exactInput(key)
                     guard !Task.isCancelled, self.region?.inputReference == key else { return }
