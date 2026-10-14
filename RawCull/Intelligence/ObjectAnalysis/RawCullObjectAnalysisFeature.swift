@@ -297,14 +297,17 @@ final class RawCullObjectAnalysisFeature {
             failureStage = "Object assessment"
             let assessmentStart = Date()
             let instruction = Self.analysisInstruction(ids: board.objectIDs, concepts: descriptors, criteria: criteria)
+            // Each object includes its own description, focus evidence and claim evidence.
+            // Leave enough space for the complete JSON so retries can address validation.
+            let tokenLimit = min(4096, max(1024, 512 + board.objectIDs.count * 512))
             var feedback = ""
             for attempt in 0 ..< 2 {
                 try Task.checkCancellation()
                 let response = try await inference.respond(to: QwenVisionRequest(
                     instruction: instruction + feedback,
-                    image: board.image, maximumResponseTokens: 1024,
+                    image: board.image, maximumResponseTokens: tokenLimit,
                 ))
-                captureDiagnostic(response, file: file, stage: attempt == 0 ? "assessment" : "assessment-retry", tokenLimit: 1024)
+                captureDiagnostic(response, file: file, stage: attempt == 0 ? "assessment" : "assessment-retry", tokenLimit: tokenLimit)
                 timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
                 try Task.checkCancellation()
                 do {

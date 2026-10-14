@@ -104,6 +104,9 @@ def main():
         finally:
             stop.set()
             monitor.join()
+    final_progress = progress_message(output)
+    if final_progress:
+        print('Final progress: ' + final_progress, flush=True)
     # Missing evidence means the selected test did not execute, even if xcodebuild exited zero.
     if not (output / 'diagnostic.json').is_file():
         print('FAILED: no completed diagnostic; inspect build/test log.', flush=True)
