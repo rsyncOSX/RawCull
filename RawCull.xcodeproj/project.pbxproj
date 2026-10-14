@@ -1239,8 +1239,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
 			requirement = {
-				kind = revision;
-				revision = 7f9adfcd69661c6bae4a640c16a4056dfc7393df;
+				kind = exactVersion;
+				version = 1.0.0;
 			};
 		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
