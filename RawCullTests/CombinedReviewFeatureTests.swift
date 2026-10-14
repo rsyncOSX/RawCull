@@ -71,7 +71,7 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v21")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v22")
         #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v21")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
@@ -160,6 +160,23 @@ struct CombinedReviewFeatureTests {
         #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.contains(":reconcile") })
     }
 
+    @Test @MainActor func `camera AF point reaches combined measurement and removes unavailable warning`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true)
+        let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
+                                            scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        var file = fixture.file
+        file.normalizedAFPoint = CGPoint(x: 0.5, y: 0.5)
+        await feature.analyze([file])
+        let result = try #require(feature.result)
+        #expect(result.file.normalizedAFPoint == file.normalizedAFPoint)
+        #expect(result.measurements.first?.values["autofocusInsideMask"] == 1)
+        #expect(!result.limitations.contains { $0.reason.hasPrefix("AF mapping is unavailable") })
+        #expect(!CombinedReviewPresentation(result: result).importantLimits.contains("AF point mapping is unavailable."))
+        let encoded = try JSONEncoder().encode(result.file)
+        #expect(try JSONDecoder().decode(ReviewFileSnapshot.self, from: encoded) == result.file)
+    }
+
     @Test @MainActor func `real scorer metadata survives restore and stale semantics cannot resume`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let backend = ReviewFakeBackend(hasSAM: true)
@@ -189,7 +206,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v21"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v7" : "combined-v22"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
