@@ -65,7 +65,9 @@ struct ObjectAnalysisBoundaryTests {
     @Test(arguments: [
         "The squirrel's fur texture and facial features are clearly resolved, with distinct edges and fine detail.",
         "Subject feather texture is distinctly resolved.",
-        "Subject outline has distinct edges."
+        "Subject outline has distinct edges.",
+        "The deer's antlers are well-defined with visible ridges and a smooth, natural texture.",
+        "Subject feather texture is well-resolved."
     ])
     func `Sharp focus accepts equivalent resolved detail wording`(observation: String) throws {
         let response = focusResponse(observation: observation)
@@ -77,7 +79,10 @@ struct ObjectAnalysisBoundaryTests {
         "Subject texture is clearly resolved but edges are soft.",
         "Subject edges are distinct but feathers are smeared.",
         "Subject texture lacks clearly resolved detail.",
-        "Subject fur is visible."
+        "Subject fur is visible.",
+        "Subject antlers are not well-defined.",
+        "Subject feather texture lacks well-resolved detail.",
+        "The butterfly's wings are in focus, with visible texture and a muted color pattern."
     ])
     func `Sharp focus still rejects unsupported or contradictory detail wording`(observation: String) {
         #expect(throws: ObjectResponseIssue.self) {

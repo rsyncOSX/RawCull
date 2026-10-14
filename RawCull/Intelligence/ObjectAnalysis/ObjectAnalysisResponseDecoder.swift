@@ -102,11 +102,11 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         switch quality {
         case .sharp:
             let resolvedDetail = text.range(
-                of: #"\b(?:clearly|distinctly|well) (?:resolved|defined)\b|\b(?:distinct|well-defined) edges\b"#,
+                of: #"\b(?:clearly|distinctly|well)[ -](?:resolved|defined)\b|\bdistinct edges\b"#,
                 options: .regularExpression,
             ) != nil
             let unsupported = text.range(
-                of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)\s+)?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
+                of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)[ -])?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
                 options: .regularExpression,
             ) != nil
             return (mentionsSharp(text) || resolvedDetail) && !mentionsBlur(text) && !unsupported
