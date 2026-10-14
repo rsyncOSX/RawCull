@@ -23,6 +23,13 @@ struct AIAnalysisView: View {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
 
+    private var isAnalysisRunning: Bool {
+        deepAIReviewController.isRunning
+            || qwenAnalysisFeature.isRunning
+            || objectAnalysisFeature.isRunning
+            || combinedReviewFeature.isRunning
+    }
+
     private var hasStoredResults: Bool {
         switch activeTool {
         case .samCLIP:
@@ -59,6 +66,7 @@ struct AIAnalysisView: View {
                     .labelsHidden()
                     .frame(maxWidth: 620)
                     .accessibilityLabel("Analysis mode")
+                    .disabled(isAnalysisRunning)
 
                     Picker("Source", selection: $inputSource) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
@@ -70,6 +78,7 @@ struct AIAnalysisView: View {
                     .labelsHidden()
                     .frame(maxWidth: 220)
                     .accessibilityLabel("Image source")
+                    .disabled(isAnalysisRunning)
 
                     Spacer(minLength: 0)
                 }
