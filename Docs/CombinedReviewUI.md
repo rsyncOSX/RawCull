@@ -1,10 +1,14 @@
 # Combined Review presentation
 
+Combined Review opens as its own main view from the AI icon with a plus sign
+beside AI Analysis in the toolbar. Its source picker supports selected and tagged
+images; AI Analysis retains SAM 3 + CLIP, Qwen Vision and Objects.
+
 The Combined Review screen has two connected modes. Photo-first is the default:
 it shows the selected image's retained overview, concise findings, important
 evidence limits, coverage and the existing rating controls. Reviewed-region
-overlays are optional. The filmstrip is capped at 140 points in this mode's
-analysis tool to leave room for the image and findings.
+overlays are optional. The filmstrip is capped at 140 points in this
+workspace to leave room for the image and findings.
 
 Inspect evidence opens the Evidence workspace, selects the finding and resolves
 its supporting crop from the finding's region or cited observation. Findings,

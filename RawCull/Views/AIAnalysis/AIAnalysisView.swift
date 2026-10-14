@@ -5,19 +5,10 @@ struct AIAnalysisView: View {
     @Bindable var qwenAnalysisFeature: RawCullQwenAnalysisFeature
     @Bindable var objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
-    let combinedReviewEnabled: Bool
     let deepAIReviewController: DeepAIReviewController
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
     @State private var selectedTool = AIAnalysisTool.samCLIP
-
-    private var availableTools: [AIAnalysisTool] {
-        AIAnalysisTool.allCases.filter { combinedReviewEnabled || $0 != .combined }
-    }
-
-    private var activeTool: AIAnalysisTool {
-        selectedTool == .combined && !combinedReviewEnabled ? .samCLIP : selectedTool
-    }
 
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
@@ -31,15 +22,12 @@ struct AIAnalysisView: View {
     }
 
     private var hasStoredResults: Bool {
-        switch activeTool {
+        switch selectedTool {
         case .samCLIP:
             !deepAIReviewController.completedCandidates.isEmpty
 
         case .qwen:
             !qwenAnalysisFeature.results.isEmpty
-
-        case .combined:
-            combinedReviewFeature.result != nil || combinedReviewFeature.manifest != nil || combinedReviewFeature.isRunning
 
         case .objects:
             !objectAnalysisFeature.results.isEmpty
@@ -53,11 +41,8 @@ struct AIAnalysisView: View {
                 AIAnalysisHeader()
 
                 HStack(spacing: 16) {
-                    Picker("Analysis Tool", selection: Binding(
-                        get: { activeTool },
-                        set: { selectedTool = $0 },
-                    )) {
-                        ForEach(availableTools) { tool in
+                    Picker("Analysis Tool", selection: $selectedTool) {
+                        ForEach(AIAnalysisTool.allCases) { tool in
                             Label(tool.title, systemImage: tool.systemImage)
                                 .tag(tool)
                         }
@@ -98,10 +83,7 @@ struct AIAnalysisView: View {
                         description: Text(emptyDescription),
                     )
                 } else {
-                    switch activeTool {
-                    case .combined:
-                        CombinedReviewView(feature: combinedReviewFeature, viewModel: viewModel, files: inputFiles)
-
+                    switch selectedTool {
                     case .samCLIP:
                         SAMCLIPAnalysisView(
                             viewModel: viewModel,
@@ -142,7 +124,7 @@ struct AIAnalysisView: View {
                     viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: activeTool == .combined ? min(SettingsViewModel.shared.thumbnailSizeGrid, 140) : SettingsViewModel.shared.thumbnailSizeGrid,
+                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }
@@ -155,11 +137,6 @@ struct AIAnalysisView: View {
             let availableIDs = Set(inputFiles.map(\.id))
             if viewModel.selectedFileID.map(availableIDs.contains) != true {
                 viewModel.selectedFileID = inputFiles.first?.id
-            }
-        }
-        .onChange(of: combinedReviewEnabled) { _, enabled in
-            if !enabled, selectedTool == .combined {
-                selectedTool = .samCLIP
             }
         }
         .onChange(of: selectedTool) { _, newTool in
@@ -198,7 +175,6 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     case samCLIP
     case qwen
     case objects
-    case combined
 
     var id: String {
         rawValue
@@ -209,7 +185,6 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .samCLIP: "SAM 3 + CLIP"
         case .qwen: "Qwen Vision"
         case .objects: "Objects"
-        case .combined: "Combined Review"
         }
     }
 
@@ -218,7 +193,6 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .samCLIP: "sparkle.magnifyingglass"
         case .qwen: "text.bubble"
         case .objects: "square.3.layers.3d"
-        case .combined: "viewfinder"
         }
     }
 }
@@ -238,7 +212,7 @@ private struct AIAnalysisHeader: View {
     }
 }
 
-private struct AIAnalysisThumbnailStrip: View {
+struct AIAnalysisThumbnailStrip: View {
     @Bindable var viewModel: RawCullViewModel
     let files: [FileItem]
     let inputSource: AIAnalysisInputSource
@@ -314,5 +288,74 @@ private struct AIAnalysisThumbnailStrip: View {
         case 5: .purple
         default: nil
         }
+    }
+}
+
+struct CombinedReviewWorkspaceView: View {
+    @Bindable var viewModel: RawCullViewModel
+    let feature: CombinedReviewFeature
+    let isEnabled: Bool
+
+    @State private var inputSource = AIAnalysisInputSource.gridSelection
+
+    private var inputFiles: [FileItem] {
+        viewModel.aiAnalysisFiles(for: inputSource)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Combined Review")
+                    .font(.title3.weight(.bold))
+                Spacer()
+                Picker("Image source", selection: $inputSource) {
+                    Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
+                        .tag(AIAnalysisInputSource.gridSelection)
+                    Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
+                        .tag(AIAnalysisInputSource.taggedImages)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 260)
+                .disabled(feature.isRunning)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+
+            Divider()
+
+            if !isEnabled {
+                ContentUnavailableView(
+                    "Combined Review Disabled",
+                    systemImage: "viewfinder",
+                    description: Text("Enable Combined Review in AI settings to use this workspace."),
+                )
+            } else {
+                CombinedReviewView(feature: feature, viewModel: viewModel, files: inputFiles)
+            }
+
+            if !inputFiles.isEmpty {
+                Divider()
+                AIAnalysisThumbnailStrip(
+                    viewModel: viewModel,
+                    files: inputFiles,
+                    inputSource: inputSource,
+                    thumbnailSize: min(SettingsViewModel.shared.thumbnailSizeGrid, 140),
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+                inputSource = .taggedImages
+            }
+        }
+        .task(id: inputFiles.map(\.id)) {
+            let availableIDs = Set(inputFiles.map(\.id))
+            if viewModel.selectedFileID.map(availableIDs.contains) != true {
+                viewModel.selectedFileID = inputFiles.first?.id
+            }
+        }
+        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
     }
 }

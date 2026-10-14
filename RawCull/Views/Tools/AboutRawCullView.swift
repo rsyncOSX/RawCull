@@ -38,6 +38,13 @@ struct AboutRawCullView: View {
                     navigationKeys: ["←", "→"],
                 )
 
+            case .combinedReview:
+                .browse(
+                    title: "Combined Review",
+                    context: "Photos in the combined review workspace.",
+                    navigationKeys: ["←", "→"],
+                )
+
             case .comparisonGrid:
                 .manualComparison
             }
