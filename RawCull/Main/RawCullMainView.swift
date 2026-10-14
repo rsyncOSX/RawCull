@@ -52,6 +52,9 @@ struct RawCullMainView: View {
 
                 case .aiAnalysis:
                     aiAnalysisSplit
+
+                case .combinedReview:
+                    combinedReviewSplit
                 }
             }
 
@@ -434,10 +437,19 @@ struct RawCullMainView: View {
             qwenAnalysisFeature: qwenAnalysisFeature,
             objectAnalysisFeature: objectAnalysisFeature,
             combinedReviewFeature: combinedReviewFeature,
-            combinedReviewEnabled: aiSettingsModel.combinedReviewEnabled,
             deepAIReviewController: deepAIReviewController,
         )
         .navigationTitle("AI Analysis")
+        .toolbar { toolbarContent }
+    }
+
+    private var combinedReviewSplit: some View {
+        CombinedReviewWorkspaceView(
+            viewModel: viewModel,
+            feature: combinedReviewFeature,
+            isEnabled: aiSettingsModel.combinedReviewEnabled,
+        )
+        .navigationTitle("Combined Review")
         .toolbar { toolbarContent }
     }
 

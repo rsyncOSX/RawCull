@@ -161,6 +161,26 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.isCreatingThumbnails)
 
                 Button {
+                    viewModel.selectMainViewMode(.combinedReview)
+                } label: {
+                    Label {
+                        Text("Combined Review")
+                    } icon: {
+                        HStack(spacing: 2) {
+                            Image(systemName: "sparkles.rectangle.stack")
+                            Image(systemName: "plus")
+                                .font(.caption2.weight(.bold))
+                        }
+                    }
+                }
+                .help("Combined Review")
+                .disabled(isDisabled ||
+                    viewModel.selectedSource == nil ||
+                    !hasAIAnalysisInput ||
+                    viewModel.mainViewMode == .combinedReview ||
+                    viewModel.isCreatingThumbnails)
+
+                Button {
                     viewModel.selectMainViewMode(.ratedGrid)
                 } label: {
                     Label("Rated", systemImage: "star.square.fill")
