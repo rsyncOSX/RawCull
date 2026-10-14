@@ -91,7 +91,7 @@ struct AIAnalysisView: View {
                 } else {
                     switch activeTool {
                     case .combined:
-                        CombinedReviewView(feature: combinedReviewFeature, files: inputFiles)
+                        CombinedReviewView(feature: combinedReviewFeature, viewModel: viewModel, files: inputFiles)
 
                     case .samCLIP:
                         SAMCLIPAnalysisView(
@@ -133,7 +133,7 @@ struct AIAnalysisView: View {
                     viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
+                    thumbnailSize: activeTool == .combined ? min(SettingsViewModel.shared.thumbnailSizeGrid, 140) : SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }
