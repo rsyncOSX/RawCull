@@ -65,20 +65,6 @@ struct SidebarARWCatalogFileView: View {
                         }
                         .disabled(viewModel.isCreatingThumbnails)
 
-                        ConditionalGlassButton(
-                            systemImage: "photo.badge.arrow.down",
-                            text: "Cache JPGs",
-                            helpText: "Cache extracted JPG previews for this catalog",
-                        ) {
-                            viewModel.alertType = .createJPGDiskCache
-                            viewModel.showingAlert = true
-                        }
-                        .disabled(
-                            selectedSource == nil ||
-                                files.isEmpty ||
-                                viewModel.isCreatingThumbnails,
-                        )
-
                         LoupeSortBadge(status: sortStatus)
                     }
                     .padding()
