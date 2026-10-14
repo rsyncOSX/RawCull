@@ -116,6 +116,41 @@ struct ObjectAnalysisBoundaryTests {
         #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":""# + observation + #""},"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.8}"#
     }
 
+    @Test func `Final retry abstains from captured butterfly focus wording`() throws {
+        let response = focusResponse(observation: "clearly visible wing pattern and edge detail on the butterfly")
+            .replacingOccurrences(of: "Visible bird", with: "A sharp butterfly on a flower")
+            .replacingOccurrences(of: #""strengths":[],"strengthEvidence":[]"#,
+                                  with: #""strengths":["Sharp wings","Bright colors"],"strengthEvidence":[{"cropID":"1","observation":"Visible wing detail"},{"cropID":"1","observation":"Orange wing markings"}]"#)
+        #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]) }
+        let result = try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"])
+        let object = try #require(result.objects.first)
+        #expect(object.id == "1")
+        #expect(object.focusQuality == .uncertain)
+        #expect(object.focusEvidence == nil)
+        #expect(!object.description.contains("sharp"))
+        #expect(object.strengths == ["Bright colors"])
+        #expect(object.strengthEvidence.map(\.observation) == ["Orange wing markings"])
+    }
+
+    @Test func `Final focus abstention preserves supported objects`() throws {
+        let response = focusResponse(observation: "Subject feather edges are crisp.")
+        #expect(try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"]) == ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]))
+    }
+
+    @Test(arguments: [
+        (#""cropID":"1""#, #""cropID":"2""#),
+        (#""confidence":0.8"#, #""confidence":1.2"#),
+        (#""strengths":[],"strengthEvidence":[]"#, #""strengths":["Sharp wings"],"strengthEvidence":[]"#),
+        (#""visibility":"clear""#, #""visibility":"visible""#),
+    ])
+    func `Final focus abstention rejects unrelated invalid data`(replacement: (String, String)) {
+        let response = focusResponse(observation: "clearly visible wing pattern and edge detail on the butterfly")
+            .replacingOccurrences(of: replacement.0, with: replacement.1)
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"])
+        }
+    }
+
     @Test func `Automatic concepts normalize and deduplicate`() throws {
         let response = #"{"concepts":[{"query":"  Musk   Ox  ","displayName":"Musk Ox","reason":"Main subject"},{"query":"musk ox","displayName":"Musk ox","reason":"Duplicate"},{"query":"bird","displayName":"Bird","reason":"On branch"}]}"#
         let concepts = try ObjectConceptDiscovery.decode(response)

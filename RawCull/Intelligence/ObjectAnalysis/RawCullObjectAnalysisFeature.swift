@@ -311,8 +311,11 @@ final class RawCullObjectAnalysisFeature {
                 timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
                 try Task.checkCancellation()
                 do {
-                    let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs),
-                                                                              expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
+                    let boardIDs = Set(board.objectIDs)
+                    let expectedConcepts = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) })
+                    let assessment = try attempt == 0
+                        ? ObjectAnalysisResponseDecoder.decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
+                        : ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
                     return makeResult(file, mode: mode, concepts: concepts,
                                       descriptors: descriptors, assessment: assessment,
                                       freeform: nil, failure: nil, modelIdentity: modelIdentity,
