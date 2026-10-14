@@ -1,12 +1,38 @@
 # RawCull AI verification summary and next steps
 
-Updated 13 October 2026 (Europe/Oslo). Consolidates the dated AI run investigations and repair reports from 9–13 October, plus the four currently retained local script runs. This is a review of existing evidence; no inference, app build or Swift test suite was rerun during consolidation.
+Updated 14 October 2026 (Europe/Oslo). Retains the consolidated 9–13 October investigations and adds two newly executed Combined Review evaluations and one AI Analysis evaluation on the current tmp selection. The historical sections below describe earlier evidence; the 14 October results come from fresh build/test runs.
 
 ## Decision
 
 Consolidating the test reports is appropriate: one maintained record makes the current result and remaining gates easier to assess. RawCull has substantial engineering verification for local AI inputs, evidence ownership, bounded inference, diagnostics and partial results. **Photographic accuracy, useful comparable-image ranking and resource qualification are still incomplete.** A successful Xcode run establishes the runner's checks, not that every generated sentence is true or every requested criterion is covered.
 
-The latest retained Combined Review run uses **combined-v21** and passes all 125 scheduled stages. It retains 19 claims, but all six reports are incomplete and five have no detail claim. The three retained multi-mode diagnostic runs all fail Object Analysis checks, despite successful SAM/Deep Review and whole-image Qwen stages. Recurring `MDB_MAP_FULL` errors remain unresolved.
+Both new Combined Review runs use **combined-v21** and pass all 125 scheduled stages. Each retains 19 claims, but all six reports are incomplete and five have no detail claim. The new multi-mode run passes all 18 analyses, including Objects for all six files. Earlier Objects failures remain recorded below. Resetting the closed app-specific Metal usage cache eliminated `MDB_MAP_FULL` messages in the subsequent AI run; recurrence over longer use has not been qualified.
+
+## 14 October candidate evaluation
+
+Commands, run sequentially against the same original-file SHA-256 inventory (cohort C):
+
+```sh
+python3 Scripts/RunCombinedReviewSix.py --directory /Users/thomas/tmp
+python3 Scripts/RunCombinedReviewSix.py --directory /Users/thomas/tmp
+python3 Scripts/RunAIAnalysis.py --directory /Users/thomas/tmp
+```
+
+| Private evidence root under `/private/tmp` | Result | Test duration | MDB_MAP_FULL occurrences |
+| --- | --- | ---: | ---: |
+| `rawcull-six-x_wg5zpm/evidence` | PASS: 125/125 stages, six reports, 19 claims, unrelated/abstain comparison | 1470.175 s | 96 |
+| `rawcull-six-c_ub_l9y/evidence` | PASS after runner progress fix: 125/125 stages, six reports, 19 claims, unrelated/abstain comparison | 1448.815 s | 96 |
+| `rawcull-analysis-evtuu2jj/evidence` | PASS: 6/6 SAM/Deep Review, 6/6 whole-image Qwen, 6/6 Objects; 18 rows with no failures | 542.368 s | 0 |
+
+The two combined evaluations each used one successful built-in repair for `crop.criterionLength`; no stage remained failed or skipped. Both retained explicit limitations: six incomplete reports, with detail coverage only for the butterfly photo. The six retained overview images were inspected against the broad scene descriptions. This is a limited visual check, not independent crop annotation or photographic accuracy qualification.
+
+The combined runner's progress reader assumed IDs were `{"rawValue": ...}` objects, while the actual Swift manifest encodes them as strings. Its caught exception silently suppressed progress. The reader now accepts both representations. All 10 Python runner checks passed; the second full evaluation verified live progress transitions and final comparison status.
+
+The previous focus fix is already in candidate commit `88832f37`: after the model retry, structurally valid Objects responses abstain from unsupported focus judgments without weakening ownership or schema validation. In the new live butterfly result, objects 1 and 2 retain their descriptions but use `uncertain` focus and null evidence after repeated vague sharpness evidence; the other objects remain assessed. Its former whole-photo assessment failure is resolved. Passing response validation does not establish the visual truth of every remaining description or strength.
+
+The test process held an LMDB database at the app-specific `com.apple.metal/archiveUsage.db` cache. After the second combined run exited and `lsof` confirmed the database was closed, it was moved intact to `/private/tmp/rawcull-metal-cache-backup-ob38g13s/archiveUsage.db`. Metal recreated it during AI Analysis, and the complete new log contains zero map-full messages. This was reversible local cache maintenance, not a change to model assets, photographs, the catalog, or application inference code. The combined evaluations preceded this reset; their logs still contain the earlier messages.
+
+Usage was checked before the evaluations, during them, and before committing: ordinary usage remained allowed, with 56% of the current window and 79% of the weekly window available at the final check. No credit-limit or spend-control condition was reached. Raw diagnostic outputs and photographs remain private outside Git; only the runner fix, regression coverage and this summary are committed.
 
 ## Scope and evidence limits
 
@@ -69,7 +95,7 @@ Counts are completed/failed scheduled work items unless stated otherwise. Accept
 
 Selections with recorded decisions consistently retain the six cells and abstain on unrelated scenes. This is useful conservative behavior, but it does not qualify burst ranking, ties or Deep/Exhaustive matched-pair analysis. Historical stage totals differ as subject discovery, measurement coverage and scheduling change; stage-count improvements alone cannot measure quality or speed.
 
-### Latest retained v21 evidence
+### 13 October retained v21 evidence
 
 Evidence: `/private/tmp/rawcull-six-f09u63a3/evidence`; run `DE2EBBE7-5EAD-4F9A-B542-F9BB5CB11738`, admitted 13 October at 11:58:51 Europe/Oslo. Manifest: combined-v21, Standard. Xcode's selected inference test passed; the other two opt-in tests were skipped.
 
@@ -88,9 +114,9 @@ Fifteen of 16 crop observations declare `targetIdentified=false`. Fourteen detai
 
 The selection says unrelated/abstain with no claims. The log contains 96 `MDB_MAP_FULL` occurrences. The 19 claims versus v20's 13 are from different images and must not be presented as a paired improvement.
 
-## Other AI modes: all three retained script runs
+## Other AI modes: three historical 13 October script runs
 
-All runs use cohort C and identical original-file SHA-256 inventories. Each completes 18 diagnostic rows. All three Xcode runs end **TEST FAILED**, with evidence retained.
+These historical runs use cohort C and identical original-file SHA-256 inventories. Each completes 18 diagnostic rows. All three Xcode runs end **TEST FAILED**, with evidence retained. The newer passing candidate evaluation is recorded above.
 
 | 13 October evidence root | SAM/Deep Review | Whole-image Qwen | Objects | Test duration | MDB_MAP_FULL occurrences |
 | --- | --- | --- | --- | ---: | ---: |

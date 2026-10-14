@@ -22,19 +22,25 @@ class RunnerTests(unittest.TestCase):
             runs.mkdir()
             manifest = runs / 'run.json'
             run = {'snapshot': {'files': [
-                {'id': {'rawValue': 'b'}, 'displayName': 'second.ARW'},
-                {'id': {'rawValue': 'a'}, 'displayName': 'first.ARW'}]}, 'work': []}
+                {'id': 'b', 'displayName': 'second.ARW'},
+                {'id': 'a', 'displayName': 'first.ARW'}]}, 'work': []}
             def save():
                 manifest.write_text(json.dumps({'value': run}))
             save()
             self.assertEqual(runner.progress_message(output), 'Running 1 out of 2: first.ARW')
-            run['work'].append({'imageID': {'rawValue': 'a'}, 'stage': 'report', 'state': 'running'})
+            run['work'].append({'imageID': 'a', 'stage': 'report', 'state': 'running'})
             save()
             self.assertEqual(runner.progress_message(output), 'Running 1 out of 2: first.ARW')
             run['work'][0]['state'] = 'failed'
             save()
             self.assertEqual(runner.progress_message(output), 'Running 2 out of 2: second.ARW')
-            run['work'].append({'imageID': {'rawValue': 'b'}, 'stage': 'report', 'state': 'completed'})
+            run['work'].append({'imageID': 'b', 'stage': 'report', 'state': 'completed'})
+            save()
+            self.assertIn('2 out of 2; running comparison', runner.progress_message(output))
+            for file in run['snapshot']['files']:
+                file['id'] = {'rawValue': file['id']}
+            for work in run['work']:
+                work['imageID'] = {'rawValue': work['imageID']}
             save()
             self.assertIn('2 out of 2; running comparison', runner.progress_message(output))
             manifest.write_text('{')

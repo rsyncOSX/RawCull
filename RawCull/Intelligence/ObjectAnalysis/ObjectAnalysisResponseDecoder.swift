@@ -2,6 +2,10 @@ import Foundation
 
 nonisolated enum ObjectAnalysisResponseDecoder {
     static func decode(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String] = [:]) throws -> ObjectPhotoAssessment {
+        try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts, allowUnsupportedFocus: false)
+    }
+
+    private static func decode(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String], allowUnsupportedFocus: Bool) throws -> ObjectPhotoAssessment {
         let value = try ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response)
         guard value.schemaVersion == ObjectPhotoAssessment.schemaVersion else {
             throw ObjectResponseIssue.invalidValue("schemaVersion")
@@ -64,16 +68,62 @@ nonisolated enum ObjectAnalysisResponseDecoder {
                 guard object.focusEvidence == nil else { throw ObjectResponseIssue.invalidValue("uncertain focus evidence") }
             } else {
                 guard let evidence = object.focusEvidence, validEvidence(evidence),
-                      focusDescription(evidence.observation, supports: object.focusQuality)
+                      allowUnsupportedFocus || focusDescription(evidence.observation, supports: object.focusQuality)
                 else {
                     throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                 }
             }
-            if !focusClaimsAreConsistent(object) {
+            if !allowUnsupportedFocus && !focusClaimsAreConsistent(object) {
                 throw ObjectResponseIssue.invalidValue("object \(object.id) focus consistency")
             }
         }
         return value
+    }
+
+    /// After the model's retry, abstain only on semantic focus failures. All schema,
+    /// ownership and claim-pair checks must pass before any claims are removed.
+    static func decodeAbstainingFromUnsupportedFocus(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String] = [:]) throws -> ObjectPhotoAssessment {
+        let value = try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts, allowUnsupportedFocus: true)
+        let affected = Set(value.objects.filter {
+            !focusClaimsAreConsistent($0) || ($0.focusQuality != .uncertain &&
+                !focusDescription($0.focusEvidence!.observation, supports: $0.focusQuality))
+        }.map(\.id))
+        guard !affected.isEmpty else { return try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts) }
+        let data = try JSONEncoder().encode(value)
+        var document = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        var objects = document["objects"] as! [[String: Any]]
+        // JSONEncoder omits nil optionals, while the model schema requires explicit nulls.
+        for index in objects.indices {
+            objects[index]["expression"] = NSNull()
+            if value.objects[index].focusEvidence == nil { objects[index]["focusEvidence"] = NSNull() }
+        }
+        for index in objects.indices where affected.contains(objects[index]["id"] as! String) {
+            objects[index]["focusQuality"] = "uncertain"
+            objects[index]["focusEvidence"] = NSNull()
+            if containsFocusClaim(objects[index]["description"] as! String) {
+                objects[index]["description"] = "Object identified as \(value.objects[index].concept)."
+            }
+            for (claimsKey, evidenceKey) in [("strengths", "strengthEvidence"), ("problems", "problemEvidence")] {
+                let claims = objects[index][claimsKey] as! [String]
+                let evidence = objects[index][evidenceKey] as! [[String: Any]]
+                let retained = claims.indices.filter {
+                    !containsFocusClaim(claims[$0]) && !containsFocusClaim(evidence[$0]["observation"] as! String)
+                }
+                objects[index][claimsKey] = retained.map { claims[$0] }
+                objects[index][evidenceKey] = retained.map { evidence[$0] }
+            }
+        }
+        document["objects"] = objects
+        // A preference may have been based on the rejected focus judgments.
+        document["preferredObjectIDs"] = [String]()
+        if let summary = value.imageSummary, containsFocusClaim(summary) { document.removeValue(forKey: "imageSummary") }
+        document["relationships"] = value.relationships.filter { !containsFocusClaim($0) }
+        let sanitized = String(decoding: try JSONSerialization.data(withJSONObject: document), as: UTF8.self)
+        return try decode(sanitized, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
+    }
+
+    private static func containsFocusClaim(_ text: String) -> Bool {
+        text.range(of: #"(?i)sharp|crisp|focus|blur|smear|indistinct|soft|resolv|detail|texture|defined|definition"#, options: .regularExpression) != nil
     }
 
     static func focusClaimsAreConsistent(_ object: ObjectAssessment) -> Bool {
@@ -102,11 +152,11 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         switch quality {
         case .sharp:
             let resolvedDetail = text.range(
-                of: #"\b(?:clearly|distinctly|well) (?:resolved|defined)\b|\b(?:distinct|well-defined) edges\b"#,
+                of: #"\b(?:clearly|distinctly|well)[ -](?:resolved|defined)\b|\bdistinct edges\b"#,
                 options: .regularExpression,
             ) != nil
             let unsupported = text.range(
-                of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)\s+)?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
+                of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)[ -])?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
                 options: .regularExpression,
             ) != nil
             return (mentionsSharp(text) || resolvedDetail) && !mentionsBlur(text) && !unsupported
