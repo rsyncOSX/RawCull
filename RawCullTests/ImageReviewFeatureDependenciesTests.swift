@@ -4,7 +4,7 @@ import RawCullCore
 import Testing
 
 @MainActor
-private final class ImageReviewFeatureActionsSpy: ImageReviewFeatureActions {
+private final class ImageReviewFeatureActionsSpy: ImageReviewSelectionActing, ImageReviewRatingProviding, ImageReviewRatingActing {
     var selectedFileID: FileItem.ID?
     var taggedNamesCache: Set<String> = []
     var ratings: [FileItem.ID: Int] = [:]

@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 
+/// Kind is a phantom type that keeps IDs from different review domains distinct.
 nonisolated struct ReviewID<Kind: Sendable>: RawRepresentable, Codable, Hashable, Sendable {
     let rawValue: String
 }
