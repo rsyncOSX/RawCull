@@ -12,7 +12,7 @@ struct AISettingsTab: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Enable Combined Review", isOn: $model.combinedReviewEnabled)
                             .toggleStyle(.switch)
-                        Text("Show Combined Review in AI Analysis. Turning it off cancels an active review and keeps saved results.")
+                        Text("Enable the Combined Review toolbar button. Turning it off cancels an active review and keeps saved results.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }

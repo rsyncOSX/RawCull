@@ -10,6 +10,7 @@ import SwiftUI
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
     let semanticSearchFeature: RawCullSemanticSearchFeature
+    let combinedReviewEnabled: Bool
     let isDisabled: Bool
     let toggleMetadataPanel: () -> Void
 
@@ -166,15 +167,19 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label {
                         Text("Combined Review")
                     } icon: {
-                        HStack(spacing: 2) {
-                            Image(systemName: "sparkles.rectangle.stack")
-                            Image(systemName: "plus")
-                                .font(.caption2.weight(.bold))
-                        }
+                        Image(systemName: "sparkles.rectangle.stack")
+                            .overlay(alignment: .topTrailing) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.caption2.weight(.bold))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.background, .primary)
+                                    .offset(x: 3, y: -3)
+                            }
                     }
                 }
                 .help("Combined Review")
                 .disabled(isDisabled ||
+                    !combinedReviewEnabled ||
                     viewModel.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     viewModel.mainViewMode == .combinedReview ||
