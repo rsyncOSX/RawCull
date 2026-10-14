@@ -63,6 +63,7 @@ nonisolated struct ReviewFileSnapshot: Codable, Equatable, Sendable {
     let url: URL
     let displayName: String
     let fingerprint: String
+    var normalizedAFPoint: CGPoint? = nil
 
     static func fingerprint(_ url: URL) throws -> String {
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
@@ -93,10 +94,10 @@ nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
 
 /// A pipeline contract may intentionally retain unchanged stage schemas.
 nonisolated enum ReviewPipelineContract {
-    static let version = "combined-v21"
+    static let version = "combined-v22"
     static let renderVersion = "review-srgb-v1"
     static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
-        ($0, [.reconciliation, .report, .comparison].contains($0) ? "combined-v21" : $0 == .overview ? "combined-v10" : $0 == .cropObservation ? "combined-v21" : [.segmentation, .identity, .measurement].contains($0) ? "combined-v6" : "combined-v1")
+        ($0, [.reconciliation, .report, .comparison].contains($0) ? "combined-v22" : $0 == .overview ? "combined-v10" : $0 == .cropObservation ? "combined-v21" : $0 == .measurement ? "combined-v7" : [.segmentation, .identity].contains($0) ? "combined-v6" : "combined-v1")
     })
 
     static func validate(_ snapshot: ReviewRunSnapshot) throws {
@@ -169,6 +170,9 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
             fields["registration"] = ReviewMaskRegistration.version
             fields["maskContract"] = SubjectMaskContract.version
             fields["scorerSemantics"] = SubjectMaskFocusScorer.semanticsVersion
+        }
+        if let point = image.normalizedAFPoint {
+            fields["autofocusPoint"] = "\(point.x),\(point.y)"
         }
         if stage == .comparison {
             fields["selection"] = snapshot.files.sorted { $0.id.rawValue < $1.id.rawValue }.map { $0.id.rawValue + ":" + $0.fingerprint }.joined(separator: "|")

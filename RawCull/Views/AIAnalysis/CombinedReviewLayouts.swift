@@ -436,17 +436,20 @@ private struct CombinedReviewColumnLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
         if bounds.width < 760 {
             let first = subviews[0].sizeThatFits(.init(width: bounds.width, height: nil))
+            let last = subviews[2].sizeThatFits(.init(width: bounds.width, height: nil))
             subviews[0].place(at: bounds.origin, proposal: .init(width: bounds.width, height: first.height))
             subviews[1].place(at: bounds.origin, proposal: .zero)
             subviews[2].place(at: CGPoint(x: bounds.minX, y: bounds.minY + first.height + 20),
-                              proposal: .init(width: bounds.width, height: nil))
+                              proposal: .init(width: bounds.width, height: last.height))
         } else {
             let (left, right) = widths(bounds.width)
-            subviews[0].place(at: bounds.origin, proposal: .init(width: left, height: nil))
+            let first = subviews[0].sizeThatFits(.init(width: left, height: nil))
+            let last = subviews[2].sizeThatFits(.init(width: right, height: nil))
+            subviews[0].place(at: bounds.origin, proposal: .init(width: left, height: first.height))
             subviews[1].place(at: CGPoint(x: bounds.minX + left, y: bounds.minY),
                               proposal: .init(width: dividerWidth, height: bounds.height))
             subviews[2].place(at: CGPoint(x: bounds.minX + left + dividerWidth, y: bounds.minY),
-                              proposal: .init(width: right, height: nil))
+                              proposal: .init(width: right, height: last.height))
         }
     }
 }

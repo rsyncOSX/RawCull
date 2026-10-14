@@ -232,7 +232,9 @@ extension CombinedReviewFeature {
             limitation(reason)
         }
         limitation("Eye localization unavailable. Head and subject masks do not establish eye detail.")
-        limitation("AF mapping is unavailable for this review; focus measurements use subject masks without an AF point.")
+        if file.normalizedAFPoint == nil {
+            limitation("AF mapping is unavailable for this review; focus measurements use subject masks without an AF point.")
+        }
         limitation("Exposure and crop suggestions are hypotheses; no rendered edit has been evaluated. RAW recovery is untested.")
         let overviewInput = await retain(source.overview)
         result?.overviewInputReference = overviewInput
@@ -435,7 +437,7 @@ extension CombinedReviewFeature {
                       mask.width == technical.image.width, mask.height == technical.image.height,
                       let contract = subject.maskContract else { throw SubjectMaskDecodingError.unsafeRegistration }
                 try contract.validate(mask: mask, sourceIdentity: source.metadata.identity)
-                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
+                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: file.normalizedAFPoint) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
                 var values = ["subjectDetail": Double(measured.finalScore), "fineDetail": Double(measured.fineDetailScore), "maskCoverage": Double(measured.maskCoverage)]
                 guard measured.scorerVersion == SubjectMaskFocusScorer.semanticsVersion else { throw ReviewRunError.incompatible }
                 if let count = measured.foregroundCount {
@@ -467,6 +469,9 @@ extension CombinedReviewFeature {
                 }
                 if let local = measured.localDetailScore {
                     values["localDetail"] = Double(local)
+                }
+                if let inside = measured.autofocusInsideMask {
+                    values["autofocusInsideMask"] = inside ? 1 : 0
                 }
                 guard values.values.allSatisfy(\.isFinite) else { throw ReviewValidationIssue(.maskDecoding, "measurement.finiteValues", field: "values") }
                 return try .init(scorerVersion: measured.scorerVersion, maskContract: contract, foregroundBounds: measured.foregroundBounds, id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
