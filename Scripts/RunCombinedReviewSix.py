@@ -10,6 +10,11 @@ import tempfile
 import threading
 
 
+def manifest_id(value):
+    """Current Swift IDs encode as strings; accept older rawValue envelopes too."""
+    return value if isinstance(value, str) else value['rawValue']
+
+
 def progress_message(output):
     """Read persisted image outcomes; progress never implies test acceptance."""
     try:
@@ -17,11 +22,11 @@ def progress_message(output):
         if not paths:
             return None
         run = json.loads(paths[0].read_text())['value']
-        files = sorted(run['snapshot']['files'], key=lambda file: file['id']['rawValue'])
+        files = sorted(run['snapshot']['files'], key=lambda file: manifest_id(file['id']))
         terminal = {'completed', 'failed', 'skipped'}
-        finished = {item['imageID']['rawValue'] for item in run['work']
+        finished = {manifest_id(item['imageID']) for item in run['work']
                     if item['stage'] == 'report' and item['state'] in terminal}
-        remaining = [file for file in files if file['id']['rawValue'] not in finished]
+        remaining = [file for file in files if manifest_id(file['id']) not in finished]
         if not remaining:
             return f'Image reviews finished: {len(files)} out of {len(files)}; running comparison and final checks.'
         return f'Running {len(files) - len(remaining) + 1} out of {len(files)}: {remaining[0]["displayName"]}'
