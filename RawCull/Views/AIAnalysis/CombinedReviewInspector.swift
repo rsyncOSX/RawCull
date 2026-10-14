@@ -37,14 +37,17 @@ struct CombinedReviewInspector: View {
             }
             if let image, let source {
                 CombinedReviewInspectionCanvas(image: image, tint: tint, sourceSize: CGSize(width: source.width, height: source.height), region: region)
-                    .frame(height: 320)
+                    .aspectRatio(CGFloat(source.width) / CGFloat(source.height), contentMode: .fit)
+                    .clipped()
+                    .allowsHitTesting(false)
                 Text("Mask tint: cyan. Rectangles: requested yellow, padded orange, clipped green, encoder-retained pink.").font(.caption)
             } else {
                 Text("Retained overview unavailable.")
             }
             if let region {
                 if let crop {
-                    Image(decorative: crop, scale: 1).resizable().scaledToFit().frame(maxHeight: 240)
+                    Image(decorative: crop, scale: 1).resizable().scaledToFit().frame(maxHeight: 360)
+                        .clipped().allowsHitTesting(false)
                 } else {
                     Text("Retained crop unavailable: compact retention, eviction or cleanup.")
                 }
@@ -98,9 +101,11 @@ struct CombinedReviewInspector: View {
                 tint = loaded
             }
         }
-        .task(id: region?.id) {
-            crop = nil
+        .onChange(of: regionID, initial: true) { _, _ in
             subjectID = region?.subjectID?.rawValue ?? ""
+        }
+        .task(id: region?.inputReference) {
+            crop = nil
             if let region {
                 if let key = region.inputReference {
                     let loaded = await feature.exactInput(key)

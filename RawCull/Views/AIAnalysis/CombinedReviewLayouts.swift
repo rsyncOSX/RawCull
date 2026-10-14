@@ -12,24 +12,15 @@ struct CombinedReviewPhotoLayout: View {
     @State private var chooseRegion = false
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                CombinedReviewPhotoPreview(
-                    feature: feature, inputKey: result.overviewInputReference, source: result.source,
-                    regions: result.regions, showRegions: $showRegions, chooseRegion: $chooseRegion,
-                    canChooseRegion: canChooseRegion, inspect: inspect,
-                ).frame(minWidth: 420, maxWidth: .infinity)
-                CombinedReviewSummary(presentation: presentation, inspectFinding: inspectFinding, showEvidence: showEvidence)
-                    .frame(width: 330)
-            }
-            VStack(alignment: .leading, spacing: 20) {
-                CombinedReviewPhotoPreview(
-                    feature: feature, inputKey: result.overviewInputReference, source: result.source,
-                    regions: result.regions, showRegions: $showRegions, chooseRegion: $chooseRegion,
-                    canChooseRegion: canChooseRegion, inspect: inspect,
-                )
-                CombinedReviewSummary(presentation: presentation, inspectFinding: inspectFinding, showEvidence: showEvidence)
-            }
+        CombinedReviewResizableColumns(leadingFraction: 0.68) {
+            CombinedReviewPhotoPreview(
+                feature: feature, inputKey: result.overviewInputReference, source: result.source,
+                regions: result.regions, showRegions: $showRegions, chooseRegion: $chooseRegion,
+                canChooseRegion: canChooseRegion, inspect: inspect,
+            ).frame(maxWidth: .infinity, alignment: .topLeading)
+        } trailing: {
+            CombinedReviewSummary(presentation: presentation, inspectFinding: inspectFinding, showEvidence: showEvidence)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 }
@@ -88,8 +79,9 @@ private struct CombinedReviewPhotoPreview: View {
                     ContentUnavailableView("Review preview unavailable", systemImage: "photo",
                                            description: Text("Exact inputs were not retained, were evicted, or have been cleared. Findings remain available."))
                 }
-            }.frame(height: 380)
-                .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
+            }
+            .aspectRatio(image.map { CGFloat($0.width) / CGFloat($0.height) } ?? 1.5, contentMode: .fit)
+            .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
             if let source {
                 Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
                     .font(.caption).foregroundStyle(.secondary)
@@ -215,17 +207,12 @@ struct CombinedReviewEvidenceLayout: View {
         VStack(alignment: .leading, spacing: 16) {
             switch topic {
             case .findings:
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 24) {
-                        CombinedReviewFindingsList(findings: presentation.findings, selectedID: selectedFindingID,
-                                                   select: selectFinding).frame(minWidth: 320, maxWidth: .infinity)
-                        CombinedReviewEvidenceInspector(feature: feature, result: result, regionID: $selectedRegionID)
-                            .frame(minWidth: 400, maxWidth: .infinity)
-                    }
-                    VStack(alignment: .leading, spacing: 20) {
-                        CombinedReviewFindingsList(findings: presentation.findings, selectedID: selectedFindingID, select: selectFinding)
-                        CombinedReviewEvidenceInspector(feature: feature, result: result, regionID: $selectedRegionID)
-                    }
+                CombinedReviewResizableColumns(leadingFraction: 0.38) {
+                    CombinedReviewFindingsList(findings: presentation.findings, selectedID: selectedFindingID,
+                                               select: selectFinding).frame(maxWidth: .infinity, alignment: .topLeading)
+                } trailing: {
+                    CombinedReviewEvidenceInspector(feature: feature, result: result, regionID: $selectedRegionID)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
                 if let finding = presentation.findings.first(where: { $0.id == selectedFindingID }) {
                     CombinedReviewFindingEvidence(finding: finding, result: result, inspect: inspect)
@@ -382,6 +369,84 @@ private struct CombinedReviewRecordCopy: View {
         .onChange(of: result.file.id) { _, _ in
             showRecord = false
             message = nil
+        }
+    }
+}
+
+/// A SwiftUI layout keeps intrinsic height inside the review's vertical scroll view.
+private struct CombinedReviewResizableColumns<Leading: View, Trailing: View>: View {
+    let leadingFraction: CGFloat
+    @ViewBuilder let leading: () -> Leading
+    @ViewBuilder let trailing: () -> Trailing
+    @State private var offset: CGFloat = 0
+    @State private var dragStart: CGFloat?
+
+    var body: some View {
+        CombinedReviewColumnLayout(leadingFraction: leadingFraction, offset: offset) {
+            leading()
+            Rectangle().fill(.quaternary)
+                .overlay { Image(systemName: "line.3.horizontal").rotationEffect(.degrees(90)).font(.caption2).foregroundStyle(.secondary) }
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                    if dragStart == nil {
+                        dragStart = offset
+                    }
+                    offset = (dragStart ?? 0) + value.translation.width
+                }.onEnded { _ in dragStart = nil })
+                .accessibilityLabel("Resize review columns")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: offset += 40
+                    case .decrement: offset -= 40
+                    @unknown default: break
+                    }
+                }
+                .help("Drag to resize the review columns")
+            trailing()
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct CombinedReviewColumnLayout: Layout {
+    let leadingFraction: CGFloat
+    let offset: CGFloat
+    private let dividerWidth: CGFloat = 12
+    private let minimumPaneWidth: CGFloat = 320
+
+    private func widths(_ width: CGFloat) -> (CGFloat, CGFloat) {
+        let usable = max(0, width - dividerWidth)
+        let leading = min(max(usable * leadingFraction + offset, minimumPaneWidth), usable - minimumPaneWidth)
+        return (leading, usable - leading)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let width = proposal.width ?? 1024
+        if width < 760 {
+            let first = subviews[0].sizeThatFits(.init(width: width, height: nil))
+            let last = subviews[2].sizeThatFits(.init(width: width, height: nil))
+            return CGSize(width: width, height: first.height + 20 + last.height)
+        }
+        let (left, right) = widths(width)
+        let first = subviews[0].sizeThatFits(.init(width: left, height: nil))
+        let last = subviews[2].sizeThatFits(.init(width: right, height: nil))
+        return CGSize(width: width, height: max(first.height, last.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        if bounds.width < 760 {
+            let first = subviews[0].sizeThatFits(.init(width: bounds.width, height: nil))
+            subviews[0].place(at: bounds.origin, proposal: .init(width: bounds.width, height: first.height))
+            subviews[1].place(at: bounds.origin, proposal: .zero)
+            subviews[2].place(at: CGPoint(x: bounds.minX, y: bounds.minY + first.height + 20),
+                              proposal: .init(width: bounds.width, height: nil))
+        } else {
+            let (left, right) = widths(bounds.width)
+            subviews[0].place(at: bounds.origin, proposal: .init(width: left, height: nil))
+            subviews[1].place(at: CGPoint(x: bounds.minX + left, y: bounds.minY),
+                              proposal: .init(width: dividerWidth, height: bounds.height))
+            subviews[2].place(at: CGPoint(x: bounds.minX + left + dividerWidth, y: bounds.minY),
+                              proposal: .init(width: right, height: nil))
         }
     }
 }

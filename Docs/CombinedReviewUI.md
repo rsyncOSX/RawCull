@@ -9,8 +9,10 @@ analysis tool to leave room for the image and findings.
 Inspect evidence opens the Evidence workspace, selects the finding and resolves
 its supporting crop from the finding's region or cited observation. Findings,
 Coverage & limits and Technical record are separate sections. Returning to
-Photo-first keeps the selected image, region and rating. Layouts stack in narrower
-windows. The image picker also exposes saved reviews outside the current input
+Photo-first keeps the selected image, region and rating. Both modes have draggable column dividers; resizing the photo or evidence pane
+resizes the adjacent column. Overview images preserve their aspect ratio and grow
+with the pane width. Layouts stack in narrower windows based on container width,
+so loading a retained crop does not switch layouts or interrupt Region selection. The image picker also exposes saved reviews outside the current input
 selection; ratings are available only for files in the current input selection.
 
 Review settings, retention cleanup, selection comparison and run diagnostics

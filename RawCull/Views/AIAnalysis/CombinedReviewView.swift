@@ -227,7 +227,7 @@ private struct CombinedReviewModePicker: View {
     var body: some View {
         Picker("Review presentation", selection: $mode) {
             ForEach(CombinedReviewMode.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-        }.pickerStyle(.segmented).frame(maxWidth: 340)
+        }.pickerStyle(.segmented).labelsHidden().frame(width: 340)
     }
 }
 
