@@ -20,6 +20,29 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         expectedLocations: [],
     )
     let modelDownloadsModel: RawCullAIModelDownloadsModel
+    let physicalMemory: UInt64
+    var isShowingCombinedReviewGuidance = false
+
+    var canEnableCombinedReview: Bool { physicalMemory >= 16 * 1024 * 1024 * 1024 }
+    var shouldWarnAboutCombinedReviewMemory: Bool { physicalMemory < 32 * 1024 * 1024 * 1024 }
+    var memoryInGB: Double { Double(physicalMemory) / (1024 * 1024 * 1024) }
+
+    /// Keep the feature off until the person has read and accepted the guidance.
+    var combinedReviewToggle: Bool {
+        get { combinedReviewEnabled }
+        set {
+            if newValue {
+                isShowingCombinedReviewGuidance = true
+            } else {
+                combinedReviewEnabled = false
+            }
+        }
+    }
+
+    func confirmCombinedReviewEnabled() {
+        combinedReviewEnabled = canEnableCombinedReview
+        isShowingCombinedReviewGuidance = false
+    }
 
     var combinedReviewEnabled: Bool {
         didSet {
@@ -85,11 +108,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         rawCullVersion: String? = nil,
         qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
         objectAnalysisFeature: RawCullObjectAnalysisFeature? = nil,
+        physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
     ) {
         self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
-        self.combinedReviewEnabled = userDefaults.object(forKey: Self.combinedReviewEnabledPreferenceKey) == nil
-            ? true : userDefaults.bool(forKey: Self.combinedReviewEnabledPreferenceKey)
+        self.physicalMemory = physicalMemory
+        self.combinedReviewEnabled = physicalMemory >= 16 * 1024 * 1024 * 1024
+            && userDefaults.bool(forKey: Self.combinedReviewEnabledPreferenceKey)
         self.qwenAnalysisFeature = qwenAnalysisFeature
             ?? RawCullQwenAnalysisFeature(
                 inference: modelRuntime.qwenInference,
