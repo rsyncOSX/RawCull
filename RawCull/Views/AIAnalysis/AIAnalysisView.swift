@@ -38,7 +38,6 @@ struct AIAnalysisView: View {
         VStack(spacing: 0) {
             // Header & Control Bar
             VStack(spacing: 12) {
-                AIAnalysisHeader()
 
                 HStack(spacing: 16) {
                     Picker("Analysis Tool", selection: $selectedTool) {
@@ -197,21 +196,6 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     }
 }
 
-private struct AIAnalysisHeader: View {
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("AI Analysis")
-                    .font(.title3.weight(.bold))
-                Text("Analyze selected or tagged batch items using local vision models.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-}
-
 struct AIAnalysisThumbnailStrip: View {
     @Bindable var viewModel: RawCullViewModel
     let files: [FileItem]
@@ -305,10 +289,10 @@ struct CombinedReviewWorkspaceView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Combined Review")
-                    .font(.title3.weight(.bold))
+                
                 Spacer()
-                Picker("Image source", selection: $inputSource) {
+                
+                Picker("", selection: $inputSource) {
                     Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                         .tag(AIAnalysisInputSource.gridSelection)
                     Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
@@ -317,6 +301,8 @@ struct CombinedReviewWorkspaceView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
                 .disabled(feature.isRunning)
+                
+                Spacer()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
