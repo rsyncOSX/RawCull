@@ -26,12 +26,7 @@ struct DeepAIReviewSheetView: View {
                 onCancel: controller.cancel,
             )
 
-            HStack {
-                SAM3ModelAvailabilityView(status: controller.modelStatus)
-                Spacer()
-            }
-
-            Divider()
+            // SAM3ModelAvailabilityView(status: controller.modelStatus)
 
             DeepAIReviewSheetContent(
                 controller: controller,
@@ -103,7 +98,7 @@ private struct DeepAIReviewSheetControls: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Picker("Review target", selection: $controller.preset) {
+            Picker("", selection: $controller.preset) {
                 Text("Auto").tag(DeepAIReviewPreset.auto)
                 Text("Full Subject").tag(DeepAIReviewPreset.fullSubject)
                 Text("Head / Face").tag(DeepAIReviewPreset.headFace)
@@ -115,15 +110,20 @@ private struct DeepAIReviewSheetControls: View {
 
             Spacer()
 
-            if controller.isRunning {
-                Button("Cancel", role: .cancel, action: onCancel)
-                    .buttonStyle(.bordered)
-                    .accessibilityHint("Cancels the active Deep Review.")
-            } else {
-                Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canRun)
-                    .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
+            HStack {
+                
+                SAM3ModelAvailabilityView(status: controller.modelStatus)
+                
+                if controller.isRunning {
+                    Button("Cancel", role: .cancel, action: onCancel)
+                        .buttonStyle(.bordered)
+                        .accessibilityHint("Cancels the active Deep Review.")
+                } else {
+                    Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!canRun)
+                        .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
+                }
             }
         }
     }
