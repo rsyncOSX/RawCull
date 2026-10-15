@@ -31,8 +31,6 @@ struct DeepAIReviewSheetView: View {
                 Spacer()
             }
 
-            Text("Ranking confidence describes relative score separation. Detail scores are local measurements, not overall photographic quality. A requested head or face mask does not verify anatomy. Preview processing and resizing limit fine detail.")
-                .font(.caption).foregroundStyle(.secondary)
             Divider()
 
             DeepAIReviewSheetContent(
