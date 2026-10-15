@@ -43,7 +43,7 @@ actor ExtractAndSaveJPGs {
     private var filteredFilesURLs: [URL]?
     private let destinationCatalogURL: URL?
     private let exportMode: ExtractJPGExportMode
-    private let previewLoader: any FullSizePreviewLoading
+    private let embeddedExportLoader: any EmbeddedJPGExportLoading
     private let saveHandler: @Sendable (Data, URL, URL, ExtractJPGExportMode) async throws -> Void
     private var failures: [JPGExportFailure] = []
 
@@ -54,7 +54,7 @@ actor ExtractAndSaveJPGs {
         files: [FileItem],
         destinationCatalogURL: URL,
         exportMode: ExtractJPGExportMode,
-        previewLoader: any FullSizePreviewLoading = FullSizePreviewLoader.shared,
+        embeddedExportLoader: any EmbeddedJPGExportLoading = EmbeddedJPGExportLoader(),
         saveHandler: @escaping @Sendable (Data, URL, URL, ExtractJPGExportMode) async throws -> Void = {
             data, source, destination, mode in
             try await SaveJPGImage().save(
@@ -68,7 +68,7 @@ actor ExtractAndSaveJPGs {
         Logger.process.debugMessageOnly("ExtractAndSaveJPGs.init()")
         self.destinationCatalogURL = destinationCatalogURL
         self.exportMode = exportMode
-        self.previewLoader = previewLoader
+        self.embeddedExportLoader = embeddedExportLoader
         self.saveHandler = saveHandler
         if !files.isEmpty {
             filteredFilesURLs = files.map(\.url)
@@ -147,21 +147,13 @@ actor ExtractAndSaveJPGs {
         await updateEstimatedTime(itemsProcessed: completedCount)
     }
 
-    private func embeddedJPEGImage(from url: URL) async -> CGImage? {
-        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.embeddedJPEGImage()")
-        return await previewLoader.loadEmbeddedPreview(for: url)
-    }
-
     private func exportFailureMessage(for url: URL) async -> String? {
         Logger.process.debugMessageOnly("ExtractAndSaveJPGs.exportFailureMessage()")
         let jpegData: Data
         switch exportMode {
         case .embeddedJPG:
-            guard let cgImage = await embeddedJPEGImage(from: url) else {
-                return "Could not decode the embedded JPG preview."
-            }
-            guard let data = SaveJPGImage.jpegData(from: cgImage) else {
-                return "Could not encode the embedded JPG preview."
+            guard let data = await embeddedExportLoader.jpegData(for: url) else {
+                return "Could not extract the embedded JPG preview."
             }
             jpegData = data
 

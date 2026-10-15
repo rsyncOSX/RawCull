@@ -320,9 +320,6 @@ struct CullingGridView<Header: View>: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .onKeyPress(characters: CharacterSet(charactersIn: "\rBb2RrUu")) { press in
-            handleBurstKeyPress(press.characters)
-        }
         .onKeyPress(.escape) {
             if viewModel.showsBurstGroups {
                 viewModel.similarityFeature.burstModeActive = false
@@ -343,6 +340,7 @@ struct CullingGridView<Header: View>: View {
             viewModel: viewModel,
             axis: .grid,
             files: { visibleSelectionFiles },
+            onBurstKeyPress: handleBurstKeyPress,
         )
     }
 

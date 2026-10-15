@@ -15,8 +15,8 @@ private func makeExtractJPGTestFile(_ name: String) -> FileItem {
     )
 }
 
-private nonisolated struct MissingEmbeddedPreviewLoader: FullSizePreviewLoading {
-    func loadEmbeddedPreview(for _: URL) async -> CGImage? {
+private nonisolated struct MissingEmbeddedPreviewLoader: EmbeddedJPGExportLoading {
+    func jpegData(for _: URL) async -> Data? {
         nil
     }
 }
@@ -159,7 +159,7 @@ struct ExtractJPGsOutputURLTests {
             files: files,
             destinationCatalogURL: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
             exportMode: .embeddedJPG,
-            previewLoader: MissingEmbeddedPreviewLoader(),
+            embeddedExportLoader: MissingEmbeddedPreviewLoader(),
         )
         let handlers = await CreateFileHandlers().createFileHandlers(
             fileHandler: { recorder.completed.append($0) },

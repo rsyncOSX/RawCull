@@ -1,5 +1,7 @@
 import AppKit
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 @testable import RawCull
 import RawCullCore
 import Testing
@@ -305,5 +307,52 @@ struct RawImageLoadingIntegrationTests {
         #expect(file.exifData?.exposureCompensationEV == -0.3)
         #expect(await fakeLoader.fileMetadataCalls == 1)
         #expect(await scanner.decodedFocusPoints?.first?.focusLocation == "8640 5760 4320 2880")
+    }
+}
+
+struct EmbeddedJPGExportLoaderTests {
+    private func syntheticRAW(containing jpeg: Data) -> Data {
+        func le16(_ value: UInt16) -> [UInt8] {
+            [UInt8(truncatingIfNeeded: value), UInt8(truncatingIfNeeded: value >> 8)]
+        }
+        func le32(_ value: UInt32) -> [UInt8] {
+            (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) }
+        }
+        var bytes: [UInt8] = [0x49, 0x49, 0x2a, 0]
+        bytes += le32(8)
+        bytes += le16(2)
+        for (tag, value): (UInt16, UInt32) in [(0x0111, 38), (0x0117, UInt32(jpeg.count))] {
+            bytes += le16(tag) + le16(4) + le32(1) + le32(value)
+        }
+        bytes += le32(0)
+        return Data(bytes) + jpeg
+    }
+
+    @Test
+    func `embedded export ignores sidecars and preserves standalone JPEG bytes`() async throws {
+        let root = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rawURL = root.appendingPathComponent("photo.ARW")
+        let image = try makeRawImageLoadingTestCGImage()
+        let bytes = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(bytes, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        let original = bytes as Data
+        try Data("unrelated edited sidecar".utf8).write(to: root.appendingPathComponent("photo.jpg"))
+        try syntheticRAW(containing: original).write(to: rawURL)
+
+        let exported = await EmbeddedJPGExportLoader().jpegData(for: rawURL)
+
+        #expect(exported == original)
+    }
+
+    @Test
+    func `missing embedded pixels do not fall back to a sidecar`() async throws {
+        let root = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("sidecar".utf8).write(to: root.appendingPathComponent("photo.jpg"))
+        let exported = await EmbeddedJPGExportLoader().jpegData(for: root.appendingPathComponent("photo.ARW"))
+        #expect(exported == nil)
     }
 }
