@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct RawCullMainView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
@@ -171,6 +172,19 @@ struct RawCullMainView: View {
             Text(
                 "This will rescore sharpness and recompute similarity for all \(viewModel.files.count) catalog files. It may take several minutes. Clear Search never performs this operation.",
             )
+        }
+        .transaction { transaction in
+            if reduceMotion {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
+        .onChange(of: reduceMotion) { _, reduced in
+            if reduced {
+                memoryWarningOpacity = 0.8
+            } else if viewModel.memoryPressureWarning {
+                startMemoryWarningFlash()
+            }
         }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
@@ -478,6 +492,10 @@ struct RawCullMainView: View {
     }
 
     private func startMemoryWarningFlash() {
+        guard !reduceMotion else {
+            memoryWarningOpacity = 0.8
+            return
+        }
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             memoryWarningOpacity = 0.8
         }

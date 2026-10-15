@@ -178,6 +178,7 @@ private struct SemanticResultRankBadgeView: View {
 }
 
 struct ImageItemView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var viewModel: RawCullViewModel
 
     @State private var isHovered = false
@@ -300,8 +301,8 @@ struct ImageItemView: View {
                 .fill(isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.16 : 0.12) : Color.clear),
         )
         .shadow(color: .black.opacity(isSelectionHighlighted ? 0.18 : 0.28), radius: isSelectionHighlighted ? 1 : 3, y: 1)
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .scaleEffect(isHovered && !reduceMotion ? 1.02 : 1.0)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .onTapGesture(count: 2) { onDoubleSelect() }

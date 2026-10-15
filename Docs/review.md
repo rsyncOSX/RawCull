@@ -152,7 +152,7 @@ A sibling visual label does not explicitly name the slider.
 
 ### 14. P2 — Important animations ignore Reduce Motion
 
-**Status:** Open. **Location:** `RawCullMainView.startMemoryWarningFlash`, thumbnail hover and scrolling.
+**Status:** Implemented. The main review subtree disables explicit/implicit animation transactions when Reduce Motion is enabled, including programmatic scrolling and transitions. Memory warnings use stable emphasis, react to preference changes, and thumbnail hover scaling is suppressed. Xcode compiled the UI and passed keyboard/thumbnail regression suites. Manual preference-toggle/VoiceOver UI verification remains a release check. **Location:** `RawCullMainView.startMemoryWarningFlash`, thumbnail hover and scrolling.
 
 **Fix:** Read accessibilityReduceMotion at the consuming views. Replace perpetual flashing/scale motion with a stable warning or restrained nonmoving emphasis; disable animated programmatic scrolling when requested. Apply the policy consistently rather than removing all feedback.
 
@@ -242,3 +242,7 @@ Fixed finding 7. Xcode passed scan admission/progress/cancellation and existing 
 ### Per-file thumbnail readiness
 
 Fixed finding 8. Native processing completes before a file is released; overlapping preload sessions remain independent and stale completion signals are ignored. Tests exposed and verified a correction for equivalent catalog URLs with different directory-slash representations. Xcode passed the selected gate/thumbnail suites. Allowance before this update: 46% of the five-hour window, 66% weekly.
+
+### Reduce Motion
+
+Fixed finding 14 with a review-subtree transaction policy plus explicit stable warning/hover behavior. No implementation-mirroring tests were added for this appearance-only change; the UI build and existing keyboard/thumbnail regressions passed. Allowance before this update: 34% of the five-hour window, 64% weekly.
