@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FileRecordDetailView: View {
-    let record: FileRecord
+    let record: SavedFileDetailPresentation
 
     var body: some View {
         ScrollView {
@@ -12,9 +12,9 @@ struct FileRecordDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     SavedFilesSectionHeader(title: "File Details")
 
-                    DetailRow(icon: "tag.fill", label: "Date Tagged", value: record.dateTagged ?? "—")
+                    DetailRow(icon: "tag.fill", label: "Date Tagged", value: record.dateTagged)
                     Divider()
-                    DetailRow(icon: "arrow.right.doc.on.clipboard", label: "Date Copied", value: record.dateCopied ?? "—")
+                    DetailRow(icon: "arrow.right.doc.on.clipboard", label: "Date Copied", value: record.dateCopied)
                     Divider()
 
                     HStack(alignment: .center) {
@@ -46,23 +46,23 @@ struct FileRecordDetailView: View {
                         .fill(Color(NSColor.controlBackgroundColor)),
                 )
 
-                if record.sharpnessScore != nil || record.saliencySubject != nil {
+                if record.sharpness != nil || record.subject != nil {
                     VStack(alignment: .leading, spacing: 12) {
                         SavedFilesSectionHeader(title: "Sharpness Analysis")
 
-                        if let score = record.sharpnessScore {
+                        if let score = record.sharpness {
                             DetailRow(
                                 icon: "viewfinder.circle",
                                 label: "Sharpness",
-                                value: String(format: "%.2f", score),
+                                value: score,
                             )
                         }
 
-                        if record.sharpnessScore != nil, record.saliencySubject != nil {
+                        if record.sharpness != nil, record.subject != nil {
                             Divider()
                         }
 
-                        if let subject = record.saliencySubject {
+                        if let subject = record.subject {
                             HStack(alignment: .center) {
                                 Image(systemName: "eye")
                                     .foregroundStyle(.secondary)
@@ -106,7 +106,7 @@ struct FileRecordDetailView: View {
                     .foregroundStyle(Color.accentColor)
             }
 
-            Text(record.fileName ?? "Unnamed File")
+            Text(record.name)
                 .font(.title3)
                 .fontWeight(.semibold)
                 .lineLimit(2)

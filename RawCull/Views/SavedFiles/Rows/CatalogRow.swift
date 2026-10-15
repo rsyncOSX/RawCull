@@ -3,16 +3,8 @@ import SwiftUI
 struct CatalogRow: View {
     @State private var isHovered = false
 
-    let entry: SavedFiles
+    let entry: SavedCatalogPresentation
     let isSelected: Bool
-
-    private var catalogName: String {
-        entry.catalog?.lastPathComponent ?? "Unknown Catalog"
-    }
-
-    private var fileCount: Int {
-        entry.filerecords?.count ?? 0
-    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -26,13 +18,13 @@ struct CatalogRow: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(catalogName)
+                Text(entry.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .foregroundStyle(isSelected ? Color.accentColor : .primary)
 
-                if let dateStart = entry.dateStart, !dateStart.isEmpty {
-                    Text(dateStart)
+                if let dateStarted = entry.dateStarted {
+                    Text(dateStarted)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -40,7 +32,7 @@ struct CatalogRow: View {
 
             Spacer()
 
-            Text("\(fileCount)")
+            Text("\(entry.fileCount)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 6)
