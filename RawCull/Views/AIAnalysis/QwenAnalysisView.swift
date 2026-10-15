@@ -221,71 +221,77 @@ private struct QwenAssessmentDetail: View {
     let result: QwenPhotoAnalysisResult?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                if let result, let assessment = result.assessment {
-                    Text(result.fileName)
-                        .font(.headline)
-                        .lineLimit(1)
+        Group {
+            if result?.assessment == nil, result?.freeformResponse == nil, result?.failure == nil {
+                ContentUnavailableView(
+                    "No Selection",
+                    systemImage: "photo",
+                    description: Text("Select a row in the table to inspect analysis breakdowns."),
+                )
+            } else if let failure = result?.failure,
+                      result?.assessment == nil, result?.freeformResponse == nil {
+                ContentUnavailableView(
+                    "Analysis Failed",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(failure),
+                )
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if let result, let assessment = result.assessment {
+                            Text(result.fileName)
+                                .font(.headline)
+                                .lineLimit(1)
 
-                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                        GridRow {
-                            Text("Subject")
+                            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                                GridRow {
+                                    Text("Subject")
+                                        .foregroundStyle(.secondary)
+                                    Text(assessment.subject)
+                                        .bold()
+                                }
+                                GridRow {
+                                    Text("Model confidence")
+                                        .foregroundStyle(.secondary)
+                                    Text(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))
+                                        .monospacedDigit()
+                                }
+                                GridRow {
+                                    Text("Eyes").foregroundStyle(.secondary)
+                                    Text("Unknown; anatomy unverified")
+                                }
+                            }
+                            .font(.subheadline)
+
+                            Text("Scores and confidence are model judgments. Analysis uses a thumbnail requested at up to 2048 pixels. Preview processing, resizing and model input resolution limit detail; RAW recovery is untested.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            LabeledContent("Composition evidence", value: assessment.compositionEvidence ?? "Unsupported; abstained")
+                            LabeledContent("Exposure evidence", value: assessment.exposureEvidence ?? "Unsupported; abstained")
+                            LabeledContent("Subject visibility evidence", value: assessment.subjectVisibilityEvidence ?? "Unsupported; abstained")
+                            Divider()
+
+                            QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
+                            QwenAssessmentList(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
+                        } else if let result, let response = result.freeformResponse {
+                            Text(result.fileName)
+                                .font(.headline)
+                            Text(result.failure == nil ? "Free-form Assessment" : "Rejected structured assessment")
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            Text(assessment.subject)
-                                .bold()
-                        }
-                        GridRow {
-                            Text("Model confidence")
-                                .foregroundStyle(.secondary)
-                            Text(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))
-                                .monospacedDigit()
-                        }
-                        GridRow {
-                            Text("Eyes").foregroundStyle(.secondary)
-                            Text("Unknown; anatomy unverified")
+                            if let failure = result.failure {
+                                Text(failure).foregroundStyle(.orange)
+                            }
+                            Text(response)
+                                .font(.callout)
+                                .textSelection(.enabled)
                         }
                     }
-                    .font(.subheadline)
-
-                    Text("Scores and confidence are model judgments. Analysis uses a thumbnail requested at up to 2048 pixels. Preview processing, resizing and model input resolution limit detail; RAW recovery is untested.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    LabeledContent("Composition evidence", value: assessment.compositionEvidence ?? "Unsupported; abstained")
-                    LabeledContent("Exposure evidence", value: assessment.exposureEvidence ?? "Unsupported; abstained")
-                    LabeledContent("Subject visibility evidence", value: assessment.subjectVisibilityEvidence ?? "Unsupported; abstained")
-                    Divider()
-
-                    QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
-                    QwenAssessmentList(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
-                } else if let result, let response = result.freeformResponse {
-                    Text(result.fileName)
-                        .font(.headline)
-                    Text(result.failure == nil ? "Free-form Assessment" : "Rejected structured assessment")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    if let failure = result.failure {
-                        Text(failure).foregroundStyle(.orange)
-                    }
-                    Text(response)
-                        .font(.callout)
-                        .textSelection(.enabled)
-                } else if let failure = result?.failure {
-                    ContentUnavailableView(
-                        "Analysis Failed",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(failure),
-                    )
-                } else {
-                    ContentUnavailableView(
-                        "No Selection",
-                        systemImage: "photo",
-                        description: Text("Select a row in the table to inspect analysis breakdowns."),
-                    )
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
     }
 }
