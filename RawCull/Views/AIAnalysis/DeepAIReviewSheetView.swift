@@ -14,7 +14,7 @@ struct DeepAIReviewSheetView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             DeepAIReviewSheetControls(
                 controller: controller,
                 canRun: !files.isEmpty && !controller.isActionUnavailable,
@@ -24,9 +24,8 @@ struct DeepAIReviewSheetView: View {
                     }
                 },
                 onCancel: controller.cancel,
+                imageCount: files.count,
             )
-
-            // SAM3ModelAvailabilityView(status: controller.modelStatus)
 
             DeepAIReviewSheetContent(
                 controller: controller,
@@ -43,7 +42,7 @@ struct DeepAIReviewSheetView: View {
             )
         }
         .padding(16)
-        .frame(minWidth: 1080, idealWidth: 1220, minHeight: 520, idealHeight: 640)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .interactiveDismissDisabled(controller.isRunning)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Deep Review")
@@ -95,9 +94,10 @@ private struct DeepAIReviewSheetControls: View {
     let canRun: Bool
     let onRun: () -> Void
     let onCancel: () -> Void
+    let imageCount: Int
 
     var body: some View {
-        HStack(spacing: 12) {
+        AIAnalysisControlBar {
             Picker("", selection: $controller.preset) {
                 Text("Auto").tag(DeepAIReviewPreset.auto)
                 Text("Full Subject").tag(DeepAIReviewPreset.fullSubject)
@@ -106,27 +106,23 @@ private struct DeepAIReviewSheetControls: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .accessibilityLabel("Subject target")
-            .frame(maxWidth: 420)
+            .frame(minWidth: 300, maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
 
-            Spacer()
-
-            HStack {
-                
-                SAM3ModelAvailabilityView(status: controller.modelStatus)
-                
-                if controller.isRunning {
-                    Button("Cancel", role: .cancel, action: onCancel)
-                        .buttonStyle(.bordered)
-                        .accessibilityHint("Cancels the active Deep Review.")
-                } else {
-                    Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!canRun)
-                        .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
-                }
+        } actions: {
+            if controller.isRunning {
+                Button("Cancel", systemImage: "stop.circle", role: .cancel, action: onCancel)
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Cancels the active Deep Review.")
+            } else {
+                Button("Analyze \(imageCount) Images", systemImage: "sparkles", action: onRun)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canRun)
+                    .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
             }
+        } status: {
+            SAM3ModelAvailabilityView(status: controller.modelStatus)
         }
     }
 }
@@ -145,6 +141,11 @@ private struct DeepAIReviewSheetContent: View {
         if completedCandidates.isEmpty {
             emptyContent
         } else {
+            if case let .failed(_, failure) = state {
+                AIAnalysisErrorView(message: failureMessage(failure))
+            } else if case let .unavailable(reason) = state {
+                AIAnalysisErrorView(message: reason)
+            }
             if case let .preparing(_, totalCount) = state {
                 DeepAIReviewProgressHeader(
                     completedCount: 0,
@@ -177,7 +178,7 @@ private struct DeepAIReviewSheetContent: View {
         switch state {
         case .completed:
             ContentUnavailableView(
-                "Ready to review",
+                "Ready to Analyze",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Select new images to analyze."),
             )
@@ -197,6 +198,7 @@ private struct DeepAIReviewSheetContent: View {
                 winnerID: nil,
                 selection: $selection,
             )
+            .aiAnalysisResultsContainer()
 
         case let .running(progress):
             DeepAIReviewProgressHeader(
@@ -209,12 +211,14 @@ private struct DeepAIReviewSheetContent: View {
                 winnerID: nil,
                 selection: $selection,
             )
+            .aiAnalysisResultsContainer()
 
         case .completing:
             HStack(spacing: 10) {
                 ProgressView()
                 Text("Completing Deep Review…")
-                    .font(.headline)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
 
@@ -252,7 +256,7 @@ private struct DeepAIReviewSheetContent: View {
 
         case .ready:
             ContentUnavailableView(
-                "Ready to review",
+                "Ready to Analyze",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Run local AI subject-detail analysis for this burst group."),
             )
@@ -301,7 +305,7 @@ private struct DeepAIReviewHistoryContent: View {
                 winnerID: nil,
                 selection: $selection,
             )
-            .frame(minWidth: 660)
+            .frame(minWidth: 400, idealWidth: 550)
 
             DeepAIReviewMaskPreview(
                 controller: controller,
@@ -312,6 +316,7 @@ private struct DeepAIReviewHistoryContent: View {
             )
             .frame(minWidth: 330, idealWidth: 420)
         }
+        .aiAnalysisResultsContainer()
         .task(id: candidates.map(\.fileID)) {
             if selection == nil {
                 selection = candidates.first?.fileID
@@ -347,7 +352,8 @@ private struct DeepAIReviewMaskPreview: View {
     var body: some View {
         Group {
             if let candidate, file != nil {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(candidate.fileName).font(.headline).lineLimit(1)
                     ZStack {
                         if let image {
                             DeepAIReviewImageOverlay(
@@ -370,23 +376,19 @@ private struct DeepAIReviewMaskPreview: View {
                     .background(.black, in: .rect(cornerRadius: 8))
                     .clipShape(.rect(cornerRadius: 8))
 
-                    HStack {
-                        Label(candidate.fileName, systemImage: "photo")
-                            .lineLimit(1)
-                        Spacer()
-                        Text(maskOverlayLabel)
-                            .foregroundStyle(maskOverlay == nil ? Color.orange : Color.secondary)
-                    }
-                    .font(.caption)
+                    Text(maskOverlayLabel)
+                        .foregroundStyle(maskOverlay == nil ? Color.orange : Color.secondary)
+                        .font(.caption)
                     Text("Focus map and camera AF point shown when available")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                .padding(16)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Mask preview for \(candidate.fileName)")
             } else {
                 ContentUnavailableView(
-                    "Select a Candidate",
+                    "Select an Image",
                     systemImage: "photo.badge.magnifyingglass",
                     description: Text("Select a completed row to inspect its stored subject mask."),
                 )
@@ -526,22 +528,11 @@ private struct DeepAIReviewProgressHeader: View {
     let currentFileName: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Deep reviewing subject detail")
-                    .font(.headline)
-                Spacer()
-                Text("\(completedCount) of \(totalCount)")
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            ProgressView(value: Double(completedCount), total: Double(max(totalCount, 1)))
-            if let currentFileName {
-                Text("Analyzing \(currentFileName)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
+        AIAnalysisProgressView(
+            completedCount: completedCount,
+            totalCount: totalCount,
+            message: currentFileName.map { "Analyzing \($0)" } ?? "Preparing subject-detail analysis…",
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Deep Review progress")
         .accessibilityValue(progressAccessibilityValue)
