@@ -132,6 +132,23 @@ struct ObjectAnalysisBoundaryTests {
         #expect(object.strengthEvidence.map(\.observation) == ["Orange wing markings"])
     }
 
+    @Test(arguments: ["sharp", "soft", "blurred"])
+    func `Final retry abstains when focus evidence is explicitly null`(quality: String) throws {
+        let response = focusResponse(observation: "Subject feather edges are crisp.")
+            .replacingOccurrences(of: #""focusQuality":"sharp""#, with: "\"focusQuality\":\"\(quality)\"")
+            .replacingOccurrences(of: #""focusEvidence":{"cropID":"1","observation":"Subject feather edges are crisp."}"#,
+                                  with: #""focusEvidence":null"#)
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"])
+        }
+        let result = try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"])
+        let object = try #require(result.objects.first)
+        #expect(object.focusQuality == .uncertain)
+        #expect(object.focusEvidence == nil)
+        #expect(object.description == "Visible bird")
+        #expect(result.preferredObjectIDs.isEmpty)
+    }
+
     @Test func `Final focus abstention preserves supported objects`() throws {
         let response = focusResponse(observation: "Subject feather edges are crisp.")
         #expect(try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"]) == ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]))

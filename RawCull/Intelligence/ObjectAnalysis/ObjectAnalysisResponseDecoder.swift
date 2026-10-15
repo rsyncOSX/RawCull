@@ -67,9 +67,12 @@ nonisolated enum ObjectAnalysisResponseDecoder {
             if object.focusQuality == .uncertain {
                 guard object.focusEvidence == nil else { throw ObjectResponseIssue.invalidValue("uncertain focus evidence") }
             } else {
-                guard let evidence = object.focusEvidence, validEvidence(evidence),
-                      allowUnsupportedFocus || focusDescription(evidence.observation, supports: object.focusQuality)
-                else {
+                if let evidence = object.focusEvidence {
+                    guard validEvidence(evidence),
+                          allowUnsupportedFocus || focusDescription(evidence.observation, supports: object.focusQuality) else {
+                        throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
+                    }
+                } else if !allowUnsupportedFocus {
                     throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                 }
             }
@@ -84,9 +87,9 @@ nonisolated enum ObjectAnalysisResponseDecoder {
     /// ownership and claim-pair checks must pass before any claims are removed.
     static func decodeAbstainingFromUnsupportedFocus(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String] = [:]) throws -> ObjectPhotoAssessment {
         let value = try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts, allowUnsupportedFocus: true)
-        let affected = Set(value.objects.filter {
-            !focusClaimsAreConsistent($0) || ($0.focusQuality != .uncertain &&
-                !focusDescription($0.focusEvidence!.observation, supports: $0.focusQuality))
+        let affected = Set(value.objects.filter { object in
+            !focusClaimsAreConsistent(object) || (object.focusQuality != .uncertain &&
+                (object.focusEvidence.map { focusDescription($0.observation, supports: object.focusQuality) } != true))
         }.map(\.id))
         guard !affected.isEmpty else { return try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts) }
         let data = try JSONEncoder().encode(value)
