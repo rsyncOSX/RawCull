@@ -356,3 +356,34 @@ struct EmbeddedJPGExportLoaderTests {
         #expect(exported == nil)
     }
 }
+
+struct IsolatedThumbnailStorageTests {
+    @Test
+    func `helper providers read only their own temporary disk cache`() async throws {
+        let firstLoader = FakeRawImageLoader()
+        let secondLoader = FakeRawImageLoader()
+        let (first, firstCache) = await makeIsolatedThumbnailProvider(rawLoader: firstLoader)
+        let (second, secondCache) = await makeIsolatedThumbnailProvider(rawLoader: secondLoader)
+        let firstRoot = firstCache.thumbnailDiskCacheDirectory.deletingLastPathComponent()
+        let secondRoot = secondCache.thumbnailDiskCacheDirectory.deletingLastPathComponent()
+        defer {
+            try? FileManager.default.removeItem(at: firstRoot)
+            try? FileManager.default.removeItem(at: secondRoot)
+        }
+        #expect(firstRoot != secondRoot)
+        let source = firstRoot.appendingPathComponent("photo.ARW")
+        try Data("synthetic source identity".utf8).write(to: source)
+        let key = try #require(ThumbnailCacheKey.resolve(for: source, purpose: .preview, requestedPixelSize: 256))
+        let image = try makeRawImageLoadingTestCGImage()
+        let jpeg = try #require(DiskCacheManager.jpegData(from: image))
+        await DiskCacheManager(cacheDirectory: firstCache.thumbnailDiskCacheDirectory).save(jpeg, for: key)
+
+        let hit = await first.requestThumbnail(for: source, targetSize: 256, purpose: .preview)
+        let miss = await second.requestThumbnail(for: source, targetSize: 256, purpose: .preview)
+
+        #expect(hit?.width == image.width)
+        #expect(miss == nil)
+        #expect(await firstLoader.thumbnailCGImageCalls == 0)
+        #expect(await secondLoader.thumbnailCGImageCalls == 1)
+    }
+}

@@ -160,7 +160,7 @@ A sibling visual label does not explicitly name the slider.
 
 ### 15. P2 — Isolated thumbnail test helper uses production disk storage
 
-**Status:** Open. **Location:** `RawCullTests/TestIsolationHelpers.swift`.
+**Status:** Implemented. Helper-created thumbnail providers explicitly receive a disk cache under their unique temporary root, and accept an injected RAW loader. A real disk-hit/miss regression proves two providers cannot see each other’s cache entries. Isolation, thumbnail provider and image-loading integration suites passed. **Location:** `RawCullTests/TestIsolationHelpers.swift`.
 
 makeIsolatedThumbnailProvider injects memory storage but omits RequestThumbnail's disk cache. The default initializer uses production paths and performs legacy-cache cleanup.
 
@@ -230,3 +230,7 @@ Fixed findings 5 and 10 in one persistence-presentation update. Tests cover repa
 ### Settings errors and accessible controls
 
 Fixed findings 12 and 13. New tests cover failed writes preserving edits, retry after alert dismissal, repaired malformed settings, and normal missing-file defaults. Xcode passed settings persistence/concurrency and keyboard scope suites. Allowance before this update: 68% of the five-hour window, 69% weekly.
+
+### Test storage isolation
+
+Fixed finding 15. The shared view-model helper already received an in-memory culling store in the persistence update; the thumbnail helper now injects every storage dependency too. Selected Xcode suites passed. Allowance before this update: 58% of the five-hour window, 67% weekly.
