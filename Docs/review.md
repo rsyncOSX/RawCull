@@ -122,7 +122,7 @@ Retry can replace savedFiles while ratingCache, tagged names, filtering and scor
 
 ### 11. P2 — Existing records lose tagging-date updates
 
-**Status:** Open; reproduced in an isolated probe. **Location:** `CullingModel.upsertRecord`.
+**Status:** Implemented. Existing records now receive the tagging date when rated; scoring-only merges preserve it and restoring an unrated state clears it. ReviewPersistenceTests and CullingModelTests passed in Xcode. **Location:** `CullingModel.upsertRecord`.
 
 Updating an existing record's rating ignores dateTagged. A scored-then-rated photo retains a nil date.
 
@@ -214,3 +214,7 @@ At the user's request, check account usage immediately after the thumbnail commi
 Checked account usage after commit `27d63039`: 90% of the five-hour allowance consumed (10% remaining), 26% of the weekly allowance consumed (74% remaining), and zero additional credits. Ordinary usage is still allowed, but the remaining short-window allowance was judged insufficient for the larger persistence update plus regression verification. Further fixes stopped at the user's requested checkpoint. The worktree was clean after the thumbnail commit; only this checkpoint documentation was subsequently changed.
 
 Validation completed before stopping: Xcode passed the keyboard scope/key-action suites, embedded JPEG export/destination-safety suites, and thumbnail presentation/concurrency suites. No full-suite or manual UI verification is claimed. Resume with plan step 5, keeping one verified update and its review-status change per commit.
+
+### Continued P2 work — tagging dates
+
+Resumed after checking usage: 99% of the five-hour allowance and 74% of the weekly allowance remained. Fixed finding 11 and verified its regression tests plus the culling model suite before committing. Further updates continue to require their own document update, tests, commit, and allowance check.

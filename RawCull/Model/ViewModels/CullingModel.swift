@@ -385,6 +385,7 @@ final class CullingModel {
         if let recordIndex = savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == fileName }) {
             if let rating {
                 savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
+                savedFiles[catalogIndex].filerecords?[recordIndex].dateTagged = dateTagged
             }
             if let sharpnessScore {
                 savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessScore = sharpnessScore
