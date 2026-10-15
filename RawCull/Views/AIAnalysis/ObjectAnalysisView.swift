@@ -70,7 +70,7 @@ private struct ObjectAnalysisControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Picker("Concepts", selection: $feature.discoveryMode) {
+                Picker("", selection: $feature.discoveryMode) {
                     Text("Automatic").tag(ObjectDiscoveryMode.automatic)
                     Text("Specific Concepts").tag(ObjectDiscoveryMode.specificConcepts)
                 }
