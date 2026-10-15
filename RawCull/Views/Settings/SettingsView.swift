@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var settingsLoaded = false
 
     var body: some View {
+        @Bindable var settings = SettingsViewModel.shared
         Group {
             if settingsLoaded {
                 TabView {
@@ -44,6 +45,19 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 680, height: 760)
+        .alert("Settings Storage Error", item: $settings.persistenceFailure) { failure in
+            Button("Retry") {
+                Task { await settings.retryPersistence(failure.operation) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { failure in
+            Text(failure.message)
+            if failure.operation == .save {
+                Text("Your changes remain in memory and have not been saved to disk.")
+            } else {
+                Text("Saved settings could not be loaded. Retrying reloads settings from disk and replaces the current values.")
+            }
+        }
         .task {
             await SettingsViewModel.shared.ensureLoaded()
             settingsLoaded = true

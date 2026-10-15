@@ -21,6 +21,12 @@ private actor SettingsFileWriter {
     }
 }
 
+struct SettingsPersistenceFailure {
+    enum Operation { case load, save }
+    let operation: Operation
+    let message: String
+}
+
 // Observable settings manager for app configuration
 // Persists settings to JSON in Application Support directory
 
@@ -46,6 +52,8 @@ nonisolated enum CacheSettingsLimits {
 @Observable @MainActor
 final class SettingsViewModel {
     @MainActor static let shared = SettingsViewModel()
+
+    var persistenceFailure: SettingsPersistenceFailure?
 
     // MARK: - Initialization
 
@@ -161,6 +169,7 @@ final class SettingsViewModel {
             // If file doesn't exist, just use defaults
             guard FileManager.default.fileExists(atPath: fileURL.path) else {
                 Logger.process.debugMessageOnly("Settings file not found, using defaults")
+                persistenceFailure = nil
                 return
             }
 
@@ -197,14 +206,17 @@ final class SettingsViewModel {
                 self.focusMaskFeatherRadius = savedSettings.focusMaskFeatherRadius
             }
 
+            persistenceFailure = nil
             Logger.process.debugMessageOnly("SettingsManager: Settings loaded successfully")
         } catch {
+            persistenceFailure = SettingsPersistenceFailure(operation: .load, message: error.localizedDescription)
             Logger.process.errorMessageOnly("Failed to load settings: \(error.localizedDescription)")
         }
     }
 
     /// Save settings to JSON file. Encodes on the MainActor then writes on a background thread.
-    func saveSettings() async {
+    @discardableResult
+    func saveSettings() async -> Bool {
         await ensureLoaded()
 
         do {
@@ -246,9 +258,21 @@ final class SettingsViewModel {
             // to avoid stalling the MainActor. data and URLs are Sendable value types.
             try await SettingsFileWriter.shared.write(data, to: fileURL)
 
+            persistenceFailure = nil
             Logger.process.debugMessageOnly("Settings saved successfully")
+            return true
         } catch {
+            persistenceFailure = SettingsPersistenceFailure(operation: .save, message: error.localizedDescription)
             Logger.process.errorMessageOnly("Failed to save settings: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func retryPersistence(_ operation: SettingsPersistenceFailure.Operation? = nil) async {
+        switch operation ?? persistenceFailure?.operation {
+        case .load: await loadSettings()
+        case .save: await saveSettings()
+        case nil: break
         }
     }
 

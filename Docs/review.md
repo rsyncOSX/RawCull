@@ -132,7 +132,7 @@ Updating an existing record's rating ignores dateTagged. A scored-then-rated pho
 
 ### 12. P2 — Settings persistence errors are hidden
 
-**Status:** Open. **Location:** `Model/ViewModels/SettingsViewModel.swift`, Settings views.
+**Status:** Implemented. Load/save failures are observable; save returns success/failure while retaining edits. Settings presents an item-bound alert with operation-specific retry and a warning that load retry replaces current values. Failure/retry, malformed/missing settings and existing concurrency tests passed. **Location:** `Model/ViewModels/SettingsViewModel.swift`, Settings views.
 
 Save catches and logs errors, so callers cannot distinguish persistence success. Load failures similarly lack user-visible state.
 
@@ -142,7 +142,7 @@ Save catches and logs errors, so callers cannot distinguish persistence success.
 
 ### 13. P2 — Settings sliders lack explicit accessible names
 
-**Status:** Open. **Location:** `Views/Settings/SettingsSliderRow.swift`.
+**Status:** Implemented. Sliders now use explicit labels plus formatted accessibility values and descriptive hints. The Settings UI compiles and keyboard admission regressions pass; manual VoiceOver verification remains a release check. **Location:** `Views/Settings/SettingsSliderRow.swift`.
 
 A sibling visual label does not explicitly name the slider.
 
@@ -226,3 +226,7 @@ Fixed finding 9. Saved JSON value types are explicitly nonisolated and Sendable 
 ### Recovery and batched restoration
 
 Fixed findings 5 and 10 in one persistence-presentation update. Tests cover repaired history, filtered selection/copy admission, archive/reset followed by write failure, duplicate record policy, stale metadata, and single-batch normalization. Allowance before this update: 82% of the five-hour window, 71% weekly. Xcode passed all selected suites; its unrelated no-AppIntents metadata-extraction warning remains.
+
+### Settings errors and accessible controls
+
+Fixed findings 12 and 13. New tests cover failed writes preserving edits, retry after alert dismissal, repaired malformed settings, and normal missing-file defaults. Xcode passed settings persistence/concurrency and keyboard scope suites. Allowance before this update: 68% of the five-hour window, 69% weekly.
