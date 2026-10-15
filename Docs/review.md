@@ -208,3 +208,9 @@ Validated values are encoded, converted to [String: Any], force-cast and mutated
 Completed and committed in order: review/plan, keyboard routing (findings 1–2), embedded JPEG export (3), and thumbnail request/publication correctness (4). Every code update includes this document's status and validation notes. Remaining correctness work starts with persistence initialization/recovery and tagging dates (9–11), followed by settings errors (12) and test storage isolation (15). Performance and broader cleanup remain open.
 
 At the user's request, check account usage immediately after the thumbnail commit and stop further fixes if the remaining allowance is insufficient. Do not begin the next update without that check.
+
+### Usage checkpoint after thumbnail commit
+
+Checked account usage after commit `27d63039`: 90% of the five-hour allowance consumed (10% remaining), 26% of the weekly allowance consumed (74% remaining), and zero additional credits. Ordinary usage is still allowed, but the remaining short-window allowance was judged insufficient for the larger persistence update plus regression verification. Further fixes stopped at the user's requested checkpoint. The worktree was clean after the thumbnail commit; only this checkpoint documentation was subsequently changed.
+
+Validation completed before stopping: Xcode passed the keyboard scope/key-action suites, embedded JPEG export/destination-safety suites, and thumbnail presentation/concurrency suites. No full-suite or manual UI verification is claimed. Resume with plan step 5, keeping one verified update and its review-status change per commit.
