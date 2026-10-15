@@ -45,15 +45,17 @@ struct ObjectAnalysisView: View {
             } else {
                 HSplitView {
                     ObjectPhotoResultsTable(results: feature.results, selection: $selection)
-                        .frame(minWidth: 350, idealWidth: 480)
+                        .frame(minWidth: 350, idealWidth: 480, maxHeight: .infinity)
                     ObjectPhotoDetailView(result: selectedResult,
                                           file: files.first { $0.id == selectedResult?.fileID },
                                           feature: feature, focusMaskModel: focusMaskModel,
                                           focusConfig: focusConfig)
-                        .frame(minWidth: 350, idealWidth: 600)
+                        .frame(minWidth: 350, idealWidth: 600, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(16)
         .task(id: feature.results.map(\.id)) {
             if selection == nil {
@@ -188,6 +190,11 @@ private struct ObjectPhotoDetailView: View {
     @State private var spatialEvidence: [String: ObjectFocusSpatialEvidence] = [:]
     @State private var selectedObjectID: String?
 
+    private struct LoadIdentity: Equatable {
+        let result: ObjectPhotoAnalysisResult?
+        let fileURL: URL?
+    }
+
     private var selectedCrop: CGImage? {
         guard let image,
               let descriptor = result?.instances.first(where: { $0.id == selectedObjectID })
@@ -289,18 +296,21 @@ private struct ObjectPhotoDetailView: View {
                                        description: Text("Choose an analyzed photograph to inspect its objects."))
             }
         }
-        .task(id: result?.fileID) {
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: LoadIdentity(result: result, fileURL: file?.url)) {
             selectedObjectID = result?.instances.first?.id
             outlines = [:]
             focusMap = nil
             autofocusPoint = nil
             spatialEvidence = [:]
-            image = if let file {
-                await RawParserKitImageLoader.shared.thumbnailCGImage(for: file.url, maxPixelSize: 2048)
-            } else {
-                nil
-            }
-            if let result, let file, let image {
+            image = nil
+            guard let result, let file else { return }
+            let loadedImage = await RawParserKitImageLoader.shared.thumbnailCGImage(
+                for: file.url, maxPixelSize: 2048,
+            )
+            guard !Task.isCancelled else { return }
+            image = loadedImage
+            if let image = loadedImage {
                 let point: CGPoint? = if let recorded = file.afFocusNormalized {
                     recorded
                 } else {
