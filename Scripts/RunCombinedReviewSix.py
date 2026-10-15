@@ -18,7 +18,7 @@ def manifest_id(value):
 def progress_message(output):
     """Read persisted image outcomes; progress never implies test acceptance."""
     try:
-        paths = list((output / 'runs').glob('*.json'))
+        paths = sorted(output.glob('**/runs/*.json'), key=lambda path: path.stat().st_mtime, reverse=True)
         if not paths:
             return None
         run = json.loads(paths[0].read_text())['value']

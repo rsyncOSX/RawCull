@@ -70,6 +70,25 @@ struct CombinedReviewRealModelTests {
         try #require(!names.isEmpty && Set(names).count == names.count)
         try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
         let frozen = environment["RAWCULL_COMBINED_SIX_FROZEN"] == "1"
+        var batches: [String] = []
+        for start in stride(from: 0, to: names.count, by: 8) {
+            let batchNames = Array(names[start ..< min(start + 8, names.count)])
+            let batchName = "batch-\(start / 8 + 1)"
+            let batchRoot = names.count <= 8 ? root : root.appendingPathComponent(batchName)
+            print("COMBINED REVIEW \(batchName): \(batchNames.count) images", terminator: "\n")
+            try await reviewBatch(names: batchNames, directory: directory, root: batchRoot,
+                                  environment: environment, frozen: frozen)
+            batches.append(batchName)
+        }
+        if names.count > 8 {
+            let summary = ["batches": batches, "files": names]
+            try JSONEncoder().encode(summary).write(to: root.appendingPathComponent("diagnostic.json"), options: .atomic)
+        }
+    }
+
+    @MainActor private func reviewBatch(names: [String], directory: URL, root: URL,
+                                        environment: [String: String], frozen: Bool) async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let urls = names.map { directory.appendingPathComponent($0) }
         for url in urls {
             try #require(FileManager.default.fileExists(atPath: url.path))
