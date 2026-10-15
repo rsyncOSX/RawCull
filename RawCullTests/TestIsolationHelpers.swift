@@ -123,6 +123,7 @@ func makeRawCullViewModel(
         deepAIReviewController: deepAIReviewController,
         burstAnalysisCacheRepository: burstAnalysisCacheRepository,
     )
+    viewModel.cullingModel = CullingModel(saveHandler: { _ in })
     semanticSearchFeature.bindApplicationTarget(viewModel)
     return viewModel
 }

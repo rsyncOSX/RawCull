@@ -102,7 +102,7 @@ Waiters are released at catalog completion rather than when their image becomes 
 
 ### 9. P2 — Unloaded persistence is treated as empty and writable
 
-**Status:** Open. **Location:** `Model/ViewModels/CullingModel.swift`, `RawCullViewModel+Catalog.swift`.
+**Status:** Implemented. Live stores start unread, coalesce asynchronous background initialization, and block edits until ready. Startup loads history without a catalog; flush waits for initialization. Failed loads require explicit retry. Injected writer-only stores are explicitly empty and never read production data. Initialization, culling, saved-history, catalog concurrency and quit-recovery suites passed in Xcode. **Location:** `Model/ViewModels/CullingModel.swift`, `RawCullViewModel+Catalog.swift`.
 
 The store starts empty and writable; it is loaded only after a nonempty catalog scan. Saved history can appear empty at startup, and callers can save before discovering existing/corrupt data.
 
@@ -218,3 +218,7 @@ Validation completed before stopping: Xcode passed the keyboard scope/key-action
 ### Continued P2 work — tagging dates
 
 Resumed after checking usage: 99% of the five-hour allowance and 74% of the weekly allowance remained. Fixed finding 11 and verified its regression tests plus the culling model suite before committing. Further updates continue to require their own document update, tests, commit, and allowance check.
+
+### Persistence initialization
+
+Fixed finding 9. Saved JSON value types are explicitly nonisolated and Sendable so reading/decoding runs off the main actor. Tests cover unread-store mutation rejection, concurrent initialization, corrupt-file preservation and explicit retry. Existing in-memory test assembly now injects its culling store. Allowance before this update: 92% of the five-hour window, 73% weekly.

@@ -8,7 +8,7 @@
 import Foundation
 import RawCullCore
 
-struct DecodeSavedFiles: Codable {
+nonisolated struct DecodeSavedFiles: Codable, Sendable {
     let catalog: URL?
     let dateStart: String?
     var filerecords: [DecodeFileRecord]?
@@ -30,7 +30,7 @@ struct DecodeSavedFiles: Codable {
     }
 }
 
-struct DecodeFileRecord: Codable {
+nonisolated struct DecodeFileRecord: Codable, Sendable {
     var fileName: String?
     var dateTagged: String?
     var dateCopied: String?
