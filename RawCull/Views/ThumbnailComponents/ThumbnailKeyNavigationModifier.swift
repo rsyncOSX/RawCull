@@ -30,27 +30,17 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
     let viewModel: RawCullViewModel
     let axis: ThumbnailNavigationAxis
     let filesOverride: (() -> [FileItem])?
-    let onBurstKeyPress: ((String) -> KeyPress.Result)?
-    @State private var keyboardScope = ReviewKeyboardScope()
     @State private var keyMonitor: Any?
 
     func body(content: Content) -> some View {
         content
-            .background(ReviewKeyboardScopeReader(scope: keyboardScope))
             .onAppear {
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                    guard keyboardScope.accepts(event),
+                    guard !(NSApp.keyWindow?.firstResponder is NSText),
                           viewModel.mainViewMode != .comparisonGrid,
                           !viewModel.zoomOverlayVisible,
                           event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                           viewModel.selectedFile != nil else { return event }
-
-                    if ThumbnailKeyboardRouting.reservesBurstCommand(
-                        event.characters,
-                        showsBurstGroups: axis == .grid && viewModel.showsBurstGroups,
-                    ) {
-                        return onBurstKeyPress?(event.characters ?? "") == .handled ? nil : event
-                    }
 
                     let files: [FileItem] = {
                         if let filesOverride {
@@ -192,10 +182,7 @@ extension View {
         viewModel: RawCullViewModel,
         axis: ThumbnailNavigationAxis,
         files: (() -> [FileItem])? = nil,
-        onBurstKeyPress: ((String) -> KeyPress.Result)? = nil,
     ) -> some View {
-        modifier(ThumbnailKeyNavigationModifier(
-            viewModel: viewModel, axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
-        ))
+        modifier(ThumbnailKeyNavigationModifier(viewModel: viewModel, axis: axis, filesOverride: files))
     }
 }

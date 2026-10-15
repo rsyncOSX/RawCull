@@ -8,7 +8,6 @@ struct ComparisonGridView: View {
 
     @State private var session: ComparisonSessionModel
     @State private var keyMonitor: Any?
-    @State private var keyboardScope = ReviewKeyboardScope()
     @State private var scrollPositionID: FileItem.ID?
     @State private var scrollSettleTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
@@ -117,7 +116,6 @@ struct ComparisonGridView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
-        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             session.activate()
             isFocused = true
@@ -305,7 +303,7 @@ struct ComparisonGridView: View {
         viewModel.mainViewMode == .comparisonGrid
             && !viewModel.zoomOverlayVisible
             && event.modifierFlags.intersection([.command, .control, .option]).isEmpty
-            && keyboardScope.accepts(event)
+            && !(NSApp.keyWindow?.firstResponder is NSText)
     }
 
     private func removeKeyMonitor() {
