@@ -67,13 +67,6 @@ struct SharpnessControlsView: View {
             }
         }
 
-        if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
-            Text("\(viewModel.sharpnessModel.afPointScores.count) AF measured")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .help("Photos without a recorded AF point or sufficient detail have an unknown AF sharpness measurement.")
-        }
-
         Toggle(isOn: similaritySortingBinding) {
             if similarityFeature.indexing.isIndexing {
                 Label("Indexing \(similarityBackendName)…", systemImage: "photo.stack")
