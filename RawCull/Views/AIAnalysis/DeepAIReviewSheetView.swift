@@ -177,7 +177,7 @@ private struct DeepAIReviewSheetContent: View {
         switch state {
         case .completed:
             ContentUnavailableView(
-                "No Deep Review Yet",
+                "Ready to review",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Select new images to analyze."),
             )
@@ -252,7 +252,7 @@ private struct DeepAIReviewSheetContent: View {
 
         case .ready:
             ContentUnavailableView(
-                "No Deep Review Yet",
+                "Ready to review",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Run local AI subject-detail analysis for this burst group."),
             )

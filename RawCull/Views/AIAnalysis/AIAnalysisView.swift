@@ -10,6 +10,18 @@ struct AIAnalysisView: View {
     @State private var inputSource = AIAnalysisInputSource.gridSelection
     @State private var selectedTool = AIAnalysisTool.samCLIP
 
+    private var inputSourceSelection: Binding<AIAnalysisInputSource> {
+        Binding(
+            get: { inputSource },
+            set: { source in
+                if inputSource == .gridSelection, source == .taggedImages {
+                    viewModel.preserveAIAnalysisGridSelection()
+                }
+                inputSource = source
+            },
+        )
+    }
+
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
@@ -52,7 +64,7 @@ struct AIAnalysisView: View {
                     .accessibilityLabel("Analysis mode")
                     .disabled(isAnalysisRunning)
 
-                    Picker("Source", selection: $inputSource) {
+                    Picker("Source", selection: inputSourceSelection) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                             .tag(AIAnalysisInputSource.gridSelection)
                         Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
@@ -129,7 +141,7 @@ struct AIAnalysisView: View {
         }
         .task {
             if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
-                inputSource = .taggedImages
+                inputSourceSelection.wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {
@@ -282,6 +294,18 @@ struct CombinedReviewWorkspaceView: View {
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
 
+    private var inputSourceSelection: Binding<AIAnalysisInputSource> {
+        Binding(
+            get: { inputSource },
+            set: { source in
+                if inputSource == .gridSelection, source == .taggedImages {
+                    viewModel.preserveAIAnalysisGridSelection()
+                }
+                inputSource = source
+            },
+        )
+    }
+
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
@@ -292,7 +316,7 @@ struct CombinedReviewWorkspaceView: View {
                 
                 Spacer()
                 
-                Picker("", selection: $inputSource) {
+                Picker("", selection: inputSourceSelection) {
                     Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                         .tag(AIAnalysisInputSource.gridSelection)
                     Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
@@ -333,7 +357,7 @@ struct CombinedReviewWorkspaceView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
-                inputSource = .taggedImages
+                inputSourceSelection.wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {
