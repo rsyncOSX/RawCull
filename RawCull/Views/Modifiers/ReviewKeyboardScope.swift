@@ -23,11 +23,12 @@ final class ReviewKeyboardScope {
     static func controlOwnsKeys(role: NSAccessibility.Role?) -> Bool {
         guard let role else { return false }
         return [.slider, .textField, .textArea, .comboBox, .popUpButton,
-                .button, .checkBox, .radioButton, .tabGroup, .incrementor].contains(role)
+                .incrementor].contains(role)
     }
 
     static func isEditingControl(_ responder: NSResponder?) -> Bool {
-        responder is NSText || responder is NSControl
+        if responder is NSText || responder is NSPopUpButton { return true }
+        return responder is NSControl && !(responder is NSButton)
     }
 }
 

@@ -393,7 +393,7 @@ struct ZoomOverlayView: View {
         }
         .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
-            isImageFocused = true
+            DispatchQueue.main.async { isImageFocused = true }
             installKeyMonitor()
             applyLaunchContext()
             reload()
@@ -857,6 +857,8 @@ struct ZoomOverlayView: View {
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
+        .focusable(false)
+        .simultaneousGesture(TapGesture().onEnded { isImageFocused = true })
         .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
         .padding()
     }
@@ -876,6 +878,8 @@ struct ZoomOverlayView: View {
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
+        .focusable(false)
+        .simultaneousGesture(TapGesture().onEnded { isImageFocused = true })
         .disabled(isDisabled)
         .help(help)
         .shadow(color: .black.opacity(isDisabled ? 0 : 0.4), radius: 8, x: 0, y: 2)

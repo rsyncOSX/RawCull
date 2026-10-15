@@ -18,17 +18,20 @@ struct ReviewKeyboardScopeTests {
     func `native editors and controls retain their keyboard input`() {
         #expect(ReviewKeyboardScope.isEditingControl(NSTextView()))
         #expect(ReviewKeyboardScope.isEditingControl(NSSlider()))
-        #expect(ReviewKeyboardScope.isEditingControl(NSButton()))
+        #expect(!ReviewKeyboardScope.isEditingControl(NSButton()))
+        #expect(ReviewKeyboardScope.isEditingControl(NSPopUpButton()))
         #expect(!ReviewKeyboardScope.isEditingControl(NSView()))
     }
 
     @Test
     func `SwiftUI accessibility controls retain their keys`() {
         for role: NSAccessibility.Role in [.slider, .textField, .textArea, .comboBox, .popUpButton,
-                                           .button, .checkBox, .radioButton, .tabGroup, .incrementor] {
+                                           .incrementor] {
             #expect(ReviewKeyboardScope.controlOwnsKeys(role: role))
         }
-        #expect(!ReviewKeyboardScope.controlOwnsKeys(role: .image))
+        for role: NSAccessibility.Role in [.button, .checkBox, .radioButton, .tabGroup, .image] {
+            #expect(!ReviewKeyboardScope.controlOwnsKeys(role: role))
+        }
         #expect(!ReviewKeyboardScope.controlOwnsKeys(role: nil))
     }
 
