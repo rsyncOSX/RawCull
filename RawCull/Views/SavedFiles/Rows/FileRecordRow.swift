@@ -3,7 +3,7 @@ import SwiftUI
 struct FileRecordRow: View {
     @State private var isHovered = false
 
-    let record: FileRecord
+    let record: SavedFileRowPresentation
     let isSelected: Bool
 
     var body: some View {
@@ -18,7 +18,7 @@ struct FileRecordRow: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(record.fileName ?? "Unnamed File")
+                Text(record.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .foregroundStyle(isSelected ? Color.accentColor : .primary)

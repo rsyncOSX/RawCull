@@ -4,22 +4,28 @@ import SwiftUI
 
 struct SavedFilesView: View {
     @Environment(\.dismiss) var dismiss
-    @Environment(RawCullViewModel.self) private var viewModel
+    let presentation: SavedFilesPresentation
+    let canReset: Bool
+    let onReset: () -> Void
 
-    @State private var selectedCatalogID: SavedFiles.ID?
-    @State private var selectedRecordID: FileRecord.ID?
+    @State private var selectedCatalogID: UUID?
+    @State private var selectedRecordID: UUID?
     @State private var showResetAlert = false
 
-    private var records: [FileRecord] {
-        selectedCatalog?.filerecords ?? []
+    private var catalogs: [SavedCatalogPresentation] {
+        presentation.catalogs
     }
 
-    private var selectedCatalog: SavedFiles? {
-        viewModel.cullingModel.savedFiles.first { $0.id == selectedCatalogID }
+    private var records: [SavedFileRowPresentation] {
+        presentation.records(in: selectedCatalogID)
     }
 
-    private var selectedRecord: FileRecord? {
-        records.first { $0.id == selectedRecordID }
+    private var selectedCatalog: SavedCatalogPresentation? {
+        catalogs.first { $0.id == selectedCatalogID }
+    }
+
+    private var selectedRecord: SavedFileDetailPresentation? {
+        presentation.detail(in: selectedCatalogID, recordID: selectedRecordID)
     }
 
     var body: some View {
@@ -52,13 +58,13 @@ struct SavedFilesView: View {
                 ) {
                     showResetAlert = true
                 }
-                .disabled(viewModel.isCreatingThumbnails)
+                .disabled(!canReset)
             }
         }
         .frame(minWidth: 820, minHeight: 500)
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
-                viewModel.clearAllCullingState()
+                onReset()
                 selectedCatalogID = nil
                 selectedRecordID = nil
             }
@@ -73,10 +79,10 @@ struct SavedFilesView: View {
     private var catalogList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if viewModel.cullingModel.savedFiles.isEmpty {
+                if catalogs.isEmpty {
                     emptyCatalogs
                 } else {
-                    ForEach(viewModel.cullingModel.savedFiles) { entry in
+                    ForEach(catalogs) { entry in
                         Button {
                             if selectedCatalogID != entry.id {
                                 selectedRecordID = nil
@@ -91,11 +97,11 @@ struct SavedFilesView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(
-                            entry.catalog?.lastPathComponent ?? "Unknown Catalog",
+                            entry.name,
                         )
                         .accessibilityValue(RawCullAccessibilityPresentation.savedCatalogValue(
-                            fileCount: entry.filerecords?.count ?? 0,
-                            date: entry.dateStart,
+                            fileCount: entry.fileCount,
+                            date: entry.dateStarted,
                             isSelected: selectedCatalogID == entry.id,
                         ))
                         .accessibilityAddTraits(
@@ -111,7 +117,7 @@ struct SavedFilesView: View {
         .navigationTitle("Catalogs")
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Text("\(viewModel.cullingModel.savedFiles.count)")
+                Text("\(catalogs.count)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
@@ -155,7 +161,7 @@ struct SavedFilesView: View {
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(record.fileName ?? "Unnamed File")
+                        .accessibilityLabel(record.name)
                         .accessibilityValue(RawCullAccessibilityPresentation.savedRecordValue(
                             rating: record.rating,
                             dateTagged: record.dateTagged,
@@ -171,7 +177,7 @@ struct SavedFilesView: View {
             .padding(.top, 8)
         }
         .background(Color(NSColor.controlBackgroundColor))
-        .navigationTitle(selectedCatalog.map { $0.catalog?.lastPathComponent ?? "Files" } ?? "Files")
+        .navigationTitle(presentation.recordsTitle(in: selectedCatalogID))
         .toolbar {
             if !records.isEmpty {
                 ToolbarItem(placement: .automatic) {

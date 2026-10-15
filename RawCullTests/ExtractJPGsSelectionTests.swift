@@ -91,7 +91,7 @@ struct ExtractJPGsSelectionTests {
         viewModel.files = [file]
         viewModel.filteredFiles = [file]
         viewModel.selectedFileID = file.id
-        viewModel.startSecurityScopedResource = { _ in false }
+        viewModel.catalogLifecycle.startSecurityScopedResource = { _ in false }
 
         viewModel.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 

@@ -106,7 +106,11 @@ struct RawCullMainView: View {
             }
         }
         .sheet(isPresented: $viewModel.showSavedFiles) {
-            SavedFilesView()
+            SavedFilesView(
+                presentation: SavedFilesPresentation(cullingModel: viewModel.cullingModel),
+                canReset: !viewModel.isCreatingThumbnails,
+                onReset: viewModel.clearAllCullingState,
+            )
         }
         .sheet(isPresented: $viewModel.showCopyARWFilesView) {
             CopyARWFilesView(

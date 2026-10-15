@@ -9,35 +9,22 @@ extension RawCullViewModel {
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
-           currentSelectedSource == source,
-           hasActiveSecurityScopedAccess(for: url) {
+           catalogLifecycle.currentSource == source,
+           hasActiveSecurityScopedAccess(for: url)
+        {
             return
         }
 
-        let previousSource = currentSelectedSource
-        cancelCatalogTransition()
-        let generation = catalogTransitionGeneration
-        catalogTransitionTask = Task {
-            defer {
-                if catalogTransitionGeneration == generation {
-                    catalogTransitionTask = nil
-                }
-            }
-            let didFlush = await cullingModel.flushPersistence()
-            guard !Task.isCancelled, catalogTransitionGeneration == generation,
-                  selectedSource == source else { return }
-            guard didFlush else {
-                selectedSource = previousSource
-                return
-            }
-            beginCatalogLoad(for: source)
-        }
-    }
-
-    private func cancelCatalogTransition() {
-        catalogTransitionGeneration &+= 1
-        catalogTransitionTask?.cancel()
-        catalogTransitionTask = nil
+        let previousSource = catalogLifecycle.currentSource
+        catalogLifecycle.startTransition(
+            flushPersistence: { [weak self] in
+                guard let self else { return false }
+                return await self.cullingModel.flushPersistence()
+            },
+            isStillSelected: { [weak self] in self?.selectedSource == source },
+            onFailure: { [weak self] in self?.selectedSource = previousSource },
+            onReady: { [weak self] in self?.beginCatalogLoad(for: source) },
+        )
     }
 
     private func beginCatalogLoad(for source: ARWSourceCatalog?) {
@@ -47,12 +34,12 @@ extension RawCullViewModel {
 
         cancelCurrentCatalogLoad()
         similarityCatalogGeneration &+= 1
-        currentSelectedSource = source
+        catalogLifecycle.currentSource = source
         resetCatalogWorkingSet()
         scanning = source != nil
 
         guard let url = source?.url else {
-            activeCatalogLoadURL = nil
+            catalogLifecycle.activeLoadURL = nil
             return
         }
 
@@ -61,17 +48,14 @@ extension RawCullViewModel {
             return
         }
 
-        activeCatalogLoadURL = url
-        let access = RawCullCatalogAccess.shared.retainAccess(for: [url])
-        catalogLoadTask = Task(priority: .background) {
-            defer { withExtendedLifetime(access) {} }
-            await self.handleSourceChange(url: url)
+        catalogLifecycle.startLoad(for: url) { [weak self] in
+            await self?.handleSourceChange(url: url)
         }
     }
 
     func cancelCatalogLoad() {
         Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
-        cancelCatalogTransition()
+        catalogLifecycle.cancelTransition()
         cancelCurrentCatalogLoad()
     }
 
@@ -79,14 +63,10 @@ extension RawCullViewModel {
         CombinedReviewLease.shared.invalidate()
         sortGeneration &+= 1
         isSorting = false
-        catalogLoadTask?.cancel()
-        catalogLoadTask = nil
+        catalogLifecycle.cancelLoad()
         similarityFeature.cancelHydration()
         similarityCatalogGeneration &+= 1
-        activeCatalogLoadURL = nil
-        currentSelectedSource = nil
         cancelAndResetBurstAnalysis()
-        stopActiveSecurityScopedAccess()
 
         preloadTask?.cancel()
         preloadTask = nil
@@ -163,12 +143,9 @@ extension RawCullViewModel {
 
         guard !files.isEmpty else {
             scanning = false
-            currentSelectedSource = nil
+            catalogLifecycle.currentSource = nil
             stopActiveSecurityScopedAccess()
-            if activeCatalogLoadURL == url {
-                catalogLoadTask = nil
-                activeCatalogLoadURL = nil
-            }
+            catalogLifecycle.finishLoad(for: url)
             return
         }
 
@@ -230,10 +207,7 @@ extension RawCullViewModel {
             currentScanAndCreateThumbnailsActor = nil
         }
 
-        if activeCatalogLoadURL == url {
-            catalogLoadTask = nil
-            activeCatalogLoadURL = nil
-        }
+        catalogLifecycle.finishLoad(for: url)
     }
 
     func handleSortOrderChange() async {
@@ -287,7 +261,7 @@ extension RawCullViewModel {
     // MARK: - Helpers
 
     func isActiveCatalogLoad(_ url: URL) -> Bool {
-        activeCatalogLoadURL == url && selectedSource?.url == url
+        catalogLifecycle.activeLoadURL == url && selectedSource?.url == url
     }
 
     func preselectFirstVisibleFileByName() {

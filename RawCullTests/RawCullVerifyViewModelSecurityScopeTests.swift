@@ -11,8 +11,8 @@ struct RawCullViewModelSecurityScopeTests {
         let first = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL
         let second = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL
         var stops: [URL] = []
-        model.startSecurityScopedResource = { _ in true }
-        model.stopSecurityScopedResource = { stops.append($0) }
+        model.catalogLifecycle.startSecurityScopedResource = { _ in true }
+        model.catalogLifecycle.stopSecurityScopedResource = { stops.append($0) }
         #expect(model.startSecurityScopedAccess(for: first))
         let release = CatalogTestGate()
         let worker = Task { [access = RawCullCatalogAccess.shared.retainAccess(for: [first])] in
@@ -36,11 +36,11 @@ struct RawCullViewModelSecurityScopeTests {
         var started: [URL] = []
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.startSecurityScopedResource = { url in
             started.append(url)
             return true
         }
-        viewModel.stopSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { url in
             stopped.append(url)
         }
 
@@ -59,11 +59,11 @@ struct RawCullViewModelSecurityScopeTests {
         var started: [URL] = []
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.startSecurityScopedResource = { url in
             started.append(url)
             return true
         }
-        viewModel.stopSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { url in
             stopped.append(url)
         }
 
@@ -81,8 +81,8 @@ struct RawCullViewModelSecurityScopeTests {
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { _ in true }
-        viewModel.stopSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.startSecurityScopedResource = { _ in true }
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { url in
             stopped.append(url)
         }
 
@@ -100,8 +100,8 @@ struct RawCullViewModelSecurityScopeTests {
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { _ in false }
-        viewModel.stopSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.startSecurityScopedResource = { _ in false }
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { url in
             stopped.append(url)
         }
 
@@ -118,8 +118,8 @@ struct RawCullViewModelSecurityScopeTests {
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { _ in true }
-        viewModel.stopSecurityScopedResource = { url in
+        viewModel.catalogLifecycle.startSecurityScopedResource = { _ in true }
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { url in
             stopped.append(url)
         }
 
@@ -143,12 +143,12 @@ struct RawCullViewModelSecurityScopeTests {
         let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
         var stopped: [URL] = []
 
-        viewModel.startSecurityScopedResource = { _ in true }
-        viewModel.stopSecurityScopedResource = { stopped.append($0) }
+        viewModel.catalogLifecycle.startSecurityScopedResource = { _ in true }
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { stopped.append($0) }
 
         viewModel.selectedSource = source
-        viewModel.currentSelectedSource = source
-        viewModel.activeCatalogLoadURL = url
+        viewModel.catalogLifecycle.currentSource = source
+        viewModel.catalogLifecycle.activeLoadURL = url
         #expect(viewModel.startSecurityScopedAccess(for: url))
 
         await viewModel.handleSourceChange(url: url)
@@ -156,8 +156,8 @@ struct RawCullViewModelSecurityScopeTests {
         #expect(viewModel.files.isEmpty)
         #expect(viewModel.filteredFiles.isEmpty)
         #expect(!viewModel.scanning)
-        #expect(viewModel.currentSelectedSource == nil)
-        #expect(viewModel.activeCatalogLoadURL == nil)
+        #expect(viewModel.catalogLifecycle.currentSource == nil)
+        #expect(viewModel.catalogLifecycle.activeLoadURL == nil)
         #expect(!viewModel.hasActiveSecurityScopedAccess(for: url))
         #expect(stopped == [url])
     }
