@@ -450,6 +450,48 @@ struct RawCullAIModelRuntimeTests {
         #expect(relaunchedModel.selectedSegmentationModel == .sam3)
     }
 
+    @Test(arguments: [8, 15, 16, 24, 32, 48])
+    @MainActor func `Combined Review requires memory guidance before enabling`(gigabytes: UInt64) throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = "CombinedReviewMemoryTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let runtime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
+        let model = RawCullAISettingsModel(
+            modelRuntime: runtime, userDefaults: defaults,
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            physicalMemory: gigabytes * 1024 * 1024 * 1024,
+        )
+        #expect(!model.combinedReviewEnabled)
+        #expect(model.canEnableCombinedReview == (gigabytes >= 16))
+        #expect(model.shouldWarnAboutCombinedReviewMemory == (gigabytes < 32))
+        #expect(model.memoryInGB == Double(gigabytes))
+
+        model.combinedReviewToggle = true
+        #expect(model.isShowingCombinedReviewGuidance)
+        #expect(!model.combinedReviewEnabled)
+        // Closing or cancelling the guidance must not enable the feature.
+        model.isShowingCombinedReviewGuidance = false
+        #expect(!model.combinedReviewToggle)
+        model.combinedReviewToggle = true
+        model.confirmCombinedReviewEnabled()
+        #expect(model.combinedReviewEnabled == (gigabytes >= 16))
+        #expect(!model.isShowingCombinedReviewGuidance)
+        #expect(defaults.bool(forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey) == (gigabytes >= 16))
+
+        // A saved enablement from another Mac cannot bypass the memory minimum.
+        defaults.set(true, forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey)
+        let relaunched = RawCullAISettingsModel(
+            modelRuntime: runtime, userDefaults: defaults,
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            physicalMemory: gigabytes * 1024 * 1024 * 1024,
+        )
+        #expect(relaunched.combinedReviewEnabled == (gigabytes >= 16))
+        model.combinedReviewToggle = false
+        #expect(!model.combinedReviewEnabled)
+    }
+
     private func isolatedRoot() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullAIModelRuntimeTests", isDirectory: true)
