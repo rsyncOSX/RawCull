@@ -28,20 +28,22 @@ def monitor_progress(output, stop):
         stop.wait(2)
 
 
-def select_names(directory, limit=6):
+def select_names(directory, limit=None):
     return sorted(path.name for path in directory.iterdir()
                   if path.is_file() and path.suffix.lower() == '.arw')[:limit]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--directory', type=Path, default=Path.home() / 'Downloads')
+    parser.add_argument('--directory', type=Path, required=True, help='Directory containing input ARW files')
     parser.add_argument('--models', type=Path, default=Path.home() / 'ModelAssets/Release/Models')
     parser.add_argument('--output', type=Path, help='New output directory; default: unique directory in /private/tmp')
     parser.add_argument('--packages', type=Path, help='Existing Swift package cache (optional)')
-    parser.add_argument('--limit', type=int, choices=range(1, 7), default=6, help='Maximum ARW files (1–6; default 6)')
+    parser.add_argument('--limit', type=int, help='Maximum ARW files (default: all files)')
     parser.add_argument('--preflight-only', action='store_true')
     args = parser.parse_args()
+    if args.limit is not None and args.limit < 1:
+        parser.error('--limit must be a positive integer.')
     os.umask(0o077)
     repository = Path(__file__).resolve().parent.parent
     if not args.directory.is_dir():

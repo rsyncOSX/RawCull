@@ -21,7 +21,7 @@ struct AIAnalysisRealModelTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let directory = try URL(fileURLWithPath: #require(env["RAWCULL_ANALYSIS_DIRECTORY"]))
         let names = try JSONDecoder().decode([String].self, from: Data(#require(env["RAWCULL_ANALYSIS_NAMES"]).utf8))
-        try #require((1 ... 6).contains(names.count) && Set(names).count == names.count)
+        try #require(!names.isEmpty && Set(names).count == names.count)
         try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
         let files = try names.map { name in
             let url = directory.appendingPathComponent(name)
