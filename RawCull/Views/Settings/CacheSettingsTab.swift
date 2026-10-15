@@ -37,6 +37,28 @@ struct CacheSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                SettingsCard {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("All Cache Data")
+                                .font(.headline)
+                            Text("Delete memory caches, disk caches and saved Combined Reviews.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if purgingCache == .all {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Button("Delete All Cache", role: .destructive) {
+                            cachePendingPurge = .all
+                            showPurgeConfirmation = true
+                        }
+                        .disabled(isLoadingDiskCaches || purgingCache != nil || combinedReviewFeature.lease.isHeld)
+                    }
+                }
+
                 MemoryCachesSection(
                     previewSize: formatBytes(currentPreviewCacheSize),
                     previewLimit: formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit),
@@ -99,7 +121,7 @@ struct CacheSettingsTab: View {
         } message: {
             Text(cachePendingPurge?.confirmationMessage ?? "The cache will be rebuilt as needed.")
         }
-        .alert("Could not clear Combined Reviews", isPresented: Binding(
+        .alert("Could not clear cache", isPresented: Binding(
             get: { purgeError != nil }, set: {
                 if !$0 {
                     purgeError = nil
@@ -171,6 +193,17 @@ struct CacheSettingsTab: View {
 
         Task {
             switch cache {
+            case .all:
+                do {
+                    try await combinedReviewFeature.clearAllReviews()
+                    await SharedMemoryCache.shared.clearCaches()
+                    await PerFileAnalysisArtifactStore.shared.clear()
+                    await BurstAnalysisCache.shared.clear()
+                    refreshMemoryCacheUsage()
+                } catch {
+                    purgeError = error.localizedDescription
+                }
+
             case .thumbnails:
                 await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
 
@@ -214,6 +247,7 @@ struct CacheSettingsTab: View {
 }
 
 private enum DiskCacheKind: Hashable, Identifiable {
+    case all
     case thumbnails
     case fullSizeJPGs
     case similarityArtifacts
@@ -226,6 +260,7 @@ private enum DiskCacheKind: Hashable, Identifiable {
 
     var title: String {
         switch self {
+        case .all: "All Cache Data"
         case .thumbnails: "Thumbnail Cache"
         case .fullSizeJPGs: "Full-size JPG Cache"
         case .similarityArtifacts: "Similarity Artifact Cache"
@@ -236,6 +271,9 @@ private enum DiskCacheKind: Hashable, Identifiable {
 
     var confirmationMessage: String {
         switch self {
+        case .all:
+            "All memory caches, cached thumbnails and previews, similarity artifacts, burst analysis results, and saved Combined Reviews (including masks, retained input images and review history) will be deleted. Original photos, settings and downloaded AI models will be kept. Cache data will be rebuilt as needed."
+
         case .thumbnails:
             "Cached thumbnails will be deleted and generated again when needed."
 
