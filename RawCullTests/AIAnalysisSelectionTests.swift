@@ -61,6 +61,32 @@ struct AIAnalysisSelectionTests {
         )
     }
 
+    @MainActor
+    @Test(arguments: [false, true])
+    func `Browsing tagged images preserves the selected batch`(multipleSelection: Bool) {
+        let state = RawCullApplicationState.make(
+            modelRuntime: makeModelRuntime(),
+            userDefaults: isolatedUserDefaults(),
+        )
+        let first = makeFile("first.ARW")
+        let second = makeFile("second.ARW")
+        let tagged = makeFile("tagged.ARW")
+        state.viewModel.filteredFiles = [first, second, tagged]
+        state.viewModel.selectedFileID = first.id
+        if multipleSelection {
+            state.viewModel.selectedFileIDs = [first.id, second.id]
+        }
+        let expected = state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id)
+
+        state.viewModel.preserveAIAnalysisGridSelection()
+        state.viewModel.selectedFileID = tagged.id
+        #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
+
+        // An empty tagged source clears focus without clearing the selected batch.
+        state.viewModel.selectedFileID = nil
+        #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
+    }
+
     @Test
     func `Analysis navigation walks ordered rows and stops at boundaries`() {
         let first = UUID()

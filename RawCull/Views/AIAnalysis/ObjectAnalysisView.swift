@@ -19,7 +19,7 @@ struct ObjectAnalysisView: View {
     var body: some View {
         VStack(spacing: 12) {
             ObjectAnalysisControls(feature: feature, files: files, pendingFiles: pendingFiles)
-            ObjectAnalysisAvailabilityView(availability: feature.availability)
+            // ObjectAnalysisAvailabilityView(availability: feature.availability)
             if let progress = feature.progress {
                 VStack(alignment: .leading, spacing: 4) {
                     ProgressView(value: Double(progress.completedCount),
@@ -37,7 +37,8 @@ struct ObjectAnalysisView: View {
             }
             if feature.results.isEmpty {
                 ContentUnavailableView(
-                    "No Object Results Yet", systemImage: "square.3.layers.3d",
+                    "No Object Results Yet",
+                    systemImage: "square.3.layers.3d",
                     description: Text("Install SAM 3 and Qwen, then analyze selected or tagged photographs."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -68,45 +69,48 @@ private struct ObjectAnalysisControls: View {
     let pendingFiles: [FileItem]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Picker("Concepts", selection: $feature.discoveryMode) {
-                    Text("Automatic").tag(ObjectDiscoveryMode.automatic)
-                    Text("Specific Concepts").tag(ObjectDiscoveryMode.specificConcepts)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 300)
-                .accessibilityLabel("Object concept mode")
-                .disabled(feature.isRunning)
-                if feature.discoveryMode == .specificConcepts {
-                    TextField("bird, person, car", text: $feature.manualConceptText)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Specific object concepts, separated by commas")
-                        .disabled(feature.isRunning)
-                }
-                Spacer()
+        HStack(spacing: 8) {
+            Picker("Object concept mode", selection: $feature.discoveryMode) {
+                Text("Automatic").tag(ObjectDiscoveryMode.automatic)
+                Text("Specific Concepts").tag(ObjectDiscoveryMode.specificConcepts)
             }
-            HStack(spacing: 8) {
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 300)
+            .disabled(feature.isRunning)
+
+            if feature.discoveryMode == .specificConcepts {
+                TextField("bird, person, car", text: $feature.manualConceptText)
+                    .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .accessibilityLabel("Specific object concepts, separated by commas")
+                    .disabled(feature.isRunning)
+            } else {
                 TextField("Additional photographic criteria", text: $feature.criteria)
                     .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
                     .disabled(feature.isRunning)
-                if feature.isRunning {
-                    Button("Cancel", systemImage: "stop.circle", role: .cancel) {
-                        feature.cancel()
-                    }
-                } else {
-                    Button("Analyze \(pendingFiles.count) Images", systemImage: "sparkles") {
-                        Task { await feature.analyze(pendingFiles) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!feature.canRun || pendingFiles.isEmpty)
-                    Button("Retry Failed") {
-                        Task { await feature.retryFailed(files) }
-                    }
-                    .disabled(!feature.canRun || !feature.results.contains { !$0.isSuccessful })
-                    Button("Clear Results", role: .destructive) { feature.clearResults() }
-                        .disabled(feature.results.isEmpty)
+            }
+
+            ObjectAnalysisAvailabilityView(availability: feature.availability)
+                .fixedSize(horizontal: true, vertical: false)
+
+            if feature.isRunning {
+                Button("Cancel", systemImage: "stop.circle", role: .cancel) {
+                    feature.cancel()
                 }
+            } else {
+                Button("Analyze \(pendingFiles.count) Images", systemImage: "sparkles") {
+                    Task { await feature.analyze(pendingFiles) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!feature.canRun || pendingFiles.isEmpty)
+                Button("Retry Failed") {
+                    Task { await feature.retryFailed(files) }
+                }
+                .disabled(!feature.canRun || !feature.results.contains { !$0.isSuccessful })
+                Button("Clear Results", role: .destructive) { feature.clearResults() }
+                    .disabled(feature.results.isEmpty)
             }
         }
     }
@@ -138,7 +142,6 @@ private struct ObjectAnalysisAvailabilityView: View {
                 Label("Install SAM 3 and Qwen in Settings › AI › Download AI Models", systemImage: "questionmark.folder")
                     .foregroundStyle(.orange)
             }
-            Spacer()
         }
         .font(.caption)
     }
@@ -281,7 +284,8 @@ private struct ObjectPhotoDetailView: View {
                     .padding()
                 }
             } else {
-                ContentUnavailableView("Select a Photo", systemImage: "photo",
+                ContentUnavailableView("Select a Photo",
+                                       systemImage: "photo",
                                        description: Text("Choose an analyzed photograph to inspect its objects."))
             }
         }

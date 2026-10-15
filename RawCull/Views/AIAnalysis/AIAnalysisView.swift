@@ -10,6 +10,18 @@ struct AIAnalysisView: View {
     @State private var inputSource = AIAnalysisInputSource.gridSelection
     @State private var selectedTool = AIAnalysisTool.samCLIP
 
+    private var inputSourceSelection: Binding<AIAnalysisInputSource> {
+        Binding(
+            get: { inputSource },
+            set: { source in
+                if inputSource == .gridSelection, source == .taggedImages {
+                    viewModel.preserveAIAnalysisGridSelection()
+                }
+                inputSource = source
+            },
+        )
+    }
+
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
@@ -38,7 +50,6 @@ struct AIAnalysisView: View {
         VStack(spacing: 0) {
             // Header & Control Bar
             VStack(spacing: 12) {
-                AIAnalysisHeader()
 
                 HStack(spacing: 16) {
                     Picker("Analysis Tool", selection: $selectedTool) {
@@ -53,7 +64,7 @@ struct AIAnalysisView: View {
                     .accessibilityLabel("Analysis mode")
                     .disabled(isAnalysisRunning)
 
-                    Picker("Source", selection: $inputSource) {
+                    Picker("Source", selection: inputSourceSelection) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                             .tag(AIAnalysisInputSource.gridSelection)
                         Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
@@ -130,7 +141,7 @@ struct AIAnalysisView: View {
         }
         .task {
             if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
-                inputSource = .taggedImages
+                inputSourceSelection.wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {
@@ -193,21 +204,6 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .samCLIP: "sparkle.magnifyingglass"
         case .qwen: "text.bubble"
         case .objects: "square.3.layers.3d"
-        }
-    }
-}
-
-private struct AIAnalysisHeader: View {
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("AI Analysis")
-                    .font(.title3.weight(.bold))
-                Text("Analyze selected or tagged batch items using local vision models.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
         }
     }
 }
@@ -298,6 +294,18 @@ struct CombinedReviewWorkspaceView: View {
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
 
+    private var inputSourceSelection: Binding<AIAnalysisInputSource> {
+        Binding(
+            get: { inputSource },
+            set: { source in
+                if inputSource == .gridSelection, source == .taggedImages {
+                    viewModel.preserveAIAnalysisGridSelection()
+                }
+                inputSource = source
+            },
+        )
+    }
+
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
@@ -305,10 +313,10 @@ struct CombinedReviewWorkspaceView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Combined Review")
-                    .font(.title3.weight(.bold))
+                
                 Spacer()
-                Picker("Image source", selection: $inputSource) {
+                
+                Picker("", selection: inputSourceSelection) {
                     Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                         .tag(AIAnalysisInputSource.gridSelection)
                     Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
@@ -317,6 +325,8 @@ struct CombinedReviewWorkspaceView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
                 .disabled(feature.isRunning)
+                
+                Spacer()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -340,14 +350,14 @@ struct CombinedReviewWorkspaceView: View {
                     viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: min(SettingsViewModel.shared.thumbnailSizeGrid, 140),
+                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
-                inputSource = .taggedImages
+                inputSourceSelection.wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {

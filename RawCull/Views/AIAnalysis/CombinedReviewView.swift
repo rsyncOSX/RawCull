@@ -35,63 +35,72 @@ struct CombinedReviewView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                CombinedReviewRunBar(feature: feature, files: files)
-                DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
-                    CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
-                }
-                if let error = feature.failureMessage {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange).textSelection(.enabled)
-                }
-                if let selection = feature.selectionReport {
-                    DisclosureGroup("Selection comparison") {
-                        CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    CombinedReviewRunBar(feature: feature, files: files)
+                    DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
+                        CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
                     }
-                }
-                if !feature.displayedResults.isEmpty {
-                    CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: $viewModel.selectedFileID)
-                }
-                if let result = selectedResult {
-                    let presentation = CombinedReviewPresentation(result: result)
-                    CombinedReviewResultHeader(name: result.file.displayName, mode: $mode)
-                    if mode == .photo {
-                        CombinedReviewPhotoLayout(
-                            feature: feature, result: result, presentation: presentation,
-                            canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
-                            inspect: inspect, inspectFinding: { openEvidence($0, result: result) },
-                            showEvidence: { mode = .evidence; topic = .coverage },
-                        )
+                    if let error = feature.failureMessage {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange).textSelection(.enabled)
+                    }
+                    if let selection = feature.selectionReport {
+                        DisclosureGroup("Selection comparison") {
+                            CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
+                        }
+                    }
+                    if !feature.displayedResults.isEmpty {
+                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: $viewModel.selectedFileID)
+                    }
+                    if let result = selectedResult {
+                        let presentation = CombinedReviewPresentation(result: result)
+                        CombinedReviewResultHeader(name: result.file.displayName, mode: $mode)
+                        if mode == .photo {
+                            CombinedReviewPhotoLayout(
+                                feature: feature, result: result, presentation: presentation,
+                                canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
+                                inspect: inspect, inspectFinding: { openEvidence($0, result: result) },
+                                showEvidence: { mode = .evidence; topic = .coverage },
+                            )
+                        } else {
+                            Picker("Evidence section", selection: $topic) {
+                                ForEach(CombinedReviewEvidenceTopic.allCases, id: \.rawValue) { Text($0.title).tag($0) }
+                            }.pickerStyle(.segmented).frame(maxWidth: 560)
+                            CombinedReviewEvidenceLayout(
+                                feature: feature, result: result, presentation: presentation, topic: topic,
+                                selectedFindingID: selectedFindingID, selectedRegionID: $selectedRegionID,
+                                inspect: inspect, selectFinding: { openEvidence($0, result: result) },
+                            )
+                        }
+                        if let file = files.first(where: { $0.id == result.file.fileID }) {
+                            CombinedReviewRatingControls(viewModel: viewModel, file: file)
+                        }
                     } else {
-                        Picker("Evidence section", selection: $topic) {
-                            ForEach(CombinedReviewEvidenceTopic.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-                        }.pickerStyle(.segmented).frame(maxWidth: 560)
-                        CombinedReviewEvidenceLayout(
-                            feature: feature, result: result, presentation: presentation, topic: topic,
-                            selectedFindingID: selectedFindingID, selectedRegionID: $selectedRegionID,
-                            inspect: inspect, selectFinding: { openEvidence($0, result: result) },
+                        ContentUnavailableView(
+                            feature.displayedResults.isEmpty ? "Ready to review" : "No review for this image",
+                            systemImage: "photo.badge.magnifyingglass",
+                            description: Text("Select 1–8 images and start a local review. Saved reviews remain available in the image picker."),
                         )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    if let file = files.first(where: { $0.id == result.file.fileID }) {
-                        CombinedReviewRatingControls(viewModel: viewModel, file: file)
-                    }
-                } else {
-                    ContentUnavailableView(
-                        feature.displayedResults.isEmpty ? "Ready to review" : "No review for this image",
-                        systemImage: "photo.badge.magnifyingglass",
-                        description: Text("Select 1–8 images and start a local review. Saved reviews remain available in the image picker."),
-                    )
-                }
-                if !feature.taskHistory.isEmpty {
-                    DisclosureGroup("Run history & diagnostics") {
-                        CombinedReviewTaskHistory(
-                            feature: feature, runs: feature.taskHistory,
-                            activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil,
-                        )
+                    if !feature.taskHistory.isEmpty {
+                        DisclosureGroup("Run history & diagnostics") {
+                            CombinedReviewTaskHistory(
+                                feature: feature, runs: feature.taskHistory,
+                                activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil,
+                            )
+                        }
                     }
                 }
-            }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: selectedResult == nil ? max(0, geometry.size.height - 40) : 0,
+                    alignment: .topLeading,
+                )
+                .padding(20)
+            }
         }
         .task { await feature.restoreStoredRun() }
         .task(id: "\(files.map { "\($0.id)-\($0.url.absoluteString)-\(String(describing: $0.afFocusNormalized))" })-\(feature.isRunning)") {

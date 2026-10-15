@@ -28,26 +28,28 @@ struct QwenAnalysisView: View {
             HStack(spacing: 12) {
                 TextField("Additional analysis prompt or focus criteria...", text: $feature.prompt)
                     .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .accessibilityLabel("Analysis prompt or focus criteria")
                     .disabled(feature.isRunning)
                     .onSubmit(run)
-
-                if feature.isRunning {
-                    Button("Cancel", systemImage: "stop.circle", role: .cancel) {
-                        feature.cancel()
+                
+                HStack {
+                    
+                    QwenModelAvailabilityView(status: feature.modelStatus)
+                    
+                    if feature.isRunning {
+                        Button("Cancel", systemImage: "stop.circle", role: .cancel) {
+                            feature.cancel()
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button(action: run) {
+                            Label("Run Analyze", systemImage: "sparkles")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!feature.canRun || pendingFiles.isEmpty)
                     }
-                    .buttonStyle(.bordered)
-                } else {
-                    Button(action: run) {
-                        Label("Run Analyze", systemImage: "sparkles")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!feature.canRun || pendingFiles.isEmpty)
-                }
-            }
-
-            HStack {
-                QwenModelAvailabilityView(status: feature.modelStatus)
-                Spacer()
+                }                
             }
 
             if let progress = feature.progress {

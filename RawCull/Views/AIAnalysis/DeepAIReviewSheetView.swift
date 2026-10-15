@@ -26,14 +26,7 @@ struct DeepAIReviewSheetView: View {
                 onCancel: controller.cancel,
             )
 
-            HStack {
-                SAM3ModelAvailabilityView(status: controller.modelStatus)
-                Spacer()
-            }
-
-            Text("Ranking confidence describes relative score separation. Detail scores are local measurements, not overall photographic quality. A requested head or face mask does not verify anatomy. Preview processing and resizing limit fine detail.")
-                .font(.caption).foregroundStyle(.secondary)
-            Divider()
+            // SAM3ModelAvailabilityView(status: controller.modelStatus)
 
             DeepAIReviewSheetContent(
                 controller: controller,
@@ -105,27 +98,34 @@ private struct DeepAIReviewSheetControls: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Picker("Review target", selection: $controller.preset) {
+            Picker("", selection: $controller.preset) {
                 Text("Auto").tag(DeepAIReviewPreset.auto)
                 Text("Full Subject").tag(DeepAIReviewPreset.fullSubject)
                 Text("Head / Face").tag(DeepAIReviewPreset.headFace)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Subject target")
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
 
             Spacer()
 
-            if controller.isRunning {
-                Button("Cancel", role: .cancel, action: onCancel)
-                    .buttonStyle(.bordered)
-                    .accessibilityHint("Cancels the active Deep Review.")
-            } else {
-                Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canRun)
-                    .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
+            HStack {
+                
+                SAM3ModelAvailabilityView(status: controller.modelStatus)
+                
+                if controller.isRunning {
+                    Button("Cancel", role: .cancel, action: onCancel)
+                        .buttonStyle(.bordered)
+                        .accessibilityHint("Cancels the active Deep Review.")
+                } else {
+                    Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!canRun)
+                        .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
+                }
             }
         }
     }
@@ -177,7 +177,7 @@ private struct DeepAIReviewSheetContent: View {
         switch state {
         case .completed:
             ContentUnavailableView(
-                "No Deep Review Yet",
+                "Ready to review",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Select new images to analyze."),
             )
@@ -252,7 +252,7 @@ private struct DeepAIReviewSheetContent: View {
 
         case .ready:
             ContentUnavailableView(
-                "No Deep Review Yet",
+                "Ready to review",
                 systemImage: "sparkle.magnifyingglass",
                 description: Text("Run local AI subject-detail analysis for this burst group."),
             )
