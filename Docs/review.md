@@ -82,7 +82,7 @@ Cache-key construction hashes complete membership on body evaluation; rendered g
 
 ### 7. P2 — Metadata scan task admission is unbounded
 
-**Status:** Open. **Location:** `Actors/ScanFiles.swift`.
+**Status:** Implemented. Metadata scans use bounded task-group admission (configurable; conservative default at most eight), await coalesced monotonic progress, and stop admitting work after cancellation. A 65-file test enforces a three-read limit and exact progress batches; cancellation drains the admitted workers. Scan, sort and catalog concurrency suites passed. Storage-specific tuning remains a profiling task. **Location:** `Actors/ScanFiles.swift`.
 
 One child task and one UI progress task are admitted per file before results are collected.
 
@@ -234,3 +234,7 @@ Fixed findings 12 and 13. New tests cover failed writes preserving edits, retry 
 ### Test storage isolation
 
 Fixed finding 15. The shared view-model helper already received an in-memory culling store in the persistence update; the thumbnail helper now injects every storage dependency too. Selected Xcode suites passed. Allowance before this update: 58% of the five-hour window, 67% weekly.
+
+### Bounded catalog metadata scanning
+
+Fixed finding 7. Xcode passed scan admission/progress/cancellation and existing sort/catalog concurrency suites. No per-file unstructured progress tasks remain. Allowance before this update: 53% of the five-hour window, 67% weekly.
