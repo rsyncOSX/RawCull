@@ -65,6 +65,7 @@ struct LoupeMainImageView: View {
     @State private var showSubjectOutline = false
     @State private var isLoadingSubjectOutline = false
     @State private var subjectOutlineKeyMonitor: Any?
+    @State private var keyboardScope = ReviewKeyboardScope()
     @FocusState private var isImageFocused: Bool
 
     private var subjectOutlineCandidate: DeepAIReviewCandidate? {
@@ -261,6 +262,7 @@ struct LoupeMainImageView: View {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             thumbnailSizePreview = settingsmanager.thumbnailSizePreview
         }
+        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
         }
@@ -462,7 +464,7 @@ struct LoupeMainImageView: View {
             guard viewModel.mainViewMode == .loupe,
                   !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  !(NSApp.keyWindow?.firstResponder is NSText),
+                  keyboardScope.accepts(event),
                   LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
             else { return event }
 

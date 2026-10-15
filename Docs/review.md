@@ -22,7 +22,7 @@ Keep performance tuning, broader view decomposition, and other P3 refactoring as
 
 ### 1. P1 — Photo shortcuts can act in another window
 
-**Status:** Open. **Location:** `RawCull/Views/ThumbnailComponents/ThumbnailKeyNavigationModifier.swift`, plus comparison, zoom, and loupe event monitors.
+**Status:** Implemented. Window anchors now reject other-window events, sheets, modal sessions, native editors/controls, and focused SwiftUI accessibility controls. Keyboard scope and existing zoom key-action regression suites passed in Xcode. **Location:** `RawCull/Views/ThumbnailComponents/ThumbnailKeyNavigationModifier.swift`, plus comparison, zoom, and loupe event monitors.
 
 Local NSEvent monitors receive application-wide events before dispatch. Excluding NSText does not exclude Settings controls, sheets, the About window, or unrelated focused controls. Photo navigation and rating commands can therefore intercept keys outside the intended review surface.
 
@@ -32,7 +32,7 @@ Local NSEvent monitors receive application-wide events before dispatch. Excludin
 
 ### 2. P2 — Competing keyboard handlers disagree about `2`
 
-**Status:** Open. **Location:** `CullingGridView.handleBurstKeyPress` and `ThumbnailKeyNavigationModifier`.
+**Status:** Implemented. The thumbnail monitor reserves burst commands and delegates them to the grid before considering ratings; the competing SwiftUI burst handler was removed. Ineligible burst commands cannot fall through to rating 2. Routing regression cases passed. **Location:** `CullingGridView.handleBurstKeyPress` and `ThumbnailKeyNavigationModifier`.
 
 The burst grid assigns `2` to keeping the top two candidates, while the application event monitor consumes it as rating 2 before SwiftUI receives it.
 

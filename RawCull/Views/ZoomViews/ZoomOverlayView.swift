@@ -129,6 +129,7 @@ nonisolated enum ZoomViewportMath {
 struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
     @State private var session = ZoomSessionModel()
+    @State private var keyboardScope = ReviewKeyboardScope()
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
@@ -390,6 +391,7 @@ struct ZoomOverlayView: View {
                 navigationAxis: viewModel.zoomOverlayNavigationAxis,
             ))
         }
+        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             isImageFocused = true
             installKeyMonitor()
@@ -529,7 +531,7 @@ struct ZoomOverlayView: View {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+                  keyboardScope.accepts(event) else { return event }
 
             return handleKeyEvent(event) == .handled ? nil : event
         }
