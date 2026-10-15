@@ -24,63 +24,43 @@ struct QwenAnalysisView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Action Control Bar
-            HStack(spacing: 12) {
-                TextField("Additional analysis prompt or focus criteria...", text: $feature.prompt)
+            AIAnalysisControlBar {
+                TextField("Additional analysis prompt or focus criteria…", text: $feature.prompt)
                     .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 180)
                     .labelsHidden()
                     .accessibilityLabel("Analysis prompt or focus criteria")
                     .disabled(feature.isRunning)
                     .onSubmit(run)
-                
-                HStack {
-                    
-                    QwenModelAvailabilityView(status: feature.modelStatus)
-                    
-                    if feature.isRunning {
-                        Button("Cancel", systemImage: "stop.circle", role: .cancel) {
-                            feature.cancel()
-                        }
+            } actions: {
+                if feature.isRunning {
+                    Button("Cancel", systemImage: "stop.circle", role: .cancel) { feature.cancel() }
                         .buttonStyle(.bordered)
-                    } else {
-                        Button(action: run) {
-                            Label("Run Analyze", systemImage: "sparkles")
-                        }
+                } else {
+                    Button("Analyze \(pendingFiles.count) Images", systemImage: "sparkles", action: run)
                         .buttonStyle(.borderedProminent)
                         .disabled(!feature.canRun || pendingFiles.isEmpty)
-                    }
-                }                
+                }
+            } status: {
+                QwenModelAvailabilityView(status: feature.modelStatus)
             }
 
             if let progress = feature.progress {
-                ProgressView(
-                    value: Double(progress.completedCount),
-                    total: Double(max(progress.totalCount, 1)),
-                ) {
-                    HStack {
-                        Text(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis…")
-                        Spacer()
-                        Text("\(progress.completedCount) / \(progress.totalCount)")
-                            .monospacedDigit()
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-                .progressViewStyle(.linear)
+                AIAnalysisProgressView(
+                    completedCount: progress.completedCount,
+                    totalCount: progress.totalCount,
+                    message: progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis…",
+                )
             }
-
             if let failureMessage = feature.failureMessage {
-                Label(failureMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                AIAnalysisErrorView(message: failureMessage)
             }
 
             // Data Presentation Split
 
             if feature.results.isEmpty {
                 ContentUnavailableView(
-                    "No Qwen Results Yet",
+                    "Ready to Analyze",
                     systemImage: "text.bubble",
                     description: Text("Run analysis to evaluate composition, exposure, and key details across your batch."),
                 )
@@ -94,15 +74,12 @@ struct QwenAnalysisView: View {
                     .frame(minWidth: 400, idealWidth: 550)
 
                     QwenAssessmentDetail(result: selectedResult)
-                        .frame(minWidth: 260, idealWidth: 320)
+                        .frame(minWidth: 330, idealWidth: 420)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1),
-                )
+                .aiAnalysisResultsContainer()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(16)
         .task(id: feature.results.map(\.id)) {
             if selection == nil {
@@ -179,28 +156,13 @@ private struct QwenResultsTable: View {
 
             TableColumn("Status") { result in
                 if result.assessment != nil {
-                    Text("Structured")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.green.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.green)
+                    AIAnalysisStatusBadge(title: "Complete", color: .green)
                 } else if result.failure != nil {
-                    Text("Failed").foregroundStyle(.orange)
+                    AIAnalysisStatusBadge(title: "Failed", color: .orange)
                 } else if result.freeformResponse != nil {
-                    Text("Free-form")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.blue)
+                    AIAnalysisStatusBadge(title: "Free-form", color: .blue)
                 } else {
-                    Text("Failed")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.orange)
+                    AIAnalysisStatusBadge(title: "Failed", color: .orange)
                 }
             }
             .width(90)
@@ -224,12 +186,13 @@ private struct QwenAssessmentDetail: View {
         Group {
             if result?.assessment == nil, result?.freeformResponse == nil, result?.failure == nil {
                 ContentUnavailableView(
-                    "No Selection",
+                    "Select an Image",
                     systemImage: "photo",
-                    description: Text("Select a row in the table to inspect analysis breakdowns."),
+                    description: Text("Select an analyzed image to inspect its assessment."),
                 )
             } else if let failure = result?.failure,
-                      result?.assessment == nil, result?.freeformResponse == nil {
+                      result?.assessment == nil, result?.freeformResponse == nil
+            {
                 ContentUnavailableView(
                     "Analysis Failed",
                     systemImage: "exclamationmark.triangle",
@@ -237,7 +200,7 @@ private struct QwenAssessmentDetail: View {
                 )
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 12) {
                         if let result, let assessment = result.assessment {
                             Text(result.fileName)
                                 .font(.headline)
@@ -270,8 +233,8 @@ private struct QwenAssessmentDetail: View {
                             LabeledContent("Subject visibility evidence", value: assessment.subjectVisibilityEvidence ?? "Unsupported; abstained")
                             Divider()
 
-                            QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
-                            QwenAssessmentList(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
+                            AIAnalysisFindingsSection(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
+                            AIAnalysisFindingsSection(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
                         } else if let result, let response = result.freeformResponse {
                             Text(result.fileName)
                                 .font(.headline)
@@ -286,44 +249,12 @@ private struct QwenAssessmentDetail: View {
                                 .textSelection(.enabled)
                         }
                     }
-                    .padding(14)
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
-    }
-}
-
-private struct QwenAssessmentList: View {
-    let title: String
-    let values: [String]
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
-
-            if values.isEmpty {
-                Text("None detected")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(values, id: \.self) { value in
-                        HStack(alignment: .top, spacing: 6) {
-                            Text("•")
-                            Text(value)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
     }
 }

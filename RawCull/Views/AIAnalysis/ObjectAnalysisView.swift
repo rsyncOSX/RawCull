@@ -19,38 +19,33 @@ struct ObjectAnalysisView: View {
     var body: some View {
         VStack(spacing: 12) {
             ObjectAnalysisControls(feature: feature, files: files, pendingFiles: pendingFiles)
-            // ObjectAnalysisAvailabilityView(availability: feature.availability)
             if let progress = feature.progress {
-                VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: Double(progress.completedCount),
-                                 total: Double(max(progress.totalCount, 1)))
-                    Text("\(progress.currentFileName): \(progress.stage.label) · \(progress.completedCount)/\(progress.totalCount)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
+                AIAnalysisProgressView(
+                    completedCount: progress.completedCount,
+                    totalCount: progress.totalCount,
+                    message: "\(progress.currentFileName): \(progress.stage.label)",
+                )
             }
             if let failure = feature.failureMessage {
-                Label(failure, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                AIAnalysisErrorView(message: failure)
             }
             if feature.results.isEmpty {
                 ContentUnavailableView(
-                    "No Object Results Yet",
+                    "Ready to Analyze",
                     systemImage: "square.3.layers.3d",
-                    description: Text("Install SAM 3 and Qwen, then analyze selected or tagged photographs."),
+                    description: Text("Analyze selected or tagged photographs to inspect objects and their details."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .aiAnalysisResultsContainer()
             } else {
                 HSplitView {
                     ObjectPhotoResultsTable(results: feature.results, selection: $selection)
-                        .frame(minWidth: 350, idealWidth: 480, maxHeight: .infinity)
+                        .frame(minWidth: 400, idealWidth: 550, maxHeight: .infinity)
                     ObjectPhotoDetailView(result: selectedResult,
                                           file: files.first { $0.id == selectedResult?.fileID },
                                           feature: feature, focusMaskModel: focusMaskModel,
                                           focusConfig: focusConfig)
-                        .frame(minWidth: 350, idealWidth: 600, maxHeight: .infinity)
+                        .frame(minWidth: 330, idealWidth: 420, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -71,49 +66,57 @@ private struct ObjectAnalysisControls: View {
     let pendingFiles: [FileItem]
 
     var body: some View {
-        HStack(spacing: 8) {
+        AIAnalysisControlBar {
             Picker("Object concept mode", selection: $feature.discoveryMode) {
                 Text("Automatic").tag(ObjectDiscoveryMode.automatic)
                 Text("Specific Concepts").tag(ObjectDiscoveryMode.specificConcepts)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 300)
+            .frame(minWidth: 260, maxWidth: 300)
             .disabled(feature.isRunning)
 
             if feature.discoveryMode == .specificConcepts {
                 TextField("bird, person, car", text: $feature.manualConceptText)
                     .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 180)
                     .labelsHidden()
                     .accessibilityLabel("Specific object concepts, separated by commas")
                     .disabled(feature.isRunning)
             } else {
                 TextField("Additional photographic criteria", text: $feature.criteria)
                     .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 180)
                     .labelsHidden()
+                    .accessibilityLabel("Additional photographic criteria")
                     .disabled(feature.isRunning)
             }
 
-            ObjectAnalysisAvailabilityView(availability: feature.availability)
-                .fixedSize(horizontal: true, vertical: false)
-
+        } actions: {
             if feature.isRunning {
                 Button("Cancel", systemImage: "stop.circle", role: .cancel) {
                     feature.cancel()
                 }
+                .buttonStyle(.bordered)
             } else {
                 Button("Analyze \(pendingFiles.count) Images", systemImage: "sparkles") {
                     Task { await feature.analyze(pendingFiles) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!feature.canRun || pendingFiles.isEmpty)
-                Button("Retry Failed") {
-                    Task { await feature.retryFailed(files) }
+                Menu {
+                    Button("Retry Failed") { Task { await feature.retryFailed(files) } }
+                        .disabled(!feature.canRun || !feature.results.contains { !$0.isSuccessful })
+                    Button("Clear Results", role: .destructive) { feature.clearResults() }
+                        .disabled(feature.results.isEmpty)
+                } label: {
+                    Label("More Actions", systemImage: "ellipsis.circle")
                 }
-                .disabled(!feature.canRun || !feature.results.contains { !$0.isSuccessful })
-                Button("Clear Results", role: .destructive) { feature.clearResults() }
-                    .disabled(feature.results.isEmpty)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
+        } status: {
+            ObjectAnalysisAvailabilityView(availability: feature.availability)
         }
     }
 }
@@ -129,7 +132,7 @@ private struct ObjectAnalysisAvailabilityView: View {
                 Text("Checking local SAM 3 and Qwen models…")
 
             case .ready:
-                Label("SAM 3 and Qwen ready", systemImage: "checkmark.circle.fill")
+                Label("Models ready: SAM 3 and Qwen", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
 
             case .sam3Unavailable:
@@ -167,12 +170,14 @@ private struct ObjectPhotoResultsTable: View {
             .width(90)
             TableColumn("Status") { result in
                 if result.needsAssessmentRetry {
-                    Text("Assessment needs retry")
+                    AIAnalysisStatusBadge(title: "Needs retry", color: .orange)
                 } else {
-                    Text(result.failure == nil ? "Complete" : "Failed")
+                    AIAnalysisStatusBadge(title: result.failure == nil ? "Complete" : "Failed",
+                                          color: result.failure == nil ? .green : .orange)
                 }
             }
         }
+        .aiAnalysisTableNavigation(ids: results.map(\.fileID), selection: $selection)
         .accessibilityLabel("Object analysis results")
     }
 }
@@ -219,8 +224,7 @@ private struct ObjectPhotoDetailView: View {
                                 .frame(height: 420)
                         }
                         if let failure = result.failure {
-                            Label(failure, systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange)
+                            AIAnalysisErrorView(message: failure)
                         }
                         if result.instances.isEmpty, result.failure == nil {
                             ContentUnavailableView("No Matching Objects",
@@ -270,14 +274,17 @@ private struct ObjectPhotoDetailView: View {
                                     ObjectAssessmentDetail(object: object)
                                 }
                                 if let selectedObjectID,
-                                   let evidence = spatialEvidence[selectedObjectID] {
+                                   let evidence = spatialEvidence[selectedObjectID]
+                                {
                                     ObjectFocusEvidenceDetail(evidence: evidence)
                                 }
                                 ForEach(assessment.relationships, id: \.self) { relationship in
                                     Text("Relationship: \(relationship)").font(.caption)
                                 }
-                                ForEach(assessment.strengths, id: \.self) { Text("Strength: \($0)") }
-                                ForEach(assessment.problems, id: \.self) { Text("Problem: \($0)") }
+                                AIAnalysisFindingsSection(title: "Strengths", values: assessment.strengths,
+                                                          icon: "checkmark.circle", color: .green)
+                                AIAnalysisFindingsSection(title: "Issues", values: assessment.problems,
+                                                          icon: "exclamationmark.triangle", color: .orange)
                                 if !assessment.preferredObjectIDs.isEmpty {
                                     Text("Preferred objects: \(assessment.preferredObjectIDs.joined(separator: ", "))")
                                 }
@@ -291,7 +298,7 @@ private struct ObjectPhotoDetailView: View {
                     .padding()
                 }
             } else {
-                ContentUnavailableView("Select a Photo",
+                ContentUnavailableView("Select an Image",
                                        systemImage: "photo",
                                        description: Text("Choose an analyzed photograph to inspect its objects."))
             }
@@ -428,18 +435,30 @@ private struct ObjectAssessmentDetail: View {
             Text("Analysis uses a 2048-pixel board of crops from a thumbnail requested at up to 4320 pixels. Preview processing and model input resolution limit detail; RAW recovery is untested.")
                 .font(.caption).foregroundStyle(.secondary)
             ForEach(object.obstructions, id: \.self) { Text("Obstruction: \($0)") }
+            Label("Strengths", systemImage: "checkmark.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
+            if object.strengths.isEmpty {
+                Text("None detected").font(.caption).foregroundStyle(.tertiary)
+            }
             ForEach(Array(object.strengths.enumerated()), id: \.element) { index, strength in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Strength: \(strength)")
+                    Text("• \(strength)").font(.caption).foregroundStyle(.secondary)
                     if object.strengthEvidence.indices.contains(index) {
                         let evidence = object.strengthEvidence[index]
                         Text("Crop \(evidence.cropID): \(evidence.observation)").font(.caption)
                     }
                 }
             }
+            Label("Issues", systemImage: "exclamationmark.triangle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.orange)
+            if object.problems.isEmpty {
+                Text("None detected").font(.caption).foregroundStyle(.tertiary)
+            }
             ForEach(Array(object.problems.enumerated()), id: \.element) { index, problem in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Problem: \(problem)")
+                    Text("• \(problem)").font(.caption).foregroundStyle(.secondary)
                     if object.problemEvidence.indices.contains(index) {
                         let evidence = object.problemEvidence[index]
                         Text("Crop \(evidence.cropID): \(evidence.observation)").font(.caption)
