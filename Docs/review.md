@@ -42,7 +42,7 @@ The burst grid assigns `2` to keeping the top two candidates, while the applicat
 
 ### 3. P2 — Embedded JPG export can export a sidecar
 
-**Status:** Open. **Location:** `Actors/ExtractAndSaveJPGs.swift`, `Model/FullSizePreviewLoader.swift`.
+**Status:** Implemented. A dedicated ARW/NEF/DNG embedded-byte loader bypasses sidecars and display caches. Standalone JPEG bytes are preserved; JPEGs relying on RAW orientation are normalized and encoded explicitly. Synthetic RAW/sidecar tests and export destination-safety tests passed. **Location:** `Actors/ExtractAndSaveJPGs.swift`, `Model/FullSizePreviewLoader.swift`.
 
 Export calls the display-preview loader, which prefers a sidecar JPEG. It then decodes and re-encodes the selected image, even though the action promises the embedded JPEG.
 
