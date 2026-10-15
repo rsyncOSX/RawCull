@@ -92,7 +92,7 @@ One child task and one UI progress task are admitted per file before results are
 
 ### 8. P2 — Preload gate blocks ready visible thumbnails
 
-**Status:** Open. **Location:** `Actors/ThumbnailPreloadGate.swift`, `ScanAndCreateThumbnails.swift`.
+**Status:** Implemented. Preloading reports per-file completion, releasing eligible waiters immediately while keeping other files gated. Completion is owned by an active session; failed reads permit interactive retry. Directory comparisons tolerate trailing-slash differences. Gate session/cancellation tests and thumbnail concurrency/integration suites passed. **Location:** `Actors/ThumbnailPreloadGate.swift`, `ScanAndCreateThumbnails.swift`.
 
 Waiters are released at catalog completion rather than when their image becomes available.
 
@@ -238,3 +238,7 @@ Fixed finding 15. The shared view-model helper already received an in-memory cul
 ### Bounded catalog metadata scanning
 
 Fixed finding 7. Xcode passed scan admission/progress/cancellation and existing sort/catalog concurrency suites. No per-file unstructured progress tasks remain. Allowance before this update: 53% of the five-hour window, 67% weekly.
+
+### Per-file thumbnail readiness
+
+Fixed finding 8. Native processing completes before a file is released; overlapping preload sessions remain independent and stale completion signals are ignored. Tests exposed and verified a correction for equivalent catalog URLs with different directory-slash representations. Xcode passed the selected gate/thumbnail suites. Allowance before this update: 46% of the five-hour window, 66% weekly.
