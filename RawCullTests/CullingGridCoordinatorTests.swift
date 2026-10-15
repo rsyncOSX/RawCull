@@ -237,40 +237,21 @@ struct CullingGridCoordinatorTests {
 
     @Test
     func `render cache key tracks complete membership and score availability`() {
-        let first = makeGridTestFile("first.ARW")
-        let middle = makeGridTestFile("middle.ARW")
-        let replacement = makeGridTestFile("replacement.ARW")
-        let last = makeGridTestFile("last.ARW")
-        let group = BurstGroup(id: 1, fileIDs: [first.id, middle.id, last.id])
-
-        func key(
-            groups: [BurstGroup] = [group],
-            files: [FileItem] = [first, middle, last],
-            scores: [UUID: Float] = [first.id: 0.8],
-        ) -> CullingGridRenderCacheKey {
-            CullingGridRenderCacheKey(
-                burstGroups: groups,
-                files: files,
-                ratingFilter: .all,
-                reviewQueueFilter: .all,
-                hasSharpnessScores: !scores.isEmpty,
-                burstAnalysisResults: [:],
-            )
-        }
-
-        let baseline = key()
-        #expect(baseline != key(groups: [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]))
-        #expect(baseline != key(files: [first, replacement, last]))
-        #expect(baseline == key(scores: [first.id: 0.9]))
-        #expect(baseline == key(scores: [first.id: 0.9, middle.id: 0.7]))
-        #expect(baseline != key(scores: [:]))
-
-        let scored = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [first.id: 0.8])
-        let updated = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [middle.id: 0.9])
-        let cleared = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [:])
-        #expect(scored.visibleBurstGroups == updated.visibleBurstGroups)
-        #expect(scored.hasSharpnessScoresSnapshot == updated.hasSharpnessScoresSnapshot)
-        #expect(!cleared.hasSharpnessScoresSnapshot)
+        let model = makeRawCullViewModel()
+        let first = makeGridTestFile("first.ARW"), middle = makeGridTestFile("middle.ARW")
+        let replacement = makeGridTestFile("replacement.ARW"), last = makeGridTestFile("last.ARW")
+        model.filteredFiles = [first, middle, last, replacement]
+        model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, middle.id, last.id])]
+        model.sharpnessModel.scores = [first.id: 0.8]
+        let baseline = model.cullingGridProjection(ratingFilter: .all)
+        model.sharpnessModel.scores = [first.id: 0.9, middle.id: 0.7]
+        #expect(model.cullingGridProjection(ratingFilter: .all).key == baseline.key)
+        model.sharpnessModel.scores = [:]
+        #expect(model.cullingGridProjection(ratingFilter: .all).key != baseline.key)
+        model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]
+        #expect(model.cullingGridProjection(ratingFilter: .all).groups.first?.files.map(\.id) == [first.id, replacement.id, last.id])
+        model.filteredFiles = [first, replacement, last]
+        #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id, last.id])
     }
 
     @Test

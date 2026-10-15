@@ -25,7 +25,10 @@ final class SharpnessScoringModel {
     /// AF-center measurements used exclusively for catalog/Grid View ordering.
     var afPointScores: [UUID: Float] = [:]
 
-    var saliencyInfo: [UUID: SaliencyInfo] = [:]
+    private(set) var saliencyRevision: UInt64 = 0
+    var saliencyInfo: [UUID: SaliencyInfo] = [:] {
+        didSet { saliencyRevision &+= 1 }
+    }
     var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false
     var sortBySharpness: Bool = false

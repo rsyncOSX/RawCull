@@ -76,7 +76,12 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
     var files: [FileItem] = []
-    var filteredFiles: [FileItem] = []
+    private(set) var gridContentRevision: UInt64 = 0
+    @ObservationIgnored var gridProjectionCache: CullingGridProjection?
+    @ObservationIgnored var gridProjectionBuildCount = 0
+    var filteredFiles: [FileItem] = [] {
+        didSet { gridContentRevision &+= 1 }
+    }
     var searchText = ""
     var selectedFileID: FileItem.ID?
     var previouslySelectedFileID: FileItem.ID?
@@ -176,7 +181,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
 
     /// Intelligent burst culling analysis state.
-    var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
+    var burstAnalysisResults: [Int: BurstAnalysisResult] = [:] {
+        didSet { gridContentRevision &+= 1 }
+    }
     var burstAnalysisProgress: BurstAnalysisProgress {
         burstAnalysisCoordinator.progress
     }
@@ -200,7 +207,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// O(1) lookup: filename → rating for the current source catalog.
     /// Rebuilt by rebuildRatingCache() after any culling state change.
-    var ratingCache: [String: Int] = [:]
+    var ratingCache: [String: Int] = [:] {
+        didSet { gridContentRevision &+= 1 }
+    }
 
     /// Filenames that have an explicit record in the current catalog.
     var taggedNamesCache: Set<String> = []

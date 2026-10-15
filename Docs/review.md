@@ -16,7 +16,7 @@ Commit each update before beginning the next:
 6. Surface settings persistence failures.
 7. Correct isolated thumbnail-provider storage dependencies.
 
-Keep performance tuning, broader view decomposition, and other P3 refactoring as follow-up work. Do not combine unrelated architectural rewrites with correctness fixes. Update the status and validation notes below as changes land.
+The user subsequently authorized all remaining P2 work, including the performance fixes. Keep measured tuning, broader view decomposition, and P3 refactoring as follow-up work. Do not combine unrelated architectural rewrites with correctness fixes. Update the status and validation notes below as changes land.
 
 ## Findings
 
@@ -72,7 +72,7 @@ Each file linearly searches saved records. Each score insertion sorts the accumu
 
 ### 6. P2 — Grid caching still walks the catalog during view updates
 
-**Status:** Open. **Location:** `Views/CullingGrid/CullingGridView.swift`, `CullingGridRenderCache.swift`.
+**Status:** Implemented. A model-owned projection caches rating-filtered files, ranked burst groups, group numbers, selection IDs and badge counts behind constant-size revision keys. Catalog/rating/analysis/semantic/saliency mutations invalidate it; selection changes and score-value-only updates reuse it. Unrated filtering uses the rating index. Projection, grid coordinator, culling, semantic search and smoke-integrity suites passed. No Instruments timing claim is made. **Location:** `Views/CullingGrid/CullingGridView.swift`, `CullingGridRenderCache.swift`.
 
 Cache-key construction hashes complete membership on body evaluation; rendered groups and selection projections are rebuilt repeatedly. Unrated filtering also performs per-file record searches.
 
@@ -203,7 +203,7 @@ Validated values are encoded, converted to [String: Any], force-cast and mutated
 - Prefer regression tests against production behavior; do not substitute source-text assertions for behavioral coverage.
 - Initial worktree was clean. No production data was touched by isolated review probes.
 
-## Implementation checkpoint
+## Initial implementation checkpoint (historical)
 
 Completed and committed in order: review/plan, keyboard routing (findings 1–2), embedded JPEG export (3), and thumbnail request/publication correctness (4). Every code update includes this document's status and validation notes. Remaining correctness work starts with persistence initialization/recovery and tagging dates (9–11), followed by settings errors (12) and test storage isolation (15). Performance and broader cleanup remain open.
 
@@ -246,3 +246,19 @@ Fixed finding 8. Native processing completes before a file is released; overlapp
 ### Reduce Motion
 
 Fixed finding 14 with a review-subtree transaction policy plus explicit stable warning/hover behavior. No implementation-mirroring tests were added for this appearance-only change; the UI build and existing keyboard/thumbnail regressions passed. Allowance before this update: 34% of the five-hour window, 64% weekly.
+
+### Revision-based grid projection and final P2 validation
+
+Fixed finding 6. Mutation revisions replace whole-catalog cache-key hashing; ranked groups, flattened selection, badge counts and group-number lookups are memoized together. Existing membership/score-availability coverage was retained, and new regressions verify selection reuse, same-count membership changes, rating filters, review categories and saliency invalidation. Targeted Xcode suites passed.
+
+The initial full smoke gate found a pre-existing stale count: unchanged original selectors enumerated 371 identifiers rather than the recorded 355. All 29 new review regression identifiers were then added explicitly to the smoke manifest, its expected-selector inventory and the Make baseline, producing 400 verified unique identifiers. Full smoke execution completed: 388 passed, 11 failed, 1 skipped. All 29 new review regression identifiers passed. The full gate is not green; see validation blockers below.
+
+All review P2 implementation items are now addressed. P3 findings 16–18 remain open. Manual VoiceOver/Reduce Motion checks and Instruments measurements remain explicitly unclaimed. Before this final update, 30% of the five-hour allowance remained; a check during final validation showed 12% remaining and 60% weekly, with zero additional credits. That reserve is dedicated to completing validation and committing this update; no further refactoring is started.
+
+#### Final smoke validation blockers
+
+`make test-smoke` verified 400 unique identifiers and ran with Thread Sanitizer. Xcode reported 388 passed, 11 failed and 1 skipped. All new review regression identifiers passed; the targeted grid/culling/semantic suites also passed separately.
+
+Nine failures require absent authentic fixtures under `Docs/CombinedReviewRegression/` (schema responses v9/v16, overview v8, crops v17/v18, reports v19) and `Docs/CombinedReviewInputFixtures/source-landscape.png`. Two failures come from unchanged release metadata tests expecting marketing version 3.3.0 while the project is 3.3.2, and a PhotoAIKit pin row absent from README. These failures were not hidden or skipped. Restore the original recorded fixtures and reconcile release checks/documentation in a separate update; do not invent substitute recorded AI evidence merely to make tests green.
+
+No further fixes were started after the allowance reserve check. The original P2 findings are implemented; the above smoke blockers, manual accessibility checks, profiling, and P3 items remain visible follow-up work.

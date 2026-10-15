@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 291 unique smoke identifiers and 2 unique performance
+current baselines are 400 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -177,3 +177,17 @@ hostless Debug target. It uses synthetic geometry fixtures, calls the pinned
 preprocessors through testability, and saves reproducible model/transform reports;
 ordinary tests neither load nor download these models. See
 [the input-contract decision](../Docs/combined-review-input-contract.md).
+
+## Code review P2 regression gate — 2026-10-15
+
+The existing selectors enumerate 371 unique identifiers; the previous Make baseline
+of 355 was stale. Eleven explicit review regression suite selectors add 29 unique
+identifiers, for 400 total. These cover keyboard admission, embedded JPEG export,
+thumbnail publication, persistence initialization/recovery, settings failures,
+storage isolation, bounded scanning, preload readiness, and grid projection reuse.
+Parameterized invocations can produce more concrete executions than identifiers.
+
+The final review smoke run verified all 400 identifiers, with 388 passing, 11
+failing and 1 skipped. All 29 new review regression identifiers passed. The full
+gate remains blocked by nine missing recorded-fixture tests and two stale release
+metadata/README checks; see `Docs/review.md` for exact categories.
