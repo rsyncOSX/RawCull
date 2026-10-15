@@ -131,32 +131,36 @@ extension RawCullViewModel {
     }
 
     func loadPersistedScoringandSaliency() {
-        guard let catalog = selectedSource?.url else { return }
-        guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-        guard let filerecords = cullingModel.savedFiles[catalogIndex].filerecords else { return }
-
+        let records = cullingModel.savedFiles.first { $0.catalog == selectedSource?.url }?.filerecords ?? []
+        // Keep the first legacy duplicate, matching the previous first(where:) policy.
+        let recordsByName = Dictionary(records.compactMap { record in
+            record.fileName.map { ($0, record) }
+        }, uniquingKeysWith: { first, _ in first })
+        let signature = sharpnessModel.scoringSignature
+        var scores: [UUID: Float] = [:]
+        var afScores: [UUID: Float] = [:]
+        var saliency: [UUID: SaliencyInfo] = [:]
         for file in files {
-            // Find the matching file record for this file
-            guard let fileRecord = filerecords.first(where: { $0.fileName == file.name }) else { continue }
-
-            // Legacy unsigned scores remain in JSON for compatibility but are stale.
-            let metadataMatches = fileRecord.sharpnessFileSize == file.size
-                && fileRecord.sharpnessModificationDate.map { abs($0.timeIntervalSince(file.dateModified)) < 0.001 } == true
-            guard fileRecord.sharpnessScoringSignature == sharpnessModel.scoringSignature, metadataMatches else { continue }
-
-            if let score = fileRecord.sharpnessScore {
-                sharpnessModel.scores[file.id] = score
+            guard let record = recordsByName[file.name],
+                  record.sharpnessScoringSignature == signature,
+                  record.sharpnessFileSize == file.size,
+                  record.sharpnessModificationDate.map({ abs($0.timeIntervalSince(file.dateModified)) < 0.001 }) == true
+            else { continue }
+            if let score = record.sharpnessScore, score.isFinite {
+                scores[file.id] = score
             }
-
-            if let score = fileRecord.afPointSharpnessScore,
+            if let score = record.afPointSharpnessScore,
                SharpnessScoringModel.hasValidAFPoint(file.afFocusNormalized), score.isFinite, score > 1e-6 {
-                sharpnessModel.afPointScores[file.id] = score
+                afScores[file.id] = score
             }
-
-            if let subjectLabel = fileRecord.saliencySubject {
-                // Create saliency info with the subject label
-                sharpnessModel.saliencyInfo[file.id] = SaliencyInfo(subjectLabel: subjectLabel)
+            if let subject = record.saliencySubject {
+                saliency[file.id] = SaliencyInfo(subjectLabel: subject)
             }
         }
+        // One publication computes normalization once, rather than sorting after
+        // every insertion. Empty results also remove stale restored evidence.
+        sharpnessModel.scores = scores
+        sharpnessModel.afPointScores = afScores
+        sharpnessModel.saliencyInfo = saliency
     }
 }

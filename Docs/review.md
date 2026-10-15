@@ -62,7 +62,7 @@ The task identity contains only the URL, so representation-size changes do not r
 
 ### 5. P2 — Saved sharpness restoration repeats expensive main-actor work
 
-**Status:** Open. **Location:** `RawCullViewModel+Sharpness.loadPersistedScoringandSaliency`, `SharpnessScoringModel.scores.didSet`.
+**Status:** Implemented. Restoration indexes records once, preserves first-duplicate behavior, validates source/signature metadata, and publishes score dictionaries once. A 100-file regression verifies one score revision and correct normalization. Recovery, sharpness and culling presentation suites passed; no measured timing improvement is claimed. **Location:** `RawCullViewModel+Sharpness.loadPersistedScoringandSaliency`, `SharpnessScoringModel.scores.didSet`.
 
 Each file linearly searches saved records. Each score insertion sorts the accumulated scores to recompute a percentile.
 
@@ -112,7 +112,7 @@ The store starts empty and writable; it is loaded only after a nonempty catalog 
 
 ### 10. P2 — Recovery does not refresh derived presentation
 
-**Status:** Open. **Location:** `Main/RawCullMainView.swift` persistence recovery actions.
+**Status:** Implemented. Application-level retry/reset rebuilds ratings, scoring, filters, selection and copy admission. Failed reads preserve presentation; reset refreshes memory even when persisting the empty store fails. Recovery regressions and affected sharpness/culling suites passed. **Location:** `Main/RawCullMainView.swift` persistence recovery actions.
 
 Retry can replace savedFiles while ratingCache, tagged names, filtering and scoring presentation remain stale.
 
@@ -222,3 +222,7 @@ Resumed after checking usage: 99% of the five-hour allowance and 74% of the week
 ### Persistence initialization
 
 Fixed finding 9. Saved JSON value types are explicitly nonisolated and Sendable so reading/decoding runs off the main actor. Tests cover unread-store mutation rejection, concurrent initialization, corrupt-file preservation and explicit retry. Existing in-memory test assembly now injects its culling store. Allowance before this update: 92% of the five-hour window, 73% weekly.
+
+### Recovery and batched restoration
+
+Fixed findings 5 and 10 in one persistence-presentation update. Tests cover repaired history, filtered selection/copy admission, archive/reset followed by write failure, duplicate record policy, stale metadata, and single-batch normalization. Allowance before this update: 82% of the five-hour window, 71% weekly. Xcode passed all selected suites; its unrelated no-AppIntents metadata-extraction warning remains.

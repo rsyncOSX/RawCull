@@ -130,13 +130,13 @@ struct RawCullMainView: View {
         .alert(persistenceAlertTitle, isPresented: persistenceErrorIsPresented) {
             Button("Retry") {
                 Task {
-                    await viewModel.cullingModel.retryPersistence()
+                    await viewModel.retryCullingPersistence()
                 }
             }
             if viewModel.cullingModel.persistenceLoadFailure != nil {
                 Button("Archive Damaged File and Reset", role: .destructive) {
                     Task {
-                        await viewModel.cullingModel.archiveCorruptStoreAndReset()
+                        await viewModel.archiveCullingStoreAndReset()
                     }
                 }
             }
