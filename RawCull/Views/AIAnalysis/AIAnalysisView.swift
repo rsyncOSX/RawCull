@@ -340,7 +340,7 @@ struct CombinedReviewWorkspaceView: View {
                     viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: min(SettingsViewModel.shared.thumbnailSizeGrid, 140),
+                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }
