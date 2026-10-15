@@ -19,7 +19,7 @@ struct ObjectAnalysisView: View {
     var body: some View {
         VStack(spacing: 12) {
             ObjectAnalysisControls(feature: feature, files: files, pendingFiles: pendingFiles)
-            ObjectAnalysisAvailabilityView(availability: feature.availability)
+            // ObjectAnalysisAvailabilityView(availability: feature.availability)
             if let progress = feature.progress {
                 VStack(alignment: .leading, spacing: 4) {
                     ProgressView(value: Double(progress.completedCount),
@@ -84,12 +84,16 @@ private struct ObjectAnalysisControls: View {
                         .accessibilityLabel("Specific object concepts, separated by commas")
                         .disabled(feature.isRunning)
                 }
-                Spacer()
             }
+            
             HStack(spacing: 8) {
+                
                 TextField("Additional photographic criteria", text: $feature.criteria)
                     .textFieldStyle(.roundedBorder)
                     .disabled(feature.isRunning)
+                
+                ObjectAnalysisAvailabilityView(availability: feature.availability)
+                
                 if feature.isRunning {
                     Button("Cancel", systemImage: "stop.circle", role: .cancel) {
                         feature.cancel()
