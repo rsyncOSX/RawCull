@@ -76,7 +76,8 @@ private struct CombinedReviewPhotoPreview: View {
                     })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ContentUnavailableView("Review preview unavailable", systemImage: "photo",
+                    ContentUnavailableView("Review preview unavailable",
+                                           systemImage: "photo",
                                            description: Text("Exact inputs were not retained, were evicted, or have been cleared. Findings remain available."))
                 }
             }

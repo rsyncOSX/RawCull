@@ -37,7 +37,8 @@ struct ObjectAnalysisView: View {
             }
             if feature.results.isEmpty {
                 ContentUnavailableView(
-                    "No Object Results Yet", systemImage: "square.3.layers.3d",
+                    "No Object Results Yet",
+                    systemImage: "square.3.layers.3d",
                     description: Text("Install SAM 3 and Qwen, then analyze selected or tagged photographs."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -283,7 +284,8 @@ private struct ObjectPhotoDetailView: View {
                     .padding()
                 }
             } else {
-                ContentUnavailableView("Select a Photo", systemImage: "photo",
+                ContentUnavailableView("Select a Photo",
+                                       systemImage: "photo",
                                        description: Text("Choose an analyzed photograph to inspect its objects."))
             }
         }
