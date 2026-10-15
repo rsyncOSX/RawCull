@@ -150,7 +150,7 @@ extension RawCullViewModel {
         }
 
         scanning = false
-        guard cullingModel.loadSavedFiles() else { return }
+        guard await cullingModel.ensureLoaded() else { return }
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()

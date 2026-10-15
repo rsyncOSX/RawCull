@@ -1,6 +1,11 @@
 import Foundation
 
 nonisolated enum RawImageLoadingConcurrency {
+    /// Conservative admission limit; storage-specific tuning should be profiled.
+    static var metadataScanLimit: Int {
+        min(8, max(1, ProcessInfo.processInfo.activeProcessorCount))
+    }
+
     static var batchExtractionLimit: Int {
         max(1, ProcessInfo.processInfo.activeProcessorCount * 2)
     }

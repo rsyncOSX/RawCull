@@ -136,6 +136,9 @@ struct RawCullApp: App {
             .environment(gridThumbnailViewModel)
             .environment(viewModel)
             .task {
+                await viewModel.cullingModel.ensureLoaded()
+            }
+            .task {
                 await viewModel.applyStoredScoringSettings()
             }
             .task {

@@ -95,6 +95,8 @@ final class SimilarityScoringModel {
     nonisolated static let embeddingPipelineVersion = 3
     nonisolated static let semanticSearchDefaultResultLimit = 20
 
+    private(set) var gridContentRevision: UInt64 = 0
+
     // MARK: State
 
     /// Descriptor-complete PhotoAIKit artifacts keyed by FileItem.id.
@@ -110,10 +112,14 @@ final class SimilarityScoringModel {
     // MARK: Semantic search
 
     private(set) var semanticSearchCapability: RawCullSemanticSearchCapabilityStatus
-    private(set) var semanticSearchState = RawCullSemanticSearchState.idle
+    private(set) var semanticSearchState = RawCullSemanticSearchState.idle {
+        didSet { gridContentRevision &+= 1 }
+    }
     private(set) var semanticMatches: [RawCullSemanticSearchMatch] = []
     private(set) var semanticScores: [UUID: Float] = [:]
-    private(set) var semanticResultOrder: [UUID: Int] = [:]
+    private(set) var semanticResultOrder: [UUID: Int] = [:] {
+        didSet { gridContentRevision &+= 1 }
+    }
     private(set) var semanticSearchProgress: RawCullSemanticSearchProgress?
     private(set) var semanticIndexedFileCount = 0
     private(set) var semanticCatalogFileCount = 0
@@ -161,9 +167,13 @@ final class SimilarityScoringModel {
     // MARK: Burst grouping
 
     /// Burst groups computed by sequential distance clustering.
-    var burstGroups: [BurstGroup] = []
+    var burstGroups: [BurstGroup] = [] {
+        didSet { gridContentRevision &+= 1 }
+    }
     /// Quick lookup: fileID → group id.
-    var burstGroupLookup: [UUID: Int] = [:]
+    var burstGroupLookup: [UUID: Int] = [:] {
+        didSet { gridContentRevision &+= 1 }
+    }
     /// Distance threshold for burst clustering. Lower = tighter groups.
     var burstSensitivity: Float = 0.25
     /// When true, the grid renders a selected burst-group category instead of

@@ -48,7 +48,7 @@ import RawCullCore
  ....
  */
 
-struct SavedFiles: Identifiable, Codable {
+nonisolated struct SavedFiles: Identifiable, Codable, Sendable {
     var id = UUID()
     var catalog: URL?
     var dateStart: String?
@@ -94,7 +94,7 @@ extension SavedFiles: Equatable {
     }
 }
 
-struct FileRecord: Identifiable, Codable {
+nonisolated struct FileRecord: Identifiable, Codable, Sendable {
     var id = UUID()
     var fileName: String?
     var dateTagged: String?

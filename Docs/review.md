@@ -16,7 +16,7 @@ Commit each update before beginning the next:
 6. Surface settings persistence failures.
 7. Correct isolated thumbnail-provider storage dependencies.
 
-Keep performance tuning, broader view decomposition, and other P3 refactoring as follow-up work. Do not combine unrelated architectural rewrites with correctness fixes. Update the status and validation notes below as changes land.
+The user subsequently authorized all remaining P2 work, including the performance fixes. Keep measured tuning, broader view decomposition, and P3 refactoring as follow-up work. Do not combine unrelated architectural rewrites with correctness fixes. Update the status and validation notes below as changes land.
 
 ## Findings
 
@@ -62,7 +62,7 @@ The task identity contains only the URL, so representation-size changes do not r
 
 ### 5. P2 — Saved sharpness restoration repeats expensive main-actor work
 
-**Status:** Open. **Location:** `RawCullViewModel+Sharpness.loadPersistedScoringandSaliency`, `SharpnessScoringModel.scores.didSet`.
+**Status:** Implemented. Restoration indexes records once, preserves first-duplicate behavior, validates source/signature metadata, and publishes score dictionaries once. A 100-file regression verifies one score revision and correct normalization. Recovery, sharpness and culling presentation suites passed; no measured timing improvement is claimed. **Location:** `RawCullViewModel+Sharpness.loadPersistedScoringandSaliency`, `SharpnessScoringModel.scores.didSet`.
 
 Each file linearly searches saved records. Each score insertion sorts the accumulated scores to recompute a percentile.
 
@@ -72,7 +72,7 @@ Each file linearly searches saved records. Each score insertion sorts the accumu
 
 ### 6. P2 — Grid caching still walks the catalog during view updates
 
-**Status:** Open. **Location:** `Views/CullingGrid/CullingGridView.swift`, `CullingGridRenderCache.swift`.
+**Status:** Implemented. A model-owned projection caches rating-filtered files, ranked burst groups, group numbers, selection IDs and badge counts behind constant-size revision keys. Catalog/rating/analysis/semantic/saliency mutations invalidate it; selection changes and score-value-only updates reuse it. Unrated filtering uses the rating index. Projection, grid coordinator, culling, semantic search and smoke-integrity suites passed. No Instruments timing claim is made. **Location:** `Views/CullingGrid/CullingGridView.swift`, `CullingGridRenderCache.swift`.
 
 Cache-key construction hashes complete membership on body evaluation; rendered groups and selection projections are rebuilt repeatedly. Unrated filtering also performs per-file record searches.
 
@@ -82,7 +82,7 @@ Cache-key construction hashes complete membership on body evaluation; rendered g
 
 ### 7. P2 — Metadata scan task admission is unbounded
 
-**Status:** Open. **Location:** `Actors/ScanFiles.swift`.
+**Status:** Implemented. Metadata scans use bounded task-group admission (configurable; conservative default at most eight), await coalesced monotonic progress, and stop admitting work after cancellation. A 65-file test enforces a three-read limit and exact progress batches; cancellation drains the admitted workers. Scan, sort and catalog concurrency suites passed. Storage-specific tuning remains a profiling task. **Location:** `Actors/ScanFiles.swift`.
 
 One child task and one UI progress task are admitted per file before results are collected.
 
@@ -92,7 +92,7 @@ One child task and one UI progress task are admitted per file before results are
 
 ### 8. P2 — Preload gate blocks ready visible thumbnails
 
-**Status:** Open. **Location:** `Actors/ThumbnailPreloadGate.swift`, `ScanAndCreateThumbnails.swift`.
+**Status:** Implemented. Preloading reports per-file completion, releasing eligible waiters immediately while keeping other files gated. Completion is owned by an active session; failed reads permit interactive retry. Directory comparisons tolerate trailing-slash differences. Gate session/cancellation tests and thumbnail concurrency/integration suites passed. **Location:** `Actors/ThumbnailPreloadGate.swift`, `ScanAndCreateThumbnails.swift`.
 
 Waiters are released at catalog completion rather than when their image becomes available.
 
@@ -102,7 +102,7 @@ Waiters are released at catalog completion rather than when their image becomes 
 
 ### 9. P2 — Unloaded persistence is treated as empty and writable
 
-**Status:** Open. **Location:** `Model/ViewModels/CullingModel.swift`, `RawCullViewModel+Catalog.swift`.
+**Status:** Implemented. Live stores start unread, coalesce asynchronous background initialization, and block edits until ready. Startup loads history without a catalog; flush waits for initialization. Failed loads require explicit retry. Injected writer-only stores are explicitly empty and never read production data. Initialization, culling, saved-history, catalog concurrency and quit-recovery suites passed in Xcode. **Location:** `Model/ViewModels/CullingModel.swift`, `RawCullViewModel+Catalog.swift`.
 
 The store starts empty and writable; it is loaded only after a nonempty catalog scan. Saved history can appear empty at startup, and callers can save before discovering existing/corrupt data.
 
@@ -112,7 +112,7 @@ The store starts empty and writable; it is loaded only after a nonempty catalog 
 
 ### 10. P2 — Recovery does not refresh derived presentation
 
-**Status:** Open. **Location:** `Main/RawCullMainView.swift` persistence recovery actions.
+**Status:** Implemented. Application-level retry/reset rebuilds ratings, scoring, filters, selection and copy admission. Failed reads preserve presentation; reset refreshes memory even when persisting the empty store fails. Recovery regressions and affected sharpness/culling suites passed. **Location:** `Main/RawCullMainView.swift` persistence recovery actions.
 
 Retry can replace savedFiles while ratingCache, tagged names, filtering and scoring presentation remain stale.
 
@@ -122,7 +122,7 @@ Retry can replace savedFiles while ratingCache, tagged names, filtering and scor
 
 ### 11. P2 — Existing records lose tagging-date updates
 
-**Status:** Open; reproduced in an isolated probe. **Location:** `CullingModel.upsertRecord`.
+**Status:** Implemented. Existing records now receive the tagging date when rated; scoring-only merges preserve it and restoring an unrated state clears it. ReviewPersistenceTests and CullingModelTests passed in Xcode. **Location:** `CullingModel.upsertRecord`.
 
 Updating an existing record's rating ignores dateTagged. A scored-then-rated photo retains a nil date.
 
@@ -132,7 +132,7 @@ Updating an existing record's rating ignores dateTagged. A scored-then-rated pho
 
 ### 12. P2 — Settings persistence errors are hidden
 
-**Status:** Open. **Location:** `Model/ViewModels/SettingsViewModel.swift`, Settings views.
+**Status:** Implemented. Load/save failures are observable; save returns success/failure while retaining edits. Settings presents an item-bound alert with operation-specific retry and a warning that load retry replaces current values. Failure/retry, malformed/missing settings and existing concurrency tests passed. **Location:** `Model/ViewModels/SettingsViewModel.swift`, Settings views.
 
 Save catches and logs errors, so callers cannot distinguish persistence success. Load failures similarly lack user-visible state.
 
@@ -142,7 +142,7 @@ Save catches and logs errors, so callers cannot distinguish persistence success.
 
 ### 13. P2 — Settings sliders lack explicit accessible names
 
-**Status:** Open. **Location:** `Views/Settings/SettingsSliderRow.swift`.
+**Status:** Implemented. Sliders now use explicit labels plus formatted accessibility values and descriptive hints. The Settings UI compiles and keyboard admission regressions pass; manual VoiceOver verification remains a release check. **Location:** `Views/Settings/SettingsSliderRow.swift`.
 
 A sibling visual label does not explicitly name the slider.
 
@@ -152,7 +152,7 @@ A sibling visual label does not explicitly name the slider.
 
 ### 14. P2 — Important animations ignore Reduce Motion
 
-**Status:** Open. **Location:** `RawCullMainView.startMemoryWarningFlash`, thumbnail hover and scrolling.
+**Status:** Implemented. The main review subtree disables explicit/implicit animation transactions when Reduce Motion is enabled, including programmatic scrolling and transitions. Memory warnings use stable emphasis, react to preference changes, and thumbnail hover scaling is suppressed. Xcode compiled the UI and passed keyboard/thumbnail regression suites. Manual preference-toggle/VoiceOver UI verification remains a release check. **Location:** `RawCullMainView.startMemoryWarningFlash`, thumbnail hover and scrolling.
 
 **Fix:** Read accessibilityReduceMotion at the consuming views. Replace perpetual flashing/scale motion with a stable warning or restrained nonmoving emphasis; disable animated programmatic scrolling when requested. Apply the policy consistently rather than removing all feedback.
 
@@ -160,7 +160,7 @@ A sibling visual label does not explicitly name the slider.
 
 ### 15. P2 — Isolated thumbnail test helper uses production disk storage
 
-**Status:** Open. **Location:** `RawCullTests/TestIsolationHelpers.swift`.
+**Status:** Implemented. Helper-created thumbnail providers explicitly receive a disk cache under their unique temporary root, and accept an injected RAW loader. A real disk-hit/miss regression proves two providers cannot see each other’s cache entries. Isolation, thumbnail provider and image-loading integration suites passed. **Location:** `RawCullTests/TestIsolationHelpers.swift`.
 
 makeIsolatedThumbnailProvider injects memory storage but omits RequestThumbnail's disk cache. The default initializer uses production paths and performs legacy-cache cleanup.
 
@@ -203,7 +203,7 @@ Validated values are encoded, converted to [String: Any], force-cast and mutated
 - Prefer regression tests against production behavior; do not substitute source-text assertions for behavioral coverage.
 - Initial worktree was clean. No production data was touched by isolated review probes.
 
-## Implementation checkpoint
+## Initial implementation checkpoint (historical)
 
 Completed and committed in order: review/plan, keyboard routing (findings 1–2), embedded JPEG export (3), and thumbnail request/publication correctness (4). Every code update includes this document's status and validation notes. Remaining correctness work starts with persistence initialization/recovery and tagging dates (9–11), followed by settings errors (12) and test storage isolation (15). Performance and broader cleanup remain open.
 
@@ -214,3 +214,51 @@ At the user's request, check account usage immediately after the thumbnail commi
 Checked account usage after commit `27d63039`: 90% of the five-hour allowance consumed (10% remaining), 26% of the weekly allowance consumed (74% remaining), and zero additional credits. Ordinary usage is still allowed, but the remaining short-window allowance was judged insufficient for the larger persistence update plus regression verification. Further fixes stopped at the user's requested checkpoint. The worktree was clean after the thumbnail commit; only this checkpoint documentation was subsequently changed.
 
 Validation completed before stopping: Xcode passed the keyboard scope/key-action suites, embedded JPEG export/destination-safety suites, and thumbnail presentation/concurrency suites. No full-suite or manual UI verification is claimed. Resume with plan step 5, keeping one verified update and its review-status change per commit.
+
+### Continued P2 work — tagging dates
+
+Resumed after checking usage: 99% of the five-hour allowance and 74% of the weekly allowance remained. Fixed finding 11 and verified its regression tests plus the culling model suite before committing. Further updates continue to require their own document update, tests, commit, and allowance check.
+
+### Persistence initialization
+
+Fixed finding 9. Saved JSON value types are explicitly nonisolated and Sendable so reading/decoding runs off the main actor. Tests cover unread-store mutation rejection, concurrent initialization, corrupt-file preservation and explicit retry. Existing in-memory test assembly now injects its culling store. Allowance before this update: 92% of the five-hour window, 73% weekly.
+
+### Recovery and batched restoration
+
+Fixed findings 5 and 10 in one persistence-presentation update. Tests cover repaired history, filtered selection/copy admission, archive/reset followed by write failure, duplicate record policy, stale metadata, and single-batch normalization. Allowance before this update: 82% of the five-hour window, 71% weekly. Xcode passed all selected suites; its unrelated no-AppIntents metadata-extraction warning remains.
+
+### Settings errors and accessible controls
+
+Fixed findings 12 and 13. New tests cover failed writes preserving edits, retry after alert dismissal, repaired malformed settings, and normal missing-file defaults. Xcode passed settings persistence/concurrency and keyboard scope suites. Allowance before this update: 68% of the five-hour window, 69% weekly.
+
+### Test storage isolation
+
+Fixed finding 15. The shared view-model helper already received an in-memory culling store in the persistence update; the thumbnail helper now injects every storage dependency too. Selected Xcode suites passed. Allowance before this update: 58% of the five-hour window, 67% weekly.
+
+### Bounded catalog metadata scanning
+
+Fixed finding 7. Xcode passed scan admission/progress/cancellation and existing sort/catalog concurrency suites. No per-file unstructured progress tasks remain. Allowance before this update: 53% of the five-hour window, 67% weekly.
+
+### Per-file thumbnail readiness
+
+Fixed finding 8. Native processing completes before a file is released; overlapping preload sessions remain independent and stale completion signals are ignored. Tests exposed and verified a correction for equivalent catalog URLs with different directory-slash representations. Xcode passed the selected gate/thumbnail suites. Allowance before this update: 46% of the five-hour window, 66% weekly.
+
+### Reduce Motion
+
+Fixed finding 14 with a review-subtree transaction policy plus explicit stable warning/hover behavior. No implementation-mirroring tests were added for this appearance-only change; the UI build and existing keyboard/thumbnail regressions passed. Allowance before this update: 34% of the five-hour window, 64% weekly.
+
+### Revision-based grid projection and final P2 validation
+
+Fixed finding 6. Mutation revisions replace whole-catalog cache-key hashing; ranked groups, flattened selection, badge counts and group-number lookups are memoized together. Existing membership/score-availability coverage was retained, and new regressions verify selection reuse, same-count membership changes, rating filters, review categories and saliency invalidation. Targeted Xcode suites passed.
+
+The initial full smoke gate found a pre-existing stale count: unchanged original selectors enumerated 371 identifiers rather than the recorded 355. All 29 new review regression identifiers were then added explicitly to the smoke manifest, its expected-selector inventory and the Make baseline, producing 400 verified unique identifiers. Full smoke execution completed: 388 passed, 11 failed, 1 skipped. All 29 new review regression identifiers passed. The full gate is not green; see validation blockers below.
+
+All review P2 implementation items are now addressed. P3 findings 16–18 remain open. Manual VoiceOver/Reduce Motion checks and Instruments measurements remain explicitly unclaimed. Before this final update, 30% of the five-hour allowance remained; a check during final validation showed 12% remaining and 60% weekly, with zero additional credits. That reserve is dedicated to completing validation and committing this update; no further refactoring is started.
+
+#### Final smoke validation blockers
+
+`make test-smoke` verified 400 unique identifiers and ran with Thread Sanitizer. Xcode reported 388 passed, 11 failed and 1 skipped. All new review regression identifiers passed; the targeted grid/culling/semantic suites also passed separately.
+
+Nine failures require absent authentic fixtures under `Docs/CombinedReviewRegression/` (schema responses v9/v16, overview v8, crops v17/v18, reports v19) and `Docs/CombinedReviewInputFixtures/source-landscape.png`. Two failures come from unchanged release metadata tests expecting marketing version 3.3.0 while the project is 3.3.2, and a PhotoAIKit pin row absent from README. These failures were not hidden or skipped. Restore the original recorded fixtures and reconcile release checks/documentation in a separate update; do not invent substitute recorded AI evidence merely to make tests green.
+
+No further fixes were started after the allowance reserve check. The original P2 findings are implemented; the above smoke blockers, manual accessibility checks, profiling, and P3 items remain visible follow-up work.

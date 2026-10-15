@@ -491,7 +491,7 @@ struct CullingModelTests {
     }
 
     @Test
-    func `corrupt load blocks mutations and preserves in-memory state`() {
+    func `corrupt load blocks mutations and preserves in-memory state`() async {
         let url = URL(fileURLWithPath: "/tmp/savedfiles-\(UUID().uuidString).json")
         let failure = SavedFilesReadFailure(url: url, message: "Malformed JSON")
         let model = CullingModel(
@@ -501,7 +501,7 @@ struct CullingModelTests {
         )
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
 
-        #expect(!model.loadSavedFiles())
+        #expect(await !model.loadSavedFiles())
         model.updateRating(fileName: "one.ARW", rating: 5, in: catalog)
 
         #expect(model.savedFiles.isEmpty)

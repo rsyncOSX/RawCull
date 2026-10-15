@@ -33,6 +33,10 @@ struct CullingScoringResult {
 
 @Observable @MainActor
 final class CullingModel {
+    enum LoadState { case unloaded, loading, ready, failed }
+    private(set) var loadState: LoadState
+    @ObservationIgnored private var loadTask: Task<Bool, Never>?
+
     private(set) var savedFiles = [SavedFiles]()
     private(set) var persistenceError: String?
     var isTerminationPending = false
@@ -42,45 +46,62 @@ final class CullingModel {
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private let saveDelayNanoseconds: UInt64
     @ObservationIgnored private let saveHandler: @Sendable ([SavedFiles]) async throws -> Void
-    @ObservationIgnored private let loadHandler: @MainActor () -> SavedFilesReadResult
+    @ObservationIgnored private let loadHandler: @MainActor () async -> SavedFilesReadResult
     @ObservationIgnored private var persistenceRevision: UInt64 = 0
 
+    /// Live stores start unread and cannot accept mutations until initialization.
+    convenience init() {
+        self.init(
+            saveHandler: { try await WriteSavedFilesJSON.write($0) },
+            loadHandler: { await ReadSavedFilesJSON().readInBackground() },
+        )
+    }
+
+    /// An injected writer without a loader represents an explicitly empty store.
+    /// Tests and in-memory sessions never fall back to production storage.
     init(
         saveDelayNanoseconds: UInt64 = 350_000_000,
-        saveHandler: @escaping @Sendable ([SavedFiles]) async throws -> Void = { savedFiles in
-            try await WriteSavedFilesJSON.write(savedFiles)
-        },
-        loadHandler: @escaping @MainActor () -> SavedFilesReadResult = {
-            ReadSavedFilesJSON().read()
-        },
+        saveHandler: @escaping @Sendable ([SavedFiles]) async throws -> Void,
+        loadHandler: (@MainActor () async -> SavedFilesReadResult)? = nil,
     ) {
-        Logger.process.debugMessageOnly("CullingModel.init()")
         self.saveDelayNanoseconds = saveDelayNanoseconds
         self.saveHandler = saveHandler
-        self.loadHandler = loadHandler
+        self.loadHandler = loadHandler ?? { .loaded([]) }
+        loadState = loadHandler == nil ? .ready : .unloaded
     }
 
     @discardableResult
-    func loadSavedFiles() -> Bool {
-        Logger.process.debugMessageOnly("CullingModel.loadSavedFiles()")
-        switch loadHandler() {
-        case .missing:
-            savedFiles = []
+    func ensureLoaded() async -> Bool {
+        if loadState == .failed { return false }
+        return await loadSavedFiles()
+    }
+
+    @discardableResult
+    func loadSavedFiles() async -> Bool {
+        if loadState == .ready { return true }
+        if let loadTask { return await loadTask.value }
+        loadState = .loading
+        let task = Task {
+            let result = await loadHandler()
+            loadTask = nil
+            switch result {
+            case .missing:
+                savedFiles = []
+            case let .loaded(loadedFiles):
+                savedFiles = loadedFiles
+            case let .failed(failure):
+                loadState = .failed
+                persistenceLoadFailure = failure
+                persistenceError = "RawCull could not read saved culling data at \(failure.url.path). The file has been preserved and automatic changes are blocked. \(failure.message)"
+                return false
+            }
+            loadState = .ready
             persistenceLoadFailure = nil
             persistenceError = nil
             return true
-
-        case let .loaded(loadedFiles):
-            savedFiles = loadedFiles
-            persistenceLoadFailure = nil
-            persistenceError = nil
-            return true
-
-        case let .failed(failure):
-            persistenceLoadFailure = failure
-            persistenceError = "RawCull could not read saved culling data at \(failure.url.path). The file has been preserved and automatic changes are blocked. \(failure.message)"
-            return false
         }
+        loadTask = task
+        return await task.value
     }
 
     func resetSavedFiles(in catalog: URL) {
@@ -287,8 +308,8 @@ final class CullingModel {
     @discardableResult
     func retryPersistence() async -> Bool {
         Logger.process.debugMessageOnly("CullingModel.retryPersistence()")
-        if persistenceLoadFailure != nil {
-            return loadSavedFiles()
+        if loadState != .ready {
+            return await loadSavedFiles()
         }
         saveTask?.cancel()
         saveTask = nil
@@ -298,7 +319,7 @@ final class CullingModel {
     @discardableResult
     func flushPersistence() async -> Bool {
         Logger.process.debugMessageOnly("CullingModel.flushPersistence()")
-        guard persistenceLoadFailure == nil else { return false }
+        guard await ensureLoaded() else { return false }
         guard hasUnsavedChanges else { return true }
         saveTask?.cancel()
         saveTask = nil
@@ -312,6 +333,7 @@ final class CullingModel {
         do {
             _ = try ReadSavedFilesJSON.archiveCorruptStore(at: failure.url)
             savedFiles = []
+            loadState = .ready
             persistenceLoadFailure = nil
             persistenceError = nil
             persistenceRevision &+= 1
@@ -348,7 +370,7 @@ final class CullingModel {
     }
 
     private var canMutate: Bool {
-        persistenceLoadFailure == nil
+        loadState == .ready && persistenceLoadFailure == nil
     }
 
     private func ensureCatalog(_ catalog: URL, dateStart: String?) -> Int {
@@ -385,6 +407,7 @@ final class CullingModel {
         if let recordIndex = savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == fileName }) {
             if let rating {
                 savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
+                savedFiles[catalogIndex].filerecords?[recordIndex].dateTagged = dateTagged
             }
             if let sharpnessScore {
                 savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessScore = sharpnessScore

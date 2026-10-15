@@ -184,11 +184,12 @@ struct CullingGridView<Header: View>: View {
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var batchRating: Int = 3
 
-    // ── Burst-mode render cache ──────────────────────────────────────────
-    // Recomputed only when `gridCacheKey` changes, so hover/selection
-    // invalidations do not rebuild these O(n) / O(m·k) structures.
-    @State private var visibleBurstGroups: [CullingGridVisibleBurstGroup] = []
-    @State private var hasSharpnessScoresSnapshot: Bool = false
+    private var projection: CullingGridProjection {
+        viewModel.cullingGridProjection(ratingFilter: ratingFilter)
+    }
+
+    private var visibleBurstGroups: [CullingGridVisibleBurstGroup] { projection.groups }
+    private var hasSharpnessScoresSnapshot: Bool { projection.key.hasSharpnessScores }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -333,9 +334,6 @@ struct CullingGridView<Header: View>: View {
         .onChange(of: gridCacheKey, initial: true) { _, _ in
             recomputeGridCache()
         }
-        .onChange(of: visibleSelectionIDs) { _, _ in
-            synchronizeSelectionWithRenderedFiles()
-        }
         .thumbnailKeyNavigation(
             viewModel: viewModel,
             axis: .grid,
@@ -389,28 +387,9 @@ struct CullingGridView<Header: View>: View {
         viewModel.updateRating(for: selectedFiles, rating: batchRating)
     }
 
-    private var visibleSelectionFiles: [FileItem] {
-        if viewModel.showsBurstGroups {
-            return renderedBurstGroups.flatMap(\.files)
-        }
-        return files
-    }
-
-    private var visibleSelectionIDs: [FileItem.ID] {
-        visibleSelectionFiles.map(\.id)
-    }
-
-    private var renderedBurstGroups: [CullingGridVisibleBurstGroup] {
-        visibleBurstGroups.compactMap { group in
-            let analysis = viewModel.burstAnalysisResult(for: group.id)
-            let shownFiles = BurstGroupFileOrderPolicy.orderedFiles(
-                in: group.files,
-                rankedFileIDs: analysis?.candidates.map(\.fileID) ?? [],
-            )
-            guard !shownFiles.isEmpty else { return nil }
-            return CullingGridVisibleBurstGroup(id: group.id, files: shownFiles)
-        }
-    }
+    private var visibleSelectionFiles: [FileItem] { projection.selectionFiles }
+    private var visibleSelectionIDs: [FileItem.ID] { projection.selectionIDs }
+    private var renderedBurstGroups: [CullingGridVisibleBurstGroup] { projection.groups }
 
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
         CullingGridSelectionCoordinator.zoomNavigationIDs(
@@ -421,14 +400,7 @@ struct CullingGridView<Header: View>: View {
         )
     }
 
-    private var badgeSelectionItems: [BatchBadgeSelectionItem] {
-        CullingGridSelectionCoordinator.badgeSelectionItems(
-            visibleFiles: visibleSelectionFiles,
-            burstGroupLookup: viewModel.similarityFeature.burstGroupLookup,
-            burstAnalysisResults: viewModel.burstAnalysisResults,
-            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
-        )
-    }
+    private var badgeSelectionItems: [BatchBadgeSelectionItem] { projection.badges }
 
     private var selectionState: CullingGridSelectionState {
         CullingGridSelectionState(
@@ -453,30 +425,10 @@ struct CullingGridView<Header: View>: View {
 
     // MARK: - Burst grouping helpers
 
-    private var gridCacheKey: CullingGridRenderCacheKey {
-        CullingGridRenderCacheKey(
-            burstGroups: reviewFilteredBurstGroups,
-            files: files,
-            ratingFilter: ratingFilter,
-            reviewQueueFilter: viewModel.burstReviewQueueFilter,
-            hasSharpnessScores: !viewModel.sharpnessModel.scores.isEmpty,
-            burstAnalysisResults: viewModel.burstAnalysisResults,
-        )
-    }
+    private var gridCacheKey: CullingGridProjectionKey { projection.key }
 
     private func recomputeGridCache() {
-        let cache = CullingGridRenderCache.rebuild(
-            files: files,
-            burstGroups: reviewFilteredBurstGroups,
-            scores: viewModel.sharpnessModel.scores,
-        )
-        visibleBurstGroups = cache.visibleBurstGroups
-        hasSharpnessScoresSnapshot = cache.hasSharpnessScoresSnapshot
         synchronizeSelectionWithRenderedFiles()
-    }
-
-    private var reviewFilteredBurstGroups: [BurstGroup] {
-        viewModel.filteredBurstGroupsForReviewQueue
     }
 
     private var reviewQueueTitle: String {
@@ -491,10 +443,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func burstNumber(for groupID: Int) -> Int {
-        guard let index = viewModel.similarityFeature.burstGroups.firstIndex(where: { $0.id == groupID }) else {
-            return groupID + 1
-        }
-        return index + 1
+        projection.groupNumbers[groupID] ?? groupID + 1
     }
 
     /// Builds the thumbnail cell for a file inside a burst group.
@@ -605,28 +554,13 @@ struct CullingGridView<Header: View>: View {
 
     // MARK: - Rating filter
 
-    var files: [FileItem] {
-        switch ratingFilter {
-        case .all:
-            return viewModel.filteredFiles
-
-        case .unrated:
-            guard let catalog = viewModel.selectedSource?.url else { return viewModel.filteredFiles }
-            return viewModel.filteredFiles.filter { viewModel.cullingModel.isUnrated(photo: $0.name, in: catalog) }
-
-        case .rating(0):
-            return viewModel.filteredFiles.filter { viewModel.rating(for: $0) == 0 }
-
-        case let .rating(n):
-            return viewModel.filteredFiles.filter { viewModel.rating(for: $0) == n }
-        }
-    }
+    var files: [FileItem] { projection.files }
 
     private var sortScrollState: CullingGridSortScrollState {
         CullingGridSortScrollState(
             isSharpnessSortingActive: viewModel.sharpnessModel.sortBySharpness,
             isSimilaritySortingActive: similarityFeature.isSimilaritySortingActive,
-            orderedFileIDs: files.map(\.id),
+            orderedFileIDs: projection.fileIDs,
         )
     }
 

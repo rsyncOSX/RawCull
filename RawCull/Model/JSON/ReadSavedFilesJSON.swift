@@ -16,7 +16,7 @@ import DecodeEncodeGeneric
 import Foundation
 import OSLog
 
-struct SavedFilesReadFailure: Error, Equatable, Identifiable {
+nonisolated struct SavedFilesReadFailure: Error, Equatable, Identifiable, Sendable {
     let url: URL
     let message: String
 
@@ -25,14 +25,13 @@ struct SavedFilesReadFailure: Error, Equatable, Identifiable {
     }
 }
 
-enum SavedFilesReadResult {
+nonisolated enum SavedFilesReadResult: Sendable {
     case missing(URL)
     case loaded([SavedFiles])
     case failed(SavedFilesReadFailure)
 }
 
-@MainActor
-final class ReadSavedFilesJSON {
+nonisolated final class ReadSavedFilesJSON: Sendable {
     private let fileName = "savedfiles.json"
     private let savedFilesURL: URL?
 
@@ -50,6 +49,11 @@ final class ReadSavedFilesJSON {
         self.savedFilesURL = savedFilesURL
     }
 
+    @concurrent
+    func readInBackground() async -> SavedFilesReadResult {
+        read()
+    }
+
     func read() -> SavedFilesReadResult {
         guard FileManager.default.fileExists(atPath: savePath.path) else {
             return .missing(savePath)
@@ -65,9 +69,7 @@ final class ReadSavedFilesJSON {
                 SavedFiles(element)
             })
         } catch let err {
-            Logger.process.errorMessageOnly(
-                "ReadSavedFilesJSON: failed to decode saved files: \(err)",
-            )
+            Logger.process.error("ReadSavedFilesJSON: failed to decode saved files: \(err)")
             return .failed(SavedFilesReadFailure(url: savePath, message: err.localizedDescription))
         }
     }

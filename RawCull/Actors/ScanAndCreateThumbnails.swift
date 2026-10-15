@@ -122,6 +122,7 @@ actor ScanAndCreateThumbnails {
                             targetSize: targetSize,
                             itemIndex: index,
                         )
+                        await ThumbnailPreloadGate.shared.finished(sourceURL: url, sessionID: gateID)
                     }
                 }
 

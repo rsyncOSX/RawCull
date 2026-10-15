@@ -25,7 +25,12 @@ struct SettingsSliderRow: View {
                 Text(valueText)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
             }
-            Slider(value: $value, in: range, step: step)
+            Slider(value: $value, in: range, step: step) {
+                Text(title)
+            }
+            .labelsHidden()
+            .accessibilityValue(valueText)
+            .accessibilityHint(description)
             Text(description)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(.secondary)

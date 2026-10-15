@@ -45,9 +45,14 @@ func makeIsolatedCache(
 func makeIsolatedThumbnailProvider(
     name: String = #function,
     config: CacheConfig = .testing,
+    rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
 ) async -> (RequestThumbnail, SharedMemoryCache) {
     let cache = await makeIsolatedCache(name: name, config: config)
-    let provider = RequestThumbnail(memoryCache: cache)
+    let provider = RequestThumbnail(
+        diskCache: DiskCacheManager(cacheDirectory: cache.thumbnailDiskCacheDirectory),
+        memoryCache: cache,
+        rawLoader: rawLoader,
+    )
     return (provider, cache)
 }
 
@@ -123,6 +128,7 @@ func makeRawCullViewModel(
         deepAIReviewController: deepAIReviewController,
         burstAnalysisCacheRepository: burstAnalysisCacheRepository,
     )
+    viewModel.cullingModel = CullingModel(saveHandler: { _ in })
     semanticSearchFeature.bindApplicationTarget(viewModel)
     return viewModel
 }

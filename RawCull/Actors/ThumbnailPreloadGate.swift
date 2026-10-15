@@ -12,16 +12,28 @@ actor ThumbnailPreloadGate {
     }
 
     private var activeCatalogs: [UUID: URL] = [:]
+    private var completedFiles: [UUID: Set<URL>] = [:]
     private var waiters: [UUID: Waiter] = [:]
 
     func begin(catalogURL: URL) -> UUID {
         let id = UUID()
         activeCatalogs[id] = catalogURL.standardizedFileURL
+        completedFiles[id] = []
         return id
     }
 
     func end(_ id: UUID) {
         activeCatalogs.removeValue(forKey: id)
+        completedFiles.removeValue(forKey: id)
+        resumeEligibleWaiters()
+    }
+
+    /// Release this file's waiters after the native read has finished, including
+    /// a failed decode so the interactive path can retry it. Other files remain gated.
+    func finished(sourceURL: URL, sessionID: UUID) {
+        let source = sourceURL.standardizedFileURL
+        guard activeCatalogs[sessionID]?.path == source.deletingLastPathComponent().path else { return }
+        completedFiles[sessionID, default: []].insert(source)
         resumeEligibleWaiters()
     }
 
@@ -63,7 +75,10 @@ actor ThumbnailPreloadGate {
     }
 
     private func isBlocked(_ sourceURL: URL) -> Bool {
-        let sourceCatalog = sourceURL.standardizedFileURL.deletingLastPathComponent()
-        return activeCatalogs.values.contains(sourceCatalog)
+        let source = sourceURL.standardizedFileURL
+        let sourceCatalog = source.deletingLastPathComponent()
+        return activeCatalogs.contains { id, catalog in
+            catalog.path == sourceCatalog.path && completedFiles[id]?.contains(source) != true
+        }
     }
 }

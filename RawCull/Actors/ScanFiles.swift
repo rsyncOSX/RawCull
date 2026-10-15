@@ -85,10 +85,15 @@ actor ScanFiles {
     /// Store raw decoded data
     var decodedFocusPoints: [DecodeFocusPoints]?
     private let rawLoader: any RawImageLoading
+    private let maximumConcurrentReads: Int
 
-    init(rawLoader: any RawImageLoading = RawParserKitImageLoader.shared) {
+    init(
+        rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
+        maximumConcurrentReads: Int = RawImageLoadingConcurrency.metadataScanLimit,
+    ) {
         Logger.process.debugMessageOnly("ScanFiles.init()")
         self.rawLoader = rawLoader
+        self.maximumConcurrentReads = max(1, maximumConcurrentReads)
     }
 
     func scanFiles(
@@ -123,16 +128,24 @@ actor ScanFiles {
             let pairs: [(FileItem, DecodeFocusPoints?)] = await withTaskGroup(
                 of: (FileItem, DecodeFocusPoints?)?.self,
             ) { group in
+                var collected: [(FileItem, DecodeFocusPoints?)] = []
+                var pending = 0
                 for fileURL in contents {
                     if Task.isCancelled {
                         group.cancelAll()
                         break
                     }
                     guard RawFormatRegistry.format(for: fileURL) != nil else { continue }
+                    if pending >= maximumConcurrentReads {
+                        if let result = await group.next(), let pair = result { collected.append(pair) }
+                        pending -= 1
+                        guard !Task.isCancelled else { group.cancelAll(); break }
+                    }
                     discoveredCount += 1
-                    let progress = onProgress
-                    let count = discoveredCount
-                    Task { @MainActor in progress?(count) }
+                    if discoveredCount == 1 || discoveredCount.isMultiple(of: 32) {
+                        await onProgress?(discoveredCount)
+                    }
+                    pending += 1
                     group.addTask {
                         guard !Task.isCancelled else { return nil }
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
@@ -154,7 +167,9 @@ actor ScanFiles {
                         return (fileItem, focusPoint)
                     }
                 }
-                var collected: [(FileItem, DecodeFocusPoints?)] = []
+                if discoveredCount > 1, !discoveredCount.isMultiple(of: 32) {
+                    await onProgress?(discoveredCount)
+                }
                 for await pair in group {
                     guard !Task.isCancelled else {
                         group.cancelAll()

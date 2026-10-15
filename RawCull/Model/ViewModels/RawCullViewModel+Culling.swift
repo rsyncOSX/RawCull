@@ -6,6 +6,42 @@
 import Foundation
 
 extension RawCullViewModel {
+    @discardableResult
+    func retryCullingPersistence() async -> Bool {
+        let wasLoadingStore = cullingModel.loadState != .ready
+        let succeeded = await cullingModel.retryPersistence()
+        if succeeded, wasLoadingStore { restoreCullingPresentation() }
+        return succeeded
+    }
+
+    @discardableResult
+    func archiveCullingStoreAndReset() async -> Bool {
+        let succeeded = await cullingModel.archiveCorruptStoreAndReset()
+        // Reset changes memory even if the subsequent disk write fails.
+        if cullingModel.loadState == .ready { restoreCullingPresentation() }
+        return succeeded
+    }
+
+    private func restoreCullingPresentation() {
+        sharpnessModel.reset()
+        rebuildRatingCache()
+        loadPersistedScoringandSaliency()
+        sharpnessModel.applyPreloadedScores(
+            files, preloadedScores: sharpnessModel.scores,
+            preloadedSaliency: sharpnessModel.saliencyInfo,
+            preloadedAFPointScores: sharpnessModel.afPointScores,
+        )
+        let candidates = catalogDisplayCandidates.isEmpty
+            ? sortOrder.sorted(files).filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
+            : catalogDisplayCandidates
+        filteredFiles = applyFilters(to: candidates)
+        let visibleIDs = Set(filteredFiles.map(\.id))
+        selectedFileIDs.formIntersection(visibleIDs)
+        if selectedFileID.map(visibleIDs.contains) != true {
+            selectedFileID = filteredFiles.first?.id
+        }
+    }
+
     /// Rebuilds the O(1) rating and tagged-names caches from the current catalog entry.
     /// Must be called after any culling store mutation that affects ratings.
     func rebuildRatingCache() {
