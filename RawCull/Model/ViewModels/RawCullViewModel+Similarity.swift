@@ -38,7 +38,8 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.refreshSemanticSearchSelection()")
         similarityModel.burstModeActive = false
         if activeBurstComparisonGroupID != nil
-            || mainViewMode == .comparisonGrid {
+            || mainViewMode == .comparisonGrid
+        {
             activeBurstComparisonGroupID = nil
             comparisonFileIDs = []
             selectMainViewMode(.similarityGrid)
@@ -78,7 +79,7 @@ extension RawCullViewModel: RawCullSimilarityApplicationContext {
         RawCullSimilarityCatalogSnapshot(
             files: files,
             identity: RawCullSimilarityCatalogIdentity(
-                catalogURL: activeCatalogLoadURL ?? selectedSource?.url,
+                catalogURL: catalogLifecycle.activeLoadURL ?? selectedSource?.url,
                 generation: similarityCatalogGeneration,
             ),
         )

@@ -82,21 +82,21 @@ struct CatalogConcurrencyTests {
         )
         let old = ARWSourceCatalog(name: "old", url: URL(filePath: "/tmp/old"))
         let new = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
-        viewModel.currentSelectedSource = old
+        viewModel.catalogLifecycle.currentSource = old
         viewModel.selectedSource = new
         viewModel.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
         var starts: [URL] = []
-        viewModel.startSecurityScopedResource = { starts.append($0); return true }
-        viewModel.stopSecurityScopedResource = { _ in }
+        viewModel.catalogLifecycle.startSecurityScopedResource = { starts.append($0); return true }
+        viewModel.catalogLifecycle.stopSecurityScopedResource = { _ in }
         viewModel.startCatalogLoad(for: new)
-        let pending = try #require(viewModel.catalogTransitionTask)
+        let pending = try #require(viewModel.catalogLifecycle.transitionTask)
         await started.wait()
         viewModel.abort()
         release.open()
         await pending.value
         #expect(starts.isEmpty)
-        #expect(viewModel.catalogTransitionTask == nil)
-        #expect(viewModel.catalogLoadTask == nil)
+        #expect(viewModel.catalogLifecycle.transitionTask == nil)
+        #expect(viewModel.catalogLifecycle.loadTask == nil)
         #expect(viewModel.selectedSource == new)
         #expect(!viewModel.scanning)
     }

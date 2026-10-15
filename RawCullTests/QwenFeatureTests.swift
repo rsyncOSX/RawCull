@@ -312,8 +312,8 @@ struct QwenFeatureTests {
         let release = CatalogTestGate()
         var stops: [URL] = []
         var reads = 0
-        model.startSecurityScopedResource = { _ in true }
-        model.stopSecurityScopedResource = { stops.append($0) }
+        model.catalogLifecycle.startSecurityScopedResource = { _ in true }
+        model.catalogLifecycle.stopSecurityScopedResource = { stops.append($0) }
         #expect(model.startSecurityScopedAccess(for: root))
         let feature = RawCullQwenAnalysisFeature(
             inference: QwenInferenceStub(),

@@ -70,9 +70,8 @@ struct OperationFailurePresentation: Identifiable {
 
 @Observable @MainActor
 final class RawCullViewModel: DeepAIReviewApplicationContext {
-    /// Remember previous selected source to avoid a new rescan of
-    /// already scanned catalog
-    @ObservationIgnored var currentSelectedSource: ARWSourceCatalog?
+    /// Owns catalog transitions, scan task lifetime, and security-scoped access.
+    @ObservationIgnored let catalogLifecycle = CatalogLifecycleCoordinator()
 
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
@@ -194,20 +193,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var isPreparingBurstCatalog = false
     @ObservationIgnored var burstCatalogPreparationGeneration = 0
 
-    /// Workers retain this grant independently when the active session changes.
-    @ObservationIgnored private var activeSecurityScopedGrant: RawCullCatalogGrant?
-    private var activeSecurityScopedURL: URL? {
-        activeSecurityScopedGrant?.url
-    }
-
-    @ObservationIgnored var startSecurityScopedResource: @MainActor (URL) -> Bool = {
-        $0.startAccessingSecurityScopedResource()
-    }
-
-    @ObservationIgnored var stopSecurityScopedResource: @MainActor (URL) -> Void = {
-        $0.stopAccessingSecurityScopedResource()
-    }
-
     /// URLs whose thumbnails have already been preloaded — skip on revisit.
     @ObservationIgnored var processedURLs: Set<URL> = []
 
@@ -236,10 +221,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var currentScanAndExtractJPGsActor: ScanAndExtractJPGs?
     var preloadTask: Task<Void, Never>?
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
-    @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
-    @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
-    @ObservationIgnored var catalogTransitionGeneration: UInt64 = 0
-    @ObservationIgnored var activeCatalogLoadURL: URL?
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,
     /// sharpness, and similarity filters are applied.
@@ -367,40 +348,18 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         return points.isEmpty ? nil : points
     }
 
-    // MARK: - Security-scoped resource lifecycle
+    // MARK: - Catalog access used by application workflows
 
-    /// Starts access for the active catalog, stopping any previously active
-    /// catalog first. Re-selecting the same active catalog is a no-op.
     @discardableResult
     func startSecurityScopedAccess(for url: URL) -> Bool {
-        Logger.process.debugMessageOnly("RawCullViewModel.startSecurityScopedAccess()")
-        let url = url.standardizedFileURL
-        if activeSecurityScopedURL == url {
-            return true
-        }
-
-        stopActiveSecurityScopedAccess()
-
-        guard startSecurityScopedResource(url) else {
-            return false
-        }
-
-        let grant = RawCullCatalogGrant(url: url, stopAccess: stopSecurityScopedResource)
-        activeSecurityScopedGrant = grant
-        RawCullCatalogAccess.shared.register(grant)
-        return true
+        catalogLifecycle.startSecurityScopedAccess(for: url)
     }
 
     func hasActiveSecurityScopedAccess(for url: URL) -> Bool {
-        activeSecurityScopedURL == url.standardizedFileURL
+        catalogLifecycle.hasActiveSecurityScopedAccess(for: url)
     }
 
     func stopActiveSecurityScopedAccess() {
-        Logger.process.debugMessageOnly("RawCullViewModel.stopActiveSecurityScopedAccess()")
-        activeSecurityScopedGrant = nil
-    }
-
-    isolated deinit {
-        stopActiveSecurityScopedAccess()
+        catalogLifecycle.stopActiveSecurityScopedAccess()
     }
 }

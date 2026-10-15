@@ -82,7 +82,7 @@ extension RawCullViewModel {
         )
 
         let destinationURL = destination.url
-        let destinationAccessStarted = startSecurityScopedResource(destinationURL)
+        let destinationAccessStarted = catalogLifecycle.startSecurityScopedResource(destinationURL)
         guard destinationAccessStarted else {
             isCreatingThumbnails = false
             operationFailurePresentation = OperationFailurePresentation(
@@ -105,7 +105,7 @@ extension RawCullViewModel {
             let result = await extract.extractAndSavejpgs()
 
             await MainActor.run {
-                self.stopSecurityScopedResource(destinationURL)
+                self.catalogLifecycle.stopSecurityScopedResource(destinationURL)
                 guard self.currentExtractAndSaveJPGsActor === extract else { return }
                 self.currentExtractAndSaveJPGsActor = nil
                 self.isCreatingThumbnails = false
