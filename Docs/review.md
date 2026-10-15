@@ -52,7 +52,7 @@ Export calls the display-preview loader, which prefers a sidecar JPEG. It then d
 
 ### 4. P2 — Thumbnail task identity and publication are incomplete
 
-**Status:** Open. **Location:** `Views/ThumbnailComponents/ThumbnailImageView.swift`.
+**Status:** Implemented. Request identity now includes URL, target size, style, and available file size/modification date. A presentation model rejects cancelled and superseded loads before publishing to either the view or its image binding. New-source loads clear stale pixels. Thumbnail presentation and loader concurrency regression suites passed in Xcode. **Location:** `Views/ThumbnailComponents/ThumbnailImageView.swift`.
 
 The task identity contains only the URL, so representation-size changes do not reload. A cancelled request can still publish to local state or the caller's image binding.
 
@@ -202,3 +202,9 @@ Validated values are encoded, converted to [String: Any], force-cast and mutated
 - Installed guidance: SwiftUI Expert, Apple's SwiftUI Specialist, Swift Concurrency, and Swift Testing Expert.
 - Prefer regression tests against production behavior; do not substitute source-text assertions for behavioral coverage.
 - Initial worktree was clean. No production data was touched by isolated review probes.
+
+## Implementation checkpoint
+
+Completed and committed in order: review/plan, keyboard routing (findings 1–2), embedded JPEG export (3), and thumbnail request/publication correctness (4). Every code update includes this document's status and validation notes. Remaining correctness work starts with persistence initialization/recovery and tagging dates (9–11), followed by settings errors (12) and test storage isolation (15). Performance and broader cleanup remain open.
+
+At the user's request, check account usage immediately after the thumbnail commit and stop further fixes if the remaining allowance is insufficient. Do not begin the next update without that check.

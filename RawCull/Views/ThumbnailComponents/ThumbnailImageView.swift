@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum ThumbnailStyle {
+nonisolated enum ThumbnailStyle: Hashable, Sendable {
     case grid
     case list
 }
@@ -21,16 +21,23 @@ struct ThumbnailImageView: View {
     let contentMode: ContentMode
     private let imageBinding: Binding<NSImage?>?
 
-    @State private var thumbnailImage: NSImage?
-    @State private var isLoading = false
+    @State private var presentation = ThumbnailPresentationModel()
+
+    private var request: ThumbnailRequest? {
+        guard let sourceURL = url ?? file?.url else { return nil }
+        return ThumbnailRequest(
+            url: sourceURL, targetSize: targetSize, style: style,
+            fileSize: file?.size, modificationDate: file?.dateModified,
+        )
+    }
 
     var body: some View {
         ZStack {
-            if let thumbnailImage {
+            if let thumbnailImage = presentation.image {
                 Image(nsImage: thumbnailImage)
                     .resizable()
                     .aspectRatio(contentMode: contentMode)
-            } else if isLoading {
+            } else if presentation.isLoading {
                 if showsShimmer {
                     shimmerPlaceholder
                 } else {
@@ -40,13 +47,13 @@ struct ThumbnailImageView: View {
                 Rectangle().fill(Color(white: 0.15))
             }
         }
-        .task(id: url ?? file?.url) {
-            guard url != nil || file != nil else { return }
-            isLoading = true
-            let loadedImage = await loadThumbnail()
-            thumbnailImage = loadedImage
-            imageBinding?.wrappedValue = loadedImage
-            isLoading = false
+        .task(id: request) {
+            guard let request else { return }
+            await presentation.load(
+                request: request,
+                imageLoader: { await loadThumbnail() },
+                publish: { imageBinding?.wrappedValue = $0 },
+            )
         }
     }
 
