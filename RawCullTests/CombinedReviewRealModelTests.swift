@@ -59,7 +59,7 @@ struct CombinedReviewRealModelTests {
 
     /// Full local regression; artifacts survive failure for inspection. Never uses the app's store.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_COMBINED_SIX_RUN"] == "1"))
-    @MainActor func `six selected ARWs complete full model review with criterion coverage`() async throws {
+    @MainActor func `selected ARWs complete full model review with criterion coverage`() async throws {
         let environment = ProcessInfo.processInfo.environment
         let directory = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_SELECTION_DIRECTORY"]))
         let root = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_SIX_OUTPUT"]))
@@ -67,9 +67,28 @@ struct CombinedReviewRealModelTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let selectedNames = try #require(environment["RAWCULL_COMBINED_SIX_NAMES"])
         let names = try JSONDecoder().decode([String].self, from: Data(selectedNames.utf8))
-        try #require(names.count == 6 && Set(names).count == 6)
+        try #require(!names.isEmpty && Set(names).count == names.count)
         try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
         let frozen = environment["RAWCULL_COMBINED_SIX_FROZEN"] == "1"
+        var batches: [String] = []
+        for start in stride(from: 0, to: names.count, by: 8) {
+            let batchNames = Array(names[start ..< min(start + 8, names.count)])
+            let batchName = "batch-\(start / 8 + 1)"
+            let batchRoot = names.count <= 8 ? root : root.appendingPathComponent(batchName)
+            print("COMBINED REVIEW \(batchName): \(batchNames.count) images", terminator: "\n")
+            try await reviewBatch(names: batchNames, directory: directory, root: batchRoot,
+                                  environment: environment, frozen: frozen)
+            batches.append(batchName)
+        }
+        if names.count > 8 {
+            let summary = ["batches": batches, "files": names]
+            try JSONEncoder().encode(summary).write(to: root.appendingPathComponent("diagnostic.json"), options: .atomic)
+        }
+    }
+
+    @MainActor private func reviewBatch(names: [String], directory: URL, root: URL,
+                                        environment: [String: String], frozen: Bool) async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let urls = names.map { directory.appendingPathComponent($0) }
         for url in urls {
             try #require(FileManager.default.fileExists(atPath: url.path))
@@ -100,7 +119,7 @@ struct CombinedReviewRealModelTests {
         let diagnostic = await Diagnostic(run: run, reports: feature.results.compactMap(\.report),
                                           selection: feature.selectionReport, responses: backend.responses)
         try encoder.encode(diagnostic).write(to: root.appendingPathComponent("diagnostic.json"), options: .atomic)
-        #expect(feature.results.count == 6)
+        #expect(feature.results.count == names.count)
         #expect(run.work.allSatisfy { $0.state.terminal })
         #expect(run.work.allSatisfy { $0.state == .completed })
         for (category, attempts) in run.budget.attempts {
@@ -131,7 +150,7 @@ struct CombinedReviewRealModelTests {
             }
         }
         let selection = try #require(feature.selectionReport)
-        #expect(selection.cells.count == 6)
+        #expect(selection.cells.count == names.count)
         if frozen {
             #expect(selection.decision == .abstain)
             #expect(selection.preferred.isEmpty)

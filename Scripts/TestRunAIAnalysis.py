@@ -14,13 +14,13 @@ spec.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
-    def test_selection_is_sorted_bounded_and_nonrecursive(self):
+    def test_selection_is_sorted_unbounded_and_nonrecursive(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ['g.ARW', 'c.arw', 'a.ARW', 'f.ARW', 'b.ARW', 'e.ARW', 'd.ARW', '0.jpg']:
                 (root / name).touch()
             (root / '0.ARW').mkdir()
-            self.assertEqual(runner.select_names(root), ['a.ARW', 'b.ARW', 'c.arw', 'd.ARW', 'e.ARW', 'f.ARW'])
+            self.assertEqual(runner.select_names(root), ['a.ARW', 'b.ARW', 'c.arw', 'd.ARW', 'e.ARW', 'f.ARW', 'g.ARW'])
             self.assertEqual(runner.select_names(root, 2), ['a.ARW', 'b.ARW'])
 
     def run_fixture(self, complete, code):

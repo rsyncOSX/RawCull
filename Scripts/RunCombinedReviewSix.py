@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the opt-in full six-ARW regression once; never edit app code or retry failures."""
+"""Run the opt-in full ARW regression once; never edit app code or retry failures."""
 import argparse
 import hashlib
 import json
@@ -18,7 +18,7 @@ def manifest_id(value):
 def progress_message(output):
     """Read persisted image outcomes; progress never implies test acceptance."""
     try:
-        paths = list((output / 'runs').glob('*.json'))
+        paths = sorted(output.glob('**/runs/*.json'), key=lambda path: path.stat().st_mtime, reverse=True)
         if not paths:
             return None
         run = json.loads(paths[0].read_text())['value']
@@ -51,12 +51,12 @@ def select_names(directory, frozen=False):
     if frozen:
         return NAMES.copy()
     return sorted(path.name for path in directory.iterdir()
-                  if path.is_file() and path.suffix.lower() == '.arw')[:6]
+                  if path.is_file() and path.suffix.lower() == '.arw')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--directory', type=Path, default=Path.home() / 'Downloads')
+    parser.add_argument('--directory', type=Path, required=True, help='Directory containing input ARW files')
     parser.add_argument('--models', type=Path, default=Path.home() / 'ModelAssets/Release/Models')
     parser.add_argument('--output', type=Path, help='New output directory; default: unique directory in /private/tmp')
     parser.add_argument('--packages', type=Path, help='Existing Swift package cache (optional)')
@@ -67,8 +67,8 @@ def main():
     if not args.directory.is_dir():
         parser.error(f'Missing directory: {args.directory}')
     names = select_names(args.directory, args.frozen)
-    if len(names) != 6:
-        parser.error('At least six ARW files are required in the selected directory.')
+    if not names:
+        parser.error('At least one ARW file is required in the selected directory.')
     expected = json.loads((repository / 'Docs/CombinedReviewRegression/six-arw-inputs.json').read_text()) if args.frozen else {}
     inventory = {}
     for name in names:
@@ -87,7 +87,7 @@ def main():
         if not model.is_dir():
             parser.error(f'Missing installed model directory: {model}')
     print('Selected ARWs (filename order unless frozen): ' + ', '.join(names), flush=True)
-    print('Preflight passed: six RAW files and installed model directories.', flush=True)
+    print('Preflight passed: selected RAW files and installed model directories.', flush=True)
     if args.preflight_only:
         return 0
     output = args.output.resolve() if args.output else Path(tempfile.mkdtemp(prefix='rawcull-six-', dir='/private/tmp')) / 'evidence'

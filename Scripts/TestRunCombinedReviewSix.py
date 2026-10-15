@@ -67,16 +67,16 @@ class RunnerTests(unittest.TestCase):
                     patch.object(runner.subprocess, 'run', side_effect=run), contextlib.redirect_stdout(io.StringIO()):
                 return runner.main()
 
-    def test_first_six_are_sorted_and_ignore_non_raw_and_subdirectories(self):
+    def test_all_files_are_sorted_and_ignore_non_raw_and_subdirectories(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in ['g.ARW', 'c.arw', 'a.ARW', 'f.ARW', 'b.ARW', 'e.ARW', 'd.ARW', '0.jpg']:
                 (root / name).touch()
             (root / '0.ARW').mkdir()
-            self.assertEqual(runner.select_names(root), ['a.ARW', 'b.ARW', 'c.arw', 'd.ARW', 'e.ARW', 'f.ARW'])
+            self.assertEqual(runner.select_names(root), ['a.ARW', 'b.ARW', 'c.arw', 'd.ARW', 'e.ARW', 'f.ARW', 'g.ARW'])
             self.assertEqual(runner.select_names(root, frozen=True), runner.NAMES)
 
-    def test_fewer_than_six_fails_before_xcode(self):
+    def test_empty_directory_fails_before_xcode(self):
         with tempfile.TemporaryDirectory() as temporary:
             with patch('sys.argv', ['runner', '--directory', temporary]), patch.object(runner.subprocess, 'run') as run, \
                     contextlib.redirect_stderr(io.StringIO()):
