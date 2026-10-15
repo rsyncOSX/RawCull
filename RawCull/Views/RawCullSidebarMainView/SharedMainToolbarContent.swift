@@ -152,7 +152,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                 Button {
                     viewModel.selectMainViewMode(.aiAnalysis)
                 } label: {
-                    Label("AI Analysis", systemImage: "sparkles.rectangle.stack")
+                    Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
                 }
                 .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
                 .disabled(isDisabled ||
@@ -164,18 +164,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                 Button {
                     viewModel.selectMainViewMode(.combinedReview)
                 } label: {
-                    Label {
-                        Text("Combined Review")
-                    } icon: {
-                        Image(systemName: "sparkles.rectangle.stack")
-                            .overlay(alignment: .topTrailing) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.caption2.weight(.bold))
-                                    .symbolRenderingMode(.palette)
-                                    .foregroundStyle(.background, .primary)
-                                    .offset(x: 3, y: -3)
-                            }
-                    }
+                    Label("Combined Review", systemImage: "sparkles.rectangle.stack")
                 }
                 .help("Combined Review")
                 .disabled(isDisabled ||
