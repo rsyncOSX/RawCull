@@ -28,6 +28,8 @@ struct QwenAnalysisView: View {
             HStack(spacing: 12) {
                 TextField("Additional analysis prompt or focus criteria...", text: $feature.prompt)
                     .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .accessibilityLabel("Analysis prompt or focus criteria")
                     .disabled(feature.isRunning)
                     .onSubmit(run)
                 

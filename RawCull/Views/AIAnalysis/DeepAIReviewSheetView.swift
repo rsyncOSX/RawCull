@@ -104,6 +104,8 @@ private struct DeepAIReviewSheetControls: View {
                 Text("Head / Face").tag(DeepAIReviewPreset.headFace)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Subject target")
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
