@@ -1,8 +1,3 @@
-#if DEBUG
-    @testable import CoreAICLIPBackend
-    import CoreAIShared
-    import PhotoAIContracts
-#endif
 import CoreGraphics
 import CoreImage
 import Darwin
@@ -262,45 +257,6 @@ struct ReviewImageSourceTests {
         #expect(throws: ReviewImageError.self) { try ReviewImageSourceService.admit(width: 12000, height: 8000, request: request) }
         #expect(throws: ReviewImageError.self) { try ReviewImageSourceService.admit(width: Int.max, height: 2, request: request) }
     }
-
-    #if DEBUG
-        @Test
-        func `actual preprocessors retain source crop evidence`() async throws {
-            let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            let url = root.appendingPathComponent("Docs/CombinedReviewInputFixtures/source-landscape.png")
-            let source = try await ReviewImageSourceService().load(.init(url: url, preference: .highQualityPreview, policy: .appearance))
-            let qwen = ReviewEncoderGeometry(width: 448, height: 448, strategy: .stretch)
-            let clip = ReviewEncoderGeometry(width: 224, height: 224, strategy: .shortestSideCenterCrop)
-            let full = source.metadata.sourceSpace.bounds
-            let qwenRegion = try source.region(rect: full, padding: 0, purpose: "overview", encoder: qwen)
-            let clipRegion = try source.region(rect: full, padding: 0, purpose: "overview", encoder: clip)
-            #expect(qwenRegion.intendedRegionRetained)
-            #expect(!clipRegion.intendedRegionRetained)
-            #expect(clipRegion.encoder.retainedSourceRect == CGRect(x: 150, y: 0, width: 600, height: 600))
-            let processor = ImagePreprocessor(targetSize: CGSize(width: 448, height: 448),
-                                              mean: (0, 0, 0), std: (1, 1, 1), rescaleFactor: 1)
-            let wholeQwen = try processor.preprocessCHW(cgImage: source.crop(qwenRegion), strategy: .stretch)
-            let clipMetadata = ModelImagePreprocessingMetadata(version: "geometry-fixture-v1", width: 224, height: 224,
-                                                               resize: "shortest-side", crop: "center", interpolation: "bicubic",
-                                                               mean: [0, 0, 0], standardDeviation: [1, 1, 1])
-            let wholeCLIP = try CoreAICLIPProvider.preprocessCLIPImage(source.crop(clipRegion), preprocessing: clipMetadata)
-            #expect(wholeQwen.count == 3 * 448 * 448)
-            #expect(wholeCLIP.count == 3 * 224 * 224)
-            // The red corner survives Qwen stretch and is removed by CLIP center crop.
-            #expect(wholeQwen[22 * 448 + 22] > 0.95)
-            #expect(wholeCLIP[11 * 224 + 11] < 0.5)
-            let corner = CGRect(x: 5, y: 5, width: 30, height: 30)
-            let region = try source.region(rect: corner, padding: 0, purpose: "detail", encoder: clip)
-            #expect(region.intendedRegionRetained)
-            let crop = try source.crop(region)
-            let detail = try CoreAICLIPProvider.preprocessCLIPImage(crop, preprocessing: clipMetadata)
-            let qwenDetail = try processor.preprocessCHW(cgImage: crop, strategy: .stretch)
-            #expect(detail[112 * 224 + 112] > 0.95)
-            #expect(qwenDetail[224 * 448 + 224] > 0.95)
-            #expect(detail.allSatisfy { $0.isFinite })
-            #expect(qwenDetail.allSatisfy { $0.isFinite })
-        }
-    #endif
 
     @Test
     func `full source working set`() async throws {

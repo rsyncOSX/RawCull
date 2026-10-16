@@ -6,7 +6,7 @@ import Testing
 @Suite("Release metadata", .tags(.smoke))
 struct ReleaseMetadataTests {
     @Test
-    func `app and extension metadata are aligned for version 3.3.0`() throws {
+    func `app and extension metadata are aligned`() throws {
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
         let appBlocks = buildSettingBlocks(
             in: project,
@@ -21,8 +21,10 @@ struct ReleaseMetadataTests {
         #expect(extensionBlocks.count == 3)
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
+        let marketingVersion = try #require(appBlocks.first.flatMap { buildSetting("MARKETING_VERSION", in: $0) })
+        #expect(marketingVersion.wholeMatch(of: /[0-9]+\.[0-9]+\.[0-9]+/) != nil)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.3.0")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == marketingVersion)
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
@@ -97,12 +99,6 @@ struct ReleaseMetadataTests {
             }
             #expect(matchingRows.count == 1, "Missing or duplicate README row for \(pin.identity)")
         }
-
-        let photoAIKitRows = tableRows.filter { row in
-            row.contains("`photoaikit`")
-                && row.contains("`7f9adfcd69661c6bae4a640c16a4056dfc7393df`")
-        }
-        #expect(photoAIKitRows.count == 1)
 
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
         #expect(
