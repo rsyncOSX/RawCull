@@ -178,7 +178,7 @@ private struct CombinedReviewRunActions: View {
     let files: [FileItem]
     var body: some View {
         HStack {
-            Button(feature.manifest == nil ? "Start review" : "Rerun review") {
+            Button("Review") {
                 let selected = files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized) }
                 Task { await feature.analyze(selected) }
             }.buttonStyle(.borderedProminent)
