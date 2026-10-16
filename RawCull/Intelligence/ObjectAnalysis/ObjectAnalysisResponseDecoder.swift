@@ -7,6 +7,10 @@ nonisolated enum ObjectAnalysisResponseDecoder {
 
     private static func decode(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String], allowUnsupportedFocus: Bool) throws -> ObjectPhotoAssessment {
         let value = try ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response)
+        return try validate(value, boardIDs: boardIDs, expectedConcepts: expectedConcepts, allowUnsupportedFocus: allowUnsupportedFocus)
+    }
+
+    private static func validate(_ value: ObjectPhotoAssessment, boardIDs: Set<String>, expectedConcepts: [String: String], allowUnsupportedFocus: Bool = false) throws -> ObjectPhotoAssessment {
         guard value.schemaVersion == ObjectPhotoAssessment.schemaVersion else {
             throw ObjectResponseIssue.invalidValue("schemaVersion")
         }
@@ -92,37 +96,36 @@ nonisolated enum ObjectAnalysisResponseDecoder {
                 (object.focusEvidence.map { focusDescription($0.observation, supports: object.focusQuality) } != true))
         }.map(\.id))
         guard !affected.isEmpty else { return try decode(response, boardIDs: boardIDs, expectedConcepts: expectedConcepts) }
-        let data = try JSONEncoder().encode(value)
-        var document = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        var objects = document["objects"] as! [[String: Any]]
-        // JSONEncoder omits nil optionals, while the model schema requires explicit nulls.
-        for index in objects.indices {
-            objects[index]["expression"] = NSNull()
-            if value.objects[index].focusEvidence == nil { objects[index]["focusEvidence"] = NSNull() }
-        }
-        for index in objects.indices where affected.contains(objects[index]["id"] as! String) {
-            objects[index]["focusQuality"] = "uncertain"
-            objects[index]["focusEvidence"] = NSNull()
-            if containsFocusClaim(objects[index]["description"] as! String) {
-                objects[index]["description"] = "Object identified as \(value.objects[index].concept)."
+        var sanitized = value
+        sanitized.objects = value.objects.map { object in
+            guard affected.contains(object.id) else { return object }
+            var sanitizedObject = object
+            sanitizedObject.focusQuality = .uncertain
+            sanitizedObject.focusEvidence = nil
+            if containsFocusClaim(object.description) {
+                sanitizedObject.description = "Object identified as \(object.concept)."
             }
-            for (claimsKey, evidenceKey) in [("strengths", "strengthEvidence"), ("problems", "problemEvidence")] {
-                let claims = objects[index][claimsKey] as! [String]
-                let evidence = objects[index][evidenceKey] as! [[String: Any]]
-                let retained = claims.indices.filter {
-                    !containsFocusClaim(claims[$0]) && !containsFocusClaim(evidence[$0]["observation"] as! String)
-                }
-                objects[index][claimsKey] = retained.map { claims[$0] }
-                objects[index][evidenceKey] = retained.map { evidence[$0] }
-            }
+            let strengths = retainedClaims(object.strengths, evidence: object.strengthEvidence)
+            sanitizedObject.strengths = strengths.claims
+            sanitizedObject.strengthEvidence = strengths.evidence
+            let problems = retainedClaims(object.problems, evidence: object.problemEvidence)
+            sanitizedObject.problems = problems.claims
+            sanitizedObject.problemEvidence = problems.evidence
+            return sanitizedObject
         }
-        document["objects"] = objects
         // A preference may have been based on the rejected focus judgments.
-        document["preferredObjectIDs"] = [String]()
-        if let summary = value.imageSummary, containsFocusClaim(summary) { document.removeValue(forKey: "imageSummary") }
-        document["relationships"] = value.relationships.filter { !containsFocusClaim($0) }
-        let sanitized = String(decoding: try JSONSerialization.data(withJSONObject: document), as: UTF8.self)
-        return try decode(sanitized, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
+        sanitized.preferredObjectIDs = []
+        if let summary = value.imageSummary, containsFocusClaim(summary) { sanitized.imageSummary = nil }
+        sanitized.relationships = value.relationships.filter { !containsFocusClaim($0) }
+        return try validate(sanitized, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
+    }
+
+    // Pair counts and crop ownership have already passed validation.
+    private static func retainedClaims(_ claims: [String], evidence: [ObjectClaimEvidence]) -> (claims: [String], evidence: [ObjectClaimEvidence]) {
+        let pairs = zip(claims, evidence).filter {
+            !containsFocusClaim($0.0) && !containsFocusClaim($0.1.observation)
+        }
+        return (pairs.map(\.0), pairs.map(\.1))
     }
 
     private static func containsFocusClaim(_ text: String) -> Bool {

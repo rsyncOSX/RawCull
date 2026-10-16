@@ -188,7 +188,7 @@ Computed view properties organize source but do not create independent update bo
 
 ### 18. P3 — Typed AI sanitization uses force-cast dictionaries
 
-**Status:** Open. **Location:** `Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift`.
+**Status:** Implemented (2026-10-16). Sanitization transforms typed assessment values and zipped claim/evidence pairs, then reuses typed validation. External JSON decoding still requires explicit nullable fields, valid schemas, and crop/concept ownership before any sanitization. The ObjectAnalysisBoundaryTests suite passed in Xcode, including new mixed-object preservation and missing-null-field regressions. **Location:** `Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift`.
 
 Validated values are encoded, converted to [String: Any], force-cast and mutated, then decoded again. Current casts rely on known encoded shapes; this is a schema-maintenance concern rather than a demonstrated input crash.
 
@@ -262,3 +262,12 @@ All review P2 implementation items are now addressed. P3 findings 16–18 remain
 Nine failures require absent authentic fixtures under `Docs/CombinedReviewRegression/` (schema responses v9/v16, overview v8, crops v17/v18, reports v19) and `Docs/CombinedReviewInputFixtures/source-landscape.png`. Two failures come from unchanged release metadata tests expecting marketing version 3.3.0 while the project is 3.3.2, and a PhotoAIKit pin row absent from README. These failures were not hidden or skipped. Restore the original recorded fixtures and reconcile release checks/documentation in a separate update; do not invent substitute recorded AI evidence merely to make tests green.
 
 No further fixes were started after the allowance reserve check. The original P2 findings are implemented; the above smoke blockers, manual accessibility checks, profiling, and P3 items remain visible follow-up work.
+
+
+### P3 remediation plan
+
+Authorized 2026-10-16. Address finding 18 (typed sanitization), then 17 (state ownership), then 16 (view boundaries). Validate each update, record its result here, and commit before beginning the next. View extraction preserves layout and behavior; performance improvements require subsequent measurement.
+
+### Typed focus sanitization
+
+Fixed finding 18. Removed dictionary force casts and the JSON encode/mutate/decode round trip. Shared validation checks both external decoded values and sanitized typed values. Regression coverage verifies claim/evidence pairing, preservation of unaffected object ownership, and strict nullable-field admission. Focused Xcode tests passed; diff checks passed.

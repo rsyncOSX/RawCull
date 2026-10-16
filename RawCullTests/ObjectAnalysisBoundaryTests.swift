@@ -154,6 +154,53 @@ struct ObjectAnalysisBoundaryTests {
         #expect(try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"]) == ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]))
     }
 
+    @Test func `Focus abstention preserves paired evidence and unaffected object ownership`() throws {
+        let response = #"""
+        {"schemaVersion":2,"imageSummary":"A sharp bird beside a fence","objects":[
+          {"id":"1","concept":"bird","description":"A sharp bird","visibility":"partial","focusQuality":"sharp","focusEvidence":null,"expression":null,
+           "obstructions":["branch"],"strengths":["Bright colors","Fine detail","Visible wings"],
+           "strengthEvidence":[{"cropID":"1","observation":"Orange markings"},{"cropID":"1","observation":"Wing markings"},{"cropID":"1","observation":"Soft edges"}],
+           "problems":["Blurred wings","Obstructed body"],"problemEvidence":[{"cropID":"1","observation":"Smeared feathers"},{"cropID":"1","observation":"Branch across body"}],"confidence":0.7},
+          {"id":"2","concept":"fence","description":"Visible fence","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"2","observation":"Crisp fence edges"},"expression":null,
+           "obstructions":[],"strengths":["Sharp edges"],"strengthEvidence":[{"cropID":"2","observation":"Crisp outline"}],"problems":[],"problemEvidence":[],"confidence":0.9}
+        ],"relationships":["Bird beside fence","Bird is sharper than fence"],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}
+        """#
+        let result = try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(
+            response, boardIDs: ["1", "2"], expectedConcepts: ["1": "bird", "2": "fence"],
+        )
+        let bird = try #require(result.objects.first)
+        #expect(bird.description == "Object identified as bird.")
+        #expect(bird.focusQuality == .uncertain)
+        #expect(bird.focusEvidence == nil)
+        #expect(bird.strengths == ["Bright colors"])
+        #expect(bird.strengthEvidence == [ObjectClaimEvidence(cropID: "1", observation: "Orange markings")])
+        #expect(bird.problems == ["Obstructed body"])
+        #expect(bird.problemEvidence == [ObjectClaimEvidence(cropID: "1", observation: "Branch across body")])
+        #expect(bird.obstructions == ["branch"])
+        #expect(bird.visibility == .partial)
+        #expect(bird.confidence == 0.7)
+        let fence = try #require(result.objects.last)
+        #expect(fence.id == "2")
+        #expect(fence.concept == "fence")
+        #expect(fence.focusQuality == .sharp)
+        #expect(fence.focusEvidence == ObjectClaimEvidence(cropID: "2", observation: "Crisp fence edges"))
+        #expect(fence.strengths == ["Sharp edges"])
+        #expect(fence.strengthEvidence == [ObjectClaimEvidence(cropID: "2", observation: "Crisp outline")])
+        #expect(result.imageSummary == nil)
+        #expect(result.relationships == ["Bird beside fence"])
+        #expect(result.preferredObjectIDs.isEmpty)
+    }
+
+    @Test(arguments: [#""expression":null,""#, #""focusEvidence":null,""#])
+    func `Focus abstention still requires explicit nullable fields`(field: String) {
+        let response = focusResponse(observation: "Visible wings")
+            .replacingOccurrences(of: #""focusEvidence":{"cropID":"1","observation":"Visible wings"},"#, with: #""focusEvidence":null,"#)
+            .replacingOccurrences(of: field, with: "")
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decodeAbstainingFromUnsupportedFocus(response, boardIDs: ["1"])
+        }
+    }
+
     @Test(arguments: [
         (#""cropID":"1""#, #""cropID":"2""#),
         (#""confidence":0.8"#, #""confidence":1.2"#),
