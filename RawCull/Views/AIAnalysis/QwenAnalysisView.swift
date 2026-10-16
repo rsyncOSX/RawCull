@@ -65,6 +65,7 @@ struct QwenAnalysisView: View {
                     description: Text("Run analysis to evaluate composition, exposure, and key details across your batch."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .aiAnalysisResultsContainer()
             } else {
                 HSplitView {
                     QwenResultsTable(

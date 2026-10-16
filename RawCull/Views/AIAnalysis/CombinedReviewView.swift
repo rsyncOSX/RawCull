@@ -79,11 +79,12 @@ struct CombinedReviewView: View {
                         }
                     } else {
                         ContentUnavailableView(
-                            feature.displayedResults.isEmpty ? "Ready to review" : "No review for this image",
+                            feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
                             systemImage: "photo.badge.magnifyingglass",
-                            description: Text("Select 1–8 images and start a local review. Saved reviews remain available in the image picker."),
+                            description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aiAnalysisResultsContainer()
                     }
                     if !feature.taskHistory.isEmpty {
                         DisclosureGroup("Run history & diagnostics") {
