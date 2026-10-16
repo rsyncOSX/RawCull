@@ -32,7 +32,7 @@ Local NSEvent monitors receive application-wide events before dispatch. Excludin
 
 ### 2. P2 — Competing keyboard handlers disagree about `2`
 
-**Status:** Open. **Location:** `CullingGridView.handleBurstKeyPress` and `ThumbnailKeyNavigationModifier`.
+**Status:** Routing fix implemented and focused Xcode tests passed (2026-10-16). The prior combined keyboard admission/routing patch was reverted after a reported runtime crash. This narrower fix routes burst commands through the existing thumbnail monitor without restoring accessibility focus queries or window-scope bridging. Reserved burst commands are consumed even when unavailable, preventing `2` from falling through to a rating. Return/B/U/Escape share that owner; R retains its existing behavior. Monitor installation is guarded against duplicate appearance callbacks. The earlier crash cause remains unconfirmed because its console trace is unavailable. Finding 1 remains open. `ThumbnailKeyboardRoutingTests` and `ZoomOverlayKeyActionTests` passed in Xcode; syntax and diff checks passed. Manual keyboard verification in the running review UI is still needed; no claim is made that the historical crash was reproduced or diagnosed. **Location:** `CullingGridView.handleBurstKeyPress` and `ThumbnailKeyNavigationModifier`.
 
 The burst grid assigns `2` to keeping the top two candidates, while the application event monitor consumes it as rating 2 before SwiftUI receives it.
 

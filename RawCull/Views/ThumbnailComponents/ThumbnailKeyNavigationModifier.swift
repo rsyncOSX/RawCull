@@ -26,21 +26,49 @@ nonisolated enum ThumbnailKeyAction: Equatable {
     }
 }
 
+/// Resolves burst ownership before rating shortcuts. A reserved but unavailable
+/// command is still consumed so it cannot fall through into a rating change.
+enum ThumbnailKeyboardRouting {
+    static func handleBurstCommand(
+        _ characters: String?,
+        showsBurstGroups: Bool,
+        perform: ((String) -> KeyPress.Result)?,
+    ) -> Bool {
+        guard showsBurstGroups,
+              let characters,
+              ["\r", "\u{1b}", "b", "B", "2", "u", "U"].contains(characters)
+        else { return false }
+        _ = perform?(characters)
+        return true
+    }
+}
+
 struct ThumbnailKeyNavigationModifier: ViewModifier {
     let viewModel: RawCullViewModel
     let axis: ThumbnailNavigationAxis
     let filesOverride: (() -> [FileItem])?
+    let onBurstKeyPress: ((String) -> KeyPress.Result)?
     @State private var keyMonitor: Any?
 
     func body(content: Content) -> some View {
         content
             .onAppear {
+                guard keyMonitor == nil else { return }
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     guard !(NSApp.keyWindow?.firstResponder is NSText),
                           viewModel.mainViewMode != .comparisonGrid,
                           !viewModel.zoomOverlayVisible,
-                          event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                          viewModel.selectedFile != nil else { return event }
+                          event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
+
+                    if ThumbnailKeyboardRouting.handleBurstCommand(
+                        event.charactersIgnoringModifiers,
+                        showsBurstGroups: axis == .grid && viewModel.showsBurstGroups,
+                        perform: onBurstKeyPress,
+                    ) {
+                        return nil
+                    }
+
+                    guard viewModel.selectedFile != nil else { return event }
 
                     let files: [FileItem] = {
                         if let filesOverride {
@@ -182,7 +210,10 @@ extension View {
         viewModel: RawCullViewModel,
         axis: ThumbnailNavigationAxis,
         files: (() -> [FileItem])? = nil,
+        onBurstKeyPress: ((String) -> KeyPress.Result)? = nil,
     ) -> some View {
-        modifier(ThumbnailKeyNavigationModifier(viewModel: viewModel, axis: axis, filesOverride: files))
+        modifier(ThumbnailKeyNavigationModifier(
+            viewModel: viewModel, axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
+        ))
     }
 }

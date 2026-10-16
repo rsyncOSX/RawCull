@@ -321,16 +321,6 @@ struct CullingGridView<Header: View>: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .onKeyPress(characters: CharacterSet(charactersIn: "\rBb2RrUu")) { press in
-            handleBurstKeyPress(press.characters)
-        }
-        .onKeyPress(.escape) {
-            if viewModel.showsBurstGroups {
-                viewModel.similarityFeature.burstModeActive = false
-                return .handled
-            }
-            return .ignored
-        }
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
@@ -341,6 +331,7 @@ struct CullingGridView<Header: View>: View {
             viewModel: viewModel,
             axis: .grid,
             files: { visibleSelectionFiles },
+            onBurstKeyPress: handleBurstKeyPress,
         )
     }
 
@@ -512,8 +503,16 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
-        guard viewModel.showsBurstGroups,
-              let groupFiles = currentBurstGroupFiles
+        guard viewModel.showsBurstGroups else { return .ignored }
+        if characters == "\u{1b}" {
+            viewModel.similarityFeature.burstModeActive = false
+            return .handled
+        }
+        if characters == "u" || characters == "U" {
+            viewModel.undoLastBurstAction()
+            return .handled
+        }
+        guard let groupFiles = currentBurstGroupFiles
         else { return .ignored }
 
         switch characters {
@@ -529,10 +528,6 @@ struct CullingGridView<Header: View>: View {
         case "2":
             guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
             viewModel.keepTopTwoInGroup(from: groupFiles)
-            return .handled
-
-        case "U", "u":
-            viewModel.undoLastBurstAction()
             return .handled
 
         default:
