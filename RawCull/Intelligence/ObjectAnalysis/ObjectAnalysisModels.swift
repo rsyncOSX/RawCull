@@ -166,16 +166,16 @@ nonisolated struct ObjectClaimEvidence: Codable, Equatable, Sendable {
 nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let concept: String
-    let description: String
+    var description: String
     let visibility: ObjectVisibility
-    let focusQuality: ObjectFocusQuality
-    let focusEvidence: ObjectClaimEvidence?
-    let strengthEvidence: [ObjectClaimEvidence]
-    let problemEvidence: [ObjectClaimEvidence]
+    var focusQuality: ObjectFocusQuality
+    var focusEvidence: ObjectClaimEvidence?
+    var strengthEvidence: [ObjectClaimEvidence]
+    var problemEvidence: [ObjectClaimEvidence]
     let expression: String?
     let obstructions: [String]
-    let strengths: [String]
-    let problems: [String]
+    var strengths: [String]
+    var problems: [String]
     let confidence: Float
 
     private enum CodingKeys: String, CodingKey {
@@ -208,12 +208,12 @@ nonisolated struct ObjectAssessment: Codable, Equatable, Identifiable, Sendable 
 nonisolated struct ObjectPhotoAssessment: Codable, Equatable, Sendable {
     static let schemaVersion = 2
     let schemaVersion: Int
-    let imageSummary: String?
-    let objects: [ObjectAssessment]
-    let relationships: [String]
+    var imageSummary: String?
+    var objects: [ObjectAssessment]
+    var relationships: [String]
     let strengths: [String]
     let problems: [String]
-    let preferredObjectIDs: [String]
+    var preferredObjectIDs: [String]
     let confidence: Float
 
     private enum CodingKeys: String, CodingKey {

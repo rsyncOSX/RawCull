@@ -74,16 +74,14 @@ struct CombinedReviewView: View {
                                 inspect: inspect, selectFinding: { openEvidence($0, result: result) },
                             )
                         }
-                        if let file = files.first(where: { $0.id == result.file.fileID }) {
-                            CombinedReviewRatingControls(viewModel: viewModel, file: file)
-                        }
                     } else {
                         ContentUnavailableView(
-                            feature.displayedResults.isEmpty ? "Ready to review" : "No review for this image",
+                            feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
                             systemImage: "photo.badge.magnifyingglass",
-                            description: Text("Select 1–8 images and start a local review. Saved reviews remain available in the image picker."),
+                            description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aiAnalysisResultsContainer()
                     }
                     if !feature.taskHistory.isEmpty {
                         DisclosureGroup("Run history & diagnostics") {
@@ -237,20 +235,6 @@ private struct CombinedReviewModePicker: View {
         Picker("Review presentation", selection: $mode) {
             ForEach(CombinedReviewMode.allCases, id: \.rawValue) { Text($0.title).tag($0) }
         }.pickerStyle(.segmented).labelsHidden().frame(width: 340)
-    }
-}
-
-private struct CombinedReviewRatingControls: View {
-    let viewModel: RawCullViewModel
-    let file: FileItem
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("Your decision").foregroundStyle(.secondary)
-            CurrentRatingBadgeView(rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel))
-            RatingActionBarView(currentRating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel)) {
-                viewModel.updateRating(for: file, rating: $0)
-            }
-        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

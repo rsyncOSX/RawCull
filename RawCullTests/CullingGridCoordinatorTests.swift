@@ -73,6 +73,20 @@ private func makeReviewQueueResult(
 @MainActor
 @Suite("CullingGridCoordinator")
 struct CullingGridCoordinatorTests {
+    @Test func `thumbnail workspace follows the current catalog across view switches`() {
+        let viewModel = makeRawCullViewModel()
+        #expect(!viewModel.canShowThumbnailWorkspace)
+        viewModel.selectedSource = ARWSourceCatalog(name: "First", url: URL(fileURLWithPath: "/tmp/first"))
+        for mode in [MainViewMode.grid, .loupe, .similarityGrid, .combinedReview, .grid] {
+            viewModel.selectMainViewMode(mode)
+            #expect(viewModel.canShowThumbnailWorkspace)
+        }
+        viewModel.selectedSource = ARWSourceCatalog(name: "Second", url: URL(fileURLWithPath: "/tmp/second"))
+        #expect(viewModel.canShowThumbnailWorkspace)
+        viewModel.selectedSource = nil
+        #expect(!viewModel.canShowThumbnailWorkspace)
+    }
+
     @Test(.tags(.smoke))
     func `normal command and shift selection preserve existing grid behavior`() {
         let ids = [UUID(), UUID(), UUID(), UUID()]

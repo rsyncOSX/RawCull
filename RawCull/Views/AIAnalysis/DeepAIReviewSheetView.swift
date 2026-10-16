@@ -183,6 +183,7 @@ private struct DeepAIReviewSheetContent: View {
                 description: Text("Select new images to analyze."),
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aiAnalysisResultsContainer()
 
         case let .preparing(_, totalCount):
             let placeholders = files.enumerated().map { index, file in
@@ -261,6 +262,7 @@ private struct DeepAIReviewSheetContent: View {
                 description: Text("Run local AI subject-detail analysis for this burst group."),
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aiAnalysisResultsContainer()
         }
     }
 
