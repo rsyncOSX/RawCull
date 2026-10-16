@@ -13,14 +13,13 @@ struct SimilarityGridView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
     var body: some View {
         Group {
-            if gridThumbnailViewModel.cullingModel != nil {
+            if viewModel.canShowThumbnailWorkspace {
                 SimilarityGridSelectionView(
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,

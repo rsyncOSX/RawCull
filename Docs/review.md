@@ -180,7 +180,7 @@ Computed view properties organize source but do not create independent update bo
 
 ### 17. P3 — Redundant state and forwarding obscure ownership
 
-**Status:** Open. **Location:** `GridThumbnailViewModel`, `ZoomOverlayView` session forwarding properties.
+**Status:** Implemented (2026-10-16). Removed the availability-only GridThumbnailViewModel and its unused source/file copies. Thumbnail workspace availability derives from the current catalog on RawCullViewModel. ZoomOverlayView reads session-owned state directly and creates local @Bindable projections only for controls. Xcode passed CullingGridCoordinatorTests (including catalog/view-switch availability), ZoomSessionModelTests, ZoomOverlayKeyActionTests and ComparisonGridNavigationTests. **Location:** `RawCullViewModel`, `ZoomOverlayView`.
 
 **Fix:** Remove unused copies of selectedSource/filteredFiles and replace availability-only containers with explicit derived capability. Read session-owned state directly, using local @Bindable only where bindings are needed. Retain meaningful feature boundaries and test seams.
 
@@ -271,3 +271,8 @@ Authorized 2026-10-16. Address finding 18 (typed sanitization), then 17 (state o
 ### Typed focus sanitization
 
 Fixed finding 18. Removed dictionary force casts and the JSON encode/mutate/decode round trip. Shared validation checks both external decoded values and sanitized typed values. Regression coverage verifies claim/evidence pairing, preservation of unaffected object ownership, and strict nullable-field admission. Focused Xcode tests passed; diff checks passed.
+
+
+### Grid and zoom ownership
+
+Fixed finding 17. Removed the grid environment container and its mode-change synchronization. Current catalog state now determines workspace availability, including immediate source removal. Zoom forwarding setters were replaced with direct session access and key-path bindings. Focused grid, navigation, zoom-session and key-action suites passed in Xcode; diff checks passed.

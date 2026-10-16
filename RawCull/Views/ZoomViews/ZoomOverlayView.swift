@@ -143,68 +143,12 @@ struct ZoomOverlayView: View {
 
     @FocusState private var isImageFocused: Bool
 
-    private var focusMask: CGImage? {
-        get { session.focusMask } nonmutating set { session.focusMask = newValue }
-    }
-
-    private var subjectOutline: CGImage? {
-        get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue }
-    }
-
-    private var currentScale: CGFloat {
-        get { session.viewport.scale } nonmutating set { session.viewport.scale = newValue }
-    }
-
-    private var lastScale: CGFloat {
-        get { session.viewport.lastScale } nonmutating set { session.viewport.lastScale = newValue }
-    }
-
-    private var offset: CGSize {
-        get { session.viewport.offset } nonmutating set { session.viewport.offset = newValue }
-    }
-
-    private var lastOffset: CGSize {
-        get { session.viewport.lastOffset } nonmutating set { session.viewport.lastOffset = newValue }
-    }
-
-    private var showFocusMask: Bool {
-        get { session.viewport.showFocusMask } nonmutating set { session.viewport.showFocusMask = newValue }
-    }
-
-    private var showSubjectOutline: Bool {
-        get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue }
-    }
-
-    private var isLoadingSubjectOutline: Bool {
-        get { session.isLoadingSubjectOutline } nonmutating set { session.isLoadingSubjectOutline = newValue }
-    }
-
-    private var showFocusPoints: Bool {
-        get { session.viewport.showFocusPoints } nonmutating set { session.viewport.showFocusPoints = newValue }
-    }
-
-    private var sourceSelection: ImageSourceSelectionState {
-        get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue }
-    }
-
-    private var maskTask: Task<Void, Never>? {
-        get { session.maskTask } nonmutating set { session.maskTask = newValue }
-    }
-
-    private var keyMonitor: Any? {
-        get { session.keyMonitor } nonmutating set { session.keyMonitor = newValue }
-    }
-
-    private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode? {
-        get { session.pendingInitialZoomMode } nonmutating set { session.pendingInitialZoomMode = newValue }
-    }
-
     private let zoomLevel: CGFloat = 2.0
 
     private var focusMaskTaskID: FocusMaskTaskID {
         FocusMaskTaskID(
             imageID: maskAnalysisImage.map(ObjectIdentifier.init),
-            source: sourceSelection.selected,
+            source: session.sourceSelection.selected,
             fileID: viewModel.selectedFile?.id,
         )
     }
@@ -218,7 +162,7 @@ struct ZoomOverlayView: View {
         ImageReviewSubjectOutlineRequestContext(
             fileID: viewModel.selectedFile?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
-            isPresented: showSubjectOutline,
+            isPresented: session.showSubjectOutline,
         )
     }
 
@@ -234,6 +178,7 @@ struct ZoomOverlayView: View {
     }
 
     var body: some View {
+        @Bindable var session = session
         ZStack {
             Color.black.opacity(0.97).ignoresSafeArea()
 
@@ -307,7 +252,7 @@ struct ZoomOverlayView: View {
                         )
                     }
 
-                    Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
+                    Text(session.viewport.scale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
                         .font(.caption).foregroundStyle(.white.opacity(0.5))
 
                     if let cg = viewModel.zoomOverlayCGImage {
@@ -319,23 +264,23 @@ struct ZoomOverlayView: View {
                     }
 
                     ImageOverlayControlsView(
-                        showFocusMask: Binding(get: { showFocusMask }, set: { showFocusMask = $0 }),
-                        focusMaskAvailable: maskAnalysisImage != nil || focusMask != nil,
-                        showSubjectOutline: Binding(get: { showSubjectOutline }, set: { showSubjectOutline = $0 }),
+                        showFocusMask: $session.viewport.showFocusMask,
+                        focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
+                        showSubjectOutline: $session.showSubjectOutline,
                         showsSubjectOutlineControl: true,
                         subjectOutlineAvailable: subjectOutlineCandidate != nil,
-                        subjectOutlineLoading: isLoadingSubjectOutline,
+                        subjectOutlineLoading: session.isLoadingSubjectOutline,
                         hasFocusPoints: focusTarget != nil,
-                        showFocusPoints: Binding(get: { showFocusPoints }, set: { showFocusPoints = $0 }),
+                        showFocusPoints: $session.viewport.showFocusPoints,
                         showShortcutHints: true,
                         showImageSourceToggle: true,
                         useThumbnailSource: useThumbnailSourceBinding,
-                        imageSourceSelection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
+                        imageSourceSelection: $session.sourceSelection,
                         imageSourceURL: viewModel.selectedFile?.url,
-                        scale: currentScale,
-                        canZoomOut: currentScale > 0.5,
-                        canZoomIn: currentScale < 5.0,
-                        canReset: currentScale != 1.0 || offset != .zero,
+                        scale: session.viewport.scale,
+                        canZoomOut: session.viewport.scale > 0.5,
+                        canZoomIn: session.viewport.scale < 5.0,
+                        canReset: session.viewport.scale != 1.0 || session.viewport.offset != .zero,
                         onZoomOut: { decreaseZoom() },
                         onZoomReset: { withAnimation(.spring()) { resetToFit() } },
                         onZoomIn: { increaseZoom() },
@@ -402,9 +347,9 @@ struct ZoomOverlayView: View {
             removeKeyMonitor()
             session.cancel()
         }
-        .onChange(of: sourceSelection.selected) { _, _ in
-            maskTask?.cancel()
-            maskTask = nil
+        .onChange(of: session.sourceSelection.selected) { _, _ in
+            session.maskTask?.cancel()
+            session.maskTask = nil
             // The mask is normalized to the same photo, so keep it visible
             // until analysis for the replacement preview completes.
             reload()
@@ -425,8 +370,8 @@ struct ZoomOverlayView: View {
             await loadSubjectOutline()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            maskTask?.cancel()
-            maskTask = Task {
+            session.maskTask?.cancel()
+            session.maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
                 await regenerateMaskFromCG()
@@ -446,10 +391,10 @@ struct ZoomOverlayView: View {
         viewModel.zoomExtractionTask?.cancel()
         viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
-            source: sourceSelection.selected,
+            source: session.sourceSelection.selected,
             viewModel: viewModel,
             onDevelopedRAWFailure: {
-                sourceSelection.markDevelopedRAWUnavailable()
+                session.sourceSelection.markDevelopedRAWUnavailable()
                 showRAWFailureMessage()
             },
         )
@@ -457,8 +402,8 @@ struct ZoomOverlayView: View {
 
     private var useThumbnailSourceBinding: Binding<Bool> {
         Binding(
-            get: { sourceSelection.selected == .thumbnail },
-            set: { sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
+            get: { session.sourceSelection.selected == .thumbnail },
+            set: { session.sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
         )
     }
 
@@ -528,7 +473,7 @@ struct ZoomOverlayView: View {
 
     private func installKeyMonitor() {
         removeKeyMonitor()
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        session.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event) else { return event }
@@ -538,9 +483,9 @@ struct ZoomOverlayView: View {
     }
 
     private func removeKeyMonitor() {
-        if let keyMonitor {
+        if let keyMonitor = session.keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
-            self.keyMonitor = nil
+            session.keyMonitor = nil
         }
     }
 
@@ -577,24 +522,24 @@ struct ZoomOverlayView: View {
             return .handled
 
         case .toggleEmbeddedJPG:
-            sourceSelection.toggleExtractionSource(.embeddedJPG)
+            session.sourceSelection.toggleExtractionSource(.embeddedJPG)
             return .handled
 
         case .toggleDevelopedRAW:
-            sourceSelection.toggleExtractionSource(.developedRAW)
+            session.sourceSelection.toggleExtractionSource(.developedRAW)
             return .handled
 
         case .toggleFocusMask:
-            showFocusMask.toggle()
+            session.viewport.showFocusMask.toggle()
             return .handled
 
         case .toggleSubjectOutline:
             guard subjectOutlineCandidate != nil else { return .ignored }
-            showSubjectOutline.toggle()
+            session.showSubjectOutline.toggle()
             return .handled
 
         case .toggleFocusPoints:
-            showFocusPoints.toggle()
+            session.viewport.showFocusPoints.toggle()
             return .handled
 
         case let .rating(rating):
@@ -617,8 +562,8 @@ struct ZoomOverlayView: View {
     private func dismiss() {
         viewModel.closeZoomOverlay()
         resetToFit()
-        focusMask = nil
-        subjectOutline = nil
+        session.focusMask = nil
+        session.subjectOutline = nil
     }
 
     private func showRAWFailureMessage() {
@@ -632,12 +577,12 @@ struct ZoomOverlayView: View {
               let selectedFile = viewModel.selectedFile
         else { return }
         let selectedFileID = selectedFile.id
-        let previewSource = sourceSelection.selected
+        let previewSource = session.sourceSelection.selected
         let config = focusMaskConfig(for: selectedFile)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
               maskAnalysisImage === cg,
-              sourceSelection.selected == previewSource
+              session.sourceSelection.selected == previewSource
         else { return }
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: FocusMaskAnalysisResolutionPolicy.prepare(cg),
@@ -651,10 +596,10 @@ struct ZoomOverlayView: View {
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
               maskAnalysisImage === cg,
-              sourceSelection.selected == previewSource
+              session.sourceSelection.selected == previewSource
         else { return }
         await MainActor.run {
-            self.focusMask = result.mask
+            session.focusMask = result.mask
             if let breakdown = result.breakdown {
                 viewModel.sharpnessModel.breakdowns[selectedFile.id] = breakdown
             }
@@ -672,14 +617,14 @@ struct ZoomOverlayView: View {
     }
 
     private func loadSubjectOutline() async {
-        subjectOutline = nil
-        isLoadingSubjectOutline = false
-        guard showSubjectOutline,
+        session.subjectOutline = nil
+        session.isLoadingSubjectOutline = false
+        guard session.showSubjectOutline,
               let file = viewModel.selectedFile,
               let candidate = subjectOutlineCandidate
         else { return }
 
-        isLoadingSubjectOutline = true
+        session.isLoadingSubjectOutline = true
         let mask = await viewModel.deepAIReviewController.mask(
             for: candidate,
             in: [file],
@@ -687,20 +632,20 @@ struct ZoomOverlayView: View {
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == file.id
         else {
-            isLoadingSubjectOutline = false
+            session.isLoadingSubjectOutline = false
             return
         }
         if let mask {
-            subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+            session.subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
         }
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == file.id
         else {
-            subjectOutline = nil
-            isLoadingSubjectOutline = false
+            session.subjectOutline = nil
+            session.isLoadingSubjectOutline = false
             return
         }
-        isLoadingSubjectOutline = false
+        session.isLoadingSubjectOutline = false
     }
 
     // MARK: - Zoomable images
@@ -712,7 +657,7 @@ struct ZoomOverlayView: View {
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
 
-            if showFocusMask, let mask = focusMask {
+            if session.viewport.showFocusMask, let mask = session.focusMask {
                 Image(decorative: mask, scale: 1.0, orientation: .up)
                     .resizable()
                     .scaledToFit()
@@ -722,12 +667,12 @@ struct ZoomOverlayView: View {
                     .transition(.opacity)
             }
 
-            if showSubjectOutline, let subjectOutline {
-                subjectOutlineImage(subjectOutline, in: size)
+            if session.showSubjectOutline, let outline = session.subjectOutline {
+                subjectOutlineImage(outline, in: size)
             }
         }
-        .scaleEffect(currentScale)
-        .offset(offset)
+        .scaleEffect(session.viewport.scale)
+        .offset(session.viewport.offset)
         .gesture(zoomPanGesture)
         .onAppear {
             applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
@@ -736,7 +681,7 @@ struct ZoomOverlayView: View {
             applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
         }
         .onTapGesture(count: 2) {
-            withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
+            withAnimation(.spring()) { session.viewport.scale > 1.0 ? resetToFit() : zoomToTarget() }
         }
     }
 
@@ -747,7 +692,7 @@ struct ZoomOverlayView: View {
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
 
-            if showFocusMask, let mask = focusMask {
+            if session.viewport.showFocusMask, let mask = session.focusMask {
                 Image(decorative: mask, scale: 1.0, orientation: .up)
                     .resizable()
                     .scaledToFit()
@@ -757,12 +702,12 @@ struct ZoomOverlayView: View {
                     .transition(.opacity)
             }
 
-            if showSubjectOutline, let subjectOutline {
-                subjectOutlineImage(subjectOutline, in: size)
+            if session.showSubjectOutline, let outline = session.subjectOutline {
+                subjectOutlineImage(outline, in: size)
             }
         }
-        .scaleEffect(currentScale)
-        .offset(offset)
+        .scaleEffect(session.viewport.scale)
+        .offset(session.viewport.offset)
         .gesture(zoomPanGesture)
         .onAppear {
             applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
@@ -771,30 +716,30 @@ struct ZoomOverlayView: View {
             applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
         }
         .onTapGesture(count: 2) {
-            withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
+            withAnimation(.spring()) { session.viewport.scale > 1.0 ? resetToFit() : zoomToTarget() }
         }
     }
 
     private var zoomPanGesture: some Gesture {
         SimultaneousGesture(
             MagnificationGesture()
-                .onChanged { currentScale = lastScale * $0 }
+                .onChanged { session.viewport.scale = session.viewport.lastScale * $0 }
                 .onEnded { _ in
-                    lastScale = currentScale
-                    if currentScale < 1.0 {
+                    session.viewport.lastScale = session.viewport.scale
+                    if session.viewport.scale < 1.0 {
                         withAnimation(.spring()) { resetToFit() }
                     }
                 },
             DragGesture()
                 .onChanged { value in
-                    if currentScale > 1.0 {
-                        offset = CGSize(
-                            width: lastOffset.width + value.translation.width,
-                            height: lastOffset.height + value.translation.height,
+                    if session.viewport.scale > 1.0 {
+                        session.viewport.offset = CGSize(
+                            width: session.viewport.lastOffset.width + value.translation.width,
+                            height: session.viewport.lastOffset.height + value.translation.height,
                         )
                     }
                 }
-                .onEnded { _ in lastOffset = offset },
+                .onEnded { _ in session.viewport.lastOffset = session.viewport.offset },
         )
     }
 
@@ -821,7 +766,7 @@ struct ZoomOverlayView: View {
 
     @ViewBuilder
     private func focusPoint() -> some View {
-        if showFocusPoints, let focusTarget {
+        if session.viewport.showFocusPoints, let focusTarget {
             let imageSize: CGSize? = {
                 if let cg = viewModel.zoomOverlayCGImage {
                     return CGSize(width: cg.width, height: cg.height)
@@ -838,8 +783,8 @@ struct ZoomOverlayView: View {
             )
             .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
             .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
-            .scaleEffect(currentScale)
-            .offset(offset)
+            .scaleEffect(session.viewport.scale)
+            .offset(session.viewport.offset)
             .allowsHitTesting(false)
             .transition(.opacity.combined(with: .blurReplace))
         }
@@ -886,44 +831,44 @@ struct ZoomOverlayView: View {
     // MARK: - Zoom helpers
 
     private func resetToFit() {
-        currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
+        session.viewport.scale = 1.0; session.viewport.lastScale = 1.0; session.viewport.offset = .zero; session.viewport.lastOffset = .zero
     }
 
     private func prepareForNavigatedImage() {
-        offset = .zero
-        lastOffset = .zero
-        pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
+        session.viewport.offset = .zero
+        session.viewport.lastOffset = .zero
+        session.pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
     }
 
     private func zoomToTarget() {
-        currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero
+        session.viewport.scale = zoomLevel; session.viewport.lastScale = zoomLevel; session.viewport.offset = .zero; session.viewport.lastOffset = .zero
     }
 
     private func applyPendingInitialZoomIfNeeded(imageSize: CGSize, viewportSize: CGSize) {
-        guard pendingInitialZoomMode == .actualPixels else { return }
+        guard session.pendingInitialZoomMode == .actualPixels else { return }
         let transform = ZoomViewportMath.actualPixelsTransform(
             imageSize: imageSize,
             viewportSize: viewportSize,
             normalizedFocusPoint: focusTarget,
         )
-        currentScale = transform.scale
-        lastScale = transform.scale
-        offset = transform.offset
-        lastOffset = transform.offset
-        pendingInitialZoomMode = nil
+        session.viewport.scale = transform.scale
+        session.viewport.lastScale = transform.scale
+        session.viewport.offset = transform.offset
+        session.viewport.lastOffset = transform.offset
+        session.pendingInitialZoomMode = nil
     }
 
     private func increaseZoom() {
         withAnimation(.spring()) {
-            currentScale = ImageReviewViewportPolicy.comparison.zoomedIn(from: currentScale)
-            lastScale = currentScale
+            session.viewport.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: session.viewport.scale)
+            session.viewport.lastScale = session.viewport.scale
         }
     }
 
     private func decreaseZoom() {
         withAnimation(.spring()) {
-            currentScale = ImageReviewViewportPolicy.comparison.zoomedOut(from: currentScale)
-            lastScale = currentScale
+            session.viewport.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: session.viewport.scale)
+            session.viewport.lastScale = session.viewport.scale
         }
     }
 }

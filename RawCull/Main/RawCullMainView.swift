@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 struct RawCullMainView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openWindow) var openWindow
-    @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
@@ -184,17 +183,6 @@ struct RawCullMainView: View {
                 memoryWarningOpacity = 0.8
             } else if viewModel.memoryPressureWarning {
                 startMemoryWarningFlash()
-            }
-        }
-        .onChange(of: viewModel.mainViewMode) { _, newMode in
-            if newMode == .grid || newMode == .similarityGrid {
-                gridThumbnailViewModel.open(
-                    cullingModel: viewModel.cullingModel,
-                    selectedSource: viewModel.selectedSource,
-                    filteredFiles: viewModel.filteredFiles,
-                )
-            } else {
-                gridThumbnailViewModel.close()
             }
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in

@@ -11,7 +11,6 @@ struct GridThumbnailView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
@@ -19,7 +18,7 @@ struct GridThumbnailView: View {
     var body: some View {
         // let _ = Self._printChanges()
         Group {
-            if gridThumbnailViewModel.cullingModel != nil {
+            if viewModel.canShowThumbnailWorkspace {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,

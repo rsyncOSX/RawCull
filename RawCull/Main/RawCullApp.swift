@@ -105,7 +105,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct RawCullApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-    @State private var gridThumbnailViewModel = GridThumbnailViewModel()
     @State private var viewModel: RawCullViewModel
     @State private var intelligenceRuntime: RawCullIntelligenceRuntime
 
@@ -133,7 +132,6 @@ struct RawCullApp: App {
                 aiSettingsModel: intelligenceRuntime.settingsModel,
             )
             .background(.windowBackground)
-            .environment(gridThumbnailViewModel)
             .environment(viewModel)
             .task {
                 await viewModel.cullingModel.ensureLoaded()
