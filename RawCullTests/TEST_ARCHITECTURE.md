@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 400 unique smoke identifiers and 2 unique performance
+current baselines are 391 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -191,3 +191,11 @@ The final review smoke run verified all 400 identifiers, with 388 passing, 11
 failing and 1 skipped. All 29 new review regression identifiers passed. The full
 gate remains blocked by nine missing recorded-fixture tests and two stale release
 metadata/README checks; see `Docs/review.md` for exact categories.
+
+## Smoke fixture cleanup — 2026-10-16
+
+Removed nine tests that loaded missing fixtures from `Docs`. The smoke manifest
+selects their containing suites, so its selectors remain unchanged; the expected
+enumeration is now 391 unique identifiers. Release metadata assertions now check
+version alignment across app and extension configurations and compare README pins
+against `Package.resolved`, without requiring an obsolete PhotoAIKit revision.

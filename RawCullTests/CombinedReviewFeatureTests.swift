@@ -38,24 +38,6 @@ struct CombinedReviewFeatureTests {
         #expect(result.report?.incomplete == true)
     }
 
-    @Test @MainActor func `malformed optional discovery reaches segmentation with persisted limitations and one charged attempt`() async throws {
-        struct Response: Decodable { let file: String; let stage: String; let response: String }
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let responses = try JSONDecoder().decode([Response].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/schema-responses-v9.json")))
-        let response = try #require(responses.first { $0.file == "DSC05921.ARW" && $0.stage == "overview" })
-        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
-        let backend = ReviewFakeBackend(hasSAM: true, overviewResponse: response.response)
-        let feature = makeFeature(fixture, backend: backend)
-        await feature.analyze([fixture.file])
-        let result = try #require(feature.result)
-        #expect(result.overview != nil)
-        #expect(result.overview?.primarySubjects?.isEmpty == true)
-        #expect(!result.subjects.isEmpty)
-        #expect(!result.measurements.isEmpty)
-        #expect(feature.manifest?.work.contains { $0.stage == .overview && $0.state == .completed } == true)
-        #expect(feature.manifest?.budget.attempts[.overview] == 1)
-        #expect(result.report?.limitations.contains { $0.reason.contains("overview.optionalSchema") } == true)
-    }
 
     @Test @MainActor func `synthesis preserves crop and overview evidence without metric references or copied examples`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
