@@ -40,6 +40,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
 
 struct LoupeMainImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
+    @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = LoupeSessionModel()
 
     private var focusPoints: [FocusPoint]? {
@@ -264,6 +265,7 @@ struct LoupeMainImageView: View {
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
         }
+        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             installSubjectOutlineKeyMonitor()
         }
@@ -462,7 +464,7 @@ struct LoupeMainImageView: View {
             guard viewModel.mainViewMode == .loupe,
                   !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  !(NSApp.keyWindow?.firstResponder is NSText),
+                  keyboardScope.accepts(event),
                   LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
             else { return event }
 

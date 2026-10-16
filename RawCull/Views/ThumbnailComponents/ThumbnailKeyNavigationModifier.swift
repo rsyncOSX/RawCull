@@ -48,14 +48,16 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
     let axis: ThumbnailNavigationAxis
     let filesOverride: (() -> [FileItem])?
     let onBurstKeyPress: ((String) -> KeyPress.Result)?
+    @State private var keyboardScope = ReviewKeyboardScope()
     @State private var keyMonitor: Any?
 
     func body(content: Content) -> some View {
         content
+            .background(ReviewKeyboardScopeReader(scope: keyboardScope))
             .onAppear {
                 guard keyMonitor == nil else { return }
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                    guard !(NSApp.keyWindow?.firstResponder is NSText),
+                    guard keyboardScope.accepts(event),
                           viewModel.mainViewMode != .comparisonGrid,
                           !viewModel.zoomOverlayVisible,
                           event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }

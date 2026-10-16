@@ -37,6 +37,7 @@ struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
     let groupID: Int
     let onCompare: () -> Void
+    @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = BurstWorkspaceSessionModel()
 
     @FocusState private var isFocused: Bool
@@ -114,6 +115,7 @@ struct BurstCullingWorkspaceView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
+        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             isFocused = true
             selectFirstFileIfNeeded()
@@ -610,7 +612,7 @@ struct BurstCullingWorkspaceView: View {
         overlayKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  !(NSApp.keyWindow?.firstResponder is NSText),
+                  keyboardScope.accepts(event),
                   let characters = event.characters,
                   ["s", "S", "f", "F"].contains(characters)
             else { return event }
