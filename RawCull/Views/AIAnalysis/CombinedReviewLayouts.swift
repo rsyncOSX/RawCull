@@ -91,11 +91,11 @@ private struct CombinedReviewPhotoPreview: View {
                 HStack {
                     Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
                     Spacer()
-                    Button("Inspect exact overview") { inspect(inputKey) }.disabled(inputKey == nil)
+                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
                 }
                 VStack(alignment: .leading) {
                     Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
-                    Button("Inspect exact overview") { inspect(inputKey) }.disabled(inputKey == nil)
+                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
                 }
             }
             if canChooseRegion {
@@ -123,9 +123,13 @@ private struct CombinedReviewSummary: View {
     let showEvidence: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label(presentation.incomplete ? "Review incomplete" : "Review complete",
+            Label(presentation.incomplete ? "Review with limitations" : "Review complete",
                   systemImage: presentation.incomplete ? "exclamationmark.circle" : "checkmark.circle")
                 .font(.title3)
+            if presentation.incomplete {
+                Text("Some checks or image regions could not be fully assessed. Open evidence & limitations for details.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             CombinedReviewImportantLimits(limits: presentation.importantLimits)
             if presentation.findings.isEmpty {
                 Text("Insufficient validated evidence for a finding. Completed stages remain in the technical record.")
@@ -300,7 +304,7 @@ private struct CombinedReviewEvidenceReferenceRow: View {
             } else if let region = result.regions.first(where: { $0.id.rawValue == reference.id }) {
                 Button("Inspect exact crop") { inspect(region.inputReference) }
             } else if reference.kind == .image {
-                Button("Inspect exact overview") { inspect(result.overviewInputReference) }
+                Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(result.overviewInputReference) }
             }
         }
     }
