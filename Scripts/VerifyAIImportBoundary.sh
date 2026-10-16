@@ -51,6 +51,8 @@ is_allowed_import() {
         PhotoAIContracts:RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Composition/RawCullIntelligenceRuntime.swift) return 0 ;;
+        # Response decoding maps model JSON into the shared review contracts.
+        PhotoAIContracts:RawCull/Intelligence/CombinedReview/CombinedReviewResponse.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Contracts/RawCullAIModels.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/ModelManagement/RawCullAIModelResourceManager.swift) return 0 ;;

@@ -71,6 +71,27 @@ struct ReleaseMetadataTests {
             ).count - 1 == 2,
         )
 
+        // App-owned defaults, user-selected photo metadata, and local cache metadata.
+        // Disk capacity is not queried by the app and must not be declared speculatively.
+        let privacy = try propertyList("RawCull/PrivacyInfo.xcprivacy")
+        #expect(privacy["NSPrivacyTracking"] as? Bool == false)
+        let accessedAPIs = try #require(privacy["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        let expectedReasons: [String: Set<String>] = [
+            "NSPrivacyAccessedAPICategoryFileTimestamp": ["DDA9.1", "C617.1", "3B52.1"],
+            "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"],
+        ]
+        #expect(accessedAPIs.count == expectedReasons.count)
+        var categories = Set<String>()
+        for entry in accessedAPIs {
+            let category = try #require(entry["NSPrivacyAccessedAPIType"] as? String)
+            #expect(categories.insert(category).inserted)
+            let reasons = try #require(entry["NSPrivacyAccessedAPITypeReasons"] as? [String])
+            #expect(Set(reasons) == expectedReasons[category])
+            #expect(reasons.count == Set(reasons).count)
+        }
+        let readme = try repositoryText("README.md")
+        #expect(readme.contains("Current project version: **\(marketingVersion)**."))
+
         let about = try repositoryText("RawCull/Views/Tools/AboutRawCullView.swift")
         #expect(about.contains("CFBundleShortVersionString"))
         #expect(about.contains("CFBundleVersion"))

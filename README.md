@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.3.2**.
+Current project version: **3.3.3**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -45,13 +45,13 @@ CLIP image embeddings are computed once and reused for later searches. SAM 3 mas
 
 ## Combined Review
 
-Open **Combined Review** from the AI icon with a plus sign beside **AI Analysis** in the toolbar, then choose selected or tagged images as the input.
+Open **Combined Review** from the dedicated toolbar button beside **AI Analysis**, then choose selected or tagged images as the input.
 
-The default Photo-first workspace pairs the retained overview with concise findings, coverage limits, optional reviewed-region overlays, and rating controls. **Inspect evidence** opens the supporting crop and observations in the Evidence workspace. You can return to Photo-first while keeping the selected image, region, and rating.
+The default Photo-first workspace pairs the retained overview with concise findings, coverage limits, and optional reviewed-region overlays. **Inspect evidence** opens the supporting crop and observations in the Evidence workspace. You can return to Photo-first while keeping the selected image and region.
 
-Saved reviews remain available outside the current input selection; rating controls apply to files in that selection. Review settings, retention cleanup, selection comparison, and run diagnostics are available through disclosure controls. The complete structured record can be inspected and copied as JSON.
+Saved reviews remain available outside the current input selection. Review settings, retention cleanup, selection comparison, and run diagnostics are available through disclosure controls. The complete structured record can be inspected and copied as JSON.
 
-Findings retain their evidence limits and conflicts. If synthesis fails, available observations are labeled as observations only. Missing retained images do not erase the report or measurements. See [Combined Review presentation](Docs/CombinedReviewUI.md) for details.
+Findings retain their evidence limits and conflicts. If synthesis fails, available observations are labeled as observations only. Missing retained images do not erase the report or measurements.
 
 ## Workflow
 
@@ -157,7 +157,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.2.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.3.dmg
 ```
 
 ### App Store Connect and TestFlight uploads
