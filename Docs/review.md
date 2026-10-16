@@ -170,7 +170,7 @@ makeIsolatedThumbnailProvider injects memory storage but omits RequestThumbnail'
 
 ### 16. P3 — Major view sections share observation boundaries
 
-**Status:** Open. **Location:** `BurstCullingWorkspaceView`, `ZoomOverlayView`, `LoupeMainImageView`.
+**Status:** Implemented (2026-10-16). Extracted the burst header/filmstrip, zoom controls, and loupe image/metadata sections into dedicated View types with focused inputs and observation reads in their own bodies. ReviewViewBoundaryTests verify that unrelated state does not invalidate the extracted header, controls or image content, while relevant catalog/viewport/source changes do. Rendering passed at 520 and 1024 points. Existing zoom/loupe/burst session, keyboard-scope, key-action and navigation suites passed in Xcode. Manual interactive layout checks and Instruments timing remain unclaimed. **Location:** `BurstCullingWorkspaceView`, `ZoomOverlayView`, `LoupeMainImageView`.
 
 Computed view properties organize source but do not create independent update boundaries.
 
@@ -253,7 +253,7 @@ Fixed finding 6. Mutation revisions replace whole-catalog cache-key hashing; ran
 
 The initial full smoke gate found a pre-existing stale count: unchanged original selectors enumerated 371 identifiers rather than the recorded 355. All 29 new review regression identifiers were then added explicitly to the smoke manifest, its expected-selector inventory and the Make baseline, producing 400 verified unique identifiers. Full smoke execution completed: 388 passed, 11 failed, 1 skipped. All 29 new review regression identifiers passed. The full gate is not green; see validation blockers below.
 
-All review P2 implementation items are now addressed. P3 findings 16–18 remain open. Manual VoiceOver/Reduce Motion checks and Instruments measurements remain explicitly unclaimed. Before this final update, 30% of the five-hour allowance remained; a check during final validation showed 12% remaining and 60% weekly, with zero additional credits. That reserve is dedicated to completing validation and committing this update; no further refactoring is started.
+All review P2 implementation items are now addressed. P3 findings 16–18 were subsequently addressed below. Manual VoiceOver/Reduce Motion checks and Instruments measurements remain explicitly unclaimed. Before this final update, 30% of the five-hour allowance remained; a check during final validation showed 12% remaining and 60% weekly, with zero additional credits. That reserve is dedicated to completing validation and committing this update; no further refactoring is started.
 
 #### Final smoke validation blockers
 
@@ -276,3 +276,10 @@ Fixed finding 18. Removed dictionary force casts and the JSON encode/mutate/deco
 ### Grid and zoom ownership
 
 Fixed finding 17. Removed the grid environment container and its mode-change synchronization. Current catalog state now determines workspace availability, including immediate source removal. Zoom forwarding setters were replaced with direct session access and key-path bindings. Focused grid, navigation, zoom-session and key-action suites passed in Xcode; diff checks passed.
+
+
+### Review view observation boundaries
+
+Fixed finding 16. BurstWorkspaceHeader and BurstWorkspaceFilmstrip, ZoomOverlayControls, LoupeImageContent and LoupeMetadataOverlay now provide separate view boundaries. Existing spacing, modifiers, source selection, navigation and rating actions are preserved. Three observation regressions passed, plus rendering at 520/1024 points. Existing ZoomSessionModelTests, LoupeSessionModelTests, BurstWorkspaceSessionModelTests, ZoomOverlayKeyActionTests, ComparisonGridNavigationTests and ReviewKeyboardScopeTests passed in Xcode. The initial rendering checks failed only when exporting PNGs outside the app sandbox; writing into the test app’s temporary directory passed. No measured performance gain or manual interactive UI validation is claimed.
+
+All three P3 findings are implemented in separate updates. Earlier smoke-fixture/release-metadata blockers and manual accessibility/profiling follow-ups remain outside this remediation.

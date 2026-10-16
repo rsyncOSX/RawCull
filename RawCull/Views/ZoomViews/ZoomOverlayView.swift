@@ -178,7 +178,6 @@ struct ZoomOverlayView: View {
     }
 
     var body: some View {
-        @Bindable var session = session
         ZStack {
             Color.black.opacity(0.97).ignoresSafeArea()
 
@@ -242,51 +241,14 @@ struct ZoomOverlayView: View {
 
                 Spacer()
 
-                VStack(spacing: 8) {
-                    if let selectedFile = viewModel.selectedFile {
-                        RatingActionBarView(
-                            currentRating: ratingDisplay(for: selectedFile),
-                            onSelect: { rating in
-                                viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: orderedZoomFiles)
-                            },
-                        )
-                    }
-
-                    Text(session.viewport.scale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
-                        .font(.caption).foregroundStyle(.white.opacity(0.5))
-
-                    if let cg = viewModel.zoomOverlayCGImage {
-                        Text("\(cg.width) × \(cg.height) px")
-                            .font(.caption2).foregroundStyle(.white.opacity(0.4))
-                    } else if let ns = viewModel.zoomOverlayNSImage {
-                        Text("\(Int(ns.size.width)) × \(Int(ns.size.height)) px")
-                            .font(.caption2).foregroundStyle(.white.opacity(0.4))
-                    }
-
-                    ImageOverlayControlsView(
-                        showFocusMask: $session.viewport.showFocusMask,
-                        focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
-                        showSubjectOutline: $session.showSubjectOutline,
-                        showsSubjectOutlineControl: true,
-                        subjectOutlineAvailable: subjectOutlineCandidate != nil,
-                        subjectOutlineLoading: session.isLoadingSubjectOutline,
-                        hasFocusPoints: focusTarget != nil,
-                        showFocusPoints: $session.viewport.showFocusPoints,
-                        showShortcutHints: true,
-                        showImageSourceToggle: true,
-                        useThumbnailSource: useThumbnailSourceBinding,
-                        imageSourceSelection: $session.sourceSelection,
-                        imageSourceURL: viewModel.selectedFile?.url,
-                        scale: session.viewport.scale,
-                        canZoomOut: session.viewport.scale > 0.5,
-                        canZoomIn: session.viewport.scale < 5.0,
-                        canReset: session.viewport.scale != 1.0 || session.viewport.offset != .zero,
-                        onZoomOut: { decreaseZoom() },
-                        onZoomReset: { withAnimation(.spring()) { resetToFit() } },
-                        onZoomIn: { increaseZoom() },
-                    )
-                }
-                .padding(.bottom, 20)
+                ZoomOverlayControls(
+                    viewModel: viewModel, session: session,
+                    hasFocusTarget: focusTarget != nil,
+                    onRate: { rating in _ = applyRating(rating) },
+                    onZoomOut: decreaseZoom,
+                    onZoomReset: { withAnimation(.spring()) { resetToFit() } },
+                    onZoomIn: increaseZoom,
+                )
             }
 
             Button("Close") { dismiss() }
@@ -397,13 +359,6 @@ struct ZoomOverlayView: View {
                 session.sourceSelection.markDevelopedRAWUnavailable()
                 showRAWFailureMessage()
             },
-        )
-    }
-
-    private var useThumbnailSourceBinding: Binding<Bool> {
-        Binding(
-            get: { session.sourceSelection.selected == .thumbnail },
-            set: { session.sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
         )
     }
 
@@ -870,5 +825,81 @@ struct ZoomOverlayView: View {
             session.viewport.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: session.viewport.scale)
             session.viewport.lastScale = session.viewport.scale
         }
+    }
+}
+
+struct ZoomOverlayControls: View {
+    let viewModel: RawCullViewModel
+    let session: ZoomSessionModel
+    let hasFocusTarget: Bool
+    let onRate: (Int) -> Void
+    let onZoomOut: () -> Void
+    let onZoomReset: () -> Void
+    let onZoomIn: () -> Void
+
+    private var maskAnalysisImage: CGImage? {
+        ZoomOverlayImagePolicy.analysisImage(
+            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
+            displayImage: viewModel.zoomOverlayCGImage,
+        )
+    }
+
+    private var subjectOutlineAvailable: Bool {
+        guard let file = viewModel.selectedFile else { return false }
+        return viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
+    }
+
+    private var useThumbnailSourceBinding: Binding<Bool> {
+        Binding(
+            get: { session.sourceSelection.selected == .thumbnail },
+            set: { session.sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
+        )
+    }
+
+    var body: some View {
+        @Bindable var session = session
+        VStack(spacing: 8) {
+            if let selectedFile = viewModel.selectedFile {
+                RatingActionBarView(
+                    currentRating: ImageReviewFeaturePolicy.ratingDisplay(for: selectedFile, using: viewModel),
+                    onSelect: onRate,
+                )
+            }
+
+            Text(session.viewport.scale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
+                .font(.caption).foregroundStyle(.white.opacity(0.5))
+
+            if let cg = viewModel.zoomOverlayCGImage {
+                Text("\(cg.width) × \(cg.height) px")
+                    .font(.caption2).foregroundStyle(.white.opacity(0.4))
+            } else if let ns = viewModel.zoomOverlayNSImage {
+                Text("\(Int(ns.size.width)) × \(Int(ns.size.height)) px")
+                    .font(.caption2).foregroundStyle(.white.opacity(0.4))
+            }
+
+            ImageOverlayControlsView(
+                showFocusMask: $session.viewport.showFocusMask,
+                focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
+                showSubjectOutline: $session.showSubjectOutline,
+                showsSubjectOutlineControl: true,
+                subjectOutlineAvailable: subjectOutlineAvailable,
+                subjectOutlineLoading: session.isLoadingSubjectOutline,
+                hasFocusPoints: hasFocusTarget,
+                showFocusPoints: $session.viewport.showFocusPoints,
+                showShortcutHints: true,
+                showImageSourceToggle: true,
+                useThumbnailSource: useThumbnailSourceBinding,
+                imageSourceSelection: $session.sourceSelection,
+                imageSourceURL: viewModel.selectedFile?.url,
+                scale: session.viewport.scale,
+                canZoomOut: session.viewport.scale > 0.5,
+                canZoomIn: session.viewport.scale < 5.0,
+                canReset: session.viewport.scale != 1.0 || session.viewport.offset != .zero,
+                onZoomOut: onZoomOut,
+                onZoomReset: onZoomReset,
+                onZoomIn: onZoomIn,
+            )
+        }
+        .padding(.bottom, 20)
     }
 }

@@ -88,7 +88,7 @@ struct LoupeMainImageView: View {
                     GeometryReader { geo in
                         ZStack {
                             // 1️⃣ Image FIRST (background)
-                            displayedImageContent(thumbnailSizePreview: thumbnailSizePreview)
+                            LoupeImageContent(session: session, url: url, thumbnailSizePreview: thumbnailSizePreview)
                                 .scaleEffect(viewModel.scale)
                                 .offset(viewModel.offset)
                                 .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
@@ -200,35 +200,9 @@ struct LoupeMainImageView: View {
                             }
 
                             if let file {
-                                HStack(alignment: .top, spacing: 8) {
-                                    CurrentRatingBadgeView(
-                                        rating: ratingDisplay(for: file),
-                                        density: .compact,
-                                    )
-
-                                    if viewModel.showsLoupeMetadataPanel {
-                                        ZoomMetadataPanel(
-                                            file: file,
-                                            image: currentDisplayedImage,
-                                            cullingMetadata: ZoomCullingMetadata.make(
-                                                for: file,
-                                                viewModel: viewModel,
-                                                semanticSearchFeature: semanticSearchFeature,
-                                            ),
-                                            onHide: {
-                                                withAnimation(.snappy) {
-                                                    viewModel.showsLoupeMetadataPanel = false
-                                                }
-                                            },
-                                        )
-                                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                                    }
-                                }
-                                .padding(8)
-                                .frame(
-                                    maxWidth: .infinity,
-                                    maxHeight: .infinity,
-                                    alignment: .topTrailing,
+                                LoupeMetadataOverlay(
+                                    viewModel: viewModel, file: file, image: currentDisplayedImage,
+                                    semanticSearchFeature: semanticSearchFeature,
                                 )
                             }
 
@@ -319,52 +293,6 @@ struct LoupeMainImageView: View {
             maskTask = nil
             isGeneratingFocusMask = false
             session.cancel()
-        }
-    }
-
-    @ViewBuilder
-    private func displayedImageContent(thumbnailSizePreview: Int) -> some View {
-        switch session.sourceSelection.selected {
-        case .thumbnail:
-            ThumbnailImageView(
-                url: url,
-                targetSize: thumbnailSizePreview,
-                style: .list,
-                showsShimmer: false,
-                contentMode: .fit,
-                image: Binding(
-                    get: { session.thumbnailImage },
-                    set: { session.thumbnailImage = $0 },
-                ),
-            )
-
-        case .embeddedJPG:
-            if let embeddedJPGImage = session.embeddedJPGImage {
-                Image(decorative: embeddedJPGImage, scale: 1.0, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-            } else if session.isLoadingSource {
-                ProgressView()
-                    .fixedSize()
-            } else {
-                VStack(spacing: 6) {
-                    Image(systemName: "photo.badge.exclamationmark")
-                        .font(.title3)
-                    Text("No extracted JPG")
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-            }
-
-        case .developedRAW:
-            if let developedRAWImage = session.developedRAWImage {
-                Image(decorative: developedRAWImage, scale: 1.0, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                ProgressView()
-                    .fixedSize()
-            }
         }
     }
 
@@ -508,10 +436,6 @@ struct LoupeMainImageView: View {
         }
     }
 
-    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        session.ratingDisplay(for: file, using: viewModel)
-    }
-
     private func loadSubjectOutline() async {
         subjectOutline = nil
         isLoadingSubjectOutline = false
@@ -599,5 +523,95 @@ struct LoupeMainImageView: View {
         maskTask?.cancel()
         maskTask = nil
         isGeneratingFocusMask = false
+    }
+}
+
+struct LoupeImageContent: View {
+    let session: LoupeSessionModel
+    let url: URL
+    let thumbnailSizePreview: Int
+
+    var body: some View {
+        @Bindable var session = session
+        switch session.sourceSelection.selected {
+        case .thumbnail:
+            ThumbnailImageView(
+                url: url,
+                targetSize: thumbnailSizePreview,
+                style: .list,
+                showsShimmer: false,
+                contentMode: .fit,
+                image: $session.thumbnailImage,
+            )
+
+        case .embeddedJPG:
+            if let embeddedJPGImage = session.embeddedJPGImage {
+                Image(decorative: embeddedJPGImage, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+            } else if session.isLoadingSource {
+                ProgressView()
+                    .fixedSize()
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.title3)
+                    Text("No extracted JPG")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+            }
+
+        case .developedRAW:
+            if let developedRAWImage = session.developedRAWImage {
+                Image(decorative: developedRAWImage, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                ProgressView()
+                    .fixedSize()
+            }
+        }
+    }
+
+}
+
+struct LoupeMetadataOverlay: View {
+    let viewModel: RawCullViewModel
+    let file: FileItem
+    let image: NSImage?
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            CurrentRatingBadgeView(
+                rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel),
+                density: .compact,
+            )
+
+            if viewModel.showsLoupeMetadataPanel {
+                ZoomMetadataPanel(
+                    file: file,
+                    image: image,
+                    cullingMetadata: ZoomCullingMetadata.make(
+                        for: file,
+                        viewModel: viewModel,
+                        semanticSearchFeature: semanticSearchFeature,
+                    ),
+                    onHide: {
+                        withAnimation(.snappy) {
+                            viewModel.showsLoupeMetadataPanel = false
+                        }
+                    },
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .padding(8)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .topTrailing,
+        )
     }
 }

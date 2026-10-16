@@ -102,13 +102,18 @@ struct BurstCullingWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            workspaceHeader
+            BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID)
             Divider()
 
             VStack(spacing: 0) {
                 imageStage
                 Divider()
-                filmstrip
+                BurstWorkspaceFilmstrip(
+                    viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber,
+                    canNavigatePrevious: navigationDestination(by: -1) != nil,
+                    canNavigateNext: navigationDestination(by: 1) != nil,
+                    navigate: navigate,
+                )
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -146,54 +151,6 @@ struct BurstCullingWorkspaceView: View {
             session.resetForGroupChange()
             selectFirstFileIfNeeded()
         }
-    }
-
-    private var workspaceHeader: some View {
-        HStack(spacing: 16) {
-            Spacer()
-            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
-                .font(.headline.monospaced())
-                .foregroundStyle(.secondary)
-            Spacer()
-
-            Button {
-                viewModel.returnToActiveBurstGroupView()
-            } label: {
-                Label("Burst list", systemImage: "chevron.left")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-
-            reviewButton
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-    }
-
-    @ViewBuilder
-    private var reviewButton: some View {
-        if isReviewed {
-            reviewButtonContent
-                .buttonStyle(.borderedProminent)
-        } else {
-            reviewButtonContent
-                .buttonStyle(.bordered)
-        }
-    }
-
-    private var reviewButtonContent: some View {
-        Button {
-            viewModel.toggleBurstGroupReviewed(groupID: groupID)
-        } label: {
-            Label(
-                "Mark Reviewed",
-                systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle",
-            )
-        }
-        .controlSize(.large)
-        .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
-        .accessibilityValue(isReviewed ? "Selected" : "Not selected")
     }
 
     private var shortcutGuide: some View {
@@ -302,64 +259,6 @@ struct BurstCullingWorkspaceView: View {
         .frame(minHeight: 420)
     }
 
-    private var filmstrip: some View {
-        HStack(spacing: 18) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
-                Text("\(selectedIndex + 1) / \(files.count)")
-            }
-            .font(.callout.monospaced())
-            .foregroundStyle(.secondary)
-            .frame(width: 76, alignment: .leading)
-
-            ScrollViewReader { proxy in
-                GeometryReader { geo in
-                    ScrollView(.horizontal) {
-                        LazyHStack(spacing: 10) {
-                            ForEach(files) { file in
-                                BurstFilmstripThumbnail(
-                                    file: file,
-                                    isSelected: file.id == viewModel.selectedFileID,
-                                    isSuggested: analysis?.recommendedFileID == file.id,
-                                    isDeferred: analysis?.reviewState == .deferred,
-                                ) {
-                                    viewModel.selectedFileID = file.id
-                                }
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .scrollIndicators(.hidden)
-                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
-                    .onAppear(perform: {
-                        // Defer one run loop so LazyVStack IDs are registered in scroll geometry
-                        DispatchQueue.main.async {
-                            if let newID = viewModel.selectedFile?.id {
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
-                                }
-                            }
-                        }
-                    })
-                    .onChange(of: viewModel.selectedFileID) { _, newID in
-                        guard let newID else { return }
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(newID, anchor: .center)
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 8) {
-                navigationButton(systemImage: "chevron.left", delta: -1)
-                navigationButton(systemImage: "chevron.right", delta: 1)
-            }
-        }
-        .padding(16)
-        .frame(height: 144)
-        .background(.quaternary.opacity(0.28))
-    }
-
     private func tagStrip(for file: FileItem) -> some View {
         HStack(spacing: 8) {
             let rating = RatingDisplay(
@@ -419,10 +318,6 @@ struct BurstCullingWorkspaceView: View {
     private var selectedCandidate: BurstCandidateScore? {
         guard let selectedFile else { return nil }
         return analysis?.candidates.first { $0.fileID == selectedFile.id }
-    }
-
-    private var isReviewed: Bool {
-        analysis?.reviewState == .reviewed
     }
 
     private var selectedFile: FileItem? {
@@ -860,4 +755,150 @@ private struct WorkspaceTag: View {
             .background(color.opacity(0.13), in: .rect(cornerRadius: 7))
             .overlay { RoundedRectangle(cornerRadius: 7).stroke(color.opacity(0.5), lineWidth: 1) }
     }
+}
+
+struct BurstWorkspaceHeader: View {
+    let viewModel: RawCullViewModel
+    let groupID: Int
+
+    private var burstNumber: Int {
+        (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
+    }
+
+    private var isReviewed: Bool {
+        viewModel.burstAnalysisResult(for: groupID)?.reviewState == .reviewed
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Spacer()
+            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
+                .font(.headline.monospaced())
+                .foregroundStyle(.secondary)
+            Spacer()
+
+            Button {
+                viewModel.returnToActiveBurstGroupView()
+            } label: {
+                Label("Burst list", systemImage: "chevron.left")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+
+            reviewButton
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+    }
+
+    @ViewBuilder
+    private var reviewButton: some View {
+        if isReviewed {
+            reviewButtonContent
+                .buttonStyle(.borderedProminent)
+        } else {
+            reviewButtonContent
+                .buttonStyle(.bordered)
+        }
+    }
+
+    private var reviewButtonContent: some View {
+        Button {
+            viewModel.toggleBurstGroupReviewed(groupID: groupID)
+        } label: {
+            Label(
+                "Mark Reviewed",
+                systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle",
+            )
+        }
+        .controlSize(.large)
+        .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
+        .accessibilityValue(isReviewed ? "Selected" : "Not selected")
+    }
+
+}
+
+struct BurstWorkspaceFilmstrip: View {
+    let viewModel: RawCullViewModel
+    let files: [FileItem]
+    let analysis: BurstAnalysisResult?
+    let burstNumber: Int
+    let canNavigatePrevious: Bool
+    let canNavigateNext: Bool
+    let navigate: (Int) -> Void
+
+    private var selectedIndex: Int {
+        files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+    }
+
+    var body: some View {
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
+                Text("\(selectedIndex + 1) / \(files.count)")
+            }
+            .font(.callout.monospaced())
+            .foregroundStyle(.secondary)
+            .frame(width: 76, alignment: .leading)
+
+            ScrollViewReader { proxy in
+                GeometryReader { geo in
+                    ScrollView(.horizontal) {
+                        LazyHStack(spacing: 10) {
+                            ForEach(files) { file in
+                                BurstFilmstripThumbnail(
+                                    file: file,
+                                    isSelected: file.id == viewModel.selectedFileID,
+                                    isSuggested: analysis?.recommendedFileID == file.id,
+                                    isDeferred: analysis?.reviewState == .deferred,
+                                ) {
+                                    viewModel.selectedFileID = file.id
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
+                    .onAppear(perform: {
+                        // Defer one run loop so LazyVStack IDs are registered in scroll geometry
+                        DispatchQueue.main.async {
+                            if let newID = viewModel.selectedFile?.id {
+                                withAnimation {
+                                    proxy.scrollTo(newID, anchor: .center)
+                                }
+                            }
+                        }
+                    })
+                    .onChange(of: viewModel.selectedFileID) { _, newID in
+                        guard let newID else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(newID, anchor: .center)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                navigationButton(systemImage: "chevron.left", delta: -1)
+                navigationButton(systemImage: "chevron.right", delta: 1)
+            }
+        }
+        .padding(16)
+        .frame(height: 144)
+        .background(.quaternary.opacity(0.28))
+    }
+
+    private func navigationButton(systemImage: String, delta: Int) -> some View {
+        Button { navigate(delta) } label: {
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .frame(width: 36, height: 36)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .disabled(delta < 0 ? !canNavigatePrevious : !canNavigateNext)
+    }
+
 }
