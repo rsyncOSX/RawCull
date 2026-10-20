@@ -82,6 +82,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var filteredFiles: [FileItem] = [] {
         didSet { gridContentRevision &+= 1 }
     }
+
     var searchText = ""
     var selectedFileID: FileItem.ID?
     var previouslySelectedFileID: FileItem.ID?
@@ -135,7 +136,10 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
-    var canShowThumbnailWorkspace: Bool { selectedSource != nil }
+    var canShowThumbnailWorkspace: Bool {
+        selectedSource != nil
+    }
+
     var showsDetailedBurstComparison = false
     var comparisonFileIDs: [FileItem.ID] = []
     var showsBurstGroups: Bool {
@@ -185,6 +189,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:] {
         didSet { gridContentRevision &+= 1 }
     }
+
     var burstAnalysisProgress: BurstAnalysisProgress {
         burstAnalysisCoordinator.progress
     }

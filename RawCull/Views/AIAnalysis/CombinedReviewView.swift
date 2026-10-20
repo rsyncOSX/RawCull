@@ -3,7 +3,8 @@ import SwiftUI
 enum CombinedReviewMode: String, CaseIterable {
     case photo, evidence
     var title: LocalizedStringResource {
-        switch self { case .photo: "Photo-first"; case .evidence: "Evidence workspace" }
+        switch self { case .photo: "Photo-first"; 
+case .evidence: "Evidence workspace" }
     }
 }
 

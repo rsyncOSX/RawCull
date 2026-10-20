@@ -102,8 +102,7 @@ nonisolated struct CombinedReviewPresentation: Sendable {
             }
             if reference.kind == .observation,
                let observation = result.observations.first(where: { $0.id.rawValue == reference.id }),
-               let id = observation.regionID, result.regions.contains(where: { $0.id == id })
-            {
+               let id = observation.regionID, result.regions.contains(where: { $0.id == id }) {
                 return id
             }
         }

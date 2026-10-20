@@ -23,11 +23,15 @@ final class ReviewKeyboardScope {
     }
 
     static func controlOwnsKeys(_ responder: NSResponder?) -> Bool {
-        if responder is NSText || responder is NSControl { return true }
+        if responder is NSText || responder is NSControl {
+            return true
+        }
         // Some native controls give a nested view keyboard focus.
         var view = (responder as? NSView)?.superview
         while let ancestor = view {
-            if ancestor is NSControl { return true }
+            if ancestor is NSControl {
+                return true
+            }
             view = ancestor.superview
         }
         return false
@@ -37,7 +41,9 @@ final class ReviewKeyboardScope {
 struct ReviewKeyboardScopeReader: NSViewRepresentable {
     let scope: ReviewKeyboardScope
 
-    func makeNSView(context _: Context) -> Anchor { Anchor(scope: scope) }
+    func makeNSView(context _: Context) -> Anchor {
+        Anchor(scope: scope)
+    }
 
     func updateNSView(_ view: Anchor, context _: Context) {
         scope.window = view.window
@@ -55,13 +61,17 @@ struct ReviewKeyboardScopeReader: NSViewRepresentable {
             super.init(frame: .zero)
         }
 
-        required init?(coder: NSCoder) { nil }
+        required init?(coder _: NSCoder) {
+            nil
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             scope.window = window
         }
 
-        func detach() { scope.window = nil }
+        func detach() {
+            scope.window = nil
+        }
     }
 }

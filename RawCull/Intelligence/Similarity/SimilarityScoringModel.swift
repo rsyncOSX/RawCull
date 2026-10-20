@@ -115,11 +115,13 @@ final class SimilarityScoringModel {
     private(set) var semanticSearchState = RawCullSemanticSearchState.idle {
         didSet { gridContentRevision &+= 1 }
     }
+
     private(set) var semanticMatches: [RawCullSemanticSearchMatch] = []
     private(set) var semanticScores: [UUID: Float] = [:]
     private(set) var semanticResultOrder: [UUID: Int] = [:] {
         didSet { gridContentRevision &+= 1 }
     }
+
     private(set) var semanticSearchProgress: RawCullSemanticSearchProgress?
     private(set) var semanticIndexedFileCount = 0
     private(set) var semanticCatalogFileCount = 0
@@ -170,10 +172,12 @@ final class SimilarityScoringModel {
     var burstGroups: [BurstGroup] = [] {
         didSet { gridContentRevision &+= 1 }
     }
+
     /// Quick lookup: fileID → group id.
     var burstGroupLookup: [UUID: Int] = [:] {
         didSet { gridContentRevision &+= 1 }
     }
+
     /// Distance threshold for burst clustering. Lower = tighter groups.
     var burstSensitivity: Float = 0.25
     /// When true, the grid renders a selected burst-group category instead of

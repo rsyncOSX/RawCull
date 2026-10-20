@@ -10,8 +10,7 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
            catalogLifecycle.currentSource == source,
-           hasActiveSecurityScopedAccess(for: url)
-        {
+           hasActiveSecurityScopedAccess(for: url) {
             return
         }
 
@@ -150,8 +149,7 @@ extension RawCullViewModel {
         }
 
         scanning = false
-        guard await cullingModel.ensureLoaded() else { return }
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        guard await cullingModel.ensureLoaded(), isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
         sharpnessModel.applyPreloadedScores(

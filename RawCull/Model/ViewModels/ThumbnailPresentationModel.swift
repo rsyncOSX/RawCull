@@ -32,7 +32,9 @@ final class ThumbnailPresentationModel {
         currentRequest = request
         isLoading = true
         defer {
-            if generation == token { isLoading = false }
+            if generation == token {
+                isLoading = false
+            }
         }
         let result = await imageLoader()
         guard !Task.isCancelled, generation == token else { return }

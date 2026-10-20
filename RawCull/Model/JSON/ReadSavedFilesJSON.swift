@@ -31,7 +31,7 @@ nonisolated enum SavedFilesReadResult: Sendable {
     case failed(SavedFilesReadFailure)
 }
 
-nonisolated final class ReadSavedFilesJSON: Sendable {
+final nonisolated class ReadSavedFilesJSON: Sendable {
     private let fileName = "savedfiles.json"
     private let savedFilesURL: URL?
 

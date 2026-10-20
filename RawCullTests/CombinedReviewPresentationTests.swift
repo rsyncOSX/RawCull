@@ -13,7 +13,7 @@ struct CombinedReviewPresentationTests {
                               claims: [
                                   .init(text: "Puffin fully visible in the foreground, with no occlusion reported.", type: "visibility", evidence: [.init(kind: .image, id: result.file.id.rawValue)], uncertainty: "Subject identity unverified.", contradictions: []),
                                   .init(text: "Even lighting with soft shadows.", type: "exposure", evidence: [.init(kind: .image, id: result.file.id.rawValue)], uncertainty: "Camera preview limits exposure evidence.", contradictions: []),
-                                  .init(text: "Feather texture and wing structure reported in the crop.", type: "detail", evidence: [.init(kind: .image, id: result.file.id.rawValue)], uncertainty: "Fine-detail evidence is limited.", contradictions: []),
+                                  .init(text: "Feather texture and wing structure reported in the crop.", type: "detail", evidence: [.init(kind: .image, id: result.file.id.rawValue)], uncertainty: "Fine-detail evidence is limited.", contradictions: [])
                               ], limitations: [], incomplete: true, inspectedRegions: [.init(rawValue: "region")], uninspectedRegions: [.init(rawValue: "omitted")])
         result.limitations = [.init(id: .init(rawValue: "eye"), reason: "Eye localization unavailable.", relatedEvidence: []),
                               .init(id: .init(rawValue: "preview"), reason: "Preview reduced from 9984×6656 to 4096×2731.", relatedEvidence: [])]
@@ -123,8 +123,7 @@ struct CombinedReviewPresentationTests {
     }
 
     private func observation(_ result: CombinedReviewResult, id: String,
-                             availability: ReviewEvidenceAvailability = .available, regionID: ReviewRegionID? = nil) -> ReviewObservation
-    {
+                             availability: ReviewEvidenceAvailability = .available, regionID: ReviewRegionID? = nil) -> ReviewObservation {
         .init(id: .init(rawValue: id), regionID: regionID, text: "Visible subject", uncertainty: "Identity unverified",
               availability: availability, provenance: provenance(result))
     }

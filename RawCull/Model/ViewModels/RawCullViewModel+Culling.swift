@@ -10,7 +10,9 @@ extension RawCullViewModel {
     func retryCullingPersistence() async -> Bool {
         let wasLoadingStore = cullingModel.loadState != .ready
         let succeeded = await cullingModel.retryPersistence()
-        if succeeded, wasLoadingStore { restoreCullingPresentation() }
+        if succeeded, wasLoadingStore {
+            restoreCullingPresentation()
+        }
         return succeeded
     }
 
@@ -18,7 +20,9 @@ extension RawCullViewModel {
     func archiveCullingStoreAndReset() async -> Bool {
         let succeeded = await cullingModel.archiveCorruptStoreAndReset()
         // Reset changes memory even if the subsequent disk write fails.
-        if cullingModel.loadState == .ready { restoreCullingPresentation() }
+        if cullingModel.loadState == .ready {
+            restoreCullingPresentation()
+        }
         return succeeded
     }
 

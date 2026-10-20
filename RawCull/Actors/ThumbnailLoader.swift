@@ -94,8 +94,7 @@ actor ThumbnailLoader {
             // requests for other catalogs never pass through this gate.
             guard await ThumbnailPreloadGate.shared.waitUntilGridDecodeIsAvailable(
                 for: file.url,
-            ) else { return nil }
-            guard !Task.isCancelled else { return nil }
+            ), !Task.isCancelled else { return nil }
 
             if let image = cachedGridImage(for: file.url) {
                 return image

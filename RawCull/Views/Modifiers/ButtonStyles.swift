@@ -7,11 +7,12 @@
 
 import SwiftUI
 
+@MainActor
 private extension Color {
-    @MainActor static var glassBorderLight = Color.white.opacity(0.35)
-    @MainActor static var glassBorderDark = Color.white.opacity(0.12)
-    @MainActor static var glassShadowLight = Color.black.opacity(0.10)
-    @MainActor static var glassShadowDark = Color.black.opacity(0.45)
+    static var glassBorderLight = Color.white.opacity(0.35)
+    static var glassBorderDark = Color.white.opacity(0.12)
+    static var glassShadowLight = Color.black.opacity(0.10)
+    static var glassShadowDark = Color.black.opacity(0.45)
 }
 
 /// A refined glass-like ButtonStyle with sustained pressure animation

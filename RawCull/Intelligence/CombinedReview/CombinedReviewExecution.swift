@@ -31,8 +31,7 @@ nonisolated struct CombinedReviewPair: Sendable {
 
 extension CombinedReviewFeature {
     func perform<Value: Codable & Sendable>(_ id: ReviewWorkID, category: ReviewAttemptCategory? = nil,
-                                            operation: () async throws -> Value) async throws -> Value?
-    {
+                                            operation: () async throws -> Value) async throws -> Value? {
         try Task.checkCancellation()
         guard let item = manifest?.work.first(where: { $0.id == id }) else { throw ReviewRunError.invalidDependency }
         if item.state == .completed, let key = item.artifactKey {
@@ -76,8 +75,7 @@ extension CombinedReviewFeature {
     /// additional model call is charged and the original rejection is retained.
     func validatedResponse<Value>(instruction: String, image: CGImage, model: ReviewModelSnapshot,
                                   tokens: Int, backend: any CombinedReviewBackendServing,
-                                  validation: (String) throws -> Value) async throws -> Value
-    {
+                                  validation: (String) throws -> Value) async throws -> Value {
         let text = try await backend.respond(instruction: instruction, image: image, tokens: tokens)
         do {
             return try CombinedReviewResponse.validated(text, validation)
@@ -110,8 +108,7 @@ extension CombinedReviewFeature {
         var diagnostic = ReviewFailureDiagnostic(stage: item.stage, workID: item.id, code: issue.code,
                                                  check: issue.check, fieldPath: issue.fieldPath, evidenceReference: issue.evidenceReference)
         if let rejection = error as? ReviewResponseRejection,
-           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText
-        {
+           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText {
             let used = manifest?.retainedDiagnosticBytes ?? 0
             let cap = min(ReviewDiagnosticLimits.perResponseBytes, max(0, ReviewDiagnosticLimits.perRunBytes - used))
             let bounded = ReviewDiagnosticLimits.bounded(rejection.response, maximumBytes: cap)
@@ -213,8 +210,7 @@ extension CombinedReviewFeature {
 
     func prepare(_ backend: any CombinedReviewBackendServing) async throws -> CombinedReviewContext {
         let run = try currentManifest(), snapshot = run.snapshot
-        guard let file = activeFile else { throw ReviewRunError.invalidSnapshot }
-        guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference), let qwen = snapshot.models["qwen"] else { throw ReviewRunError.invalidSnapshot }
+        guard let file = activeFile, let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference), let qwen = snapshot.models["qwen"] else { throw ReviewRunError.invalidSnapshot }
         result = .init(file: file)
         progress = "Loading full review source"
         try await ReviewCatalogSession.revalidate(snapshot.files)
@@ -411,8 +407,7 @@ extension CombinedReviewFeature {
     }
 
     func inspect(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan,
-                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID]
-    {
+                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID] {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
         guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference) else { throw ReviewRunError.invalidSnapshot }

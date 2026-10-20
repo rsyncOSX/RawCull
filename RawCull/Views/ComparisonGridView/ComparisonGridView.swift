@@ -96,8 +96,7 @@ struct ComparisonGridView: View {
                             scrollSettleTask?.cancel()
                             scrollSettleTask = Task {
                                 try? await Task.sleep(for: .milliseconds(120))
-                                guard !Task.isCancelled else { return }
-                                guard let newID,
+                                guard !Task.isCancelled, let newID,
                                       viewModel.selectedFileID != newID,
                                       files.contains(where: { $0.id == newID })
                                 else { return }

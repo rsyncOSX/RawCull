@@ -188,8 +188,13 @@ struct CullingGridView<Header: View>: View {
         viewModel.cullingGridProjection(ratingFilter: ratingFilter)
     }
 
-    private var visibleBurstGroups: [CullingGridVisibleBurstGroup] { projection.groups }
-    private var hasSharpnessScoresSnapshot: Bool { projection.key.hasSharpnessScores }
+    private var visibleBurstGroups: [CullingGridVisibleBurstGroup] {
+        projection.groups
+    }
+
+    private var hasSharpnessScoresSnapshot: Bool {
+        projection.key.hasSharpnessScores
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -380,9 +385,17 @@ struct CullingGridView<Header: View>: View {
         viewModel.updateRating(for: selectedFiles, rating: batchRating)
     }
 
-    private var visibleSelectionFiles: [FileItem] { projection.selectionFiles }
-    private var visibleSelectionIDs: [FileItem.ID] { projection.selectionIDs }
-    private var renderedBurstGroups: [CullingGridVisibleBurstGroup] { projection.groups }
+    private var visibleSelectionFiles: [FileItem] {
+        projection.selectionFiles
+    }
+
+    private var visibleSelectionIDs: [FileItem.ID] {
+        projection.selectionIDs
+    }
+
+    private var renderedBurstGroups: [CullingGridVisibleBurstGroup] {
+        projection.groups
+    }
 
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
         CullingGridSelectionCoordinator.zoomNavigationIDs(
@@ -393,7 +406,9 @@ struct CullingGridView<Header: View>: View {
         )
     }
 
-    private var badgeSelectionItems: [BatchBadgeSelectionItem] { projection.badges }
+    private var badgeSelectionItems: [BatchBadgeSelectionItem] {
+        projection.badges
+    }
 
     private var selectionState: CullingGridSelectionState {
         CullingGridSelectionState(
@@ -418,7 +433,9 @@ struct CullingGridView<Header: View>: View {
 
     // MARK: - Burst grouping helpers
 
-    private var gridCacheKey: CullingGridProjectionKey { projection.key }
+    private var gridCacheKey: CullingGridProjectionKey {
+        projection.key
+    }
 
     private func recomputeGridCache() {
         synchronizeSelectionWithRenderedFiles()
@@ -551,7 +568,9 @@ struct CullingGridView<Header: View>: View {
 
     // MARK: - Rating filter
 
-    var files: [FileItem] { projection.files }
+    var files: [FileItem] {
+        projection.files
+    }
 
     private var sortScrollState: CullingGridSortScrollState {
         CullingGridSortScrollState(

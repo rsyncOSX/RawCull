@@ -132,8 +132,7 @@ final class RawCullAIModelDownloadsModel {
     func startModelDownload(
         _ id: RawCullAIModelDownloadID,
     ) {
-        guard downloadTasks[id] == nil, !removingModelIDs.contains(id) else { return }
-        guard let state = states[id], state.canStartDownload else { return }
+        guard downloadTasks[id] == nil, !removingModelIDs.contains(id), let state = states[id], state.canStartDownload else { return }
 
         setState(.downloading(progress: 0), for: id)
         downloadTasks[id] = Task { [weak self] in

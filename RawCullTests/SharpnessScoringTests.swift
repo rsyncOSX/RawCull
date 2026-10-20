@@ -489,7 +489,7 @@ struct FocusNumericHelperTests {
         let sparseScore = SharpnessMetrics.robustTailScore(sparse)
         #expect(denseScore != nil)
         #expect(sparseScore != nil)
-        #expect(try #require(denseScore) > sparseScore!)
+        #expect(try #require(denseScore) > #require(sparseScore))
     }
 
     // MARK: microContrast

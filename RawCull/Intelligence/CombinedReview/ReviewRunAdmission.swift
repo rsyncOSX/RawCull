@@ -1,11 +1,11 @@
-import Foundation
 import CoreGraphics
+import Foundation
 
 nonisolated struct ReviewSelectedFile: Equatable, Sendable {
     let id: UUID
     let url: URL
     let name: String
-    var normalizedAFPoint: CGPoint? = nil
+    var normalizedAFPoint: CGPoint?
 }
 
 /// Native reads retain access until completion, including after catalog navigation.
@@ -24,20 +24,19 @@ final class ReviewCatalogSession {
         for file in files {
             try Task.checkCancellation()
             guard FileManager.default.isReadableFile(atPath: file.url.path) else { throw ReviewRunError.sourceUnavailable }
-            let point: CGPoint?
-            if let recorded = file.normalizedAFPoint {
-                point = recorded
+            let point: CGPoint? = if let recorded = file.normalizedAFPoint {
+                recorded
             } else {
-                point = await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
+                await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
             }
             try Task.checkCancellation()
-            frozen.append(try ReviewFileSnapshot(id: ReviewImageID(rawValue: file.id.uuidString), fileID: file.id, url: file.url,
-                                          displayName: file.name, fingerprint: ReviewFileSnapshot.fingerprint(file.url),
-                                          normalizedAFPoint: point.flatMap { point in
-                                              guard point.x.isFinite, point.y.isFinite,
-                                                    (0...1).contains(point.x), (0...1).contains(point.y) else { return nil }
-                                              return point
-                                          }))
+            try frozen.append(ReviewFileSnapshot(id: ReviewImageID(rawValue: file.id.uuidString), fileID: file.id, url: file.url,
+                                                 displayName: file.name, fingerprint: ReviewFileSnapshot.fingerprint(file.url),
+                                                 normalizedAFPoint: point.flatMap { point in
+                                                     guard point.x.isFinite, point.y.isFinite,
+                                                           (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { return nil }
+                                                     return point
+                                                 }))
         }
         return frozen
     }

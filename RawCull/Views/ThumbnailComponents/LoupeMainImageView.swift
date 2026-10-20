@@ -470,9 +470,7 @@ struct LoupeMainImageView: View {
         let previewSource = session.sourceSelection.selected
         guard focusMaskSourceURL != url
             || focusMaskPreviewSource != previewSource
-            || focusMask == nil
-        else { return }
-        guard currentDisplayedImage != nil, !isGeneratingFocusMask else { return }
+            || focusMask == nil, currentDisplayedImage != nil, !isGeneratingFocusMask else { return }
 
         maskTask?.cancel()
         maskTask = Task {
@@ -573,7 +571,6 @@ struct LoupeImageContent: View {
             }
         }
     }
-
 }
 
 struct LoupeMetadataOverlay: View {

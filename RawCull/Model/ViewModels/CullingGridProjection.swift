@@ -37,15 +37,18 @@ extension RawCullViewModel {
             showsBurstGroups: showsBurstGroups,
             hasSharpnessScores: !sharpnessModel.scores.isEmpty,
         )
-        if let cached = gridProjectionCache, cached.key == key { return cached }
-        let visibleFiles: [FileItem]
-        switch ratingFilter {
+        if let cached = gridProjectionCache, cached.key == key {
+            return cached
+        }
+        let visibleFiles: [FileItem] = switch ratingFilter {
         case .all:
-            visibleFiles = filteredFiles
+            filteredFiles
+
         case .unrated:
-            visibleFiles = selectedSource == nil ? filteredFiles : filteredFiles.filter { ratingCache[$0.name] == nil }
+            selectedSource == nil ? filteredFiles : filteredFiles.filter { ratingCache[$0.name] == nil }
+
         case let .rating(value):
-            visibleFiles = filteredFiles.filter { ratingCache[$0.name] == value }
+            filteredFiles.filter { ratingCache[$0.name] == value }
         }
         let cache = CullingGridRenderCache.rebuild(
             files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,

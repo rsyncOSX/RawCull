@@ -73,14 +73,15 @@ nonisolated enum ObjectAnalysisResponseDecoder {
             } else {
                 if let evidence = object.focusEvidence {
                     guard validEvidence(evidence),
-                          allowUnsupportedFocus || focusDescription(evidence.observation, supports: object.focusQuality) else {
+                          allowUnsupportedFocus || focusDescription(evidence.observation, supports: object.focusQuality)
+                    else {
                         throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                     }
                 } else if !allowUnsupportedFocus {
                     throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                 }
             }
-            if !allowUnsupportedFocus && !focusClaimsAreConsistent(object) {
+            if !allowUnsupportedFocus, !focusClaimsAreConsistent(object) {
                 throw ObjectResponseIssue.invalidValue("object \(object.id) focus consistency")
             }
         }
@@ -115,12 +116,14 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         }
         // A preference may have been based on the rejected focus judgments.
         sanitized.preferredObjectIDs = []
-        if let summary = value.imageSummary, containsFocusClaim(summary) { sanitized.imageSummary = nil }
+        if let summary = value.imageSummary, containsFocusClaim(summary) {
+            sanitized.imageSummary = nil
+        }
         sanitized.relationships = value.relationships.filter { !containsFocusClaim($0) }
         return try validate(sanitized, boardIDs: boardIDs, expectedConcepts: expectedConcepts)
     }
 
-    // Pair counts and crop ownership have already passed validation.
+    /// Pair counts and crop ownership have already passed validation.
     private static func retainedClaims(_ claims: [String], evidence: [ObjectClaimEvidence]) -> (claims: [String], evidence: [ObjectClaimEvidence]) {
         let pairs = zip(claims, evidence).filter {
             !containsFocusClaim($0.0) && !containsFocusClaim($0.1.observation)

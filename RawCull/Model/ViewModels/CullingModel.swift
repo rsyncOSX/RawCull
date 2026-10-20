@@ -72,14 +72,20 @@ final class CullingModel {
 
     @discardableResult
     func ensureLoaded() async -> Bool {
-        if loadState == .failed { return false }
+        if loadState == .failed {
+            return false
+        }
         return await loadSavedFiles()
     }
 
     @discardableResult
     func loadSavedFiles() async -> Bool {
-        if loadState == .ready { return true }
-        if let loadTask { return await loadTask.value }
+        if loadState == .ready {
+            return true
+        }
+        if let loadTask {
+            return await loadTask.value
+        }
         loadState = .loading
         let task = Task {
             let result = await loadHandler()
@@ -87,8 +93,10 @@ final class CullingModel {
             switch result {
             case .missing:
                 savedFiles = []
+
             case let .loaded(loadedFiles):
                 savedFiles = loadedFiles
+
             case let .failed(failure):
                 loadState = .failed
                 persistenceLoadFailure = failure
@@ -265,8 +273,7 @@ final class CullingModel {
 
     func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
         Logger.process.debugMessageOnly("CullingModel.pruneStaleBurstOverrides()")
-        guard canMutate else { return }
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
+        guard canMutate, let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
         let original = savedFiles[index].burstWinnerOverrides ?? []
         let pruned = original.filter {
             validFileNames.contains($0.winnerFileName) &&

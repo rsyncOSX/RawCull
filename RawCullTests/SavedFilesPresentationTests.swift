@@ -38,7 +38,7 @@ struct SavedFilesPresentationTests {
         record.sharpnessScore = 12.345
         record.saliencySubject = "Bird"
         let catalog = SavedFiles(catalog: URL(filePath: "/tmp/birds"), dateStart: "16 Feb 2026 10:59", filerecord: record)
-        let presentation = SavedFilesPresentation(cullingModel: await makeStore([catalog]))
+        let presentation = await SavedFilesPresentation(cullingModel: makeStore([catalog]))
         let summary = try #require(presentation.catalogs.first)
         #expect(summary.name == "birds")
         #expect(summary.dateStarted == catalog.dateStart)
@@ -83,7 +83,7 @@ struct SavedFilesPresentationTests {
         let record = FileRecord(fileName: "photo.arw", dateTagged: nil, dateCopied: nil, rating: 1)
         var catalog = SavedFiles(catalog: URL(filePath: "/tmp/empty"), dateStart: nil, filerecord: record)
         catalog.filerecords = nil
-        let presentation = SavedFilesPresentation(cullingModel: await makeStore([catalog]))
+        let presentation = await SavedFilesPresentation(cullingModel: makeStore([catalog]))
         #expect(presentation.catalogs.first?.fileCount == 0)
         #expect(presentation.records(in: catalog.id).isEmpty)
         #expect(presentation.records(in: nil).isEmpty)

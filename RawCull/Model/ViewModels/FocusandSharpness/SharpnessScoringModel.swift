@@ -29,6 +29,7 @@ final class SharpnessScoringModel {
     var saliencyInfo: [UUID: SaliencyInfo] = [:] {
         didSet { saliencyRevision &+= 1 }
     }
+
     var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false
     var sortBySharpness: Bool = false

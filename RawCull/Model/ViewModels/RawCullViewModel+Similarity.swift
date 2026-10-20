@@ -38,8 +38,7 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.refreshSemanticSearchSelection()")
         similarityModel.burstModeActive = false
         if activeBurstComparisonGroupID != nil
-            || mainViewMode == .comparisonGrid
-        {
+            || mainViewMode == .comparisonGrid {
             activeBurstComparisonGroupID = nil
             comparisonFileIDs = []
             selectMainViewMode(.similarityGrid)

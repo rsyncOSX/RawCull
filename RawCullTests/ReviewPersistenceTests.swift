@@ -69,7 +69,9 @@ struct CullingInitializationTests {
             return await withCheckedContinuation { finish = $0 }
         })
         let first = Task { await store.ensureLoaded() }
-        for await _ in started { break }
+        for await _ in started {
+            break
+        }
         signal.finish()
         #expect(store.loadState == .loading)
         store.updateRating(fileName: "photo.ARW", rating: 3, in: URL(filePath: "/test/catalog"))
@@ -183,7 +185,7 @@ struct CullingRecoveryPresentationTests {
     @Test
     func `restoration publishes scores once and preserves first duplicate and metadata validation`() async {
         let model = makeRawCullViewModel()
-        let photos = (0..<100).map { file("photo\($0).ARW") }
+        let photos = (0 ..< 100).map { file("photo\($0).ARW") }
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
         model.selectedSource = catalog
         model.files = photos

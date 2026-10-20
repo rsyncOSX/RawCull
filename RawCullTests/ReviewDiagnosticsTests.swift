@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Bounded review diagnostics", .tags(.smoke))
 struct ReviewDiagnosticsTests {
-
     @Test func `optional shapes are isolated independently while malformed core still fails`() throws {
         let core = #"{"observations":"Bird on fence","uncertainty":"Limited","concepts":[{"query":"bird","displayName":"Bird","reason":"Visible"}]"#
         let validPrimary = #""primarySubjects":[{"concept":"bird","reason":"Main"}]"#
@@ -30,8 +29,6 @@ struct ReviewDiagnosticsTests {
         #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(badOptional.replacingOccurrences(of: "Limited", with: String(repeating: "x", count: 501))) }
         #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(badOptional.replacingOccurrences(of: #""query":"bird""#, with: #""query":null"#)) }
     }
-
-
 
     @Test func `ambiguous aliases and invalid optional points abstain while oversized core text still fails`() throws {
         let response = #"{"observations":"Two subjects","uncertainty":"Limited","concepts":[{"query":"first bird","displayName":"Bird","reason":"Visible"},{"query":"second bird","displayName":"Bird","reason":"Visible"}],"primarySubjects":[{"concept":"Bird","reason":"Main"},{"concept":"first bird","reason":"Main","location":{"x":100,"y":200}}],"contextualConcepts":["unseen"]}"#
@@ -406,9 +403,6 @@ struct ReviewDiagnosticsTests {
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
     }
 
-
-
-
     @Test func `invalid selections recover validated priority rows without overriding null abstention`() throws {
         let exposure = ReviewClaim(text: "Soft lighting", type: "exposure", evidence: [.init(kind: .observation, id: "stored-light")], uncertainty: "", contradictions: [])
         let composition = ReviewClaim(text: "Subject beside a fence", type: "composition", evidence: [.init(kind: .observation, id: "stored-crop")], uncertainty: "", contradictions: [])
@@ -444,7 +438,6 @@ struct ReviewDiagnosticsTests {
         #expect(roundTrip.detail == nil)
         #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(response.replacingOccurrences(of: #","detail":null"#, with: ""), regionID: "r", requireCriteria: true) }
     }
-
 
     private func groundedResult() -> CombinedReviewResult {
         var value = result("image")
