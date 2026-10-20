@@ -194,6 +194,7 @@ struct ImageItemView: View {
     var semanticResultCount: Int?
     var semanticResultScore: Float?
     var onSelect: () -> Void = {}
+    var doubleSelectActionName: LocalizedStringKey = "Open preview"
     var onDoubleSelect: () -> Void = {}
 
     var body: some View {
@@ -203,7 +204,7 @@ struct ImageItemView: View {
             .accessibilityValue(accessibilitySummary)
             .accessibilityAddTraits(isSelectionHighlighted ? .isSelected : [])
             .accessibilityAction { onSelect() }
-            .accessibilityAction(named: "Open preview") { onDoubleSelect() }
+            .accessibilityAction(named: Text(doubleSelectActionName)) { onDoubleSelect() }
     }
 
     private var tileContent: some View {
