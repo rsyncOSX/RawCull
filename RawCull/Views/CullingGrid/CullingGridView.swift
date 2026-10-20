@@ -478,7 +478,18 @@ struct CullingGridView<Header: View>: View {
         let analysis = viewModel.burstAnalysisResult(for: group.id)
 
         return VStack(alignment: .leading, spacing: 0) {
-            if group.files.count > 1 {
+            if viewModel.burstReviewQueueFilter == .singleImages {
+                HStack(spacing: 10) {
+                    Text("Single Images")
+                        .font(.headline)
+                    Text("\(group.files.count) images")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            } else if group.files.count > 1 {
                 BurstGroupHeaderView(
                     groupNumber: number,
                     files: group.files,
