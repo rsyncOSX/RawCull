@@ -859,9 +859,7 @@ struct ZoomOverlayControls: View {
     var body: some View {
         @Bindable var session = session
         VStack(spacing: 8) {
-            Text(session.viewport.scale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
-                .font(.caption).foregroundStyle(.white.opacity(0.5))
-
+            
             if let cg = viewModel.zoomOverlayCGImage {
                 Text("\(cg.width) × \(cg.height) px")
                     .font(.caption2).foregroundStyle(.white.opacity(0.4))
