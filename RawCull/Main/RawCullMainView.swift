@@ -105,13 +105,6 @@ struct RawCullMainView: View {
                 ExtractJPGsSheetView(viewModel: viewModel)
             }
         }
-        .sheet(isPresented: $viewModel.showSavedFiles) {
-            SavedFilesView(
-                presentation: SavedFilesPresentation(cullingModel: viewModel.cullingModel),
-                canReset: !viewModel.isCreatingThumbnails,
-                onReset: viewModel.clearAllCullingState,
-            )
-        }
         .sheet(isPresented: $viewModel.showCopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,
@@ -194,7 +187,6 @@ struct RawCullMainView: View {
         .focusedSceneValue(\.aborttask, $viewModel.focusAbortTask)
         .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
         .focusedSceneValue(\.copyTaggedFiles, $viewModel.focusCopyTaggedFiles)
-        .focusedSceneValue(\.showSavedFiles, $viewModel.focusShowSavedFiles)
         .focusedSceneValue(
             \.canCopyTaggedFiles,
             viewModel.selectedSource != nil && !viewModel.isCreatingThumbnails,
@@ -210,11 +202,7 @@ struct RawCullMainView: View {
             viewModel.sheetType = .copytasksview
             viewModel.showCopyARWFilesView = true
         }
-        .onChange(of: viewModel.focusShowSavedFiles) { _, shouldPresent in
-            guard shouldPresent else { return }
-            viewModel.focusShowSavedFiles = false
-            viewModel.showSavedFiles = true
-        }
+
     }
 
     private var persistenceErrorIsPresented: Binding<Bool> {

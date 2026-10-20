@@ -13,7 +13,6 @@ struct MenuCommands: Commands {
     @FocusedBinding(\.aborttask) private var aborttask
     @FocusedBinding(\.extractJPGs) private var extractJPGs
     @FocusedBinding(\.copyTaggedFiles) private var copyTaggedFiles
-    @FocusedBinding(\.showSavedFiles) private var showSavedFiles
     @FocusedValue(\.canCopyTaggedFiles) private var canCopyTaggedFiles
 
     var body: some Commands {
@@ -30,11 +29,6 @@ struct MenuCommands: Commands {
                 copyTaggedFiles = true
             }
             .disabled(copyTaggedFiles == nil || canCopyTaggedFiles != true)
-
-            Button("Show Saved Files") {
-                showSavedFiles = true
-            }
-            .disabled(showSavedFiles == nil)
         }
 
         CommandMenu("Actions") {
@@ -93,10 +87,6 @@ struct FocusedCopyTaggedFiles: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
-struct FocusedShowSavedFiles: FocusedValueKey {
-    typealias Value = Binding<Bool>
-}
-
 struct FocusedCanCopyTaggedFiles: FocusedValueKey {
     typealias Value = Bool
 }
@@ -120,11 +110,6 @@ extension FocusedValues {
     var copyTaggedFiles: FocusedCopyTaggedFiles.Value? {
         get { self[FocusedCopyTaggedFiles.self] }
         set { self[FocusedCopyTaggedFiles.self] = newValue }
-    }
-
-    var showSavedFiles: FocusedShowSavedFiles.Value? {
-        get { self[FocusedShowSavedFiles.self] }
-        set { self[FocusedShowSavedFiles.self] = newValue }
     }
 
     var canCopyTaggedFiles: FocusedCanCopyTaggedFiles.Value? {
