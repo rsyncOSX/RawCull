@@ -213,6 +213,11 @@ struct ZoomOverlayView: View {
                 HStack {
                     if let selectedFile = viewModel.selectedFile {
                         HStack(spacing: 6) {
+                            if let cg = viewModel.zoomOverlayCGImage {
+                                pixelDimensionsBadge(width: cg.width, height: cg.height)
+                            } else if let ns = viewModel.zoomOverlayNSImage {
+                                pixelDimensionsBadge(width: Int(ns.size.width), height: Int(ns.size.height))
+                            }
                             CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
                         }
                         .padding()
@@ -747,6 +752,17 @@ struct ZoomOverlayView: View {
 
     // MARK: - Toolbar button
 
+    private func pixelDimensionsBadge(width: Int, height: Int) -> some View {
+        Text(verbatim: "\(width) × \(height) px")
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.secondary.opacity(0.85), in: Capsule())
+            .accessibilityLabel("Image dimensions")
+            .accessibilityValue("\(width) by \(height) pixels")
+    }
+
     private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
@@ -859,15 +875,6 @@ struct ZoomOverlayControls: View {
     var body: some View {
         @Bindable var session = session
         VStack(spacing: 8) {
-            
-            if let cg = viewModel.zoomOverlayCGImage {
-                Text("\(cg.width) × \(cg.height) px")
-                    .font(.caption2).foregroundStyle(.white.opacity(0.4))
-            } else if let ns = viewModel.zoomOverlayNSImage {
-                Text("\(Int(ns.size.width)) × \(Int(ns.size.height)) px")
-                    .font(.caption2).foregroundStyle(.white.opacity(0.4))
-            }
-
             ImageOverlayControlsView(
                 showFocusMask: $session.viewport.showFocusMask,
                 focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
