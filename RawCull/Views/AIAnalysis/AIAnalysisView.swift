@@ -50,7 +50,6 @@ struct AIAnalysisView: View {
         VStack(spacing: 0) {
             // Header & Control Bar
             VStack(spacing: 12) {
-
                 HStack(spacing: 16) {
                     Picker("Analysis Tool", selection: $selectedTool) {
                         ForEach(AIAnalysisTool.allCases) { tool in
@@ -313,9 +312,8 @@ struct CombinedReviewWorkspaceView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                
                 Spacer()
-                
+
                 Picker("", selection: inputSourceSelection) {
                     Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                         .tag(AIAnalysisInputSource.gridSelection)
@@ -325,7 +323,7 @@ struct CombinedReviewWorkspaceView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
                 .disabled(feature.isRunning)
-                
+
                 Spacer()
             }
             .padding(.horizontal, 20)

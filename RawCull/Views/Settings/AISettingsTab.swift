@@ -67,7 +67,7 @@ private struct CombinedReviewMemoryGuidance: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Combined Review memory requirements")
                 .font(.title2.bold())
-            Text("This Mac has \(model.memoryInGB.formatted(.number.precision(.fractionLength(0...1)))) GB of unified memory.")
+            Text("This Mac has \(model.memoryInGB.formatted(.number.precision(.fractionLength(0 ... 1)))) GB of unified memory.")
                 .font(.headline)
 
             Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {

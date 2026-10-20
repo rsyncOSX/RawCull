@@ -1,10 +1,10 @@
 import AppKit
 import Foundation
 import ImageIO
-import UniformTypeIdentifiers
 @testable import RawCull
 import RawCullCore
 import Testing
+import UniformTypeIdentifiers
 
 private actor FakeRawImageLoader: RawImageLoading {
     private(set) var thumbnailCGImageCalls = 0
@@ -316,9 +316,9 @@ struct EmbeddedJPGExportLoaderTests {
             [UInt8(truncatingIfNeeded: value), UInt8(truncatingIfNeeded: value >> 8)]
         }
         func le32(_ value: UInt32) -> [UInt8] {
-            (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) }
+            (0 ..< 4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) }
         }
-        var bytes: [UInt8] = [0x49, 0x49, 0x2a, 0]
+        var bytes: [UInt8] = [0x49, 0x49, 0x2A, 0]
         bytes += le32(8)
         bytes += le16(2)
         for (tag, value): (UInt16, UInt32) in [(0x0111, 38), (0x0117, UInt32(jpeg.count))] {

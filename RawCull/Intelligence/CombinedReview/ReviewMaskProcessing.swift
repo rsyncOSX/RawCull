@@ -41,20 +41,17 @@ actor ReviewMaskProcessing {
     }
 
     func assignPriority(_ subjects: [ReviewSubjectRecord], cues: [ReviewPrimarySubjectCue], contextual: [String],
-                        masks: [ReviewSubjectID: CGImage], provenance: String) throws -> [ReviewSubjectRecord]
-    {
+                        masks: [ReviewSubjectID: CGImage], provenance: String) throws -> [ReviewSubjectRecord] {
         try Task.checkCancellation()
         return try ReviewSubjectPriority.assign(subjects, cues: cues, contextual: contextual, masks: masks, provenance: provenance)
     }
 
     func cropSupport(subjectID: ReviewSubjectID, mask: CGImage, width: Int, height: Int,
-                     cropRect: CGRect, encoderRect: CGRect, sourceEdgeContact: Bool) throws -> ReviewCropSupport
-    {
+                     cropRect: CGRect, encoderRect: CGRect, sourceEdgeContact: Bool) throws -> ReviewCropSupport {
         try Task.checkCancellation()
         let foreground: SubjectMaskForeground
         if cachedSubjectID == subjectID, cachedMask === mask, let cachedForeground,
-           cachedForeground.width == width, cachedForeground.height == height
-        {
+           cachedForeground.width == width, cachedForeground.height == height {
             foreground = cachedForeground
         } else {
             cachedForeground = nil

@@ -83,8 +83,8 @@ nonisolated struct RawCullAIModelLicenceDescriptor: Equatable, Sendable {
               ),
               let data = try? Data(contentsOf: url),
               SHA256.hash(data: data)
-              .map({ String(format: "%02x", $0) })
-              .joined() == textSHA256
+                  .map({ String(format: "%02x", $0) })
+                  .joined() == textSHA256
         else {
             return nil
         }

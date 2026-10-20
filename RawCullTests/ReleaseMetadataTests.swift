@@ -78,7 +78,7 @@ struct ReleaseMetadataTests {
         let accessedAPIs = try #require(privacy["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
         let expectedReasons: [String: Set<String>] = [
             "NSPrivacyAccessedAPICategoryFileTimestamp": ["DDA9.1", "C617.1", "3B52.1"],
-            "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"],
+            "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"]
         ]
         #expect(accessedAPIs.count == expectedReasons.count)
         var categories = Set<String>()

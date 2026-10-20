@@ -8,7 +8,9 @@ nonisolated enum ReviewImageError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidGeometry: "The review source or crop has invalid dimensions."
+
         case .decodeFailed: "The selected review source could not be decoded."
+
         case .sourceChanged: "The image changed during source preparation. Rerun with current settings."
 
         case .memoryAdmissionDenied:

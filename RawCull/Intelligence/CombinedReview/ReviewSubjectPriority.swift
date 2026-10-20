@@ -18,10 +18,10 @@ nonisolated struct ReviewSubjectRelevance: Codable, Equatable, Sendable {
     let provenance: String
     let uncertainty: String
     var rank: Int {
-        switch role { case .primaryCandidate: 0; 
-case .equallyImportantCandidate: 1; 
-case .unassigned: 2; 
-case .contextual: 3 }
+        switch role { case .primaryCandidate: 0
+        case .equallyImportantCandidate: 1
+        case .unassigned: 2
+        case .contextual: 3 }
     }
 }
 

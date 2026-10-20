@@ -142,9 +142,7 @@ private nonisolated struct RawCullAIModelResourceSnapshot: Equatable, Sendable {
         for candidate in candidateURLs {
             let candidateEntry = Entry(url: candidate)
             entries.append(candidateEntry)
-            guard candidateEntry.kind == .directory else { continue }
-
-            guard let enumerator = FileManager.default.enumerator(
+            guard candidateEntry.kind == .directory, let enumerator = FileManager.default.enumerator(
                 at: candidate,
                 includingPropertiesForKeys: [
                     .contentModificationDateKey,

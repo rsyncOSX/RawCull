@@ -192,8 +192,7 @@ private struct QwenAssessmentDetail: View {
                     description: Text("Select an analyzed image to inspect its assessment."),
                 )
             } else if let failure = result?.failure,
-                      result?.assessment == nil, result?.freeformResponse == nil
-            {
+                      result?.assessment == nil, result?.freeformResponse == nil {
                 ContentUnavailableView(
                     "Analysis Failed",
                     systemImage: "exclamationmark.triangle",

@@ -489,8 +489,7 @@ struct BurstCullingWorkspaceView: View {
             state: state,
             viewModel: viewModel,
         )
-        guard !Task.isCancelled else { return }
-        guard imageCache[key] != nil else { return }
+        guard !Task.isCancelled, imageCache[key] != nil else { return }
         Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Mask returned: \(analyzedState.focusMask != nil)")
         imageCache[key] = analyzedState
     }
@@ -527,10 +526,7 @@ struct BurstCullingWorkspaceView: View {
         subjectOutlineFileID = nil
         guard showSubjectOutline,
               let file = selectedFile,
-              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
-        else { return }
-
-        guard let mask = await viewModel.deepAIReviewController.mask(for: candidate, in: [file]),
+              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id), let mask = await viewModel.deepAIReviewController.mask(for: candidate, in: [file]),
               !Task.isCancelled else { return }
         let outline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
         guard !Task.isCancelled else { return }
@@ -816,7 +812,6 @@ struct BurstWorkspaceHeader: View {
         .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
         .accessibilityValue(isReviewed ? "Selected" : "Not selected")
     }
-
 }
 
 struct BurstWorkspaceFilmstrip: View {
@@ -900,5 +895,4 @@ struct BurstWorkspaceFilmstrip: View {
         .buttonBorderShape(.circle)
         .disabled(delta < 0 ? !canNavigatePrevious : !canNavigateNext)
     }
-
 }

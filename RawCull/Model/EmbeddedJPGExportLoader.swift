@@ -13,8 +13,7 @@ nonisolated struct EmbeddedJPGExportLoader: EmbeddedJPGExportLoading {
     func jpegData(for rawURL: URL) async -> Data? {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [rawURL])
         defer { withExtendedLifetime(access) {} }
-        guard !Task.isCancelled, let original = embeddedBytes(from: rawURL) else { return nil }
-        guard !Task.isCancelled else { return nil }
+        guard !Task.isCancelled, let original = embeddedBytes(from: rawURL), !Task.isCancelled else { return nil }
         if hasStandaloneOrientation(original, rawURL: rawURL) {
             return original
         }
@@ -32,16 +31,19 @@ nonisolated struct EmbeddedJPGExportLoader: EmbeddedJPGExportLoading {
             return firstJPEG([locations.fullJPEG, locations.preview, locations.thumbnail]) {
                 SonyMakerNoteParser.readEmbeddedJPEGData(at: $0, from: url)
             }
+
         case "nef":
             guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
             return firstJPEG([locations.preview, locations.ifd1JPEG]) {
                 NikonMakerNoteParser.readEmbeddedJPEGData(at: $0, from: url)
             }
+
         case "dng":
             guard let locations = DNGMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
             return firstJPEG([locations.fullJPEG, locations.preview, locations.thumbnail]) {
                 DNGMakerNoteParser.readEmbeddedJPEGData(at: $0, from: url)
             }
+
         default:
             return nil
         }
@@ -65,7 +67,9 @@ nonisolated struct EmbeddedJPGExportLoader: EmbeddedJPGExportLoading {
         guard let jpeg = CGImageSourceCreateWithData(data as CFData, options),
               let properties = CGImageSourceCopyPropertiesAtIndex(jpeg, 0, options) as? [CFString: Any]
         else { return false }
-        if properties[kCGImagePropertyOrientation] != nil { return true }
+        if properties[kCGImagePropertyOrientation] != nil {
+            return true
+        }
         guard let raw = CGImageSourceCreateWithURL(rawURL as CFURL, options),
               let sourceProperties = CGImageSourceCopyPropertiesAtIndex(raw, 0, options) as? [CFString: Any]
         else { return false }

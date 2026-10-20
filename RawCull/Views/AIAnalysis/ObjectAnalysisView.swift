@@ -91,7 +91,6 @@ private struct ObjectAnalysisControls: View {
                     .accessibilityLabel("Additional photographic criteria")
                     .disabled(feature.isRunning)
             }
-
         } actions: {
             if feature.isRunning {
                 Button("Cancel", systemImage: "stop.circle", role: .cancel) {
@@ -274,8 +273,7 @@ private struct ObjectPhotoDetailView: View {
                                     ObjectAssessmentDetail(object: object)
                                 }
                                 if let selectedObjectID,
-                                   let evidence = spatialEvidence[selectedObjectID]
-                                {
+                                   let evidence = spatialEvidence[selectedObjectID] {
                                     ObjectFocusEvidenceDetail(evidence: evidence)
                                 }
                                 ForEach(assessment.relationships, id: \.self) { relationship in

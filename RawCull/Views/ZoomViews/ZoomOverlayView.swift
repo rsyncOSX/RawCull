@@ -859,13 +859,6 @@ struct ZoomOverlayControls: View {
     var body: some View {
         @Bindable var session = session
         VStack(spacing: 8) {
-            if let selectedFile = viewModel.selectedFile {
-                RatingActionBarView(
-                    currentRating: ImageReviewFeaturePolicy.ratingDisplay(for: selectedFile, using: viewModel),
-                    onSelect: onRate,
-                )
-            }
-
             Text(session.viewport.scale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
                 .font(.caption).foregroundStyle(.white.opacity(0.5))
 

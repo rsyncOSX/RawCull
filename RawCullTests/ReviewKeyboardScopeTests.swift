@@ -21,7 +21,7 @@ struct ReviewKeyboardScopeTests {
     }
 
     @Test
-    func onlyAnchoredKeyWindowReceivesShortcuts() throws {
+    func `only anchored key window receives shortcuts`() throws {
         let review = makeWindow()
         let settings = makeWindow()
         defer { review.close(); settings.close() }
@@ -31,23 +31,23 @@ struct ReviewKeyboardScopeTests {
         scope.window = review
         #expect(scope.accepts(event, keyWindow: review, modalWindow: nil))
         #expect(!scope.accepts(event, keyWindow: settings, modalWindow: nil))
-        #expect(!scope.accepts(try key(in: settings), keyWindow: settings, modalWindow: nil))
+        #expect(try !scope.accepts(key(in: settings), keyWindow: settings, modalWindow: nil))
         #expect(!scope.accepts(event, keyWindow: nil, modalWindow: nil))
         #expect(!scope.accepts(event, keyWindow: review, modalWindow: settings))
     }
 
     @Test(arguments: [NSEvent.ModifierFlags.command, .control, .option])
-    func commandModifiersAreLeftToAppKit(_ modifiers: NSEvent.ModifierFlags) throws {
+    func `command modifiers are left to app kit`(_ modifiers: NSEvent.ModifierFlags) throws {
         let window = makeWindow()
         defer { window.close() }
         let scope = ReviewKeyboardScope()
         scope.window = window
-        #expect(!scope.accepts(try key(in: window, modifiers: modifiers), keyWindow: window, modalWindow: nil))
-        #expect(scope.accepts(try key(in: window, modifiers: .shift), keyWindow: window, modalWindow: nil))
+        #expect(try !scope.accepts(key(in: window, modifiers: modifiers), keyWindow: window, modalWindow: nil))
+        #expect(try scope.accepts(key(in: window, modifiers: .shift), keyWindow: window, modalWindow: nil))
     }
 
     @Test
-    func nativeControlsAndTextOwnTheirInput() throws {
+    func `native controls and text own their input`() throws {
         let window = makeWindow()
         defer { window.close() }
         let scope = ReviewKeyboardScope()
@@ -55,7 +55,7 @@ struct ReviewKeyboardScopeTests {
         let editor = NSTextView(frame: .zero)
         window.contentView = editor
         #expect(window.makeFirstResponder(editor))
-        #expect(!scope.accepts(try key(in: window), keyWindow: window, modalWindow: nil))
+        #expect(try !scope.accepts(key(in: window), keyWindow: window, modalWindow: nil))
         #expect(ReviewKeyboardScope.controlOwnsKeys(NSSlider()))
         #expect(ReviewKeyboardScope.controlOwnsKeys(NSButton()))
         #expect(ReviewKeyboardScope.controlOwnsKeys(NSTextField()))
@@ -68,7 +68,7 @@ struct ReviewKeyboardScopeTests {
     }
 
     @Test
-    func anchorTracksWindowAndDetaches() throws {
+    func `anchor tracks window and detaches`() throws {
         let window = makeWindow()
         defer { window.close() }
         let scope = ReviewKeyboardScope()
@@ -79,11 +79,11 @@ struct ReviewKeyboardScopeTests {
         #expect(scope.window == nil)
         window.contentView = anchor
         anchor.detach()
-        #expect(!scope.accepts(try key(in: window), keyWindow: window, modalWindow: nil))
+        #expect(try !scope.accepts(key(in: window), keyWindow: window, modalWindow: nil))
     }
 
     @Test
-    func attachedSheetKeepsKeys() throws {
+    func `attached sheet keeps keys`() throws {
         let window = makeWindow()
         let sheet = makeWindow()
         defer { window.endSheet(sheet); sheet.close(); window.close() }
@@ -91,6 +91,6 @@ struct ReviewKeyboardScopeTests {
         scope.window = window
         window.beginSheet(sheet)
         #expect(window.attachedSheet === sheet)
-        #expect(!scope.accepts(try key(in: window), keyWindow: window, modalWindow: nil))
+        #expect(try !scope.accepts(key(in: window), keyWindow: window, modalWindow: nil))
     }
 }

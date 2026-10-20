@@ -146,9 +146,8 @@ actor ReviewArtifactStore {
     }
 
     func usage() throws -> Int {
-        guard FileManager.default.fileExists(atPath: root.path) else { return 0 }
-        guard let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-                                                         options: [.skipsHiddenFiles]) else { return 0 }
+        guard FileManager.default.fileExists(atPath: root.path), let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                                                                                                            options: [.skipsHiddenFiles]) else { return 0 }
         var bytes = 0
         for case let url as URL in files {
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])

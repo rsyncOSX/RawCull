@@ -109,7 +109,6 @@ private struct DeepAIReviewSheetControls: View {
             .frame(minWidth: 300, maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
-
         } actions: {
             if controller.isRunning {
                 Button("Cancel", systemImage: "stop.circle", role: .cancel, action: onCancel)

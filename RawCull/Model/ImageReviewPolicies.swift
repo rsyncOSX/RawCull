@@ -24,8 +24,7 @@ nonisolated struct ImageSourceSelectionState: Equatable, Sendable {
     }
 
     mutating func toggleExtractionSource(_ source: ImagePreviewSource) {
-        guard source != .thumbnail else { return }
-        guard source != .developedRAW || !rawUnavailable else { return }
+        guard source != .thumbnail, source != .developedRAW || !rawUnavailable else { return }
         select(selected == source ? .thumbnail : source)
     }
 
@@ -134,14 +133,15 @@ nonisolated enum ImageReviewRatingAction: Equatable, Sendable {
         }
     }
 
-    var label: String {
-        switch self {
-        case .reject: "X"
-        case .keeper: "P"
-        case let .stars(value): "\(value)"
-        }
-    }
-
+    /**
+     var label: String {
+         switch self {
+         case .reject: "X"
+         case .keeper: "P"
+         case let .stars(value): "\(value)"
+         }
+     }
+     */
     var help: String {
         switch self {
         case .reject: "Reject selected image"

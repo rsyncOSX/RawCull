@@ -202,13 +202,11 @@ extension RawCullViewModel {
     /// Requires embeddings to already be computed — no-ops otherwise.
     func reGroupBursts() async {
         Logger.process.debugMessageOnly("RawCullViewModel.reGroupBursts()")
-        guard !similarityModel.embeddings.isEmpty else { return }
-        guard let catalog = selectedSource?.url else { return }
+        guard !similarityModel.embeddings.isEmpty, let catalog = selectedSource?.url else { return }
         let sorted = completedBurstAnalysisContext
             .flatMap(filesForCompletedBurstAnalysis)
             ?? burstAnalysisTargetFiles
-        guard !sorted.isEmpty else { return }
-        guard !Task.isCancelled else { return }
+        guard !sorted.isEmpty, !Task.isCancelled else { return }
 
         let savedStatesBySignature = Dictionary(
             uniqueKeysWithValues: reviewStateSnapshots(catalog: catalog, files: sorted)

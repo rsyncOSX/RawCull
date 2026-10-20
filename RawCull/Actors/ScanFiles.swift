@@ -137,7 +137,9 @@ actor ScanFiles {
                     }
                     guard RawFormatRegistry.format(for: fileURL) != nil else { continue }
                     if pending >= maximumConcurrentReads {
-                        if let result = await group.next(), let pair = result { collected.append(pair) }
+                        if let result = await group.next(), let pair = result {
+                            collected.append(pair)
+                        }
                         pending -= 1
                         guard !Task.isCancelled else { group.cancelAll(); break }
                     }

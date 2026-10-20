@@ -222,8 +222,10 @@ struct CombinedReviewEvidenceLayout: View {
                 if let finding = presentation.findings.first(where: { $0.id == selectedFindingID }) {
                     CombinedReviewFindingEvidence(finding: finding, result: result, inspect: inspect)
                 }
+
             case .coverage:
                 CombinedReviewCoverageDetails(presentation: presentation, source: result.source, omissions: result.omissions)
+
             case .technical:
                 CombinedReviewRecordCopy(result: result)
                 CombinedReviewTechnicalDetails(feature: feature, result: result, inspect: inspect)

@@ -174,8 +174,7 @@ final class CombinedReviewFeature {
 
     init(store: ReviewArtifactStore = ReviewArtifactStore(), sourceLoader: any ReviewImageSourceLoading = ReviewImageSourceService(),
          scorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(), lease: CombinedReviewLease = .shared,
-         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing)
-    {
+         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing) {
         self.store = store; self.sourceLoader = sourceLoader; self.scorer = scorer; self.lease = lease; self.backendFactory = backendFactory
     }
 
@@ -291,7 +290,7 @@ final class CombinedReviewFeature {
         // Force raster decoding here instead of deferring decompression to UI rendering.
         let image = CGImageSourceCreateImageAtIndex(source, 0, [
             kCGImageSourceShouldCache: true,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ] as CFDictionary)
         return Task.isCancelled ? nil : image
     }

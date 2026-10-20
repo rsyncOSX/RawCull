@@ -123,8 +123,7 @@ nonisolated struct SubjectMaskFocusScorer: SubjectMaskFocusScoring, Sendable {
         let patchArea = max(1, pixelCount / patchSamples.count)
         let minimumPatchSamples = max(64, Int(Float(patchArea) * 0.08))
         let local = patchSamples.enumerated().compactMap { index, samples -> Float? in
-            guard patchMaskCounts[index] >= minimumPatchSamples else { return nil }
-            guard let robust = SharpnessMetrics.robustTailScore(samples) else { return nil }
+            guard patchMaskCounts[index] >= minimumPatchSamples, let robust = SharpnessMetrics.robustTailScore(samples) else { return nil }
             return robust + SharpnessMetrics.microContrast(samples) * 0.35
         }.max()
 

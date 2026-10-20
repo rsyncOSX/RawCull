@@ -1,12 +1,12 @@
-import SwiftUI
 @testable import RawCull
+import SwiftUI
 import Testing
 
 @MainActor
 @Suite("Thumbnail keyboard routing")
 struct ThumbnailKeyboardRoutingTests {
     @Test(arguments: ["2", "b", "B", "u", "U", "\r", "\u{1b}"])
-    func burstCommandsHaveOneOwner(_ key: String) {
+    func `burst commands have one owner`(_ key: String) {
         var commands: [String] = []
         let consumed = ThumbnailKeyboardRouting.handleBurstCommand(
             key, showsBurstGroups: true,
@@ -17,7 +17,7 @@ struct ThumbnailKeyboardRoutingTests {
     }
 
     @Test
-    func unavailableBurstCommandCannotBecomeRatingTwo() {
+    func `unavailable burst command cannot become rating two`() {
         var calls = 0
         let consumed = ThumbnailKeyboardRouting.handleBurstCommand(
             "2", showsBurstGroups: true,
@@ -29,7 +29,7 @@ struct ThumbnailKeyboardRoutingTests {
     }
 
     @Test(arguments: ["2", "b", "u", "\r", "\u{1b}"])
-    func ordinaryGridPreservesExistingShortcuts(_ key: String) {
+    func `ordinary grid preserves existing shortcuts`(_ key: String) {
         var called = false
         #expect(!ThumbnailKeyboardRouting.handleBurstCommand(
             key, showsBurstGroups: false,
@@ -39,7 +39,7 @@ struct ThumbnailKeyboardRoutingTests {
     }
 
     @Test(arguments: ["r", "R", "1", "3", "4", "5", "x", "p", "t", "z", ""])
-    func unrelatedKeysContinueToExistingHandlers(_ key: String) {
+    func `unrelated keys continue to existing handlers`(_ key: String) {
         var called = false
         #expect(!ThumbnailKeyboardRouting.handleBurstCommand(
             key, showsBurstGroups: true,

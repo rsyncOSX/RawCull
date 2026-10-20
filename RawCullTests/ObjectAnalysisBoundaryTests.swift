@@ -205,7 +205,7 @@ struct ObjectAnalysisBoundaryTests {
         (#""cropID":"1""#, #""cropID":"2""#),
         (#""confidence":0.8"#, #""confidence":1.2"#),
         (#""strengths":[],"strengthEvidence":[]"#, #""strengths":["Sharp wings"],"strengthEvidence":[]"#),
-        (#""visibility":"clear""#, #""visibility":"visible""#),
+        (#""visibility":"clear""#, #""visibility":"visible""#)
     ])
     func `Final focus abstention rejects unrelated invalid data`(replacement: (String, String)) {
         let response = focusResponse(observation: "clearly visible wing pattern and edge detail on the butterfly")

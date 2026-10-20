@@ -23,9 +23,17 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     let physicalMemory: UInt64
     var isShowingCombinedReviewGuidance = false
 
-    var canEnableCombinedReview: Bool { physicalMemory >= 16 * 1024 * 1024 * 1024 }
-    var shouldWarnAboutCombinedReviewMemory: Bool { physicalMemory < 32 * 1024 * 1024 * 1024 }
-    var memoryInGB: Double { Double(physicalMemory) / (1024 * 1024 * 1024) }
+    var canEnableCombinedReview: Bool {
+        physicalMemory >= 16 * 1024 * 1024 * 1024
+    }
+
+    var shouldWarnAboutCombinedReviewMemory: Bool {
+        physicalMemory < 32 * 1024 * 1024 * 1024
+    }
+
+    var memoryInGB: Double {
+        Double(physicalMemory) / (1024 * 1024 * 1024)
+    }
 
     /// Keep the feature off until the person has read and accepted the guidance.
     var combinedReviewToggle: Bool {
@@ -267,18 +275,14 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     }
 
     func setSelectedCLIPModel(_ model: RawCullCLIPModel) {
-        guard RawCullAIModelInclusion.clipModels.contains(model) else { return }
-        guard selectedModel != model else { return }
+        guard RawCullAIModelInclusion.clipModels.contains(model), selectedModel != model else { return }
         selectedModel = model
         userDefaults.set(model.rawValue, forKey: Self.selectedCLIPModelPreferenceKey)
         publishConfiguration()
     }
 
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
-        guard RawCullAIModelInclusion.segmentationModels.contains(model) else {
-            return
-        }
-        guard selectedSegmenter != model else { return }
+        guard RawCullAIModelInclusion.segmentationModels.contains(model), selectedSegmenter != model else { return }
         selectedSegmenter = model
         userDefaults.set(
             model.rawValue,

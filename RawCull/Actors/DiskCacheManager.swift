@@ -161,9 +161,7 @@ actor DiskCacheManager {
                 at: directory,
                 includingPropertiesForKeys: resourceKeys,
                 options: .skipsHiddenFiles,
-            ) else { return }
-
-            guard let expirationDate = Calendar.current.date(byAdding: .day, value: -maxAgeInDays, to: Date()) else { return }
+            ), let expirationDate = Calendar.current.date(byAdding: .day, value: -maxAgeInDays, to: Date()) else { return }
 
             for fileURL in urls {
                 do {

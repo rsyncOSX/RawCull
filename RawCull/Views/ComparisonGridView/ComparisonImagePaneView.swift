@@ -93,16 +93,8 @@ struct ComparisonImagePaneView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
             Spacer()
-            VStack(spacing: 8) {
-                RatingActionBarView(
-                    currentRating: rating,
-                    onSelect: { rating in
-                        onSelect()
-                        onRate(rating)
-                    },
-                )
-                .simultaneousGesture(TapGesture().onEnded { onSelect() })
 
+            VStack(spacing: 8) {
                 ImageOverlayControlsView(
                     showFocusMask: $viewportState.showFocusMask,
                     focusMaskAvailable: focusMaskAvailable,
