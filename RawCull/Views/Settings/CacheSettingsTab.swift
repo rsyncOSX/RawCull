@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 struct CacheSettingsTab: View {
+    let aiSettingsModel: RawCullAISettingsModel
     let viewModel: RawCullViewModel
     @State private var savedFilesSize = 0
     @State private var showDeleteSavedFiles = false
@@ -55,6 +56,8 @@ struct CacheSettingsTab: View {
                     }
                 }
 
+                Divider()
+
                 SettingsCard {
                     VStack(spacing: 12) {
                         cacheRow("Preview Cache", size: currentPreviewCacheSize)
@@ -72,6 +75,8 @@ struct CacheSettingsTab: View {
                         cacheRow("Combined Reviews", size: combinedReviewSize)
                     }
                 }
+                Divider()
+
                 SettingsCard {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
@@ -89,6 +94,16 @@ struct CacheSettingsTab: View {
                         .disabled(viewModel.isCreatingThumbnails || isDeletingSavedFiles
                             || viewModel.cullingModel.persistenceError != nil)
                     }
+                }
+
+                Divider()
+
+                SettingsCard {
+                    SavedBurstSimilarityEvidenceView(
+                        evidence: aiSettingsModel.savedBurstEvidence,
+                        scanFailure: aiSettingsModel.savedBurstScanFailure,
+                        isScanning: aiSettingsModel.isScanningSavedBurstData,
+                    )
                 }
             }
         }
@@ -133,6 +148,7 @@ struct CacheSettingsTab: View {
             await SharedMemoryCache.shared.refreshConfig()
             refreshMemoryCacheUsage()
             await refreshDiskCacheUsage()
+            await aiSettingsModel.refresh()
 
             while !Task.isCancelled {
                 do {
@@ -186,6 +202,7 @@ struct CacheSettingsTab: View {
                 purgeError = error.localizedDescription
             }
             await refreshDiskCacheUsage()
+            await aiSettingsModel.refresh()
             isPurging = false
         }
     }
@@ -210,5 +227,116 @@ struct CacheSettingsTab: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SavedBurstSimilarityEvidenceView: View {
+    let evidence: RawCullSavedBurstEvidence?
+    let scanFailure: String?
+    let isScanning: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .accessibilityHidden(true)
+
+                Text("Saved burst evidence:")
+                    .font(.system(size: 12, weight: .medium))
+
+                Text(statusTitle)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(statusColor)
+
+                Spacer()
+
+                if isScanning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .fixedSize()
+                }
+            }
+            Text(detailText)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Saved burst similarity evidence")
+        .accessibilityValue("\(statusTitle). \(detailText)")
+    }
+
+    private var statusTitle: String {
+        if scanFailure != nil {
+            return "Unavailable"
+        }
+        guard let evidence else { return "Scanning..." }
+        return switch evidence.backend {
+        case .noSavedData: "No saved data"
+        case .clip: "CLIP"
+        case .visionFeaturePrint: "Vision"
+        case .visionFallback: "Vision fallback"
+        case .mixed: "Mixed"
+        }
+    }
+
+    private var iconName: String {
+        if scanFailure != nil {
+            return "xmark.circle.fill"
+        }
+        guard let evidence else { return "internaldrive" }
+        return switch evidence.backend {
+        case .noSavedData: "tray"
+        case .clip: "checkmark.circle.fill"
+        case .visionFeaturePrint: "eye.circle.fill"
+        case .visionFallback: "arrow.counterclockwise.circle.fill"
+        case .mixed: "square.stack.3d.up.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        if scanFailure != nil {
+            return .red
+        }
+        guard let evidence else { return .secondary }
+        return switch evidence.backend {
+        case .noSavedData: .secondary
+        case .clip: .green
+        case .visionFeaturePrint: .blue
+        case .visionFallback, .mixed: .orange
+        }
+    }
+
+    private var detailText: String {
+        if let scanFailure {
+            return "RawCull could not inspect saved burst data: \(scanFailure)"
+        }
+        guard let evidence else {
+            return "Scanning RawCull's saved burst analysis caches."
+        }
+        guard evidence.totalEmbeddingCount > 0 else {
+            if evidence.skippedCacheFileCount > 0 {
+                return "No current-format burst embeddings were found. " +
+                    "\(countLabel(evidence.skippedCacheFileCount, singular: "cache file")) could not be read or was outdated."
+            }
+            return "No saved burst analysis embeddings were found. Run Analyze Bursts to create cache evidence."
+        }
+
+        let embeddings = countLabel(evidence.totalEmbeddingCount, singular: "embedding")
+        let catalogs = countLabel(evidence.decodedCatalogCount, singular: "saved catalog")
+        let groups = countLabel(evidence.burstGroupCount, singular: "burst group")
+        var text = "Found \(embeddings) in \(catalogs) across \(groups): " +
+            "\(evidence.clipEmbeddingCount) CLIP and \(evidence.visionEmbeddingCount) Vision."
+        if evidence.skippedCacheFileCount > 0 {
+            text += " \(countLabel(evidence.skippedCacheFileCount, singular: "cache file")) could not be read or was outdated."
+        }
+        return text + " Counts come from saved payloads, not the preference control."
+    }
+
+    private func countLabel(_ count: Int, singular: String) -> String {
+        "\(count) \(singular)\(count == 1 ? "" : "s")"
     }
 }

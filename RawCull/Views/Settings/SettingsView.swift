@@ -20,7 +20,7 @@ struct SettingsView: View {
             if settingsLoaded {
                 TabView {
                     Tab("Cache", systemImage: "memorychip.fill") {
-                        CacheSettingsTab(viewModel: viewModel, combinedReviewFeature: combinedReviewFeature)
+                        CacheSettingsTab(aiSettingsModel: aiSettingsModel, viewModel: viewModel, combinedReviewFeature: combinedReviewFeature)
                     }
 
                     Tab("Thumbnails", systemImage: "photo.fill") {

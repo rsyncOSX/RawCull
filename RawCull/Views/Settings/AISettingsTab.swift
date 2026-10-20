@@ -205,10 +205,7 @@ private struct AIModelSettingsCard: View {
                     missingMessage: "Qwen vision-language model resources are not installed.",
                     showsLocationAction: false,
                 )
-                Text("Objects in AI Analysis uses SAM 3 to find visible instances and Qwen to assess a numbered review board. Analysis runs locally on this Mac.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-
+                
                 if RawCullAIModelInclusion.clipModels.count > 1 {
                     Divider()
 
@@ -243,14 +240,6 @@ private struct AIModelSettingsCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Active similarity backend")
                     .accessibilityValue(similarityBackendMessage)
-
-                Divider()
-
-                SavedBurstSimilarityEvidenceView(
-                    evidence: model.savedBurstEvidence,
-                    scanFailure: model.savedBurstScanFailure,
-                    isScanning: model.isScanningSavedBurstData,
-                )
             }
         }
     }
@@ -398,117 +387,6 @@ private struct AICapabilityStatusView: View {
         case let .unavailable(reason):
             return reason
         }
-    }
-}
-
-private struct SavedBurstSimilarityEvidenceView: View {
-    let evidence: RawCullSavedBurstEvidence?
-    let scanFailure: String?
-    let isScanning: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: iconName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(statusColor)
-                    .accessibilityHidden(true)
-
-                Text("Saved burst evidence:")
-                    .font(.system(size: 12, weight: .medium))
-
-                Text(statusTitle)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(statusColor)
-
-                Spacer()
-
-                if isScanning {
-                    ProgressView()
-                        .controlSize(.small)
-                        .fixedSize()
-                }
-            }
-            Text(detailText)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Saved burst similarity evidence")
-        .accessibilityValue("\(statusTitle). \(detailText)")
-    }
-
-    private var statusTitle: String {
-        if scanFailure != nil {
-            return "Unavailable"
-        }
-        guard let evidence else { return "Scanning..." }
-        return switch evidence.backend {
-        case .noSavedData: "No saved data"
-        case .clip: "CLIP"
-        case .visionFeaturePrint: "Vision"
-        case .visionFallback: "Vision fallback"
-        case .mixed: "Mixed"
-        }
-    }
-
-    private var iconName: String {
-        if scanFailure != nil {
-            return "xmark.circle.fill"
-        }
-        guard let evidence else { return "internaldrive" }
-        return switch evidence.backend {
-        case .noSavedData: "tray"
-        case .clip: "checkmark.circle.fill"
-        case .visionFeaturePrint: "eye.circle.fill"
-        case .visionFallback: "arrow.counterclockwise.circle.fill"
-        case .mixed: "square.stack.3d.up.fill"
-        }
-    }
-
-    private var statusColor: Color {
-        if scanFailure != nil {
-            return .red
-        }
-        guard let evidence else { return .secondary }
-        return switch evidence.backend {
-        case .noSavedData: .secondary
-        case .clip: .green
-        case .visionFeaturePrint: .blue
-        case .visionFallback, .mixed: .orange
-        }
-    }
-
-    private var detailText: String {
-        if let scanFailure {
-            return "RawCull could not inspect saved burst data: \(scanFailure)"
-        }
-        guard let evidence else {
-            return "Scanning RawCull's saved burst analysis caches."
-        }
-        guard evidence.totalEmbeddingCount > 0 else {
-            if evidence.skippedCacheFileCount > 0 {
-                return "No current-format burst embeddings were found. " +
-                    "\(countLabel(evidence.skippedCacheFileCount, singular: "cache file")) could not be read or was outdated."
-            }
-            return "No saved burst analysis embeddings were found. Run Analyze Bursts to create cache evidence."
-        }
-
-        let embeddings = countLabel(evidence.totalEmbeddingCount, singular: "embedding")
-        let catalogs = countLabel(evidence.decodedCatalogCount, singular: "saved catalog")
-        let groups = countLabel(evidence.burstGroupCount, singular: "burst group")
-        var text = "Found \(embeddings) in \(catalogs) across \(groups): " +
-            "\(evidence.clipEmbeddingCount) CLIP and \(evidence.visionEmbeddingCount) Vision."
-        if evidence.skippedCacheFileCount > 0 {
-            text += " \(countLabel(evidence.skippedCacheFileCount, singular: "cache file")) could not be read or was outdated."
-        }
-        return text + " Counts come from saved payloads, not the preference control."
-    }
-
-    private func countLabel(_ count: Int, singular: String) -> String {
-        "\(count) \(singular)\(count == 1 ? "" : "s")"
     }
 }
 
