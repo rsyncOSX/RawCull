@@ -602,6 +602,36 @@ struct CullingGridCoordinatorTests {
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [0, 2])
     }
 
+    @Test
+    func `combined single images preserve workflow states without choosing a winner`() {
+        let first = makeGridTestFile("single-review-first.ARW")
+        let second = makeGridTestFile("single-review-second.ARW")
+        let burst = [makeGridTestFile("burst-a.ARW"), makeGridTestFile("burst-b.ARW")]
+        let model = makeRawCullViewModel()
+        model.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: [first.id]),
+            BurstGroup(id: 1, fileIDs: burst.map(\.id)),
+            BurstGroup(id: 2, fileIDs: [second.id])
+        ]
+        let catalog = URL(fileURLWithPath: "/tmp/single-review-catalog")
+        let files = [first, second] + burst
+
+        #expect(model.toggleBurstGroupReviewed(groupID: -1))
+        #expect(model.burstGroupReviewState(groupID: -1) == .reviewed)
+        let snapshots = model.reviewStateSnapshots(catalog: catalog, files: files)
+        #expect(snapshots.count == 2)
+        let restored = model.restoredBurstReviewStates(
+            savedStatesBySignature: Dictionary(uniqueKeysWithValues: snapshots.map { ($0.signature, $0.state) }),
+            groups: model.similarityModel.burstGroups, files: files, catalog: catalog,
+        )
+        #expect(restored == [0: .reviewed, 2: .reviewed])
+        #expect(model.burstAnalysisResult(for: -1) == nil)
+        #expect(model.toggleBurstGroupDeferred(groupID: -1))
+        #expect(model.burstGroupReviewState(groupID: -1) == .deferred)
+        #expect(!model.toggleBurstGroupDeferred(groupID: -1))
+        #expect(model.reviewStateSnapshots(catalog: catalog, files: files).isEmpty)
+    }
+
     @Test(.tags(.smoke))
     func `review and defer actions toggle back to persisted neutral state`() {
         let viewModel = makeRawCullViewModel()
