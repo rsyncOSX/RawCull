@@ -9,30 +9,25 @@ import Foundation
 import SwiftUI
 
 struct CacheSettingsTab: View {
+    let viewModel: RawCullViewModel
+    @State private var savedFilesSize = 0
+    @State private var showDeleteSavedFiles = false
+    @State private var isDeletingSavedFiles = false
+
     let combinedReviewFeature: CombinedReviewFeature
     @State private var combinedReviewSize = 0
     @State private var purgeError: String?
-    private var settingsManager: SettingsViewModel {
-        SettingsViewModel.shared
-    }
-
     @State private var currentThumbnailDiskCacheSize = 0
     @State private var currentFullSizeJPGCacheSize = 0
     @State private var currentSimilarityArtifactCacheSize = 0
-    @State private var currentSimilarityArtifactCacheCount = 0
     @State private var currentBurstAnalysisCacheSize = 0
-    @State private var currentBurstAnalysisCacheCount = 0
     @State private var currentGridCacheSize = 0
-    @State private var currentGridCacheCount = 0
     @State private var currentPreviewCacheSize = 0
-    @State private var currentPreviewCacheCount = 0
     @State private var isLoadingDiskCaches = false
-    @State private var cachePendingPurge: DiskCacheKind?
-    @State private var purgingCache: DiskCacheKind?
+    @State private var isPurging = false
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
     // periphery:ignore
     @State private var showPurgeConfirmation = false
-    @State private var memoryModel = MemoryViewModel()
 
     var body: some View {
         ScrollView {
@@ -47,79 +42,75 @@ struct CacheSettingsTab: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if purgingCache == .all {
+                        if isPurging {
                             ProgressView()
                                 .controlSize(.small)
                         }
-                        Button("Delete All Cache", role: .destructive) {
-                            cachePendingPurge = .all
+                        Text(isLoadingDiskCaches ? "Calculating…" : formatBytes(totalCacheSize))
+                            .monospacedDigit()
+                        Button("Delete Cache", role: .destructive) {
                             showPurgeConfirmation = true
                         }
-                        .disabled(isLoadingDiskCaches || purgingCache != nil || combinedReviewFeature.lease.isHeld)
+                        .disabled(isLoadingDiskCaches || isPurging || combinedReviewFeature.lease.isHeld)
                     }
                 }
 
-                MemoryCachesSection(
-                    previewSize: formatBytes(currentPreviewCacheSize),
-                    previewLimit: formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit),
-                    previewConfiguredLimit: formatMegabytes(settingsManager.memoryCacheSizeMB),
-                    previewCount: currentPreviewCacheCount,
-                    gridSize: formatBytes(currentGridCacheSize),
-                    gridLimit: formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit),
-                    gridConfiguredLimit: formatMegabytes(settingsManager.gridCacheSizeMB),
-                    gridCount: currentGridCacheCount,
-                    freeMemory: formatBytes(Int(freeMemoryBytes())),
-                )
-
-                DiskCachesSection(
-                    thumbnailSize: formatBytes(currentThumbnailDiskCacheSize),
-                    thumbnailPath: displayPath(SharedMemoryCache.shared.thumbnailDiskCacheDirectory),
-                    fullSizeJPGSize: formatBytes(currentFullSizeJPGCacheSize),
-                    fullSizeJPGPath: displayPath(SharedMemoryCache.shared.fullSizeJPGDiskCacheDirectory),
-                    similarityArtifactSize: formatBytes(currentSimilarityArtifactCacheSize),
-                    similarityArtifactCount: currentSimilarityArtifactCacheCount,
-                    similarityArtifactPath: displayPath(
-                        PerFileAnalysisArtifactStore.shared.storageDirectory,
-                    ),
-                    burstAnalysisSize: formatBytes(currentBurstAnalysisCacheSize),
-                    burstAnalysisCount: currentBurstAnalysisCacheCount,
-                    burstAnalysisPath: displayPath(BurstAnalysisCache.shared.storageDirectory),
-                    isLoading: isLoadingDiskCaches,
-                    purgingCache: purgingCache,
-                    cachePendingPurge: $cachePendingPurge,
-                    showPurgeConfirmation: $showPurgeConfirmation,
-                )
-
                 SettingsCard {
-                    DiskCacheRow(
-                        kind: .combinedReviews,
-                        icon: "sparkles.rectangle.stack",
-                        size: formatBytes(combinedReviewSize),
-                        detail: "Saved reviews, analysis results, masks and retained input images",
-                        path: displayPath(combinedReviewFeature.store.root),
-                        isLoading: isLoadingDiskCaches,
-                        isPurging: purgingCache == .combinedReviews,
-                        isPurgeInProgress: purgingCache != nil || combinedReviewFeature.lease.isHeld,
-                        cachePendingPurge: $cachePendingPurge,
-                        showPurgeConfirmation: $showPurgeConfirmation,
-                    )
+                    VStack(spacing: 12) {
+                        cacheRow("Preview Cache", size: currentPreviewCacheSize)
+                        Divider()
+                        cacheRow("Grid Thumbnail Cache", size: currentGridCacheSize)
+                        Divider()
+                        cacheRow("Thumbnail Cache", size: currentThumbnailDiskCacheSize)
+                        Divider()
+                        cacheRow("Full-size JPG Cache", size: currentFullSizeJPGCacheSize)
+                        Divider()
+                        cacheRow("Similarity Artifact Cache", size: currentSimilarityArtifactCacheSize)
+                        Divider()
+                        cacheRow("Burst Group Cache", size: currentBurstAnalysisCacheSize)
+                        Divider()
+                        cacheRow("Combined Reviews", size: combinedReviewSize)
+                    }
+                }
+                SettingsCard {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Saved Files").font(.headline)
+                            Text("Saved catalog records, ratings and analysis results.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(ByteCountFormatStyle(style: .memory).format(Int64(savedFilesSize)))
+                            .monospacedDigit()
+                        Button("Delete Saved Files", role: .destructive) {
+                            showDeleteSavedFiles = true
+                        }
+                        .disabled(viewModel.isCreatingThumbnails || isDeletingSavedFiles
+                            || viewModel.cullingModel.persistenceError != nil)
+                    }
                 }
             }
         }
-        .confirmationDialog(
-            "Clear \(cachePendingPurge?.title ?? "Cache")?",
-            isPresented: $showPurgeConfirmation,
-        ) {
-            if let cachePendingPurge {
-                Button("Clear", role: .destructive) {
-                    purge(cachePendingPurge)
+        .alert("Delete Saved Files?", isPresented: $showDeleteSavedFiles) {
+            Button("Delete Saved Files", role: .destructive) {
+                isDeletingSavedFiles = true
+                viewModel.clearAllCullingState()
+                Task {
+                    _ = await viewModel.cullingModel.flushPersistence()
+                    savedFilesSize = await WriteSavedFilesJSON.diskUsage()
+                    isDeletingSavedFiles = false
                 }
             }
-            Button("Cancel", role: .cancel) {
-                cachePendingPurge = nil
-            }
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text(cachePendingPurge?.confirmationMessage ?? "The cache will be rebuilt as needed.")
+            Text("All saved catalog records, ratings and analysis results will be deleted. Original photos will be kept.")
+        }
+        .confirmationDialog("Delete Cache?", isPresented: $showPurgeConfirmation) {
+            Button("Delete Cache", role: .destructive) { purge() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All memory caches, cached thumbnails and previews, similarity artifacts, burst analysis results, and saved Combined Reviews (including masks, retained input images and review history) will be deleted. Original photos, settings and downloaded AI models will be kept.")
         }
         .alert("Could not clear cache", isPresented: Binding(
             get: { purgeError != nil }, set: {
@@ -138,9 +129,9 @@ struct CacheSettingsTab: View {
             }
         }
         .task {
+            savedFilesSize = await WriteSavedFilesJSON.diskUsage()
             await SharedMemoryCache.shared.refreshConfig()
             refreshMemoryCacheUsage()
-            await memoryModel.updateMemoryStats()
             await refreshDiskCacheUsage()
 
             while !Task.isCancelled {
@@ -150,16 +141,13 @@ struct CacheSettingsTab: View {
                     break
                 }
                 refreshMemoryCacheUsage()
-                await memoryModel.updateMemoryStats()
             }
         }
     }
 
     private func refreshMemoryCacheUsage() {
         currentPreviewCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
-        currentPreviewCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
         currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-        currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
     }
 
     private func refreshDiskCacheUsage() async {
@@ -180,48 +168,25 @@ struct CacheSettingsTab: View {
         currentThumbnailDiskCacheSize = thumbnail
         currentFullSizeJPGCacheSize = fullSizeJPG
         currentSimilarityArtifactCacheSize = similarityArtifacts.size
-        currentSimilarityArtifactCacheCount = similarityArtifacts.entryCount
         currentBurstAnalysisCacheSize = burstAnalysis.size
-        currentBurstAnalysisCacheCount = burstAnalysis.fileCount
         combinedReviewSize = await (try? combinedReviewFeature.store.usage()) ?? 0
         isLoadingDiskCaches = false
     }
 
-    private func purge(_ cache: DiskCacheKind) {
-        cachePendingPurge = nil
-        purgingCache = cache
-
+    private func purge() {
+        isPurging = true
         Task {
-            switch cache {
-            case .all:
-                do {
-                    try await combinedReviewFeature.clearAllReviews()
-                    await SharedMemoryCache.shared.clearCaches()
-                    await PerFileAnalysisArtifactStore.shared.clear()
-                    await BurstAnalysisCache.shared.clear()
-                    refreshMemoryCacheUsage()
-                } catch {
-                    purgeError = error.localizedDescription
-                }
-
-            case .thumbnails:
-                await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
-
-            case .fullSizeJPGs:
-                await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
-
-            case .similarityArtifacts:
+            do {
+                try await combinedReviewFeature.clearAllReviews()
+                await SharedMemoryCache.shared.clearCaches()
                 await PerFileAnalysisArtifactStore.shared.clear()
-
-            case .burstAnalysis:
                 await BurstAnalysisCache.shared.clear()
-
-            case .combinedReviews:
-                do { try await combinedReviewFeature.clearAllReviews() } catch { purgeError = error.localizedDescription }
+                refreshMemoryCacheUsage()
+            } catch {
+                purgeError = error.localizedDescription
             }
-
             await refreshDiskCacheUsage()
-            purgingCache = nil
+            isPurging = false
         }
     }
 
@@ -230,306 +195,20 @@ struct CacheSettingsTab: View {
         return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
     }
 
-    private func formatMegabytes(_ megabytes: Int) -> String {
-        formatBytes(megabytes * 1024 * 1024)
+    private var totalCacheSize: Int {
+        currentPreviewCacheSize + currentGridCacheSize + currentThumbnailDiskCacheSize
+            + currentFullSizeJPGCacheSize + currentSimilarityArtifactCacheSize
+            + currentBurstAnalysisCacheSize + combinedReviewSize
     }
 
-    private func displayPath(_ url: URL) -> String {
-        (url.path as NSString).abbreviatingWithTildeInPath
-    }
-
-    private func freeMemoryBytes() -> UInt64 {
-        let physical = ProcessInfo.processInfo.physicalMemory
-        return memoryModel.usedMemory < physical
-            ? physical - memoryModel.usedMemory
-            : 0
-    }
-}
-
-private enum DiskCacheKind: Hashable, Identifiable {
-    case all
-    case thumbnails
-    case fullSizeJPGs
-    case similarityArtifacts
-    case burstAnalysis
-    case combinedReviews
-
-    var id: Self {
-        self
-    }
-
-    var title: String {
-        switch self {
-        case .all: "All Cache Data"
-        case .thumbnails: "Thumbnail Cache"
-        case .fullSizeJPGs: "Full-size JPG Cache"
-        case .similarityArtifacts: "Similarity Artifact Cache"
-        case .burstAnalysis: "Burst Group Cache"
-        case .combinedReviews: "Combined Reviews"
-        }
-    }
-
-    var confirmationMessage: String {
-        switch self {
-        case .all:
-            "All memory caches, cached thumbnails and previews, similarity artifacts, burst analysis results, and saved Combined Reviews (including masks, retained input images and review history) will be deleted. Original photos, settings and downloaded AI models will be kept. Cache data will be rebuilt as needed."
-
-        case .thumbnails:
-            "Cached thumbnails will be deleted and generated again when needed."
-
-        case .fullSizeJPGs:
-            "Cached full-size previews will be deleted and generated again when needed."
-
-        case .similarityArtifacts:
-            "Saved per-file similarity artifacts will be deleted and indexed again when needed."
-
-        case .burstAnalysis:
-            "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
-
-        case .combinedReviews:
-            "All saved Combined Reviews, analysis results, masks and retained input images will be permanently deleted. Review history will be cleared. Original photos and downloaded AI models will be kept."
-        }
-    }
-}
-
-private struct MemoryCachesSection: View {
-    let previewSize: String
-    let previewLimit: String
-    let previewConfiguredLimit: String
-    let previewCount: Int
-    let gridSize: String
-    let gridLimit: String
-    let gridConfiguredLimit: String
-    let gridCount: Int
-    let freeMemory: String
-
-    var body: some View {
-        SettingsCard {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("In Memory")
-                        .font(.headline)
-                    Text("Temporary image data kept in RAM and discarded when RawCull quits.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Divider()
-
-                MemoryCacheRow(
-                    icon: "photo",
-                    title: "Preview Cache",
-                    size: previewSize,
-                    detail: "\(previewCount) previews · \(previewLimit) current limit · \(previewConfiguredLimit) configured maximum",
-                )
-
-                MemoryCacheRow(
-                    icon: "square.grid.2x2",
-                    title: "Grid Thumbnail Cache",
-                    size: gridSize,
-                    detail: "\(gridCount) thumbnails · \(gridLimit) current limit · \(gridConfiguredLimit) configured maximum",
-                )
-
-                Divider()
-
-                Text("Supported configured limits: \(formatRange(CacheSettingsLimits.memoryMinMB, CacheSettingsLimits.memoryMaxMB)) for previews and \(formatRange(CacheSettingsLimits.gridMinMB, CacheSettingsLimits.gridMaxMB)) for grid thumbnails.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                Text("Free memory: \(freeMemory)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func formatRange(_ lower: Int, _ upper: Int) -> String {
-        let style = ByteCountFormatStyle(style: .memory)
-        let lowerValue = style.format(Int64(lower * 1024 * 1024))
-        let upperValue = style.format(Int64(upper * 1024 * 1024))
-        return "\(lowerValue)–\(upperValue)"
-    }
-}
-
-private struct MemoryCacheRow: View {
-    let icon: String
-    let title: String
-    let size: String
-    let detail: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .frame(width: 18)
+    private func cacheRow(_ title: LocalizedStringKey, size: Int) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(isLoadingDiskCaches ? "Calculating…" : formatBytes(size))
+                .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(title)
-                        .font(.subheadline.weight(.medium))
-                    Spacer()
-                    Text(size)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                }
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .accessibilityElement(children: .combine)
-    }
-}
-
-private struct DiskCachesSection: View {
-    let thumbnailSize: String
-    let thumbnailPath: String
-    let fullSizeJPGSize: String
-    let fullSizeJPGPath: String
-    let similarityArtifactSize: String
-    let similarityArtifactCount: Int
-    let similarityArtifactPath: String
-    let burstAnalysisSize: String
-    let burstAnalysisCount: Int
-    let burstAnalysisPath: String
-    let isLoading: Bool
-    let purgingCache: DiskCacheKind?
-    @Binding var cachePendingPurge: DiskCacheKind?
-    @Binding var showPurgeConfirmation: Bool
-
-    var body: some View {
-        SettingsCard {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("On Disk")
-                        .font(.headline)
-                    Text("Persistent, purgeable cache data. RawCull rebuilds deleted data when it is needed again.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Divider()
-
-                DiskCacheRow(
-                    kind: .thumbnails,
-                    icon: "photo.stack",
-                    size: thumbnailSize,
-                    detail: "JPEG thumbnails",
-                    path: thumbnailPath,
-                    isLoading: isLoading,
-                    isPurging: purgingCache == .thumbnails,
-                    isPurgeInProgress: purgingCache != nil,
-                    cachePendingPurge: $cachePendingPurge,
-                    showPurgeConfirmation: $showPurgeConfirmation,
-                )
-
-                Divider()
-
-                DiskCacheRow(
-                    kind: .fullSizeJPGs,
-                    icon: "photo.on.rectangle.angled",
-                    size: fullSizeJPGSize,
-                    detail: "Full-size JPEG previews",
-                    path: fullSizeJPGPath,
-                    isLoading: isLoading,
-                    isPurging: purgingCache == .fullSizeJPGs,
-                    isPurgeInProgress: purgingCache != nil,
-                    cachePendingPurge: $cachePendingPurge,
-                    showPurgeConfirmation: $showPurgeConfirmation,
-                )
-
-                Divider()
-
-                DiskCacheRow(
-                    kind: .similarityArtifacts,
-                    icon: "point.3.connected.trianglepath.dotted",
-                    size: similarityArtifactSize,
-                    detail: "\(similarityArtifactCount) reusable per-file \(similarityArtifactCount == 1 ? "artifact" : "artifacts")",
-                    path: similarityArtifactPath,
-                    isLoading: isLoading,
-                    isPurging: purgingCache == .similarityArtifacts,
-                    isPurgeInProgress: purgingCache != nil,
-                    cachePendingPurge: $cachePendingPurge,
-                    showPurgeConfirmation: $showPurgeConfirmation,
-                )
-
-                Divider()
-
-                DiskCacheRow(
-                    kind: .burstAnalysis,
-                    icon: "square.stack.3d.up",
-                    size: burstAnalysisSize,
-                    detail: "\(burstAnalysisCount) catalog \(burstAnalysisCount == 1 ? "snapshot" : "snapshots") with burst groups and analysis results",
-                    path: burstAnalysisPath,
-                    isLoading: isLoading,
-                    isPurging: purgingCache == .burstAnalysis,
-                    isPurgeInProgress: purgingCache != nil,
-                    cachePendingPurge: $cachePendingPurge,
-                    showPurgeConfirmation: $showPurgeConfirmation,
-                )
-            }
-        }
-    }
-}
-
-private struct DiskCacheRow: View {
-    let kind: DiskCacheKind
-    let icon: String
-    let size: String
-    let detail: String
-    let path: String
-    let isLoading: Bool
-    let isPurging: Bool
-    let isPurgeInProgress: Bool
-    @Binding var cachePendingPurge: DiskCacheKind?
-    @Binding var showPurgeConfirmation: Bool
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .frame(width: 18)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(kind.title)
-                        .font(.subheadline.weight(.medium))
-                    Spacer()
-                    if isLoading || isPurging {
-                        ProgressView()
-                            .controlSize(.small)
-                            .fixedSize()
-                    } else {
-                        Text(size)
-                            .font(.subheadline.monospacedDigit().weight(.semibold))
-                    }
-                }
-
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text(path)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.tertiary)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button {
-                cachePendingPurge = kind
-                showPurgeConfirmation = true
-            } label: {
-                Image(systemName: "trash")
-                    .frame(width: 22, height: 22)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .disabled(isLoading || isPurgeInProgress)
-            .help("Clear \(kind.title)")
-            .accessibilityLabel("Clear \(kind.title)")
-        }
     }
 }

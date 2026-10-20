@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
-
     @State private var showModelDownloads = false
 
     var body: some View {

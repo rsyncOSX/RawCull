@@ -119,7 +119,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var focusAbortTask: Bool = false
     var focusExtractJPGs: Bool = false
     var focusCopyTaggedFiles: Bool = false
-    var focusShowSavedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGSelectedOnly = true
     var extractJPGDestination: ARWSourceCatalog?
@@ -223,7 +222,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 
-    var showSavedFiles: Bool = false
 
     /// Sheet currently presented from the main window toolbar
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.

@@ -35,6 +35,18 @@ actor WriteSavedFilesJSON {
         }
     }
 
+    static func diskUsage() async -> Int {
+        await shared.storedFileSize()
+    }
+
+    private func storedFileSize() -> Int {
+        let urls = [savePath, savePath.deletingLastPathComponent()
+            .appendingPathComponent("savedfiles.backup.json")]
+        return urls.reduce(0) { total, url in
+            total + ((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
     private init(savedFilesURL: URL? = nil) {
         self.savedFilesURL = savedFilesURL
     }
