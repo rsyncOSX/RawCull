@@ -462,7 +462,7 @@ struct CullingGridView<Header: View>: View {
     /// Builds the thumbnail cell for a file inside a burst group.
     /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
     /// simple enough for Swift's type-checker.
-    private func burstCell(file: FileItem) -> some View {
+    private func burstCell(file: FileItem, groupFiles: [FileItem]) -> some View {
         ImageItemView(
             viewModel: viewModel,
             file: file,
@@ -473,7 +473,8 @@ struct CullingGridView<Header: View>: View {
             ratingDisplay: ratingDisplay(for: file),
             ratingColor: ratingColor(for: file),
             onSelect: { handleToggleSelection(for: file) },
-            onDoubleSelect: { handleDoubleSelect(for: file) },
+            doubleSelectActionName: "Open burst",
+            onDoubleSelect: { viewModel.compareBurstGroup(groupFiles) },
         )
     }
 
@@ -500,7 +501,7 @@ struct CullingGridView<Header: View>: View {
                 // LazyHStack can remain unrealized and collapse the row to its header.
                 HStack(spacing: 12) {
                     ForEach(group.files, id: \.id) { file in
-                        burstCell(file: file)
+                        burstCell(file: file, groupFiles: group.files)
                             .id(file.id)
                     }
                 }
