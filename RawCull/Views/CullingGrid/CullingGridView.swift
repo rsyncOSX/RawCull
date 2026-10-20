@@ -27,6 +27,7 @@ enum GridRatingFilter: Hashable {
 /// Renders a single burst-group section header with the review workflow actions.
 private struct BurstGroupHeaderView: View {
     let groupNumber: Int
+    let groupID: Int
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
     let onReviewed: (Int) -> Void
@@ -34,19 +35,19 @@ private struct BurstGroupHeaderView: View {
     @Bindable var viewModel: RawCullViewModel
 
     private var isReviewed: Bool {
-        analysis?.reviewState == .reviewed
+        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     private var isDeferred: Bool {
-        analysis?.reviewState == .deferred
+        viewModel.burstGroupReviewState(groupID: groupID) == .deferred
     }
 
     var body: some View {
         HStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Burst \(groupNumber.formatted(.number.precision(.integerLength(2))))")
+                Text(groupID == -1 ? "Single Images" : "Burst \(groupNumber.formatted(.number.precision(.integerLength(2))))")
                     .font(.headline)
-                Text("\(files.count) frames")
+                Text(groupID == -1 ? "\(files.count) images" : "\(files.count) frames")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -62,7 +63,7 @@ private struct BurstGroupHeaderView: View {
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
 
-            if let groupID = analysis?.groupID {
+            if groupID == -1 || analysis != nil {
                 Button {
                     onReviewed(groupID)
                 } label: {
@@ -230,12 +231,14 @@ struct CullingGridView<Header: View>: View {
                         .foregroundStyle(.secondary)
                     Text("·")
                         .foregroundStyle(.tertiary)
-                    Text("\(visibleBurstGroups.count) bursts visible")
+                    Text(viewModel.burstReviewQueueFilter == .singleImages ? "1 group visible" : "\(visibleBurstGroups.count) bursts visible")
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
-                    Text("·  pick of burst highlighted")
-                        .font(.callout.monospaced())
-                        .foregroundStyle(.secondary)
+                    if viewModel.burstReviewQueueFilter != .singleImages {
+                        Text("·  pick of burst highlighted")
+                            .font(.callout.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -478,20 +481,10 @@ struct CullingGridView<Header: View>: View {
         let analysis = viewModel.burstAnalysisResult(for: group.id)
 
         return VStack(alignment: .leading, spacing: 0) {
-            if viewModel.burstReviewQueueFilter == .singleImages {
-                HStack(spacing: 10) {
-                    Text("Single Images")
-                        .font(.headline)
-                    Text("\(group.files.count) images")
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            } else if group.files.count > 1 {
+            if group.id == -1 || group.files.count > 1 {
                 BurstGroupHeaderView(
                     groupNumber: number,
+                    groupID: group.id,
                     files: group.files,
                     analysis: analysis,
                     onReviewed: markBurstGroupReviewed,
@@ -564,6 +557,9 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var currentBurstGroupFiles: [FileItem]? {
+        if viewModel.burstReviewQueueFilter == .singleImages {
+            return renderedBurstGroups.first?.files
+        }
         guard let selectedID = viewModel.selectedFileID,
               let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
         else { return nil }

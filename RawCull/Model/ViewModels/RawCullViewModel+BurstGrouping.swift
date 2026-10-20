@@ -318,7 +318,7 @@ extension RawCullViewModel {
     func compareBurstGroup(_ groupFiles: [FileItem]) {
         Logger.process.debugMessageOnly("RawCullViewModel.compareBurstGroup()")
         guard !groupFiles.isEmpty else { return }
-        let groupID = groupID(for: groupFiles)
+        let groupID = burstReviewQueueFilter == .singleImages ? -1 : groupID(for: groupFiles)
         activateBurstGroup(groupID: groupID, groupFiles: groupFiles)
     }
 
@@ -485,7 +485,7 @@ extension RawCullViewModel {
 
     @discardableResult
     func toggleBurstGroupReviewed(groupID: Int) -> Bool {
-        let isActive = burstAnalysisResults[groupID]?.reviewState == .reviewed
+        let isActive = burstGroupReviewState(groupID: groupID) == .reviewed
         setBurstReviewState(isActive ? .none : .reviewed, groupID: groupID)
         return !isActive
     }
@@ -496,7 +496,7 @@ extension RawCullViewModel {
 
     @discardableResult
     func toggleBurstGroupDeferred(groupID: Int) -> Bool {
-        let isActive = burstAnalysisResults[groupID]?.reviewState == .deferred
+        let isActive = burstGroupReviewState(groupID: groupID) == .deferred
         setBurstReviewState(isActive ? .none : .deferred, groupID: groupID)
         return !isActive
     }
@@ -511,6 +511,23 @@ extension RawCullViewModel {
         scores: [UUID: Float],
     ) -> FileItem? {
         files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) })
+    }
+
+    /// The combined Single Images review group has no winner or ranking.
+    /// Its workflow state is persisted on its constituent singleton groups.
+    func burstGroupReviewState(groupID: Int) -> BurstReviewState {
+        guard groupID == -1 else {
+            return burstReviewStates[groupID] ?? burstAnalysisResults[groupID]?.reviewState ?? .none
+        }
+        let groups = burstGroupsInActiveCatalogScope.filter { $0.fileIDs.count == 1 }
+        guard let first = groups.first else { return .none }
+        let state = burstReviewStates[first.id] ?? .none
+        return groups.allSatisfy { (burstReviewStates[$0.id] ?? .none) == state } ? state : .none
+    }
+
+    var singleImageReviewFiles: [FileItem] {
+        let ids = Set(burstGroupsInActiveCatalogScope.filter { $0.fileIDs.count == 1 }.flatMap(\.fileIDs))
+        return activeCatalogFiles.filter { ids.contains($0.id) }
     }
 
     func burstAnalysisResult(for groupID: Int) -> BurstAnalysisResult? {
@@ -679,6 +696,13 @@ extension RawCullViewModel {
         groupID: Int,
         persist: Bool = true,
     ) {
+        if groupID == -1 {
+            for group in burstGroupsInActiveCatalogScope where group.fileIDs.count == 1 {
+                setBurstReviewState(state, groupID: group.id, persist: false)
+            }
+            if persist { persistBurstReviewStates() }
+            return
+        }
         switch state {
         case .none:
             burstReviewStates.removeValue(forKey: groupID)

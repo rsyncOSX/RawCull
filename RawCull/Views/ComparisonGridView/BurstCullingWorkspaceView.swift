@@ -109,7 +109,7 @@ struct BurstCullingWorkspaceView: View {
                 imageStage
                 Divider()
                 BurstWorkspaceFilmstrip(
-                    viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber,
+                    viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
@@ -303,6 +303,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var files: [FileItem] {
+        if groupID == -1 { return viewModel.singleImageReviewFiles }
         guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
             uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
@@ -762,13 +763,13 @@ struct BurstWorkspaceHeader: View {
     }
 
     private var isReviewed: Bool {
-        viewModel.burstAnalysisResult(for: groupID)?.reviewState == .reviewed
+        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     var body: some View {
         HStack(spacing: 16) {
             Spacer()
-            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
+            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
                 .font(.headline.monospaced())
                 .foregroundStyle(.secondary)
             Spacer()
@@ -819,6 +820,7 @@ struct BurstWorkspaceFilmstrip: View {
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
     let burstNumber: Int
+    var isSingleImages = false
     let canNavigatePrevious: Bool
     let canNavigateNext: Bool
     let navigate: (Int) -> Void
@@ -830,12 +832,12 @@ struct BurstWorkspaceFilmstrip: View {
     var body: some View {
         HStack(spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
+                Text(isSingleImages ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
                 Text("\(selectedIndex + 1) / \(files.count)")
             }
             .font(.callout.monospaced())
             .foregroundStyle(.secondary)
-            .frame(width: 76, alignment: .leading)
+            .frame(width: isSingleImages ? 110 : 76, alignment: .leading)
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in
