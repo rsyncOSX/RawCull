@@ -48,6 +48,7 @@ struct CacheSettingsTab: View {
                                 .controlSize(.small)
                         }
                         Text(isLoadingDiskCaches ? "Calculating…" : formatBytes(totalCacheSize))
+                            .font(.caption)
                             .monospacedDigit()
                         Button("Delete Cache", role: .destructive) {
                             showPurgeConfirmation = true
@@ -61,17 +62,11 @@ struct CacheSettingsTab: View {
                 SettingsCard {
                     VStack(spacing: 12) {
                         cacheRow("Preview Cache", size: currentPreviewCacheSize)
-                        Divider()
                         cacheRow("Grid Thumbnail Cache", size: currentGridCacheSize)
-                        Divider()
                         cacheRow("Thumbnail Cache", size: currentThumbnailDiskCacheSize)
-                        Divider()
                         cacheRow("Full-size JPG Cache", size: currentFullSizeJPGCacheSize)
-                        Divider()
                         cacheRow("Similarity Artifact Cache", size: currentSimilarityArtifactCacheSize)
-                        Divider()
                         cacheRow("Burst Group Cache", size: currentBurstAnalysisCacheSize)
-                        Divider()
                         cacheRow("Combined Reviews", size: combinedReviewSize)
                     }
                 }
@@ -87,6 +82,7 @@ struct CacheSettingsTab: View {
                         }
                         Spacer()
                         Text(ByteCountFormatStyle(style: .memory).format(Int64(savedFilesSize)))
+                            .font(.caption)
                             .monospacedDigit()
                         Button("Delete Saved Files", role: .destructive) {
                             showDeleteSavedFiles = true
@@ -226,6 +222,8 @@ struct CacheSettingsTab: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
+        .font(.caption)
+        .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
     }
 }
