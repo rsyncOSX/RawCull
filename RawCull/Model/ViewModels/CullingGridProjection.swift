@@ -54,10 +54,16 @@ extension RawCullViewModel {
             files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,
             scores: sharpnessModel.scores,
         )
-        let groups = cache.visibleBurstGroups.map { group in
-            CullingGridVisibleBurstGroup(id: group.id, files: BurstGroupFileOrderPolicy.orderedFiles(
-                in: group.files, rankedFileIDs: burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
-            ))
+        let groups: [CullingGridVisibleBurstGroup]
+        if burstReviewQueueFilter == .singleImages {
+            let singleFiles = cache.visibleBurstGroups.flatMap(\.files)
+            groups = singleFiles.isEmpty ? [] : [CullingGridVisibleBurstGroup(id: -1, files: singleFiles)]
+        } else {
+            groups = cache.visibleBurstGroups.map { group in
+                CullingGridVisibleBurstGroup(id: group.id, files: BurstGroupFileOrderPolicy.orderedFiles(
+                    in: group.files, rankedFileIDs: burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
+                ))
+            }
         }
         let selectionFiles = key.showsBurstGroups ? groups.flatMap(\.files) : visibleFiles
         let projection = CullingGridProjection(
