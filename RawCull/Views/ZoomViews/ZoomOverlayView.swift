@@ -917,7 +917,6 @@ struct ZoomOverlayControls: View {
         @Bindable var session = session
         VStack(spacing: 8) {
             if session.evaluateRAWExposure {
-                RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlayCGImage)
                 if session.showRAWClippingWarning {
                     Text("Preview warning: red = near white · blue = near black · not a RAW recoverability test")
                         .font(.caption)
@@ -925,6 +924,8 @@ struct ZoomOverlayControls: View {
                         .padding(.vertical, 4)
                         .background(.regularMaterial, in: Capsule())
                 }
+                
+                RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlayCGImage)
             }
             if !session.evaluateRAWExposure {
                 HStack(spacing: 12) {
@@ -961,6 +962,9 @@ struct ZoomOverlayControls: View {
                     .toggleStyle(.button)
                     .disabled(viewModel.selectedFile == nil || session.sourceSelection.rawUnavailable)
                     .help("Inspect highlights and shadows in the current RAW image")
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: Capsule())
                 }
             }
         }
