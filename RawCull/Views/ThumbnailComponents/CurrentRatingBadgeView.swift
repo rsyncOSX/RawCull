@@ -59,3 +59,19 @@ struct CurrentRatingBadgeView: View {
         density == .compact ? 9 : 12
     }
 }
+
+struct ImagePixelDimensionsBadgeView: View {
+    let width: Int
+    let height: Int
+
+    var body: some View {
+        Text(verbatim: "\(width) × \(height) px")
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.secondary.opacity(0.85), in: Capsule())
+            .accessibilityLabel("Image dimensions")
+            .accessibilityValue("\(width) by \(height) pixels")
+    }
+}

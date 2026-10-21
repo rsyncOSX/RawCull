@@ -261,6 +261,10 @@ struct BurstCullingWorkspaceView: View {
 
     private func tagStrip(for file: FileItem) -> some View {
         HStack(spacing: 8) {
+            if let image = imageState?.cgImage {
+                ImagePixelDimensionsBadgeView(width: image.width, height: image.height)
+            }
+
             let rating = RatingDisplay(
                 rating: viewModel.getRating(for: file),
                 isExplicit: viewModel.taggedNamesCache.contains(file.name),

@@ -214,9 +214,9 @@ struct ZoomOverlayView: View {
                     if let selectedFile = viewModel.selectedFile {
                         HStack(spacing: 6) {
                             if let cg = viewModel.zoomOverlayCGImage {
-                                pixelDimensionsBadge(width: cg.width, height: cg.height)
+                                ImagePixelDimensionsBadgeView(width: cg.width, height: cg.height)
                             } else if let ns = viewModel.zoomOverlayNSImage {
-                                pixelDimensionsBadge(width: Int(ns.size.width), height: Int(ns.size.height))
+                                ImagePixelDimensionsBadgeView(width: Int(ns.size.width), height: Int(ns.size.height))
                             }
                             CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
                         }
@@ -751,17 +751,6 @@ struct ZoomOverlayView: View {
     }
 
     // MARK: - Toolbar button
-
-    private func pixelDimensionsBadge(width: Int, height: Int) -> some View {
-        Text(verbatim: "\(width) × \(height) px")
-            .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(Color.secondary.opacity(0.85), in: Capsule())
-            .accessibilityLabel("Image dimensions")
-            .accessibilityValue("\(width) by \(height) pixels")
-    }
 
     private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
