@@ -238,20 +238,22 @@ struct ZoomOverlayView: View {
 
                     Spacer()
 
-                    navigationButton(
-                        previousNavigationIcon,
-                        help: previousNavigationHelp,
-                        isDisabled: !canNavigatePrevious,
-                    ) {
-                        navigateSelection(by: -1)
-                    }
+                    if !session.evaluateRAWExposure {
+                        navigationButton(
+                            previousNavigationIcon,
+                            help: previousNavigationHelp,
+                            isDisabled: !canNavigatePrevious,
+                        ) {
+                            navigateSelection(by: -1)
+                        }
 
-                    navigationButton(
-                        nextNavigationIcon,
-                        help: nextNavigationHelp,
-                        isDisabled: !canNavigateNext,
-                    ) {
-                        navigateSelection(by: 1)
+                        navigationButton(
+                            nextNavigationIcon,
+                            help: nextNavigationHelp,
+                            isDisabled: !canNavigateNext,
+                        ) {
+                            navigateSelection(by: 1)
+                        }
                     }
 
                     toolbarButton("xmark.circle") { dismiss() }
@@ -335,10 +337,14 @@ struct ZoomOverlayView: View {
             reload()
         }
         .onChange(of: session.evaluateRAWExposure) { _, _ in
-            if session.sourceSelection.selected == .developedRAW { reload() }
+            if session.sourceSelection.selected == .developedRAW {
+                reload()
+            }
         }
         .onChange(of: session.committedRAWExposureEV) { _, _ in
-            if session.evaluateRAWExposure, session.sourceSelection.selected == .developedRAW { reload() }
+            if session.evaluateRAWExposure, session.sourceSelection.selected == .developedRAW {
+                reload()
+            }
         }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
@@ -487,6 +493,12 @@ struct ZoomOverlayView: View {
 
     private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
         guard let action else { return .ignored }
+        if session.evaluateRAWExposure {
+            switch action {
+            case .escape, .zoomIn, .zoomOut: break
+            default: return .handled
+            }
+        }
 
         switch action {
         case .navigatePrevious:
@@ -548,6 +560,10 @@ struct ZoomOverlayView: View {
     // MARK: - Dismiss
 
     private func dismiss() {
+        if session.evaluateRAWExposure {
+            session.endRAWExposureInspection()
+            return
+        }
         viewModel.closeZoomOverlay()
         resetToFit()
         session.focusMask = nil
@@ -900,7 +916,7 @@ struct ZoomOverlayControls: View {
     var body: some View {
         @Bindable var session = session
         VStack(spacing: 8) {
-            if session.sourceSelection.selected == .developedRAW {
+            if session.evaluateRAWExposure {
                 RAWExposureInspectionControls(session: session)
                 if session.showRAWClippingWarning {
                     Text("Preview warning: red = near white · blue = near black · not a RAW recoverability test")
@@ -910,28 +926,43 @@ struct ZoomOverlayControls: View {
                         .background(.regularMaterial, in: Capsule())
                 }
             }
-            ImageOverlayControlsView(
-                showFocusMask: $session.viewport.showFocusMask,
-                focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
-                showSubjectOutline: $session.showSubjectOutline,
-                showsSubjectOutlineControl: true,
-                subjectOutlineAvailable: subjectOutlineAvailable,
-                subjectOutlineLoading: session.isLoadingSubjectOutline,
-                hasFocusPoints: hasFocusTarget,
-                showFocusPoints: $session.viewport.showFocusPoints,
-                showShortcutHints: true,
-                showImageSourceToggle: true,
-                useThumbnailSource: useThumbnailSourceBinding,
-                imageSourceSelection: $session.sourceSelection,
-                imageSourceURL: viewModel.selectedFile?.url,
-                scale: session.viewport.scale,
-                canZoomOut: session.viewport.scale > 0.5,
-                canZoomIn: session.viewport.scale < 5.0,
-                canReset: session.viewport.scale != 1.0 || session.viewport.offset != .zero,
-                onZoomOut: onZoomOut,
-                onZoomReset: onZoomReset,
-                onZoomIn: onZoomIn,
-            )
+            if !session.evaluateRAWExposure {
+                HStack(spacing: 12) {
+                    ImageOverlayControlsView(
+                        showFocusMask: $session.viewport.showFocusMask,
+                        focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
+                        showSubjectOutline: $session.showSubjectOutline,
+                        showsSubjectOutlineControl: true,
+                        subjectOutlineAvailable: subjectOutlineAvailable,
+                        subjectOutlineLoading: session.isLoadingSubjectOutline,
+                        hasFocusPoints: hasFocusTarget,
+                        showFocusPoints: $session.viewport.showFocusPoints,
+                        showShortcutHints: true,
+                        showImageSourceToggle: true,
+                        useThumbnailSource: useThumbnailSourceBinding,
+                        imageSourceSelection: $session.sourceSelection,
+                        imageSourceURL: viewModel.selectedFile?.url,
+                        scale: session.viewport.scale,
+                        canZoomOut: session.viewport.scale > 0.5,
+                        canZoomIn: session.viewport.scale < 5.0,
+                        canReset: session.viewport.scale != 1.0 || session.viewport.offset != .zero,
+                        onZoomOut: onZoomOut,
+                        onZoomReset: onZoomReset,
+                        onZoomIn: onZoomIn,
+                    )
+                    Toggle("EV analysis", isOn: Binding(
+                        get: { session.evaluateRAWExposure },
+                        set: {
+                            if $0 {
+                                session.beginRAWExposureInspection()
+                            }
+                        },
+                    ))
+                    .toggleStyle(.button)
+                    .disabled(viewModel.selectedFile == nil || session.sourceSelection.rawUnavailable)
+                    .help("Inspect highlights and shadows in the current RAW image")
+                }
+            }
         }
         .padding(.bottom, 20)
     }
@@ -944,9 +975,7 @@ private struct RAWExposureInspectionControls: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Toggle("Evaluate highlights & shadows", isOn: $session.evaluateRAWExposure)
-                .toggleStyle(.switch)
-                .help("Develop a temporary RAW preview with lifted shadows and compressed highlights. This does not measure sensor clipping.")
+            Text("EV analysis")
             if session.evaluateRAWExposure {
                 Text("Exposure")
                 Slider(value: $draftExposureEV, in: -5...5, step: 0.1) { editing in
@@ -972,6 +1001,10 @@ private struct RAWExposureInspectionControls: View {
             Toggle("Clipping warning", isOn: $session.showRAWClippingWarning)
                 .toggleStyle(.button)
                 .help("Red: near-white preview pixels. Blue: near-black preview pixels. These warnings do not prove RAW detail is unrecoverable.")
+            Button("Close", systemImage: "xmark") {
+                session.endRAWExposureInspection()
+            }
+            .help("Close EV analysis and restore the previous RAW settings")
         }
         .font(.caption)
         .padding(10)
