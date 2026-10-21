@@ -15,6 +15,7 @@ final class ZoomSessionModel {
     var evaluateRAWExposure = false
     var rawExposureEV = 0.0
     var committedRAWExposureEV = 0.0
+    var showRAWClippingWarning = false
     var pendingInitialZoomMode: ZoomOverlayInitialZoomMode?
 
     @ObservationIgnored var rawMessageTask: Task<Void, Never>?

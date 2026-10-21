@@ -138,6 +138,7 @@ enum ZoomPreviewHandler {
         )
     }
 
+    @concurrent
     static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {
         if let cached = await fullSizeCache.load(for: rawURL, variant: .developedRAW) {
             try Task.checkCancellation()
@@ -161,13 +162,17 @@ enum ZoomPreviewHandler {
 /// Serializes expensive inspection renders. Adjusted previews never enter the export/JPEG cache.
 private actor RAWExposurePreviewRenderer {
     static let shared = RAWExposurePreviewRenderer()
-    private let context = CIContext(options: [.workingFormat: CIFormat.RGBAh])
+    // Initialize on this actor's executor, not in the initializer called by the UI.
+    private var context: CIContext?
 
     func render(url: URL, exposureEV: Double) async throws -> CGImage {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
         try Task.checkCancellation()
         return try autoreleasepool {
+            dispatchPrecondition(condition: .notOnQueue(.main))
+            let context = self.context ?? CIContext(options: [.workingFormat: CIFormat.RGBAh])
+            self.context = context
             guard let raw = CIRAWFilter(imageURL: url) else {
                 throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
             }
@@ -191,6 +196,7 @@ private actor RAWExposurePreviewRenderer {
             guard let image = context.createCGImage(
                 inspected, from: inspected.extent, format: .RGBA8,
                 colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                deferred: false,
             ) else {
                 throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
             }

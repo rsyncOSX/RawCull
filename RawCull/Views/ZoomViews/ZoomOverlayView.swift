@@ -130,6 +130,19 @@ struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = ZoomSessionModel()
+    @State private var rawClippingOverlay: CGImage?
+
+    private struct ClippingTaskID: Equatable {
+        let imageID: ObjectIdentifier?
+        let enabled: Bool
+    }
+
+    private var clippingTaskID: ClippingTaskID {
+        ClippingTaskID(
+            imageID: viewModel.zoomOverlayCGImage.map(ObjectIdentifier.init),
+            enabled: session.sourceSelection.selected == .developedRAW && session.showRAWClippingWarning,
+        )
+    }
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
@@ -338,6 +351,13 @@ struct ZoomOverlayView: View {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             await regenerateMaskFromCG()
+        }
+        .task(id: clippingTaskID) {
+            rawClippingOverlay = nil
+            guard clippingTaskID.enabled, let image = viewModel.zoomOverlayCGImage else { return }
+            let overlay = await RAWPreviewClippingOverlay.make(from: image)
+            guard !Task.isCancelled else { return }
+            rawClippingOverlay = overlay
         }
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
@@ -625,6 +645,14 @@ struct ZoomOverlayView: View {
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
 
+            if let rawClippingOverlay {
+                Image(decorative: rawClippingOverlay, scale: 1, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .allowsHitTesting(false)
+            }
+
             if session.viewport.showFocusMask, let mask = session.focusMask {
                 Image(decorative: mask, scale: 1.0, orientation: .up)
                     .resizable()
@@ -874,6 +902,13 @@ struct ZoomOverlayControls: View {
         VStack(spacing: 8) {
             if session.sourceSelection.selected == .developedRAW {
                 RAWExposureInspectionControls(session: session)
+                if session.showRAWClippingWarning {
+                    Text("Preview warning: red = near white · blue = near black · not a RAW recoverability test")
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                }
             }
             ImageOverlayControlsView(
                 showFocusMask: $session.viewport.showFocusMask,
@@ -904,6 +939,8 @@ struct ZoomOverlayControls: View {
 
 private struct RAWExposureInspectionControls: View {
     @Bindable var session: ZoomSessionModel
+    // Dragging changes only this small view. Commit to the render request on release.
+    @State private var draftExposureEV = 0.0
 
     var body: some View {
         HStack(spacing: 12) {
@@ -912,25 +949,72 @@ private struct RAWExposureInspectionControls: View {
                 .help("Develop a temporary RAW preview with lifted shadows and compressed highlights. This does not measure sensor clipping.")
             if session.evaluateRAWExposure {
                 Text("Exposure")
-                Slider(value: $session.rawExposureEV, in: -5...5, step: 0.1) { editing in
-                    if !editing { session.committedRAWExposureEV = session.rawExposureEV }
+                Slider(value: $draftExposureEV, in: -5...5, step: 0.1) { editing in
+                    if !editing {
+                        session.rawExposureEV = draftExposureEV
+                        session.committedRAWExposureEV = draftExposureEV
+                    }
                 }
                 .frame(width: 180)
                 .accessibilityLabel("RAW inspection exposure")
-                .accessibilityValue("\(session.rawExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
+                .accessibilityValue("\(draftExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
                 .help("Adjust RAW exposure from −5 to +5 EV. Release to develop the preview.")
-                Text("\(session.rawExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
+                Text("\(draftExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
                     .monospacedDigit()
                     .frame(width: 65, alignment: .trailing)
                 Button("Reset") {
+                    draftExposureEV = 0
                     session.rawExposureEV = 0
                     session.committedRAWExposureEV = 0
                 }
-                .disabled(session.rawExposureEV == 0)
+                .disabled(draftExposureEV == 0)
             }
+            Toggle("Clipping warning", isOn: $session.showRAWClippingWarning)
+                .toggleStyle(.button)
+                .help("Red: near-white preview pixels. Blue: near-black preview pixels. These warnings do not prove RAW detail is unrecoverable.")
         }
         .font(.caption)
         .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .onAppear { draftExposureEV = session.committedRAWExposureEV }
+        .onChange(of: session.committedRAWExposureEV) { _, value in draftExposureEV = value }
+    }
+}
+
+/// Display clipping only: never presented as a sensor-level recoverability mask.
+nonisolated enum RAWPreviewClippingOverlay {
+    @concurrent
+    static func make(from image: CGImage) async -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        return autoreleasepool {
+            dispatchPrecondition(condition: .notOnQueue(.main))
+            let scale = min(1, 2048.0 / Double(max(image.width, image.height)))
+            let width = max(1, Int(Double(image.width) * scale))
+            let height = max(1, Int(Double(image.height) * scale))
+            guard let context = CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue,
+            ), let data = context.data else { return nil }
+            context.interpolationQuality = .low
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            let pixels = data.assumingMemoryBound(to: UInt8.self)
+            for y in 0..<height {
+                guard !Task.isCancelled else { return nil }
+                for x in 0..<width {
+                    let index = (y * width + x) * 4
+                    let red = pixels[index]
+                    let green = pixels[index + 1]
+                    let blue = pixels[index + 2]
+                    let highlight = min(red, green, blue) >= 254
+                    let shadow = max(red, green, blue) <= 1
+                    pixels[index] = highlight ? 180 : 0
+                    pixels[index + 1] = 0
+                    pixels[index + 2] = shadow ? 180 : 0
+                    pixels[index + 3] = highlight || shadow ? 180 : 0
+                }
+            }
+            return context.makeImage()
+        }
     }
 }
