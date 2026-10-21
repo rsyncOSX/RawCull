@@ -12,6 +12,9 @@ final class ZoomSessionModel {
     var isLoadingSubjectOutline = false
     var sourceSelection = ImageSourceSelectionState()
     var showsDevelopedRAWFailure = false
+    var evaluateRAWExposure = false
+    var rawExposureEV = 0.0
+    var committedRAWExposureEV = 0.0
     var pendingInitialZoomMode: ZoomOverlayInitialZoomMode?
 
     @ObservationIgnored var rawMessageTask: Task<Void, Never>?
@@ -76,6 +79,8 @@ final class ZoomSessionModel {
     }
 
     func resetForSelectedFile(initialZoomMode: ZoomOverlayInitialZoomMode?) {
+        rawExposureEV = 0
+        committedRAWExposureEV = 0
         maskTask?.cancel()
         maskTask = nil
         focusMask = nil

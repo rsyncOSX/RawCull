@@ -321,6 +321,12 @@ struct ZoomOverlayView: View {
             // until analysis for the replacement preview completes.
             reload()
         }
+        .onChange(of: session.evaluateRAWExposure) { _, _ in
+            if session.sourceSelection.selected == .developedRAW { reload() }
+        }
+        .onChange(of: session.committedRAWExposureEV) { _, _ in
+            if session.evaluateRAWExposure, session.sourceSelection.selected == .developedRAW { reload() }
+        }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
             session.resetForSelectedFile(
@@ -360,6 +366,8 @@ struct ZoomOverlayView: View {
             file: file,
             source: session.sourceSelection.selected,
             viewModel: viewModel,
+            evaluateExposure: session.evaluateRAWExposure,
+            exposureEV: session.committedRAWExposureEV,
             onDevelopedRAWFailure: {
                 session.sourceSelection.markDevelopedRAWUnavailable()
                 showRAWFailureMessage()
@@ -864,6 +872,9 @@ struct ZoomOverlayControls: View {
     var body: some View {
         @Bindable var session = session
         VStack(spacing: 8) {
+            if session.sourceSelection.selected == .developedRAW {
+                RAWExposureInspectionControls(session: session)
+            }
             ImageOverlayControlsView(
                 showFocusMask: $session.viewport.showFocusMask,
                 focusMaskAvailable: maskAnalysisImage != nil || session.focusMask != nil,
@@ -888,5 +899,38 @@ struct ZoomOverlayControls: View {
             )
         }
         .padding(.bottom, 20)
+    }
+}
+
+private struct RAWExposureInspectionControls: View {
+    @Bindable var session: ZoomSessionModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Toggle("Evaluate highlights & shadows", isOn: $session.evaluateRAWExposure)
+                .toggleStyle(.switch)
+                .help("Develop a temporary RAW preview with lifted shadows and compressed highlights. This does not measure sensor clipping.")
+            if session.evaluateRAWExposure {
+                Text("Exposure")
+                Slider(value: $session.rawExposureEV, in: -5...5, step: 0.1) { editing in
+                    if !editing { session.committedRAWExposureEV = session.rawExposureEV }
+                }
+                .frame(width: 180)
+                .accessibilityLabel("RAW inspection exposure")
+                .accessibilityValue("\(session.rawExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
+                .help("Adjust RAW exposure from −5 to +5 EV. Release to develop the preview.")
+                Text("\(session.rawExposureEV.formatted(.number.precision(.fractionLength(1)))) EV")
+                    .monospacedDigit()
+                    .frame(width: 65, alignment: .trailing)
+                Button("Reset") {
+                    session.rawExposureEV = 0
+                    session.committedRAWExposureEV = 0
+                }
+                .disabled(session.rawExposureEV == 0)
+            }
+        }
+        .font(.caption)
+        .padding(10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 }
