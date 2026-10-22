@@ -8,7 +8,7 @@ struct ComparisonGridView: View {
 
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session: ComparisonSessionModel
-    @State private var keyMonitor: Any?
+    @State private var keyMonitor = ReviewKeyMonitor()
     @State private var scrollPositionID: FileItem.ID?
     @State private var scrollSettleTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
@@ -292,11 +292,10 @@ struct ComparisonGridView: View {
     }
 
     private func installKeyMonitor() {
-        removeKeyMonitor()
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard canHandleKeyboardShortcut(event: event) else { return event }
+        keyMonitor.install { event in
+            guard canHandleKeyboardShortcut(event: event) else { return .ignored }
 
-            return handleKeyEvent(event) == .handled ? nil : event
+            return handleKeyEvent(event)
         }
     }
 
@@ -308,10 +307,7 @@ struct ComparisonGridView: View {
     }
 
     private func removeKeyMonitor() {
-        if let keyMonitor {
-            NSEvent.removeMonitor(keyMonitor)
-            self.keyMonitor = nil
-        }
+        keyMonitor.remove()
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {

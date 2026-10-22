@@ -11,6 +11,10 @@ struct BurstCullingWorkspaceView: View {
 
     @FocusState private var isFocused: Bool
 
+    private var imageCoordinator: BurstWorkspaceImageCoordinator {
+        BurstWorkspaceImageCoordinator(session: session, viewModel: viewModel)
+    }
+
     private var imageCache: [BurstFrameCacheKey: ComparisonImageState] {
         get { session.imageCache } nonmutating set { session.imageCache = newValue }
     }
@@ -33,10 +37,6 @@ struct BurstCullingWorkspaceView: View {
 
     private var subjectOutlineFileID: FileItem.ID? {
         get { session.subjectOutlineFileID } nonmutating set { session.subjectOutlineFileID = newValue }
-    }
-
-    private var overlayKeyMonitor: Any? {
-        get { session.overlayKeyMonitor } nonmutating set { session.overlayKeyMonitor = newValue }
     }
 
     private var focusConfigurationRevision: Int {
@@ -106,11 +106,11 @@ struct BurstCullingWorkspaceView: View {
             await loadSubjectOutline()
         }
         .task(id: imageLoadKey) {
-            await loadSelectedImageWindow()
+            await imageCoordinator.loadWindow(files: files, selectedFile: selectedFile, selectedIndex: selectedIndex)
         }
         .task(id: focusMaskTaskID) {
             guard viewportState.showFocusMask, let selectedFile else { return }
-            await analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
+            await imageCoordinator.analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
@@ -301,7 +301,7 @@ struct BurstCullingWorkspaceView: View {
 
     private var imageState: ComparisonImageState? {
         guard let selectedFile else { return nil }
-        return imageCache[cacheKey(for: selectedFile, source: sourceSelection.selected)]
+        return imageCache[BurstFrameCacheKey(fileID: selectedFile.id, source: sourceSelection.selected)]
     }
 
     private var metadataImage: NSImage? {
@@ -377,122 +377,28 @@ struct BurstCullingWorkspaceView: View {
         return points.focusPoints
     }
 
-    private func loadSelectedImageWindow() async {
-        guard let selectedFile else {
-            imageCache = [:]
-            return
-        }
 
-        let source = sourceSelection.selected
-        let windowFiles = session.cachedWindowIndices(
-            selectedIndex: selectedIndex,
-            itemCount: files.count,
-        ).map { files[$0] }
-        let retainedKeys = Set(windowFiles.map { cacheKey(for: $0, source: source) })
-        imageCache = imageCache.filter { retainedKeys.contains($0.key) }
 
-        let loadOrder = [selectedFile] + windowFiles.filter { $0.id != selectedFile.id }
-        for file in loadOrder {
-            let loaded = await ensureDecodedImage(
-                for: file,
-                source: source,
-                reportsDevelopedRAWFailure: file.id == selectedFile.id,
-            )
-            guard !Task.isCancelled else { return }
-            if file.id == selectedFile.id, !loaded {
-                return
-            }
-        }
-    }
 
-    private func ensureDecodedImage(
-        for file: FileItem,
-        source: ImagePreviewSource,
-        reportsDevelopedRAWFailure: Bool,
-    ) async -> Bool {
-        let key = cacheKey(for: file, source: source)
-        if let state = imageCache[key], !state.isLoading {
-            return true
-        }
 
-        imageCache[key] = ComparisonImageState(id: file.id, isLoading: true)
 
-        let decodedState: ComparisonImageState
-        switch source {
-        case .thumbnail, .embeddedJPG:
-            decodedState = await ComparisonGridImageCoordinator.loadDecodedState(
-                for: file,
-                useThumbnailSource: source == .thumbnail,
-            )
 
-        case .developedRAW:
-            do {
-                let image = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: file.url)
-                decodedState = ComparisonImageState(id: file.id, cgImage: image)
-            } catch is CancellationError {
-                return false
-            } catch {
-                guard !Task.isCancelled else { return false }
-                imageCache.removeValue(forKey: key)
-                if reportsDevelopedRAWFailure {
-                    sourceSelection.markDevelopedRAWUnavailable()
-                }
-                return false
-            }
-        }
 
-        guard !Task.isCancelled else { return false }
-        imageCache[key] = decodedState
-        return true
-    }
-
-    private func analyzeFocusIfNeeded(
-        for file: FileItem,
-        source: ImagePreviewSource,
-    ) async {
-        let key = cacheKey(for: file, source: source)
-        guard let state = imageCache[key],
-              !state.isLoading,
-              state.cgImage != nil,
-              state.focusMask == nil
-        else { return }
-
-        Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Generating focus mask")
-        let analyzedState = await ComparisonGridImageCoordinator.analyzeFocus(
-            for: file,
-            state: state,
-            viewModel: viewModel,
-        )
-        guard !Task.isCancelled, imageCache[key] != nil else { return }
-        Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Mask returned: \(analyzedState.focusMask != nil)")
-        imageCache[key] = analyzedState
-    }
-
-    private func cacheKey(
-        for file: FileItem,
-        source: ImagePreviewSource,
-    ) -> BurstFrameCacheKey {
-        BurstFrameCacheKey(fileID: file.id, source: source)
-    }
 
     private func installOverlayKeyMonitor() {
-        removeOverlayKeyMonitor()
-        overlayKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        session.keyMonitor.install { event in
             guard !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   let characters = event.characters,
                   ["s", "S", "f", "F"].contains(characters)
-            else { return event }
-            return handleKeyPress(characters) == .handled ? nil : event
+            else { return .ignored }
+            return handleKeyPress(characters)
         }
     }
 
     private func removeOverlayKeyMonitor() {
-        if let overlayKeyMonitor {
-            NSEvent.removeMonitor(overlayKeyMonitor)
-            self.overlayKeyMonitor = nil
-        }
+        session.keyMonitor.remove()
     }
 
     private func loadSubjectOutline() async {

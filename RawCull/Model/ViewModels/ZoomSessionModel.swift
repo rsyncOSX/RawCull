@@ -51,7 +51,7 @@ final class ZoomSessionModel {
 
     @ObservationIgnored var rawMessageTask: Task<Void, Never>?
     @ObservationIgnored var maskTask: Task<Void, Never>?
-    @ObservationIgnored var keyMonitor: Any?
+    @ObservationIgnored let keyMonitor = ReviewKeyMonitor()
 
     var sourcePresentation: ImageReviewSourcePresentation {
         ImageReviewSourcePresentation(
@@ -130,8 +130,7 @@ final class ZoomSessionModel {
         maskTask = nil
         rawMessageTask?.cancel()
         rawMessageTask = nil
-        keyMonitor.map(NSEvent.removeMonitor)
-        keyMonitor = nil
+        keyMonitor.remove()
         focusMask = nil
         subjectOutline = nil
     }

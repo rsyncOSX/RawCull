@@ -55,17 +55,9 @@ struct LoupeMainImageView: View {
 
     @State private var showFocusPoints = false
 
-    // Focus mask state
-    @State private var focusMask: NSImage?
-    @State private var showFocusMask: Bool = false
-    @State private var isGeneratingFocusMask = false
-    @State private var focusMaskSourceURL: URL?
-    @State private var focusMaskPreviewSource: ImagePreviewSource?
-    @State private var maskTask: Task<Void, Never>?
-    @State private var subjectOutline: CGImage?
-    @State private var showSubjectOutline = false
-    @State private var isLoadingSubjectOutline = false
-    @State private var subjectOutlineKeyMonitor: Any?
+    @State private var focusPresentation = LoupeFocusPresentationModel()
+    @State private var outlinePresentation = SubjectOutlinePresentationModel()
+    @State private var subjectOutlineKeyMonitor = ReviewKeyMonitor()
     @FocusState private var isImageFocused: Bool
 
     private var subjectOutlineCandidate: DeepAIReviewCandidate? {
@@ -77,7 +69,7 @@ struct LoupeMainImageView: View {
         ImageReviewSubjectOutlineRequestContext(
             fileID: file?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
-            isPresented: showSubjectOutline,
+            isPresented: outlinePresentation.isPresented,
         )
     }
 
@@ -119,14 +111,14 @@ struct LoupeMainImageView: View {
 
                             // 2️⃣ Focus mask overlay
 
-                            if showFocusMask, let mask = focusMask {
+                            if focusPresentation.isPresented, let mask = focusPresentation.image {
                                 ImageReviewRasterOverlay(image: Image(nsImage: mask), size: geo.size, kind: .focusMap)
                                     .scaleEffect(viewModel.scale)
                                     .offset(viewModel.offset)
                                     .transition(.opacity)
                             }
 
-                            if showSubjectOutline, let subjectOutline {
+                            if outlinePresentation.isPresented, let subjectOutline = outlinePresentation.image {
                                 ImageReviewRasterOverlay(image: Image(decorative: subjectOutline, scale: 1, orientation: .up), size: geo.size, kind: .subjectOutline)
                                     .scaleEffect(viewModel.scale)
                                     .offset(viewModel.offset)
@@ -149,12 +141,12 @@ struct LoupeMainImageView: View {
                                 Spacer()
 
                                 ImageOverlayControlsView(
-                                    showFocusMask: $showFocusMask,
+                                    showFocusMask: $focusPresentation.isPresented,
                                     focusMaskAvailable: currentDisplayedImage != nil,
-                                    showSubjectOutline: $showSubjectOutline,
+                                    showSubjectOutline: $outlinePresentation.isPresented,
                                     showsSubjectOutlineControl: true,
                                     subjectOutlineAvailable: subjectOutlineCandidate != nil,
-                                    subjectOutlineLoading: isLoadingSubjectOutline,
+                                    subjectOutlineLoading: outlinePresentation.isLoading,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
                                     showShortcutHints: true,
@@ -230,55 +222,39 @@ struct LoupeMainImageView: View {
         .onAppear {
             installSubjectOutlineKeyMonitor()
         }
-        .onChange(of: showFocusMask) { _, newValue in
+        .onChange(of: focusPresentation.isPresented) { _, newValue in
             if newValue {
                 generateFocusMaskIfNeeded()
-            } else if isGeneratingFocusMask {
-                maskTask?.cancel()
-                maskTask = nil
-                isGeneratingFocusMask = false
+            } else {
+                focusPresentation.cancel()
             }
         }
         .onChange(of: session.sourceSelection.selected) { _, _ in
             // Preserve the normalized mask while the same photo is redrawn.
-            cancelFocusMaskGeneration()
+            focusPresentation.cancel()
             loadSelectedSourceIfNeeded()
         }
         .onChange(of: session.thumbnailImage) { _, newImage in
             guard newImage != nil,
                   session.sourceSelection.selected == .thumbnail,
-                  showFocusMask else { return }
+                  focusPresentation.isPresented else { return }
             generateFocusMaskIfNeeded()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            maskTask?.cancel()
-            focusMask = nil
-            focusMaskSourceURL = nil
-            focusMaskPreviewSource = nil
-            guard showFocusMask else {
-                isGeneratingFocusMask = false
-                maskTask = nil
-                return
-            }
-            maskTask = Task {
-                isGeneratingFocusMask = true
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !Task.isCancelled else { return }
-                await regenerateMask(for: session.sourceSelection.selected)
-                isGeneratingFocusMask = false
-            }
+            focusPresentation.reset()
+            generateFocusMaskIfNeeded(delay: .milliseconds(400))
         }
         .onChange(of: url) { _, _ in
             installSubjectOutlineKeyMonitor()
             session.resetForNewImage()
-            resetFocusMaskImage()
+            focusPresentation.reset()
+            outlinePresentation.reset()
             loadSelectedSourceIfNeeded()
         }
         .onDisappear {
             removeSubjectOutlineKeyMonitor()
-            maskTask?.cancel()
-            maskTask = nil
-            isGeneratingFocusMask = false
+            focusPresentation.cancel()
+            outlinePresentation.reset()
             session.cancel()
         }
     }
@@ -343,12 +319,12 @@ struct LoupeMainImageView: View {
             return .handled
 
         case .toggleFocusMask:
-            showFocusMask.toggle()
+            focusPresentation.isPresented.toggle()
             return .handled
 
         case .toggleSubjectOutline:
             guard subjectOutlineCandidate != nil else { return .ignored }
-            showSubjectOutline.toggle()
+            outlinePresentation.isPresented.toggle()
             return .handled
 
         case .toggleFocusPoints:
@@ -374,36 +350,32 @@ struct LoupeMainImageView: View {
     /// The thumbnail list can retain focus while the Loupe image is visible.
     /// Match the zoom overlay's shortcut handling without intercepting text entry.
     private func installSubjectOutlineKeyMonitor() {
-        removeSubjectOutlineKeyMonitor()
-        subjectOutlineKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        subjectOutlineKeyMonitor.install { event in
             guard viewModel.mainViewMode == .loupe,
                   !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
-            else { return event }
+            else { return .ignored }
 
-            return handleKeyAction(.toggleSubjectOutline) == .handled ? nil : event
+            return handleKeyAction(.toggleSubjectOutline)
         }
     }
 
     private func removeSubjectOutlineKeyMonitor() {
-        if let subjectOutlineKeyMonitor {
-            NSEvent.removeMonitor(subjectOutlineKeyMonitor)
-            self.subjectOutlineKeyMonitor = nil
-        }
+        subjectOutlineKeyMonitor.remove()
     }
 
     private func loadSelectedSourceIfNeeded() {
         let requestedSource = session.sourceSelection.selected
         guard requestedSource != .thumbnail else {
-            if showFocusMask {
+            if focusPresentation.isPresented {
                 generateFocusMaskIfNeeded()
             }
             return
         }
         if session.hasLoadedImage(for: requestedSource) {
-            if showFocusMask {
+            if focusPresentation.isPresented {
                 generateFocusMaskIfNeeded()
             }
             return
@@ -424,91 +396,37 @@ struct LoupeMainImageView: View {
     }
 
     private func loadSubjectOutline() async {
-        subjectOutline = nil
-        isLoadingSubjectOutline = false
-        guard showSubjectOutline,
-              let file,
-              let candidate = subjectOutlineCandidate
-        else { return }
-
-        isLoadingSubjectOutline = true
-        let mask = await viewModel.deepAIReviewController.mask(
-            for: candidate,
-            in: [file],
-        )
-        guard !Task.isCancelled else {
-            isLoadingSubjectOutline = false
-            return
-        }
-        if let mask {
-            subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
-        }
-        guard !Task.isCancelled else {
-            subjectOutline = nil
-            isLoadingSubjectOutline = false
-            return
-        }
-        isLoadingSubjectOutline = false
-    }
-
-    // MARK: - Regenerate Mask
-
-    private func generateFocusMaskIfNeeded() {
-        let previewSource = session.sourceSelection.selected
-        guard focusMaskSourceURL != url
-            || focusMaskPreviewSource != previewSource
-            || focusMask == nil, currentDisplayedImage != nil, !isGeneratingFocusMask else { return }
-
-        maskTask?.cancel()
-        maskTask = Task {
-            isGeneratingFocusMask = true
-            await regenerateMask(for: previewSource)
-            isGeneratingFocusMask = false
+        let file = file
+        let candidate = subjectOutlineCandidate
+        await outlinePresentation.load {
+            guard let file, let candidate else { return nil }
+            let mask = await viewModel.deepAIReviewController.mask(for: candidate, in: [file])
+            guard !Task.isCancelled, let mask else { return nil }
+            return await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
         }
     }
 
-    private func regenerateMask(for requestedSource: ImagePreviewSource) async {
+    private func generateFocusMaskIfNeeded(delay: Duration? = nil) {
         guard let image = currentDisplayedImage else { return }
-        let config = focusMaskConfig()
-        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
-            from: image,
-            scale: 1.0,
-            configOverride: config,
-            afPoint: file?.afFocusNormalized,
-            iso: file?.exifData?.isoValue ?? 400,
-            aperture: file?.exifData?.apertureValue,
-            evidence: file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence },
-        )
-        guard !Task.isCancelled,
-              session.sourceSelection.selected == requestedSource
-        else { return }
-        await MainActor.run {
-            self.focusMask = mask
-            self.focusMaskSourceURL = url
-            self.focusMaskPreviewSource = requestedSource
+        let file = file
+        var config = viewModel.sharpnessModel.effectiveFocusConfig
+        if let file {
+            config.iso = file.exifData?.isoValue ?? 400
+            config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+        }
+        let model = viewModel.sharpnessModel.focusMaskModel
+        let evidence = file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence }
+        focusPresentation.request(url: url, source: session.sourceSelection.selected, delay: delay) {
+            await model.generateFocusMask(
+                from: image, scale: 1.0, configOverride: config,
+                afPoint: file?.afFocusNormalized,
+                iso: file?.exifData?.isoValue ?? 400,
+                aperture: file?.exifData?.apertureValue,
+                evidence: evidence,
+            )
         }
     }
 
-    private func focusMaskConfig() -> FocusDetectorConfig {
-        guard let file else { return viewModel.sharpnessModel.effectiveFocusConfig }
-        var config = viewModel.sharpnessModel.effectiveFocusConfig
-        config.iso = file.exifData?.isoValue ?? 400
-        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        return config
-    }
-
-    private func resetFocusMaskImage() {
-        cancelFocusMaskGeneration()
-        focusMask = nil
-        focusMaskSourceURL = nil
-        focusMaskPreviewSource = nil
-    }
-
-    private func cancelFocusMaskGeneration() {
-        maskTask?.cancel()
-        maskTask = nil
-        isGeneratingFocusMask = false
-    }
 }
 
 struct LoupeImageContent: View {

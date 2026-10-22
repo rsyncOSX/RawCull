@@ -351,21 +351,17 @@ struct ZoomOverlayView: View {
     }
 
     private func installKeyMonitor() {
-        removeKeyMonitor()
-        session.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        session.keyMonitor.install { event in
             guard viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  keyboardScope.accepts(event) else { return event }
+                  keyboardScope.accepts(event) else { return .ignored }
 
-            return handleKeyEvent(event) == .handled ? nil : event
+            return handleKeyEvent(event)
         }
     }
 
     private func removeKeyMonitor() {
-        if let keyMonitor = session.keyMonitor {
-            NSEvent.removeMonitor(keyMonitor)
-            session.keyMonitor = nil
-        }
+        session.keyMonitor.remove()
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
