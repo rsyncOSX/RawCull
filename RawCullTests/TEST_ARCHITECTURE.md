@@ -254,3 +254,23 @@ hydration. The unchanged selectors now expect 400 unique smoke identifiers.
 Verification: focused semantic search/UI, similarity feature, intelligence runtime,
 artifact migration, and grid projection tests passed. `make test-smoke` passed
 after verifying 400 unique identifiers.
+
+## Combined Review responsibility separation — 2026-10-22
+
+Combined Review keeps one mutable run owner in `CombinedReviewFeature`:
+
+- `CombinedReviewExecution.swift` orchestrates image preparation, planning,
+  inspection, and report synthesis.
+- `CombinedReviewWorkExecution.swift` provides shared work execution, response
+  repair, diagnostics, dependencies, retained inputs, and provenance.
+- `CombinedReviewComparisonExecution.swift` builds comparison prompts and runs selection
+  and pair comparisons.
+
+Manifest transition rules remain in `ReviewRunManifest`; persistence remains in
+`ReviewArtifactStore`. This is a mechanical separation with unchanged method
+bodies, execution ordering, and test identifiers. The smoke baseline remains 400.
+
+Verification: all 18 moved/remaining method declarations and bodies matched the
+pre-extraction source byte-for-byte. Focused feature, diagnostics, run-contract,
+and presentation tests passed. `make test-smoke` passed after verifying 400
+unique identifiers.
