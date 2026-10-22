@@ -61,6 +61,10 @@ struct BurstWorkspaceFilmstrip: View {
                             proxy.scrollTo(newID, anchor: .center)
                         }
                     }
+                    .onChange(of: files.map(\.id)) { _, _ in
+                        guard let selectedID = viewModel.selectedFileID else { return }
+                        proxy.scrollTo(selectedID, anchor: .center)
+                    }
                 }
             }
 

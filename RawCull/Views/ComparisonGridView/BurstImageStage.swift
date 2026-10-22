@@ -99,7 +99,7 @@ struct BurstImageStage: View {
     }
 
     private func tagStrip(for _: FileItem) -> some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             if let image = imageState?.cgImage {
                 ImagePixelDimensionsBadgeView(width: image.width, height: image.height)
             }

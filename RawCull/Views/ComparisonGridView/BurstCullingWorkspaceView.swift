@@ -8,6 +8,8 @@ struct BurstCullingWorkspaceView: View {
     let onCompare: () -> Void
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = BurstWorkspaceSessionModel()
+    @State private var sortByAFPoint = false
+    @State private var isLoadingAFPointScores = false
 
     @FocusState private var isFocused: Bool
 
@@ -85,7 +87,12 @@ struct BurstCullingWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID)
+            BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
+            if isLoadingAFPointScores {
+                ProgressView("Measuring AF-point sharpness…")
+                    .controlSize(.small)
+                    .padding(.bottom, 8)
+            }
             Divider()
 
             VStack(spacing: 0) {
@@ -114,6 +121,7 @@ struct BurstCullingWorkspaceView: View {
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
                 )
+                .id(sortByAFPoint)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -145,6 +153,14 @@ struct BurstCullingWorkspaceView: View {
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
         }
+        .task(id: sortByAFPoint && groupID != -1 ? groupID : nil) {
+            guard sortByAFPoint, groupID != -1 else { return }
+            isLoadingAFPointScores = true
+            defer { isLoadingAFPointScores = false }
+            await viewModel.sharpnessModel.loadMissingAFPointScores(for: files)
+            guard !Task.isCancelled, sortByAFPoint else { return }
+            viewModel.selectedFileID = files.first?.id
+        }
         .task(id: imageLoadKey) {
             await imageCoordinator.loadWindow(files: files, selectedFile: selectedFile, selectedIndex: selectedIndex)
         }
@@ -154,6 +170,9 @@ struct BurstCullingWorkspaceView: View {
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
+        }
+        .onChange(of: sortByAFPoint) { _, _ in
+            viewModel.selectedFileID = files.first?.id
         }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
@@ -171,7 +190,8 @@ struct BurstCullingWorkspaceView: View {
             uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
         )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
-        return rankedIDs.compactMap { filesByID[$0] }
+        let rankedFiles = rankedIDs.compactMap { filesByID[$0] }
+        return sortByAFPoint ? viewModel.sharpnessModel.sortedByAFPointSharpness(rankedFiles) : rankedFiles
     }
 
     private var analysis: BurstAnalysisResult? {

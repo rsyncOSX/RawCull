@@ -331,6 +331,36 @@ final class SharpnessScoringModel {
         await workTask.value
     }
 
+    /// Older burst caches contain blended scores only. Fill missing AF evidence
+    /// without replacing those scores or changing the recommended burst winner.
+    func loadMissingAFPointScores(for files: [FileItem]) async {
+        let pending = files.filter { Self.hasValidAFPoint($0.afFocusNormalized) && afPointScores[$0.id] == nil }
+        guard !pending.isEmpty, !isScoring else { return }
+        let signature = scoringSignature
+        let requests = pending.map { file in
+            RawCullPhotoAnalysisRequest(id: file.id, file: RawCullPhotoAnalysisFile(
+                url: file.url, iso: file.exifData?.isoValue ?? 400,
+                aperture: file.exifData?.apertureValue, normalizedAFPoint: file.afFocusNormalized,
+            ))
+        }
+        let access = RawCullCatalogAccess.shared.retainAccess(for: pending.map(\.url))
+        defer { withExtendedLifetime(access) {} }
+        guard let results = await analysisAdapter.analyzeBatch(
+            requests: requests, configuration: effectiveFocusConfig,
+            maximumPixelSize: effectiveThumbnailMaxPixelSize, source: scoringSource,
+            maximumConcurrentTasks: effectiveMaxConcurrentScoringTasks,
+        ), !Task.isCancelled, signature == scoringSignature else { return }
+        let points = Dictionary(uniqueKeysWithValues: pending.compactMap { file -> (UUID, CGPoint)? in
+            guard let point = file.afFocusNormalized else { return nil }
+            return (file.id, point)
+        })
+        for result in results {
+            if let score = Self.afPointScore(from: result.breakdown, normalizedAFPoint: points[result.id]) {
+                afPointScores[result.id] = score
+            }
+        }
+    }
+
     /// Use the small AF-center region only. Wider regions can contain sharp
     /// backgrounds or nearby feathers while the intended eye is soft. The
     /// adaptive display mask is intentionally not used as a numeric threshold.
