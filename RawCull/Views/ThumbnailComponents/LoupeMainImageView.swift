@@ -120,29 +120,16 @@ struct LoupeMainImageView: View {
                             // 2️⃣ Focus mask overlay
 
                             if showFocusMask, let mask = focusMask {
-                                Image(nsImage: mask)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: geo.size.width, height: geo.size.height)
+                                ImageReviewRasterOverlay(image: Image(nsImage: mask), size: geo.size, kind: .focusMap)
                                     .scaleEffect(viewModel.scale)
                                     .offset(viewModel.offset)
-                                    .blendMode(.screen)
-                                    .opacity(0.95)
-                                    .allowsHitTesting(false)
                                     .transition(.opacity)
                             }
 
                             if showSubjectOutline, let subjectOutline {
-                                Image(decorative: subjectOutline, scale: 1, orientation: .up)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: geo.size.width, height: geo.size.height)
+                                ImageReviewRasterOverlay(image: Image(decorative: subjectOutline, scale: 1, orientation: .up), size: geo.size, kind: .subjectOutline)
                                     .scaleEffect(viewModel.scale)
                                     .offset(viewModel.offset)
-                                    .colorMultiply(.orange)
-                                    .blendMode(.screen)
-                                    .opacity(0.95)
-                                    .allowsHitTesting(false)
                                     .transition(.opacity)
                             }
 

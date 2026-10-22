@@ -555,12 +555,7 @@ struct ZoomOverlayView: View {
             }
 
             if session.viewport.showFocusMask, let mask = session.focusMask {
-                Image(decorative: mask, scale: 1.0, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size.width, height: size.height)
-                    .blendMode(.screen)
-                    .opacity(0.95)
+                ImageReviewRasterOverlay(image: Image(decorative: mask, scale: 1, orientation: .up), size: size)
                     .transition(.opacity)
             }
 
@@ -590,12 +585,7 @@ struct ZoomOverlayView: View {
                 .frame(width: size.width, height: size.height)
 
             if session.viewport.showFocusMask, let mask = session.focusMask {
-                Image(decorative: mask, scale: 1.0, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size.width, height: size.height)
-                    .blendMode(.screen)
-                    .opacity(0.95)
+                ImageReviewRasterOverlay(image: Image(decorative: mask, scale: 1, orientation: .up), size: size)
                     .transition(.opacity)
             }
 
@@ -641,14 +631,7 @@ struct ZoomOverlayView: View {
     }
 
     private func subjectOutlineImage(_ outline: CGImage, in size: CGSize) -> some View {
-        Image(decorative: outline, scale: 1, orientation: .up)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size.width, height: size.height)
-            .colorMultiply(.orange)
-            .blendMode(.screen)
-            .opacity(0.95)
-            .allowsHitTesting(false)
+        ImageReviewRasterOverlay(image: Image(decorative: outline, scale: 1, orientation: .up), size: size, kind: .subjectOutline)
             .transition(.opacity)
     }
 

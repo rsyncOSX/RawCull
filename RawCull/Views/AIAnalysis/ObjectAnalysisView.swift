@@ -310,29 +310,15 @@ private struct ObjectPhotoDetailView: View {
             spatialEvidence = [:]
             image = nil
             guard let result, let file else { return }
-            let loadedImage = await RawParserKitImageLoader.shared.thumbnailCGImage(
-                for: file.url, maxPixelSize: 2048,
+            let loadedImage = await AnalysisPreviewPreparation.loadImage(
+                for: file, maxPixelSize: 2048,
             )
             guard !Task.isCancelled else { return }
             image = loadedImage
             if let image = loadedImage {
-                let point: CGPoint? = if let recorded = file.afFocusNormalized {
-                    recorded
-                } else {
-                    await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
-                }
-                var config = focusConfig
-                config.iso = file.exifData?.isoValue ?? 400
-                config.apertureHint = FocusDetectorConfig.ApertureHint.from(
-                    aperture: file.exifData?.apertureValue,
-                )
-                let generated = await focusMaskModel.generateFocusMaskWithBreakdown(
-                    from: FocusMaskAnalysisResolutionPolicy.prepare(image),
-                    scale: 1.0, configOverride: config, afPoint: point,
-                    iso: file.exifData?.isoValue ?? 400,
-                    aperture: file.exifData?.apertureValue,
-                )
-                guard !Task.isCancelled else { return }
+                guard let focus = await AnalysisPreviewPreparation.prepareFocus(
+                    image: image, file: file, model: focusMaskModel, config: focusConfig,
+                ) else { return }
                 let masks = await feature.cachedMasks(for: result, file: file)
                 var rendered: [String: CGImage] = [:]
                 for (id, mask) in masks {
@@ -340,11 +326,11 @@ private struct ObjectPhotoDetailView: View {
                     rendered[id] = await ObjectMaskOutlineRenderer.outline(from: mask)
                 }
                 if !Task.isCancelled {
-                    autofocusPoint = point
-                    focusMap = generated.mask
+                    autofocusPoint = focus.autofocusPoint
+                    focusMap = focus.mask
                     spatialEvidence = ObjectFocusSpatialMapper.measure(
-                        objectMasks: masks, focusMap: generated.mask,
-                        autofocusPoint: point,
+                        objectMasks: masks, focusMap: focus.mask,
+                        autofocusPoint: focus.autofocusPoint,
                     )
                     outlines = rendered
                 }
@@ -361,24 +347,11 @@ private struct ObjectOverviewImage: View {
     let autofocusPoint: CGPoint?
 
     var body: some View {
-        GeometryReader { geometry in
-            let scale = min(geometry.size.width / CGFloat(image.width),
-                            geometry.size.height / CGFloat(image.height))
-            let drawnWidth = CGFloat(image.width) * scale
-            let drawnHeight = CGFloat(image.height) * scale
-            let originX = (geometry.size.width - drawnWidth) / 2
-            let originY = (geometry.size.height - drawnHeight) / 2
-            Image(decorative: image, scale: 1)
-                .resizable()
-                .frame(width: drawnWidth, height: drawnHeight)
-                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            if let focusMap {
-                Image(decorative: focusMap, scale: 1)
-                    .resizable()
-                    .frame(width: drawnWidth, height: drawnHeight)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                    .accessibilityHidden(true)
-            }
+        AnalysisImageCanvas(image: image, focusMap: focusMap, autofocusPoint: autofocusPoint) { rect in
+            let drawnWidth = rect.width
+            let drawnHeight = rect.height
+            let originX = rect.minX
+            let originY = rect.minY
             ForEach(instances) { object in
                 let box = object.normalizedBoundingBox
                 if let outline = outlines[object.id] {
@@ -387,7 +360,7 @@ private struct ObjectOverviewImage: View {
                         .renderingMode(.template)
                         .foregroundStyle(.yellow)
                         .frame(width: drawnWidth, height: drawnHeight)
-                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                        .position(x: rect.midX, y: rect.midY)
                 }
                 Rectangle()
                     .stroke(.yellow, lineWidth: 2)
@@ -404,15 +377,7 @@ private struct ObjectOverviewImage: View {
                     .position(x: originX + box.minX * drawnWidth + 12,
                               y: originY + (1 - box.maxY) * drawnHeight + 12)
             }
-            if let autofocusPoint {
-                Circle()
-                    .stroke(.cyan, lineWidth: 3)
-                    .frame(width: 20, height: 20)
-                    .background(Circle().fill(.black.opacity(0.35)))
-                    .position(x: originX + autofocusPoint.x * drawnWidth,
-                              y: originY + autofocusPoint.y * drawnHeight)
-                    .accessibilityLabel("Camera autofocus point")
-            }
+
         }
         .accessibilityLabel("Photograph with numbered object regions, focus map, and camera autofocus point when available")
     }

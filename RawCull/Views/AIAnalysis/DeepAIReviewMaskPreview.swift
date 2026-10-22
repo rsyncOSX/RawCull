@@ -75,33 +75,17 @@ struct DeepAIReviewMaskPreview: View {
             focusMap = nil
             autofocusPoint = nil
             guard let file else { return }
-            let loadedImage = await RawParserKitImageLoader.shared.thumbnailCGImage(
-                for: file.url, maxPixelSize: 1200,
+            let loadedImage = await AnalysisPreviewPreparation.loadImage(
+                for: file, maxPixelSize: 1200,
             )
             guard !Task.isCancelled, let loadedImage else { return }
             image = loadedImage
 
-            let point: CGPoint? = if let recorded = file.afFocusNormalized {
-                recorded
-            } else {
-                await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
-            }
-            guard !Task.isCancelled else { return }
-            autofocusPoint = point
-
-            var config = focusConfig
-            config.iso = file.exifData?.isoValue ?? 400
-            config.apertureHint = FocusDetectorConfig.ApertureHint.from(
-                aperture: file.exifData?.apertureValue,
-            )
-            let generated = await focusMaskModel.generateFocusMaskWithBreakdown(
-                from: FocusMaskAnalysisResolutionPolicy.prepare(loadedImage),
-                scale: 1.0, configOverride: config, afPoint: point,
-                iso: file.exifData?.isoValue ?? 400,
-                aperture: file.exifData?.apertureValue,
-            )
-            guard !Task.isCancelled else { return }
-            focusMap = generated.mask
+            guard let focus = await AnalysisPreviewPreparation.prepareFocus(
+                image: loadedImage, file: file, model: focusMaskModel, config: focusConfig,
+            ) else { return }
+            autofocusPoint = focus.autofocusPoint
+            focusMap = focus.mask
         }
         .task(id: loadIdentity) {
             maskOverlay = nil
