@@ -12,11 +12,46 @@ final class ZoomSessionModel {
     var isLoadingSubjectOutline = false
     var sourceSelection = ImageSourceSelectionState()
     var showsDevelopedRAWFailure = false
+    var evaluateRAWExposure = false
+    var rawExposureEV = 0.0
+    var committedRAWExposureEV = 0.0
+    var showRAWClippingWarning = false
+    private struct RAWInspectionSnapshot {
+        let source: ImageSourceSelectionState
+        let exposureEV: Double
+        let committedExposureEV: Double
+        let clippingWarning: Bool
+    }
+
+    private var rawInspectionSnapshot: RAWInspectionSnapshot?
+
+    func beginRAWExposureInspection() {
+        guard !evaluateRAWExposure else { return }
+        rawInspectionSnapshot = RAWInspectionSnapshot(
+            source: sourceSelection,
+            exposureEV: rawExposureEV,
+            committedExposureEV: committedRAWExposureEV,
+            clippingWarning: showRAWClippingWarning,
+        )
+        sourceSelection.select(.developedRAW)
+        evaluateRAWExposure = true
+    }
+
+    func endRAWExposureInspection() {
+        guard let snapshot = rawInspectionSnapshot else { return }
+        evaluateRAWExposure = false
+        sourceSelection = snapshot.source
+        rawExposureEV = snapshot.exposureEV
+        committedRAWExposureEV = snapshot.committedExposureEV
+        showRAWClippingWarning = snapshot.clippingWarning
+        rawInspectionSnapshot = nil
+    }
+
     var pendingInitialZoomMode: ZoomOverlayInitialZoomMode?
 
     @ObservationIgnored var rawMessageTask: Task<Void, Never>?
     @ObservationIgnored var maskTask: Task<Void, Never>?
-    @ObservationIgnored var keyMonitor: Any?
+    @ObservationIgnored let keyMonitor = ReviewKeyMonitor()
 
     var sourcePresentation: ImageReviewSourcePresentation {
         ImageReviewSourcePresentation(
@@ -43,7 +78,8 @@ final class ZoomSessionModel {
         in files: [FileItem],
         using actions: any ImageReviewSelectionActing,
     ) -> Bool {
-        ImageReviewFeaturePolicy.select(
+        guard !evaluateRAWExposure else { return false }
+        return ImageReviewFeaturePolicy.select(
             delta: delta,
             from: currentIndex,
             in: files,
@@ -76,6 +112,9 @@ final class ZoomSessionModel {
     }
 
     func resetForSelectedFile(initialZoomMode: ZoomOverlayInitialZoomMode?) {
+        endRAWExposureInspection()
+        rawExposureEV = 0
+        committedRAWExposureEV = 0
         maskTask?.cancel()
         maskTask = nil
         focusMask = nil
@@ -91,8 +130,7 @@ final class ZoomSessionModel {
         maskTask = nil
         rawMessageTask?.cancel()
         rawMessageTask = nil
-        keyMonitor.map(NSEvent.removeMonitor)
-        keyMonitor = nil
+        keyMonitor.remove()
         focusMask = nil
         subjectOutline = nil
     }

@@ -13,7 +13,7 @@ final class BurstWorkspaceSessionModel {
     var subjectOutlineFileID: FileItem.ID?
     private(set) var focusConfigurationRevision = 0
 
-    @ObservationIgnored var overlayKeyMonitor: Any?
+    @ObservationIgnored let keyMonitor = ReviewKeyMonitor()
 
     func cachedWindowIndices(selectedIndex: Int, itemCount: Int) -> [Int] {
         BurstFrameCachePolicy.indices(around: selectedIndex, itemCount: itemCount)
@@ -71,9 +71,6 @@ final class BurstWorkspaceSessionModel {
     }
 
     func cancel() {
-        if let overlayKeyMonitor {
-            NSEvent.removeMonitor(overlayKeyMonitor)
-            self.overlayKeyMonitor = nil
-        }
+        keyMonitor.remove()
     }
 }

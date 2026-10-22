@@ -257,12 +257,7 @@ struct ComparisonImagePaneView: View {
                     .frame(width: size.width, height: size.height)
 
                 if viewportState.showFocusMask, let focusMask = state.focusMask {
-                    Image(decorative: focusMask, scale: 1.0, orientation: .up)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: size.width, height: size.height)
-                        .blendMode(.screen)
-                        .opacity(0.95)
+                    ImageReviewRasterOverlay(image: Image(decorative: focusMask, scale: 1, orientation: .up), size: size)
                         .transition(.opacity)
                 }
 
@@ -308,14 +303,7 @@ struct ComparisonImagePaneView: View {
     @ViewBuilder
     private func subjectOutlineOverlay(in size: CGSize) -> some View {
         if let subjectOutline {
-            Image(decorative: subjectOutline, scale: 1, orientation: .up)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size.width, height: size.height)
-                .colorMultiply(.orange)
-                .blendMode(.screen)
-                .opacity(0.95)
-                .allowsHitTesting(false)
+            ImageReviewRasterOverlay(image: Image(decorative: subjectOutline, scale: 1, orientation: .up), size: size, kind: .subjectOutline)
         }
     }
 

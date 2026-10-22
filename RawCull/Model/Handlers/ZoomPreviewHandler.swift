@@ -6,6 +6,7 @@
 //
 
 import RawParserKit
+import CoreImage
 import SwiftUI
 
 /// Type to handle JPG/preview extraction and window opening
@@ -24,6 +25,8 @@ enum ZoomPreviewHandler {
         source: ImagePreviewSource = .embeddedJPG,
         thumbnailSizePreview: Int = 1616,
         viewModel: RawCullViewModel,
+        evaluateExposure: Bool = false,
+        exposureEV: Double = 0,
         onDevelopedRAWFailure: @escaping @MainActor () -> Void = {},
     ) -> Task<Void, Never> {
         if source == .thumbnail {
@@ -95,10 +98,17 @@ enum ZoomPreviewHandler {
 
                 case .developedRAW:
                     do {
-                        image = try await loadDevelopedRAWPreview(for: file.url)
+                        if evaluateExposure {
+                            image = try await RAWExposurePreviewRenderer.shared.render(
+                                url: file.url, exposureEV: exposureEV,
+                            )
+                        } else {
+                            image = try await loadDevelopedRAWPreview(for: file.url)
+                        }
                     } catch is CancellationError {
                         return
                     } catch {
+                        guard !Task.isCancelled else { return }
                         await MainActor.run { onDevelopedRAWFailure() }
                         return
                     }
@@ -128,6 +138,7 @@ enum ZoomPreviewHandler {
         )
     }
 
+    @concurrent
     static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {
         if let cached = await fullSizeCache.load(for: rawURL, variant: .developedRAW) {
             try Task.checkCancellation()
@@ -145,5 +156,52 @@ enum ZoomPreviewHandler {
         await fullSizeCache.save(jpegData, for: rawURL, variant: .developedRAW)
         try Task.checkCancellation()
         return image
+    }
+}
+
+/// Serializes expensive inspection renders. Adjusted previews never enter the export/JPEG cache.
+private actor RAWExposurePreviewRenderer {
+    static let shared = RAWExposurePreviewRenderer()
+    // Initialize on this actor's executor, not in the initializer called by the UI.
+    private var context: CIContext?
+
+    func render(url: URL, exposureEV: Double) async throws -> CGImage {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        defer { withExtendedLifetime(access) {} }
+        try Task.checkCancellation()
+        return try autoreleasepool {
+            dispatchPrecondition(condition: .notOnQueue(.main))
+            let context = self.context ?? CIContext(options: [.workingFormat: CIFormat.RGBAh])
+            self.context = context
+            guard let raw = CIRAWFilter(imageURL: url) else {
+                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
+            }
+            if let version = RAW9Support.preferredVersion(in: raw.supportedDecoderVersions) {
+                raw.decoderVersion = version
+            }
+            raw.exposure = Float(exposureEV)
+            raw.boostShadowAmount = 2
+            if #available(macOS 26.0, *), raw.isHighlightRecoverySupported {
+                raw.isHighlightRecoveryEnabled = true
+            }
+            guard let developed = raw.outputImage else {
+                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
+            }
+            // Compress highlights for inspection before the final display conversion.
+            let inspected = developed.applyingFilter("CIHighlightShadowAdjust", parameters: [
+                "inputHighlightAmount": 0.25,
+                "inputShadowAmount": 0.0,
+            ])
+            try Task.checkCancellation()
+            guard let image = context.createCGImage(
+                inspected, from: inspected.extent, format: .RGBA8,
+                colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                deferred: false,
+            ) else {
+                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
+            }
+            try Task.checkCancellation()
+            return image
+        }
     }
 }

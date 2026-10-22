@@ -8,7 +8,7 @@ struct SubjectOutlineControlsView: View {
     var density: ImageOverlayControlDensity = .regular
 
     var body: some View {
-        HStack(spacing: density == .compact ? 5 : 12) {
+        OverlayControlCapsule(density: density, shortcutLabel: shortcutLabel) {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showSubjectOutline.toggle()
@@ -38,18 +38,7 @@ struct SubjectOutlineControlsView: View {
                     : "Run Deep Review for this image to create a subject outline.",
             )
 
-            if let shortcutLabel {
-                Text(shortcutLabel)
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
         }
-        .padding(.horizontal, density == .compact ? 6 : 10)
-        .padding(.vertical, density == .compact ? 5 : 9)
-        .background(.regularMaterial, in: Capsule())
-        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
-        .padding(density == .compact ? 2 : 10)
         .animation(.spring(duration: 0.3), value: showSubjectOutline)
     }
 }
