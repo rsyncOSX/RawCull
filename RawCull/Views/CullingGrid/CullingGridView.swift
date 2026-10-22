@@ -16,162 +16,9 @@ import SwiftUI
 
 // MARK: - Rating filter
 
-enum GridRatingFilter: Hashable {
-    case all
-    case unrated
-    case rating(Int) // -1 = rejected, 0 = keepers, 2–5 = stars
-}
-
 // MARK: - Burst-group section header
 
 /// Renders a single burst-group section header with the review workflow actions.
-private struct BurstGroupHeaderView: View {
-    let groupNumber: Int
-    let groupID: Int
-    let files: [FileItem]
-    let analysis: BurstAnalysisResult?
-    let onReviewed: (Int) -> Void
-    let onDeferred: (Int) -> Void
-    @Bindable var viewModel: RawCullViewModel
-
-    private var isReviewed: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
-    }
-
-    private var isDeferred: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .deferred
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(groupID == -1 ? "Single Images" : "Burst \(groupNumber.formatted(.number.precision(.integerLength(2))))")
-                    .font(.headline)
-                Text(groupID == -1 ? "\(files.count) images" : "\(files.count) frames")
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 12)
-
-            Button {
-                viewModel.compareBurstGroup(files)
-            } label: {
-                Label("Open burst", systemImage: "arrow.right")
-            }
-            .controlSize(.regular)
-            .buttonStyle(.borderedProminent)
-            .help("Open this burst for review")
-
-            if groupID == -1 || analysis != nil {
-                Button {
-                    onReviewed(groupID)
-                } label: {
-                    Label("Mark Reviewed", systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle")
-                }
-                .controlSize(.regular)
-                .buttonStyle(.bordered)
-                .tint(isReviewed ? .green : nil)
-                .help("Mark this burst as reviewed")
-                .accessibilityValue(isReviewed ? "Selected" : "Not selected")
-
-                Button {
-                    onDeferred(groupID)
-                } label: {
-                    Label("Defer", systemImage: isDeferred ? "clock.badge.checkmark.fill" : "clock.arrow.circlepath")
-                }
-                .controlSize(.regular)
-                .buttonStyle(.bordered)
-                .tint(isDeferred ? .orange : nil)
-                .help("Defer this burst for later review")
-                .accessibilityValue(isDeferred ? "Selected" : "Not selected")
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-}
-
-struct BatchBadgeSelectionItem: Identifiable {
-    var id: String {
-        label
-    }
-
-    let label: String
-    let count: Int
-    let color: Color
-}
-
-private struct BatchBadgeSelectionControlsView: View {
-    let items: [BatchBadgeSelectionItem]
-    let selectedCount: Int
-    @Binding var rating: Int
-    let onSelectBadge: (String) -> Void
-    let onApplyRating: () -> Void
-
-    private let ratings: [(value: Int, label: String)] = [
-        (-1, "X"),
-        (0, "P"),
-        (2, "2"),
-        (3, "3"),
-        (4, "4"),
-        (5, "5")
-    ]
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 5) {
-                    ForEach(items, id: \.id) { item in
-                        Button {
-                            onSelectBadge(item.label)
-                        } label: {
-                            Text("\(item.label) \(item.count)")
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                        .tint(item.color)
-                        // swiftformat:disable:next isEmpty
-                        // swiftlint:disable:next empty_count
-                        .disabled(item.count == 0)
-                        .help("Select \(item.count) visible thumbnails tagged \(item.label). Hold Command to add or remove from the current selection.")
-                    }
-                }
-                .padding(.vertical, 1)
-            }
-            .frame(maxWidth: 360)
-
-            Text("\(selectedCount) selected")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-                .frame(minWidth: 72, alignment: .trailing)
-
-            Picker("Rating", selection: $rating) {
-                ForEach(ratings, id: \.value) { option in
-                    Text(option.label).tag(option.value)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.mini)
-            .frame(width: 150)
-            .help("Rating to apply to the selected thumbnails")
-
-            Button("Apply") {
-                onApplyRating()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.mini)
-            .disabled(selectedCount == 0)
-            .help("Apply the selected rating to the selected thumbnails")
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Badge batch selection")
-    }
-}
 
 // MARK: - CullingGridView
 
@@ -217,32 +64,11 @@ struct CullingGridView<Header: View>: View {
             .background(.ultraThinMaterial)
 
             if viewModel.showsBurstGroups {
-                HStack(spacing: 14) {
-                    Button {
-                        viewModel.similarityFeature.burstModeActive = false
-                    } label: {
-                        Label("Burst Groups", systemImage: "chevron.left")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-
-                    Text(reviewQueueTitle)
-                        .font(.callout.monospaced())
-                        .foregroundStyle(.secondary)
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-                    Text(viewModel.burstReviewQueueFilter == .singleImages ? "1 group visible" : "\(visibleBurstGroups.count) bursts visible")
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    if viewModel.burstReviewQueueFilter != .singleImages {
-                        Text("·  pick of burst highlighted")
-                            .font(.callout.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
+                CullingQueueHeader(
+                    title: reviewQueueTitle, isSingleImages: viewModel.burstReviewQueueFilter == .singleImages,
+                    burstCount: visibleBurstGroups.count,
+                    onBack: { viewModel.similarityFeature.burstModeActive = false },
+                )
             }
 
             ZStack {
@@ -253,7 +79,12 @@ struct CullingGridView<Header: View>: View {
                             if viewModel.showsBurstGroups {
                                 LazyVStack(spacing: 16) {
                                     ForEach(renderedBurstGroups) { group in
-                                        burstGroupCard(group, number: burstNumber(for: group.id))
+                                        CullingBurstGroupCard(
+                                            viewModel: viewModel, group: group, number: burstNumber(for: group.id),
+                                            select: handleToggleSelection(for:),
+                                            markBurstGroupReviewed: markBurstGroupReviewed,
+                                            deferBurstGroup: deferBurstGroup,
+                                        )
                                     }
                                 }
                             } else {
@@ -263,22 +94,11 @@ struct CullingGridView<Header: View>: View {
                                 ) {
                                     // ── Flat mode (default) ───────────────────────────
                                     ForEach(files, id: \.id) { file in
-                                        ImageItemView(
-                                            viewModel: viewModel,
-                                            file: file,
-                                            isSelected: viewModel.selectedFileID == file.id,
-                                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                            thumbnailSize: 200,
-                                            ratingValue: ratingValue(for: file),
-                                            ratingDisplay: ratingDisplay(for: file),
-                                            ratingColor: ratingColor(for: file),
-                                            semanticResultRank: semanticResultRank(
-                                                for: file,
-                                            ),
+                                        CullingGridThumbnail(
+                                            viewModel: viewModel, file: file,
+                                            semanticResultRank: semanticResultRank(for: file),
                                             semanticResultCount: semanticResultCount,
-                                            semanticResultScore: semanticResultScore(
-                                                for: file,
-                                            ),
+                                            semanticResultScore: semanticResultScore(for: file),
                                             onSelect: { handleToggleSelection(for: file) },
                                             onDoubleSelect: { handleDoubleSelect(for: file) },
                                         )
@@ -304,11 +124,13 @@ struct CullingGridView<Header: View>: View {
                         }
                     }
                     .onChange(of: sortScrollState) { _, newState in
-                        guard let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
-                            state: newState,
-                            selectedFileID: viewModel.selectedFileID,
-                            showsBurstGroups: viewModel.showsBurstGroups,
-                        ) else { return }
+                        guard
+                            let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
+                                state: newState,
+                                selectedFileID: viewModel.selectedFileID,
+                                showsBurstGroups: viewModel.showsBurstGroups,
+                            )
+                        else { return }
 
                         // Let LazyVGrid apply the new ordering before locating the selected cell.
                         Task { @MainActor in
@@ -428,10 +250,11 @@ struct CullingGridView<Header: View>: View {
     private func synchronizeSelectionWithRenderedFiles() {
         let renderedIDs = visibleSelectionIDs
         viewModel.cullingGridRenderedFileIDs = renderedIDs
-        applySelectionState(CullingGridSelectionCoordinator.reconcileSelection(
-            selectionState,
-            visibleIDs: renderedIDs,
-        ))
+        applySelectionState(
+            CullingGridSelectionCoordinator.reconcileSelection(
+                selectionState,
+                visibleIDs: renderedIDs,
+            ))
     }
 
     // MARK: - Burst grouping helpers
@@ -457,63 +280,6 @@ struct CullingGridView<Header: View>: View {
 
     private func burstNumber(for groupID: Int) -> Int {
         projection.groupNumbers[groupID] ?? groupID + 1
-    }
-
-    /// Builds the thumbnail cell for a file inside a burst group.
-    /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
-    /// simple enough for Swift's type-checker.
-    private func burstCell(file: FileItem, groupFiles: [FileItem]) -> some View {
-        ImageItemView(
-            viewModel: viewModel,
-            file: file,
-            isSelected: viewModel.selectedFileID == file.id,
-            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-            thumbnailSize: 200,
-            ratingValue: ratingValue(for: file),
-            ratingDisplay: ratingDisplay(for: file),
-            ratingColor: ratingColor(for: file),
-            onSelect: { handleToggleSelection(for: file) },
-            doubleSelectActionName: "Open burst",
-            onDoubleSelect: { viewModel.compareBurstGroup(groupFiles) },
-        )
-    }
-
-    private func burstGroupCard(_ group: CullingGridVisibleBurstGroup, number: Int) -> some View {
-        let analysis = viewModel.burstAnalysisResult(for: group.id)
-
-        return VStack(alignment: .leading, spacing: 0) {
-            if group.id == -1 || group.files.count > 1 {
-                BurstGroupHeaderView(
-                    groupNumber: number,
-                    groupID: group.id,
-                    files: group.files,
-                    analysis: analysis,
-                    onReviewed: markBurstGroupReviewed,
-                    onDeferred: deferBurstGroup,
-                    viewModel: viewModel,
-                )
-            }
-
-            Divider()
-            ScrollView(.horizontal) {
-                // An eager stack gives the horizontal scroll view a stable intrinsic
-                // height while its card is hosted in the outer LazyVStack. A nested
-                // LazyHStack can remain unrealized and collapse the row to its header.
-                HStack(spacing: 12) {
-                    ForEach(group.files, id: \.id) { file in
-                        burstCell(file: file, groupFiles: group.files)
-                            .id(file.id)
-                    }
-                }
-                .padding(16)
-            }
-            .scrollIndicators(.hidden)
-        }
-        .background(.quaternary.opacity(0.45), in: .rect(cornerRadius: 10))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.55), lineWidth: 1)
-        }
     }
 
     private func markBurstGroupReviewed(_ groupID: Int) {
@@ -562,14 +328,14 @@ struct CullingGridView<Header: View>: View {
             return renderedBurstGroups.first?.files
         }
         guard let selectedID = viewModel.selectedFileID,
-              let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
+            let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
         else { return nil }
         return renderedBurstGroups.first { $0.id == groupID }?.files
     }
 
     private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
         guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityFeature.burstGroupLookup[$0.id] }).first,
-              let result = viewModel.burstAnalysisResult(for: groupID)
+            let result = viewModel.burstAnalysisResult(for: groupID)
         else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)
     }
@@ -590,8 +356,8 @@ struct CullingGridView<Header: View>: View {
 
     private var semanticResultCount: Int? {
         guard !viewModel.showsBurstGroups,
-              let summary = semanticSearchFeature.resultSummary,
-              summary.resultCount > 0
+            let summary = semanticSearchFeature.resultSummary,
+            summary.resultCount > 0
         else { return nil }
         return summary.resultCount
     }
@@ -606,25 +372,4 @@ struct CullingGridView<Header: View>: View {
         return semanticSearchFeature.resultEvidence(for: file.id)?.score
     }
 
-    private func ratingValue(for file: FileItem) -> Int {
-        viewModel.getRating(for: file)
-    }
-
-    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        RatingDisplay(
-            rating: ratingValue(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
-    }
-
-    private func ratingColor(for file: FileItem) -> Color? {
-        switch ratingValue(for: file) {
-        case -1: .red
-        case 2: .yellow
-        case 3: .green
-        case 4: .blue
-        case 5: .purple
-        default: nil
-        }
-    }
 }

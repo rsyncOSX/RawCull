@@ -11,32 +11,46 @@ struct BurstCullingWorkspaceView: View {
 
     @FocusState private var isFocused: Bool
 
+    private var keyboardController: BurstKeyboardController {
+        BurstKeyboardController(
+            viewModel: viewModel, session: session, groupID: groupID,
+            selectedFile: selectedFile, hasImage: imageState?.cgImage != nil,
+            navigate: navigate(by:), applyRating: applyRating,
+        )
+    }
+
     private var imageCoordinator: BurstWorkspaceImageCoordinator {
         BurstWorkspaceImageCoordinator(session: session, viewModel: viewModel)
     }
 
     private var imageCache: [BurstFrameCacheKey: ComparisonImageState] {
-        get { session.imageCache } nonmutating set { session.imageCache = newValue }
+        get { session.imageCache }
+        nonmutating set { session.imageCache = newValue }
     }
 
     private var viewportState: ComparisonViewportInteractionState {
-        get { session.viewportState } nonmutating set { session.viewportState = newValue }
+        get { session.viewportState }
+        nonmutating set { session.viewportState = newValue }
     }
 
     private var sourceSelection: ImageSourceSelectionState {
-        get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue }
+        get { session.sourceSelection }
+        nonmutating set { session.sourceSelection = newValue }
     }
 
     private var showSubjectOutline: Bool {
-        get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue }
+        get { session.showSubjectOutline }
+        nonmutating set { session.showSubjectOutline = newValue }
     }
 
     private var subjectOutline: CGImage? {
-        get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue }
+        get { session.subjectOutline }
+        nonmutating set { session.subjectOutline = newValue }
     }
 
     private var subjectOutlineFileID: FileItem.ID? {
-        get { session.subjectOutlineFileID } nonmutating set { session.subjectOutlineFileID = newValue }
+        get { session.subjectOutlineFileID }
+        nonmutating set { session.subjectOutlineFileID = newValue }
     }
 
     private var focusConfigurationRevision: Int {
@@ -75,7 +89,24 @@ struct BurstCullingWorkspaceView: View {
             Divider()
 
             VStack(spacing: 0) {
-                imageStage
+                BurstImageStage(
+                    selectedFile: selectedFile, imageState: imageState,
+                    focusPoints: selectedFile.flatMap(focusPoints(for:)),
+                    viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
+                    useThumbnailSource: thumbnailSourceBinding,
+                    rating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
+                    ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+                    metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
+                    sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
+                    showSubjectOutline: showSubjectOutline, subjectOutlineFileID: subjectOutlineFileID,
+                    subjectOutline: subjectOutline,
+                    isSuggested: selectedFile.map { analysis?.recommendedFileID == $0.id } ?? false,
+                    subjectLabel: selectedFile.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
+                    canNavigatePrevious: navigationDestination(by: -1) != nil,
+                    canNavigateNext: navigationDestination(by: 1) != nil,
+                    navigate: navigate(by:), applyRating: applyRating,
+                    sourceChanged: { sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG) },
+                )
                 Divider()
                 BurstWorkspaceFilmstrip(
                     viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
@@ -96,11 +127,20 @@ struct BurstCullingWorkspaceView: View {
             installOverlayKeyMonitor()
         }
         .onDisappear { session.cancel() }
-        .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
-        .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
-        .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
+        .onKeyPress(.leftArrow) {
+            navigate(by: -1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            navigate(by: 1)
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            viewModel.returnToActiveBurstGroupView()
+            return .handled
+        }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpPnNgG012345tT")) { press in
-            handleKeyPress(press.characters)
+            keyboardController.handle(press.characters)
         }
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
@@ -120,159 +160,6 @@ struct BurstCullingWorkspaceView: View {
             session.resetForGroupChange()
             selectFirstFileIfNeeded()
         }
-    }
-
-    private var shortcutGuide: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 7) {
-                shortcut("P/N", action: "frame")
-                separator
-                shortcut("G", action: "next group")
-                separator
-                shortcut("+/−", action: "zoom")
-                separator
-                shortcut("2–5", action: "rate")
-                separator
-                shortcut("0", action: "pick")
-                separator
-                shortcut("X", action: "reject")
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(.regularMaterial, in: .rect(cornerRadius: 7))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7)
-                    .stroke(.white.opacity(0.12), lineWidth: 1)
-            }
-        }
-        .scrollIndicators(.hidden)
-        .font(.caption.monospaced())
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, 2 through 5 rates, 0 picks, and X rejects")
-    }
-
-    private var imageStage: some View {
-        ZStack {
-            Color.black.opacity(0.2)
-
-            if let selectedFile {
-                ComparisonImagePaneView(
-                    file: selectedFile,
-                    state: imageState,
-                    focusPoints: focusPoints(for: selectedFile),
-                    viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
-                    useThumbnailSource: thumbnailSourceBinding,
-                    isSelected: true,
-                    rating: ratingDisplay(for: selectedFile),
-                    exifSummary: ExifSummary.make(from: selectedFile.exifData),
-                    saliencyLabel: nil,
-                    burstAnalysis: nil,
-                    burstCandidate: nil,
-                    burstRating: viewModel.getRating(for: selectedFile),
-                    sharpnessContext: nil,
-                    onSelect: {},
-                    onRate: applyRating,
-                    onSourceChange: {
-                        sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG)
-                    },
-                    showsChrome: false,
-                    allowsDoubleClickZoom: false,
-                    subjectOutline: showSubjectOutline && subjectOutlineFileID == selectedFile.id
-                        ? subjectOutline : nil,
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 82)
-                .padding(.top, 36)
-                .padding(.bottom, 2)
-            } else {
-                ContentUnavailableView("No burst frame", systemImage: "photo")
-            }
-
-            if let selectedFile {
-                VStack(spacing: 0) {
-                    BurstEvidenceShelf(
-                        file: selectedFile,
-                        image: metadataImage,
-                        rating: ratingDisplay(for: selectedFile),
-                        rank: selectedIndex + 1,
-                        frameCount: files.count,
-                        sharpness: selectedCandidate?.sharpnessComponent,
-                        overallScore: selectedCandidate?.overallScore,
-                        exif: ExifSummary.make(from: selectedFile.exifData),
-                    )
-                    .padding(.top, 12)
-                    Spacer()
-                    shortcutGuide
-                        .padding(.bottom, 12)
-                }
-                .padding(.horizontal, 116)
-                .allowsHitTesting(true)
-            }
-
-            if let selectedFile {
-                tagStrip(for: selectedFile)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(18)
-                    .allowsHitTesting(false)
-            }
-
-            HStack {
-                navigationButton(systemImage: "chevron.left", delta: -1)
-                Spacer()
-                navigationButton(systemImage: "chevron.right", delta: 1)
-            }
-            .padding(.horizontal, 24)
-        }
-        .frame(minHeight: 420)
-    }
-
-    private func tagStrip(for file: FileItem) -> some View {
-        HStack(spacing: 8) {
-            if let image = imageState?.cgImage {
-                ImagePixelDimensionsBadgeView(width: image.width, height: image.height)
-            }
-
-            let rating = RatingDisplay(
-                rating: viewModel.getRating(for: file),
-                isExplicit: viewModel.taggedNamesCache.contains(file.name),
-            )
-            WorkspaceTag(title: rating.label, color: rating.color)
-
-            if analysis?.recommendedFileID == file.id {
-                WorkspaceTag(title: "Suggested", color: .orange)
-            }
-
-            if let subject = viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel {
-                WorkspaceTag(title: subject, color: .cyan)
-            }
-        }
-    }
-
-    private func shortcut(_ key: String, action: LocalizedStringKey) -> some View {
-        HStack(spacing: 4) {
-            Text(key)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-            Text(action)
-        }
-    }
-
-    private var separator: some View {
-        Text("·")
-            .accessibilityHidden(true)
-    }
-
-    private func navigationButton(systemImage: String, delta: Int) -> some View {
-        Button { navigate(by: delta) } label: {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .frame(width: 36, height: 36)
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.circle)
-        .disabled(navigationDestination(by: delta) == nil)
     }
 
     private var files: [FileItem] {
@@ -377,23 +264,15 @@ struct BurstCullingWorkspaceView: View {
         return points.focusPoints
     }
 
-
-
-
-
-
-
-
-
     private func installOverlayKeyMonitor() {
         session.keyMonitor.install { event in
             guard !viewModel.zoomOverlayVisible,
-                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  keyboardScope.accepts(event),
-                  let characters = event.characters,
-                  ["s", "S", "f", "F"].contains(characters)
+                event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                keyboardScope.accepts(event),
+                let characters = event.characters,
+                ["s", "S", "f", "F"].contains(characters)
             else { return .ignored }
-            return handleKeyPress(characters)
+            return keyboardController.handle(characters)
         }
     }
 
@@ -405,84 +284,15 @@ struct BurstCullingWorkspaceView: View {
         subjectOutline = nil
         subjectOutlineFileID = nil
         guard showSubjectOutline,
-              let file = selectedFile,
-              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id), let mask = await viewModel.deepAIReviewController.mask(for: candidate, in: [file]),
-              !Task.isCancelled else { return }
-        let outline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+            let file = selectedFile,
+            let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
+        else { return }
+        let outline = await ImageReviewSubjectOutlineLoader.load(
+            file: file, candidate: candidate, controller: viewModel.deepAIReviewController,
+        )
         guard !Task.isCancelled else { return }
         subjectOutline = outline
         subjectOutlineFileID = file.id
     }
 
-    private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
-        guard let action else { return .ignored }
-
-        switch action {
-        case .navigatePrevious:
-            navigate(by: -1)
-
-        case .navigateNext:
-            navigate(by: 1)
-
-        case .escape:
-            viewModel.returnToActiveBurstGroupView()
-
-        case .zoomIn:
-            withAnimation(.spring()) {
-                viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: viewportState.scale)
-                viewportState.lastScale = viewportState.scale
-            }
-
-        case .zoomOut:
-            withAnimation(.spring()) {
-                viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: viewportState.scale)
-                viewportState.lastScale = viewportState.scale
-            }
-
-        case .toggleEmbeddedJPG:
-            sourceSelection.toggleExtractionSource(.embeddedJPG)
-
-        case .toggleDevelopedRAW:
-            sourceSelection.toggleExtractionSource(.developedRAW)
-
-        case .toggleFocusMask:
-            viewportState.showFocusMask.toggle()
-            Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Toggle focus: \(viewportState.showFocusMask), image: \(imageState?.cgImage != nil)")
-
-        case .toggleSubjectOutline:
-            guard let selectedFile,
-                  viewModel.deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
-            else { return .ignored }
-            showSubjectOutline.toggle()
-
-        case .toggleFocusPoints:
-            viewportState.showFocusPoints.toggle()
-
-        case let .rating(rating):
-            applyRating(rating)
-        }
-        return .handled
-    }
-
-    private func handleKeyPress(_ characters: String) -> KeyPress.Result {
-        if let action = BurstReviewKeyAction.resolve(characters: characters) {
-            switch action {
-            case .previousImage:
-                navigate(by: -1)
-
-            case .nextImage:
-                navigate(by: 1)
-
-            case .nextGroup:
-                viewModel.advanceToNextBurstGroup(after: groupID)
-            }
-            return .handled
-        }
-
-        return handleKeyAction(ZoomOverlayKeyAction.resolve(
-            characters: characters,
-            keyCode: 0,
-            navigationAxis: .horizontal,
-        ))
-    }
 }

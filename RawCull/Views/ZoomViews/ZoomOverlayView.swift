@@ -71,6 +71,22 @@ struct ZoomOverlayView: View {
         )
     }
 
+    private var navigation: ZoomNavigationPresentation {
+        ZoomNavigationPresentation(viewModel: viewModel)
+    }
+
+    private var keyboardController: ZoomKeyboardController {
+        ZoomKeyboardController(
+            session: session, hasSubjectOutline: subjectOutlineCandidate != nil,
+            navigate: navigateSelection(by:), dismiss: dismiss,
+            increaseZoom: increaseZoom, decreaseZoom: decreaseZoom, applyRating: applyRating,
+        )
+    }
+
+    private var analysisCoordinator: ZoomOverlayAnalysisCoordinator {
+        ZoomOverlayAnalysisCoordinator(viewModel: viewModel, session: session)
+    }
+
     private var sourcePresentation: ImageReviewSourcePresentation {
         session.sourcePresentation
     }
@@ -79,70 +95,33 @@ struct ZoomOverlayView: View {
         ZStack {
             Color.black.opacity(0.97).ignoresSafeArea()
 
-            GeometryReader { geo in
-                ZStack {
-                    if let cg = viewModel.zoomOverlayCGImage {
-                        zoomableCGImage(cg, in: geo.size)
-                    } else if let ns = viewModel.zoomOverlayNSImage {
-                        zoomableNSImage(ns, in: geo.size)
-                    } else {
-                        HStack {
-                            ProgressView().fixedSize()
-                            Text("Extracting image…").font(.title)
-                        }
-                        .padding()
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    focusPoint()
-
-                    if let failure = sourcePresentation.failure {
-                        Text(failure.message)
-                            .font(.title2.weight(.semibold))
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(.regularMaterial, in: Capsule())
-                            .transition(.opacity)
-                    }
-                }
+            ZoomImageCanvas(
+                cgImage: viewModel.zoomOverlayCGImage, nsImage: viewModel.zoomOverlayNSImage,
+                focusMask: session.focusMask, subjectOutline: session.subjectOutline,
+                clippingOverlay: rawClippingOverlay, showsSubjectOutline: session.showSubjectOutline,
+                focusTarget: focusTarget, viewport: $session.viewport,
+                imageReady: applyPendingInitialZoomIfNeeded,
+                resetToFit: resetToFit, zoomToTarget: zoomToTarget,
+            )
+            if let failure = sourcePresentation.failure {
+                Text(failure.message)
+                    .font(.title2.weight(.semibold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .transition(.opacity)
             }
 
             VStack {
-                HStack {
-                    if let selectedFile = viewModel.selectedFile {
-                        HStack(spacing: 6) {
-                            if let cg = viewModel.zoomOverlayCGImage {
-                                ImagePixelDimensionsBadgeView(width: cg.width, height: cg.height)
-                            } else if let ns = viewModel.zoomOverlayNSImage {
-                                ImagePixelDimensionsBadgeView(width: Int(ns.size.width), height: Int(ns.size.height))
-                            }
-                            CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
-                        }
-                        .padding()
-                    }
-
-                    Spacer()
-
-                    if !session.evaluateRAWExposure {
-                        navigationButton(
-                            previousNavigationIcon,
-                            help: previousNavigationHelp,
-                            isDisabled: !canNavigatePrevious,
-                        ) {
-                            navigateSelection(by: -1)
-                        }
-
-                        navigationButton(
-                            nextNavigationIcon,
-                            help: nextNavigationHelp,
-                            isDisabled: !canNavigateNext,
-                        ) {
-                            navigateSelection(by: 1)
-                        }
-                    }
-
-                    toolbarButton("xmark.circle") { dismiss() }
-                }
+                ZoomOverlayChrome(
+                    dimensions: viewModel.zoomOverlayCGImage.map { CGSize(width: $0.width, height: $0.height) }
+                        ?? viewModel.zoomOverlayNSImage?.size,
+                    rating: viewModel.selectedFile.map(ratingDisplay(for:)),
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    isInspectingExposure: session.evaluateRAWExposure,
+                    canNavigatePrevious: navigation.canNavigatePrevious, canNavigateNext: navigation.canNavigateNext,
+                    navigate: navigateSelection(by:), dismiss: dismiss,
+                )
 
                 Spacer()
 
@@ -165,43 +144,48 @@ struct ZoomOverlayView: View {
         .focused($isImageFocused)
         .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) {
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: nil,
-                keyCode: 123,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            keyboardController.handle(
+                ZoomOverlayKeyAction.resolve(
+                    characters: nil,
+                    keyCode: 123,
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                ))
         }
         .onKeyPress(.rightArrow) {
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: nil,
-                keyCode: 124,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            keyboardController.handle(
+                ZoomOverlayKeyAction.resolve(
+                    characters: nil,
+                    keyCode: 124,
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                ))
         }
         .onKeyPress(.upArrow) {
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: nil,
-                keyCode: 126,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            keyboardController.handle(
+                ZoomOverlayKeyAction.resolve(
+                    characters: nil,
+                    keyCode: 126,
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                ))
         }
         .onKeyPress(.downArrow) {
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: nil,
-                keyCode: 125,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            keyboardController.handle(
+                ZoomOverlayKeyAction.resolve(
+                    characters: nil,
+                    keyCode: 125,
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                ))
         }
         .onKeyPress(.escape) {
             dismiss()
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpP012345tT")) { press in
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: press.characters,
-                keyCode: 0,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            keyboardController.handle(
+                ZoomOverlayKeyAction.resolve(
+                    characters: press.characters,
+                    keyCode: 0,
+                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                ))
         }
         .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
@@ -241,7 +225,7 @@ struct ZoomOverlayView: View {
         .task(id: focusMaskTaskID) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            await regenerateMaskFromCG()
+            await analysisCoordinator.regenerateMaskFromCG()
         }
         .task(id: clippingTaskID) {
             rawClippingOverlay = nil
@@ -251,14 +235,14 @@ struct ZoomOverlayView: View {
             rawClippingOverlay = overlay
         }
         .task(id: subjectOutlineTaskID) {
-            await loadSubjectOutline()
+            await analysisCoordinator.loadSubjectOutline()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.maskTask?.cancel()
             session.maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
-                await regenerateMaskFromCG()
+                await analysisCoordinator.regenerateMaskFromCG()
             }
         }
     }
@@ -286,64 +270,12 @@ struct ZoomOverlayView: View {
         )
     }
 
-    private var orderedZoomFiles: [FileItem] {
-        if let context = viewModel.zoomOverlayNavigationContext {
-            let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
-            let contextualFiles = context.orderedFileIDs.compactMap { filesByID[$0] }
-            if !contextualFiles.isEmpty {
-                return contextualFiles
-            }
-        }
-
-        let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
-        let usesAnalysisSortOrder = viewModel.sharpnessModel.sortBySharpness
-            || viewModel.similarityFeature.isSimilaritySortingActive
-        return usesAnalysisSortOrder
-            ? filtered
-            : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-    }
-
-    private var currentZoomIndex: Int? {
-        guard let selectedFile = viewModel.selectedFile else { return nil }
-        return orderedZoomFiles.firstIndex { $0.id == selectedFile.id }
-    }
-
-    private var usesVerticalNavigation: Bool {
-        viewModel.zoomOverlayNavigationAxis == .vertical
-    }
-
-    private var previousNavigationIcon: String {
-        usesVerticalNavigation ? "chevron.up.circle" : "chevron.left.circle"
-    }
-
-    private var nextNavigationIcon: String {
-        usesVerticalNavigation ? "chevron.down.circle" : "chevron.right.circle"
-    }
-
-    private var previousNavigationHelp: String {
-        usesVerticalNavigation ? "Previous image (Up)" : "Previous image"
-    }
-
-    private var nextNavigationHelp: String {
-        usesVerticalNavigation ? "Next image (Down)" : "Next image"
-    }
-
-    private var canNavigatePrevious: Bool {
-        guard let currentZoomIndex else { return false }
-        return currentZoomIndex > 0
-    }
-
-    private var canNavigateNext: Bool {
-        guard let currentZoomIndex else { return false }
-        return currentZoomIndex + 1 < orderedZoomFiles.count
-    }
-
     private func navigateSelection(by delta: Int) {
-        guard let currentZoomIndex else { return }
+        guard let currentZoomIndex = navigation.currentZoomIndex else { return }
         if session.navigate(
             by: delta,
             from: currentZoomIndex,
-            in: orderedZoomFiles,
+            in: navigation.orderedZoomFiles,
             using: viewModel,
         ) {
             prepareForNavigatedImage()
@@ -353,8 +285,9 @@ struct ZoomOverlayView: View {
     private func installKeyMonitor() {
         session.keyMonitor.install { event in
             guard viewModel.zoomOverlayVisible,
-                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  keyboardScope.accepts(event) else { return .ignored }
+                event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                keyboardScope.accepts(event)
+            else { return .ignored }
 
             return handleKeyEvent(event)
         }
@@ -365,72 +298,17 @@ struct ZoomOverlayView: View {
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
-        handleKeyAction(ZoomOverlayKeyAction.resolve(
-            characters: event.characters,
-            keyCode: event.keyCode,
-            navigationAxis: viewModel.zoomOverlayNavigationAxis,
-        ))
-    }
-
-    private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
-        guard let action else { return .ignored }
-        if session.evaluateRAWExposure {
-            switch action {
-            case .escape, .zoomIn, .zoomOut: break
-            default: return .handled
-            }
-        }
-
-        switch action {
-        case .navigatePrevious:
-            navigateSelection(by: -1)
-            return .handled
-
-        case .navigateNext:
-            navigateSelection(by: 1)
-            return .handled
-
-        case .escape:
-            dismiss()
-            return .handled
-
-        case .zoomIn:
-            increaseZoom()
-            return .handled
-
-        case .zoomOut:
-            decreaseZoom()
-            return .handled
-
-        case .toggleEmbeddedJPG:
-            session.sourceSelection.toggleExtractionSource(.embeddedJPG)
-            return .handled
-
-        case .toggleDevelopedRAW:
-            session.sourceSelection.toggleExtractionSource(.developedRAW)
-            return .handled
-
-        case .toggleFocusMask:
-            session.viewport.showFocusMask.toggle()
-            return .handled
-
-        case .toggleSubjectOutline:
-            guard subjectOutlineCandidate != nil else { return .ignored }
-            session.showSubjectOutline.toggle()
-            return .handled
-
-        case .toggleFocusPoints:
-            session.viewport.showFocusPoints.toggle()
-            return .handled
-
-        case let .rating(rating):
-            return applyRating(rating)
-        }
+        keyboardController.handle(
+            ZoomOverlayKeyAction.resolve(
+                characters: event.characters,
+                keyCode: event.keyCode,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        session.applyRating(rating, to: selectedFile, in: orderedZoomFiles, using: viewModel)
+        session.applyRating(rating, to: selectedFile, in: navigation.orderedZoomFiles, using: viewModel)
         return .handled
     }
 
@@ -457,179 +335,7 @@ struct ZoomOverlayView: View {
 
     // MARK: - Mask regeneration
 
-    private func regenerateMaskFromCG() async {
-        guard let cg = maskAnalysisImage,
-              let selectedFile = viewModel.selectedFile
-        else { return }
-        let selectedFileID = selectedFile.id
-        let previewSource = session.sourceSelection.selected
-        let config = focusMaskConfig(for: selectedFile)
-        guard !Task.isCancelled,
-              viewModel.selectedFile?.id == selectedFileID,
-              maskAnalysisImage === cg,
-              session.sourceSelection.selected == previewSource
-        else { return }
-        let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-            from: FocusMaskAnalysisResolutionPolicy.prepare(cg),
-            scale: 1.0,
-            configOverride: config,
-            afPoint: selectedFile.afFocusNormalized,
-            iso: selectedFile.exifData?.isoValue ?? 400,
-            aperture: selectedFile.exifData?.apertureValue,
-            scoringSource: previewSource == .developedRAW ? .rawDemosaic : .embeddedPreview,
-        )
-        guard !Task.isCancelled,
-              viewModel.selectedFile?.id == selectedFileID,
-              maskAnalysisImage === cg,
-              session.sourceSelection.selected == previewSource
-        else { return }
-        await MainActor.run {
-            session.focusMask = result.mask
-            if let breakdown = result.breakdown {
-                viewModel.sharpnessModel.breakdowns[selectedFile.id] = breakdown
-            }
-            if let saliency = result.saliency {
-                viewModel.sharpnessModel.saliencyInfo[selectedFile.id] = saliency
-            }
-        }
-    }
-
-    private func focusMaskConfig(for file: FileItem) -> FocusDetectorConfig {
-        var config = viewModel.sharpnessModel.effectiveFocusConfig
-        config.iso = file.exifData?.isoValue ?? 400
-        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        return config
-    }
-
-    private func loadSubjectOutline() async {
-        session.subjectOutline = nil
-        session.isLoadingSubjectOutline = false
-        guard session.showSubjectOutline,
-              let file = viewModel.selectedFile,
-              let candidate = subjectOutlineCandidate
-        else { return }
-
-        session.isLoadingSubjectOutline = true
-        let mask = await viewModel.deepAIReviewController.mask(
-            for: candidate,
-            in: [file],
-        )
-        guard !Task.isCancelled,
-              viewModel.selectedFile?.id == file.id
-        else {
-            session.isLoadingSubjectOutline = false
-            return
-        }
-        if let mask {
-            session.subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
-        }
-        guard !Task.isCancelled,
-              viewModel.selectedFile?.id == file.id
-        else {
-            session.subjectOutline = nil
-            session.isLoadingSubjectOutline = false
-            return
-        }
-        session.isLoadingSubjectOutline = false
-    }
-
     // MARK: - Zoomable images
-
-    private func zoomableCGImage(_ image: CGImage, in size: CGSize) -> some View {
-        ZStack {
-            Image(decorative: image, scale: 1.0, orientation: .up)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size.width, height: size.height)
-
-            if let rawClippingOverlay {
-                Image(decorative: rawClippingOverlay, scale: 1, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size.width, height: size.height)
-                    .allowsHitTesting(false)
-            }
-
-            if session.viewport.showFocusMask, let mask = session.focusMask {
-                ImageReviewRasterOverlay(image: Image(decorative: mask, scale: 1, orientation: .up), size: size)
-                    .transition(.opacity)
-            }
-
-            if session.showSubjectOutline, let outline = session.subjectOutline {
-                subjectOutlineImage(outline, in: size)
-            }
-        }
-        .scaleEffect(session.viewport.scale)
-        .offset(session.viewport.offset)
-        .gesture(zoomPanGesture)
-        .onAppear {
-            applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
-        }
-        .onChange(of: viewModel.zoomOverlayCGImage?.hashValue) { _, _ in
-            applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
-        }
-        .onTapGesture(count: 2) {
-            withAnimation(.spring()) { session.viewport.scale > 1.0 ? resetToFit() : zoomToTarget() }
-        }
-    }
-
-    private func zoomableNSImage(_ image: NSImage, in size: CGSize) -> some View {
-        ZStack {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size.width, height: size.height)
-
-            if session.viewport.showFocusMask, let mask = session.focusMask {
-                ImageReviewRasterOverlay(image: Image(decorative: mask, scale: 1, orientation: .up), size: size)
-                    .transition(.opacity)
-            }
-
-            if session.showSubjectOutline, let outline = session.subjectOutline {
-                subjectOutlineImage(outline, in: size)
-            }
-        }
-        .scaleEffect(session.viewport.scale)
-        .offset(session.viewport.offset)
-        .gesture(zoomPanGesture)
-        .onAppear {
-            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
-        }
-        .onChange(of: viewModel.zoomOverlayNSImage?.hashValue) { _, _ in
-            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
-        }
-        .onTapGesture(count: 2) {
-            withAnimation(.spring()) { session.viewport.scale > 1.0 ? resetToFit() : zoomToTarget() }
-        }
-    }
-
-    private var zoomPanGesture: some Gesture {
-        SimultaneousGesture(
-            MagnificationGesture()
-                .onChanged { session.viewport.scale = session.viewport.lastScale * $0 }
-                .onEnded { _ in
-                    session.viewport.lastScale = session.viewport.scale
-                    if session.viewport.scale < 1.0 {
-                        withAnimation(.spring()) { resetToFit() }
-                    }
-                },
-            DragGesture()
-                .onChanged { value in
-                    if session.viewport.scale > 1.0 {
-                        session.viewport.offset = CGSize(
-                            width: session.viewport.lastOffset.width + value.translation.width,
-                            height: session.viewport.lastOffset.height + value.translation.height,
-                        )
-                    }
-                }
-                .onEnded { _ in session.viewport.lastOffset = session.viewport.offset },
-        )
-    }
-
-    private func subjectOutlineImage(_ outline: CGImage, in size: CGSize) -> some View {
-        ImageReviewRasterOverlay(image: Image(decorative: outline, scale: 1, orientation: .up), size: size, kind: .subjectOutline)
-            .transition(.opacity)
-    }
 
     // MARK: - Focus point overlay
 
@@ -640,74 +346,15 @@ struct ZoomOverlayView: View {
         return viewModel.selectedFile?.afFocusNormalized
     }
 
-    @ViewBuilder
-    private func focusPoint() -> some View {
-        if session.viewport.showFocusPoints, let focusTarget {
-            let imageSize: CGSize? = {
-                if let cg = viewModel.zoomOverlayCGImage {
-                    return CGSize(width: cg.width, height: cg.height)
-                } else if let ns = viewModel.zoomOverlayNSImage {
-                    return ns.size
-                }
-                return nil
-            }()
-            FocusPointMarker(
-                normalizedX: focusTarget.x,
-                normalizedY: focusTarget.y,
-                boxSize: 16,
-                imageSize: imageSize,
-            )
-            .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
-            .scaleEffect(session.viewport.scale)
-            .offset(session.viewport.offset)
-            .allowsHitTesting(false)
-            .transition(.opacity.combined(with: .blurReplace))
-        }
-    }
-
     // MARK: - Toolbar button
-
-    private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(Material.regularMaterial)
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
-        .padding()
-    }
-
-    private func navigationButton(
-        _ icon: String,
-        help: String,
-        isDisabled: Bool,
-        action: @escaping () -> Void,
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(isDisabled ? .white.opacity(0.35) : .white)
-                .frame(width: 30, height: 30)
-                .background(Material.regularMaterial)
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .help(help)
-        .shadow(color: .black.opacity(isDisabled ? 0 : 0.4), radius: 8, x: 0, y: 2)
-        .padding(.vertical)
-        .padding(.trailing, 2)
-    }
 
     // MARK: - Zoom helpers
 
     private func resetToFit() {
-        session.viewport.scale = 1.0; session.viewport.lastScale = 1.0; session.viewport.offset = .zero; session.viewport.lastOffset = .zero
+        session.viewport.scale = 1.0
+        session.viewport.lastScale = 1.0
+        session.viewport.offset = .zero
+        session.viewport.lastOffset = .zero
     }
 
     private func prepareForNavigatedImage() {
@@ -717,7 +364,10 @@ struct ZoomOverlayView: View {
     }
 
     private func zoomToTarget() {
-        session.viewport.scale = zoomLevel; session.viewport.lastScale = zoomLevel; session.viewport.offset = .zero; session.viewport.lastOffset = .zero
+        session.viewport.scale = zoomLevel
+        session.viewport.lastScale = zoomLevel
+        session.viewport.offset = .zero
+        session.viewport.lastOffset = .zero
     }
 
     private func applyPendingInitialZoomIfNeeded(imageSize: CGSize, viewportSize: CGSize) {
@@ -748,5 +398,3 @@ struct ZoomOverlayView: View {
         }
     }
 }
-
-/// Display clipping only: never presented as a sensor-level recoverability mask.

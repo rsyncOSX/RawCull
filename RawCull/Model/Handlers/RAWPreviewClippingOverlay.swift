@@ -2,6 +2,7 @@ import AppKit
 import RawCullCore
 import SwiftUI
 
+/// Display clipping only: never presented as a sensor-level recoverability mask.
 nonisolated enum RAWPreviewClippingOverlay {
     @concurrent
     static func make(from image: CGImage) async -> CGImage? {
@@ -11,11 +12,13 @@ nonisolated enum RAWPreviewClippingOverlay {
             let scale = min(1, 2048.0 / Double(max(image.width, image.height)))
             let width = max(1, Int(Double(image.width) * scale))
             let height = max(1, Int(Double(image.height) * scale))
-            guard let context = CGContext(
-                data: nil, width: width, height: height, bitsPerComponent: 8,
-                bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue,
-            ), let data = context.data else { return nil }
+            guard
+                let context = CGContext(
+                    data: nil, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue,
+                ), let data = context.data
+            else { return nil }
             context.interpolationQuality = .low
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
             let pixels = data.assumingMemoryBound(to: UInt8.self)
