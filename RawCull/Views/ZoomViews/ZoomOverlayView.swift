@@ -960,6 +960,7 @@ struct ZoomOverlayControls: View {
                         },
                     ))
                     .toggleStyle(.button)
+                    .buttonStyle(.plain)
                     .disabled(viewModel.selectedFile == nil || session.sourceSelection.rawUnavailable)
                     .help("Inspect highlights and shadows in the current RAW image")
                     .padding(.horizontal, 10)
@@ -976,6 +977,7 @@ private struct RAWExposureInspectionControls: View {
     @Bindable var session: ZoomSessionModel
     let image: CGImage?
     @State private var showsHistogram = true
+    @State private var controlsWidth: CGFloat = 0
     // Dragging changes only this small view. Commit to the render request on release.
     @State private var draftExposureEV = 0.0
 
@@ -1013,11 +1015,19 @@ private struct RAWExposureInspectionControls: View {
                 }
                 .help("Close EV analysis and restore the previous RAW settings")
             }
+            .fixedSize(horizontal: true, vertical: false)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { width in
+                controlsWidth = width
+            }
             DisclosureGroup("Preview histogram", isExpanded: $showsHistogram) {
                 RAWExposureHistogramView(image: image)
                     .padding(.top, 4)
             }
+            .frame(width: controlsWidth)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .font(.caption)
         .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
