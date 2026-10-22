@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 398 unique smoke identifiers and 2 unique performance
+current baselines are 400 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -235,3 +235,22 @@ smoke identifiers.
 Verification: focused culling, grid projection, burst coordinator, and intelligence
 runtime tests passed. `make test-smoke` passed after verifying all 398 unique
 identifiers.
+
+## Semantic search model ownership — 2026-10-22
+
+`RawCullSemanticSearchModel` owns semantic capability, cached evidence, hydration,
+query execution, and result selection. `SimilarityScoringModel` keeps its existing
+semantic API as forwarding methods and projections. It hands off compatible
+indexing artifacts with replacement semantics and legacy artifacts with
+preserve-existing semantics. Its grid revision combines image and semantic
+revisions. Application admission and selection remain in the semantic feature;
+catalog hydration orchestration remains in the similarity feature.
+
+Two new tests in the already selected `RawCullSemanticSearchTests` suite cover
+artifact handoff semantics, observable forwarding, grid revision changes,
+classification isolation, and configuration replacement during suspended
+hydration. The unchanged selectors now expect 400 unique smoke identifiers.
+
+Verification: focused semantic search/UI, similarity feature, intelligence runtime,
+artifact migration, and grid projection tests passed. `make test-smoke` passed
+after verifying 400 unique identifiers.
