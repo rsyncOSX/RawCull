@@ -184,9 +184,12 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Stable worker boundary for burst cache and compute orchestration.
     @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
 
-    /// Intelligent burst culling analysis state.
-    var burstAnalysisResults: [Int: BurstAnalysisResult] = [:] {
-        didSet { gridContentRevision &+= 1 }
+    /// Stable application session; viewport/image state has a separate owner.
+    let burstReviewSession = BurstReviewSessionModel()
+
+    var burstAnalysisResults: [Int: BurstAnalysisResult] {
+        get { burstReviewSession.results }
+        set { burstReviewSession.results = newValue }
     }
 
     var burstAnalysisProgress: BurstAnalysisProgress {
@@ -197,10 +200,25 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         burstAnalysisCoordinator.generation
     }
 
-    var burstReviewStates: [Int: BurstReviewState] = [:]
-    var burstReviewQueueFilter: BurstReviewQueueFilter = .all
-    var activeBurstComparisonGroupID: Int?
-    var lastBurstUndoEntry: BurstUndoEntry?
+    var burstReviewStates: [Int: BurstReviewState] {
+        get { burstReviewSession.reviewStates }
+        set { burstReviewSession.reviewStates = newValue }
+    }
+
+    var burstReviewQueueFilter: BurstReviewQueueFilter {
+        get { burstReviewSession.queueFilter }
+        set { burstReviewSession.queueFilter = newValue }
+    }
+
+    var activeBurstComparisonGroupID: Int? {
+        get { burstReviewSession.activeComparisonGroupID }
+        set { burstReviewSession.activeComparisonGroupID = newValue }
+    }
+
+    var lastBurstUndoEntry: BurstUndoEntry? {
+        get { burstReviewSession.lastUndoEntry }
+        set { burstReviewSession.lastUndoEntry = newValue }
+    }
     var burstFullReindexRequest: BurstFullReindexRequest?
     var isPreparingBurstCatalog = false
     @ObservationIgnored var burstCatalogPreparationGeneration = 0

@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 396 unique smoke identifiers and 2 unique performance
+current baselines are 398 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -221,3 +221,17 @@ settings and `Package.resolved` without changing either source of truth.
 Verification: the focused release metadata suite and `make test-smoke` passed.
 The smoke gate verified 396 unique identifiers with no duplicates before running
 the selected tests.
+
+## Burst review session ownership — 2026-10-22
+
+`BurstReviewSessionModel` owns application-lifetime review state independently of
+viewport and image presentation. The view model retains rating, navigation, and
+persistence coordination. Two new tests in the already selected
+`CullingGridCoordinatorTests` suite cover observable facade forwarding, result
+revision invalidation, stable session identity across reset, and rating undo
+without reverting workflow state. The unchanged selectors now expect 398 unique
+smoke identifiers.
+
+Verification: focused culling, grid projection, burst coordinator, and intelligence
+runtime tests passed. `make test-smoke` passed after verifying all 398 unique
+identifiers.

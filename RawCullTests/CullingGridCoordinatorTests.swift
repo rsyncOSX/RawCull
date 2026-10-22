@@ -1,4 +1,6 @@
 import Foundation
+import Observation
+import Synchronization
 @testable import RawCull
 import RawCullCore
 import Testing
@@ -73,6 +75,76 @@ private func makeReviewQueueResult(
 @MainActor
 @Suite("CullingGridCoordinator")
 struct CullingGridCoordinatorTests {
+    @Test
+    func `review session mutations reach facade observers and invalidate grid results`() {
+        let model = makeRawCullViewModel()
+        let session = model.burstReviewSession
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.filteredFiles = [first, second]
+        model.mainViewMode = .similarityGrid
+        model.similarityModel.burstModeActive = true
+        model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
+        model.burstAnalysisResults = [1: makeReviewQueueResult(
+            groupID: 1, fileIDs: [first.id, second.id], confidence: .medium,
+        )]
+        model.burstReviewQueueFilter = .needsReview
+        #expect(model.cullingGridProjection(ratingFilter: .all).groups.count == 1)
+        let buildCount = model.gridProjectionBuildCount
+        let changed = Mutex(false)
+        withObservationTracking {
+            _ = model.burstAnalysisResults
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        session.setReviewState(.reviewed, groupID: 1, scopedGroups: model.similarityModel.burstGroups)
+        #expect(changed.withLock { $0 })
+        #expect(model.burstReviewStates[1] == .reviewed)
+        #expect(model.burstAnalysisResults[1]?.reviewState == .reviewed)
+        #expect(model.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
+        #expect(model.gridProjectionBuildCount == buildCount + 1)
+        let revision = session.contentRevision
+        model.burstAnalysisResults[1]?.reviewState = .deferred
+        #expect(session.contentRevision == revision + 1)
+        #expect(session.results[1]?.reviewState == .deferred)
+        model.activeBurstComparisonGroupID = 1
+        model.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [:])
+        model.cancelAndResetBurstAnalysis()
+        #expect(model.burstReviewSession === session)
+        #expect(session.results.isEmpty)
+        #expect(session.reviewStates.isEmpty)
+        #expect(session.queueFilter == .all)
+        #expect(session.activeComparisonGroupID == nil)
+        #expect(session.lastUndoEntry == nil)
+    }
+
+    @Test
+    func `burst undo restores ratings and consumes session entry without reverting review state`() {
+        let model = makeRawCullViewModel()
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.files = [first, second]
+        model.updateRating(for: first, rating: 2)
+        model.updateRating(for: second, rating: 0)
+        model.burstAnalysisResults = [1: makeReviewQueueResult(
+            groupID: 1, fileIDs: [first.id, second.id], confidence: .medium, reviewState: .decisionApplied,
+        )]
+        model.burstReviewStates = [1: .decisionApplied]
+        model.lastBurstUndoEntry = BurstUndoEntry(
+            groupID: 1, previousRatingsByFileName: [first.name: 2, second.name: 0],
+        )
+        model.updateRating(for: first, rating: 3)
+        model.updateRating(for: second, rating: -1)
+        model.undoLastBurstAction()
+        #expect(model.rating(for: first) == 2)
+        #expect(model.rating(for: second) == 0)
+        #expect(model.burstReviewSession.lastUndoEntry == nil)
+        #expect(model.burstAnalysisResults[1]?.reviewState == .decisionApplied)
+        #expect(model.burstReviewStates[1] == .decisionApplied)
+    }
+
     @Test func `thumbnail workspace follows the current catalog across view switches`() {
         let viewModel = makeRawCullViewModel()
         #expect(!viewModel.canShowThumbnailWorkspace)
