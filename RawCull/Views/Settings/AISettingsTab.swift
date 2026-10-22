@@ -205,7 +205,7 @@ private struct AIModelSettingsCard: View {
                     missingMessage: "Qwen vision-language model resources are not installed.",
                     showsLocationAction: false,
                 )
-                
+
                 if RawCullAIModelInclusion.clipModels.count > 1 {
                     Divider()
 

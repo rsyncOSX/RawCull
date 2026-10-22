@@ -45,18 +45,19 @@ struct BurstKeyboardController {
         case .toggleFocusMask:
             session.viewportState.showFocusMask.toggle()
             Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice(
-                "Toggle focus: \(session.viewportState.showFocusMask), image: \(hasImage)")
+                "Toggle focus: \(session.viewportState.showFocusMask), image: \(hasImage)",
+            )
 
         case .toggleSubjectOutline:
             guard let selectedFile,
-                viewModel.deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
+                  viewModel.deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
             else { return .ignored }
             session.showSubjectOutline.toggle()
 
         case .toggleFocusPoints:
             session.viewportState.showFocusPoints.toggle()
 
-        case .rating(let rating):
+        case let .rating(rating):
             applyRating(rating)
         }
         return .handled
@@ -82,6 +83,7 @@ struct BurstKeyboardController {
                 characters: characters,
                 keyCode: 0,
                 navigationAxis: .horizontal,
-            ))
+            ),
+        )
     }
 }

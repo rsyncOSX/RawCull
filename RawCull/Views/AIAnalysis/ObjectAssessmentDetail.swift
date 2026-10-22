@@ -14,7 +14,7 @@ struct ObjectAssessmentDetail: View {
             }
             Text("Expression: unknown; anatomy unverified")
             Text(
-                "Analysis uses a 2048-pixel board of crops from a thumbnail requested at up to 4320 pixels. Preview processing and model input resolution limit detail; RAW recovery is untested."
+                "Analysis uses a 2048-pixel board of crops from a thumbnail requested at up to 4320 pixels. Preview processing and model input resolution limit detail; RAW recovery is untested.",
             )
             .font(.caption).foregroundStyle(.secondary)
             ForEach(object.obstructions, id: \.self) { Text("Obstruction: \($0)") }

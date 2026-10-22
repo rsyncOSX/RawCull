@@ -23,10 +23,12 @@ struct ObjectPhotoAssessmentSection: View {
             }
             AIAnalysisFindingsSection(
                 title: "Strengths", values: assessment.strengths,
-                icon: "checkmark.circle", color: .green)
+                icon: "checkmark.circle", color: .green,
+            )
             AIAnalysisFindingsSection(
                 title: "Issues", values: assessment.problems,
-                icon: "exclamationmark.triangle", color: .orange)
+                icon: "exclamationmark.triangle", color: .orange,
+            )
             if !assessment.preferredObjectIDs.isEmpty {
                 Text("Preferred objects: \(assessment.preferredObjectIDs.joined(separator: ", "))")
             }

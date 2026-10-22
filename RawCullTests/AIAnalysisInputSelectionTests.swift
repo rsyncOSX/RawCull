@@ -6,7 +6,7 @@ import Testing
 @Suite("Analysis input selection")
 struct AIAnalysisInputSelectionTests {
     @Test
-    func preservesGridSelectionOnlyWhenLeavingTheGrid() {
+    func `preserves grid selection only when leaving the grid`() {
         var source = AIAnalysisInputSource.gridSelection
         var preservedSources: [AIAnalysisInputSource] = []
         let binding = AIAnalysisInputSelection.binding(

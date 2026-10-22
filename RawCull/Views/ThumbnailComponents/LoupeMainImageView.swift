@@ -107,8 +107,8 @@ struct LoupeMainImageView: View {
         }
         .onChange(of: session.thumbnailImage) { _, newImage in
             guard newImage != nil,
-                session.sourceSelection.selected == .thumbnail,
-                focusPresentation.isPresented
+                  session.sourceSelection.selected == .thumbnail,
+                  focusPresentation.isPresented
             else { return }
             generateFocusMaskIfNeeded()
         }
@@ -171,10 +171,10 @@ struct LoupeMainImageView: View {
     private func installSubjectOutlineKeyMonitor() {
         subjectOutlineKeyMonitor.install { event in
             guard viewModel.mainViewMode == .loupe,
-                !viewModel.zoomOverlayVisible,
-                event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                keyboardScope.accepts(event),
-                LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
+                  !viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  keyboardScope.accepts(event),
+                  LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
             else { return .ignored }
 
             return keyboardController.handle(.toggleSubjectOutline)
@@ -245,5 +245,4 @@ struct LoupeMainImageView: View {
             )
         }
     }
-
 }

@@ -7,7 +7,7 @@ struct RAWExposureInspectionControls: View {
     let image: CGImage?
     @State private var showsHistogram = true
     @State private var controlsWidth: CGFloat = 0
-    // Dragging changes only this small view. Commit to the render request on release.
+    /// Dragging changes only this small view. Commit to the render request on release.
     @State private var draftExposureEV = 0.0
 
     var body: some View {
@@ -16,7 +16,7 @@ struct RAWExposureInspectionControls: View {
                 Text("EV analysis")
                 if session.evaluateRAWExposure {
                     Text("Exposure")
-                    Slider(value: $draftExposureEV, in: -5...5, step: 0.1) { editing in
+                    Slider(value: $draftExposureEV, in: -5 ... 5, step: 0.1) { editing in
                         if !editing {
                             session.rawExposureEV = draftExposureEV
                             session.committedRAWExposureEV = draftExposureEV

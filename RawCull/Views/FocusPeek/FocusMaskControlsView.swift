@@ -22,7 +22,6 @@ struct FocusMaskControlsView: View {
             .accessibilityLabel("Focus map")
             .accessibilityValue(showFocusMask ? "Shown" : "Hidden")
             .accessibilityHint(focusMaskAvailable ? "Shows or hides likely in-focus edges." : "No focus map is available for this image.")
-
         }
         .animation(.spring(duration: 0.3), value: showFocusMask)
     }

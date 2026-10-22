@@ -20,7 +20,6 @@ struct FocusPointControllerView: View {
             .accessibilityLabel("Camera focus points")
             .accessibilityValue(showFocusPoints ? "Shown" : "Hidden")
             .accessibilityHint("Shows or hides camera autofocus points.")
-
         }
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }

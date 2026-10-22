@@ -22,9 +22,9 @@ nonisolated enum RAWPreviewClippingOverlay {
             context.interpolationQuality = .low
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
             let pixels = data.assumingMemoryBound(to: UInt8.self)
-            for y in 0..<height {
+            for y in 0 ..< height {
                 guard !Task.isCancelled else { return nil }
-                for x in 0..<width {
+                for x in 0 ..< width {
                     let index = (y * width + x) * 4
                     let red = pixels[index]
                     let green = pixels[index + 1]

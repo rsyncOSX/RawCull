@@ -222,7 +222,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 
-
     /// Sheet currently presented from the main window toolbar
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
     var activeSheet: ActiveSheet?

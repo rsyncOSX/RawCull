@@ -7,7 +7,6 @@ struct AIAnalysisInputPicker: View {
     let isRunning: Bool
     let preserveGridSelection: () -> Void
 
-
     var body: some View {
         Picker("Image source", selection: AIAnalysisInputSelection.binding(
             selection: $selection, preserveGridSelection: preserveGridSelection,

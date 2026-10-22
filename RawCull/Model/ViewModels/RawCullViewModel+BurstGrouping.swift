@@ -700,7 +700,9 @@ extension RawCullViewModel {
             for group in burstGroupsInActiveCatalogScope where group.fileIDs.count == 1 {
                 setBurstReviewState(state, groupID: group.id, persist: false)
             }
-            if persist { persistBurstReviewStates() }
+            if persist {
+                persistBurstReviewStates()
+            }
             return
         }
         switch state {

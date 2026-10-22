@@ -45,7 +45,7 @@ struct ObjectAnalysisView: View {
                         result: selectedResult,
                         file: files.first { $0.id == selectedResult?.fileID },
                         feature: feature, focusMaskModel: focusMaskModel,
-                        focusConfig: focusConfig
+                        focusConfig: focusConfig,
                     )
                     .frame(minWidth: 330, idealWidth: 420, maxHeight: .infinity)
                 }

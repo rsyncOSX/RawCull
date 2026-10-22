@@ -63,7 +63,7 @@ struct LoupeImageStage<Controls: View, Metadata: View>: View {
 
             if showsSubjectOutline, let subjectOutline = subjectOutlineImage {
                 ImageReviewRasterOverlay(
-                    image: Image(decorative: subjectOutline, scale: 1, orientation: .up), size: size, kind: .subjectOutline
+                    image: Image(decorative: subjectOutline, scale: 1, orientation: .up), size: size, kind: .subjectOutline,
                 )
                 .scaleEffect(scale)
                 .offset(offset)
