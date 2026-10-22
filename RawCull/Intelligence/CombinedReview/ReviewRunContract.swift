@@ -202,8 +202,3 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
         SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
-
-nonisolated enum ReviewRunError: Error {
-    case invalidSnapshot, sourceUnavailable, modelUnavailable, invalidDependency, invalidTransition, budgetExhausted
-    case incompatible, corrupt, unsupportedVersion(Int), storageLimit, invalidEvidence
-}

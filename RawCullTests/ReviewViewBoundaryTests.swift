@@ -30,7 +30,7 @@ struct ReviewViewBoundaryTests {
 
     @Test func `burst header observes catalog changes independently of viewport changes`() {
         let viewModel = makeRawCullViewModel()
-        let header = BurstWorkspaceHeader(viewModel: viewModel, groupID: 1)
+        let header = BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
         let changes = Mutex(0)
         withObservationTracking {
             _ = header.body
@@ -65,7 +65,7 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let session = ZoomSessionModel()
         let content = VStack(spacing: 16) {
-            BurstWorkspaceHeader(viewModel: viewModel, groupID: 1)
+            BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
             BurstWorkspaceFilmstrip(
                 viewModel: viewModel, files: [], analysis: nil, burstNumber: 1,
                 canNavigatePrevious: false, canNavigateNext: false, navigate: { _ in },

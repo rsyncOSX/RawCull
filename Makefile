@@ -74,6 +74,18 @@ releasesharpnesstest:
 		-onlyUsePackageVersionsFromResolvedFile \
 		-derivedDataPath "$(RELEASE_TEST_DERIVED_DATA)"
 
+releaseafcomparison:
+	TEST_RUNNER_RAWCULL_AF_COMPARISON_RUN=1 \
+	TEST_RUNNER_RAWCULL_RELEASE_DIRECTORY="$(RELEASE_CATALOG)" \
+	xcodebuild test -project RawCull.xcodeproj -scheme RawCullReleaseTests \
+		-destination 'platform=macOS,arch=arm64' -configuration Release \
+		-testPlan ReleaseSharpness -only-testing:RawCullReleaseTests/ReleaseSharpnessTest \
+		-parallel-testing-enabled NO -enableCodeCoverage NO \
+		-onlyUsePackageVersionsFromResolvedFile \
+		-derivedDataPath "$(RELEASE_TEST_DERIVED_DATA)"
+
+.PHONY: releaseafcomparison
+
 build-test-enumeration-verifier:
 	xcrun swiftc -module-cache-path $(TEST_ENUMERATION_MODULE_CACHE) \
 		Scripts/VerifyTestEnumeration.swift -o $(TEST_ENUMERATION_VERIFIER)

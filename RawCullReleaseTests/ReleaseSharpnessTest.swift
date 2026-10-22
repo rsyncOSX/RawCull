@@ -1,6 +1,9 @@
+import CoreImage
 import Foundation
+import ImageIO
 import PhotoAnalysisKit
 import Testing
+import UniformTypeIdentifiers
 
 @Suite("Sharpness release integration")
 struct ReleaseSharpnessTest {
@@ -183,5 +186,97 @@ nonisolated struct ReleaseSharpnessScenario {
             Self(photoType: .birdsWildlife, pixelSize: 2048),
             Self(photoType: .birdsWildlife, source: .rawDemosaic)
         ]
+    }
+}
+
+/// Opt-in dataset export for Scripts/CompareAFSharpness.py. Production runs on the
+/// full decoded frame: cropping before its Gaussian filter would change the score.
+extension ReleaseSharpnessTest {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_AF_COMPARISON_RUN"] == "1"))
+    func `export AF comparison dataset`() async throws {
+        let run = ReleaseRunConfiguration(environment: ProcessInfo.processInfo.environment)
+        let files = try ReleaseRunConfiguration.discoverARWFiles(in: run.directory)
+        try #require(!files.isEmpty)
+        let output = run.directory.appendingPathComponent("AF-Comparison-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let pins = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("RawCull.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+        try Data(contentsOf: pins).write(to: output.appendingPathComponent("Package.resolved"))
+        let scenario = ReleaseSharpnessScenario(photoType: .birdsWildlife)
+        let analyzer = PhotoAnalyzer()
+        let context = CIContext(options: [.workingColorSpace: NSNull(), .workingFormat: CIFormat.RGBAf])
+        var records: [[String: Any]] = []
+        for (index, file) in files.enumerated() {
+            try Task.checkCancellation()
+            let id = String(format: "image-%04d", index + 1)
+            var record: [String: Any] = ["id": id, "file": file.lastPathComponent]
+            do {
+                let metadata = await RawParserKitImageLoader.shared.fileMetadata(for: file)
+                guard let point = metadata?.focusPoint,
+                      point.x.isFinite, point.y.isFinite,
+                      (0 ... 1).contains(point.x), (0 ... 1).contains(point.y),
+                      let image = await RawParserKitImageLoader.shared.thumbnailCGImage(
+                          for: file, maxPixelSize: scenario.pixelSize,
+                      )
+                else { throw ReleaseRunError.message("Missing valid AF point or preview") }
+                let result = await analyzer.analyze(PhotoAnalysisInput(
+                    image: image, iso: metadata?.exifMetadata.isoValue ?? 400,
+                    aperture: metadata?.exifMetadata.apertureValue, normalizedAFPoint: point,
+                ), configuration: scenario.configuration)
+                guard let score = result.breakdown?.focusEvidence?.afCenterScore,
+                      score.isFinite, score >= 0
+                else { throw ReleaseRunError.message("Production AF-center evidence unavailable") }
+
+                // Match package normalizeToSRGB and analyzeRegion's truncating bounds.
+                let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+                let bitmap = try #require(CGContext(data: nil, width: image.width, height: image.height,
+                                                    bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
+                                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                bitmap.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                let normalized = try #require(bitmap.makeImage())
+                let ci = CIImage(cgImage: normalized)
+                var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+                context.render(ci, toBitmap: &pixels, rowBytes: image.width * 4,
+                               bounds: ci.extent, format: .RGBA8, colorSpace: nil)
+                let r = CGFloat(scenario.configuration.afCenterRegionRadius)
+                let region = CGRect(x: point.x - r, y: 1 - point.y - r, width: 2 * r, height: 2 * r)
+                    .intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+                let x0 = max(0, Int(region.minX * CGFloat(image.width)))
+                let x1 = min(image.width, Int(region.maxX * CGFloat(image.width)))
+                let y0 = max(0, Int((1 - region.maxY) * CGFloat(image.height)))
+                let y1 = min(image.height, Int((1 - region.minY) * CGFloat(image.height)))
+                guard x1 - x0 >= 3, y1 - y0 >= 3, (x1 - x0) * (y1 - y0) >= 16 else {
+                    throw ReleaseRunError.message("AF crop too small")
+                }
+                var crop = [UInt8]()
+                for row in y0 ..< y1 {
+                    crop.append(contentsOf: pixels[(row * image.width + x0) * 4 ..< (row * image.width + x1) * 4])
+                }
+                let provider = try #require(CGDataProvider(data: Data(crop) as CFData))
+                let cropped = try #require(CGImage(width: x1 - x0, height: y1 - y0,
+                                                   bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: (x1 - x0) * 4,
+                                                   space: colorSpace, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+                let cropName = id + ".png"
+                let destination = try #require(CGImageDestinationCreateWithURL(
+                    output.appendingPathComponent(cropName) as CFURL, UTType.png.identifier as CFString, 1, nil,
+                ))
+                CGImageDestinationAddImage(destination, cropped, nil)
+                guard CGImageDestinationFinalize(destination) else { throw ReleaseRunError.message("PNG export failed") }
+                record["crop"] = cropName
+                record["rawcull"] = score
+                record["af_rect"] = [x0, y0, x1 - x0, y1 - y0]
+                record["iso"] = metadata?.exifMetadata.isoValue
+            } catch {
+                record["error"] = error.localizedDescription
+            }
+            records.append(record)
+            let manifest: [String: Any] = ["schema": 1, "scenario": scenario.name,
+                                           "images": records, "complete": index == files.count - 1]
+            try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+                .write(to: output.appendingPathComponent("manifest.json"), options: .atomic)
+        }
+        print("AF comparison dataset: \(output.path)")
+        #expect(records.contains { $0["rawcull"] != nil }, "No usable AF crops; see manifest.json")
     }
 }

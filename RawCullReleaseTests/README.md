@@ -171,3 +171,49 @@ Makefile. The suite is outside the app's ordinary unit and smoke plans. A passed
 input contract establishes geometry and runtime behavior for these exact assets;
 it does not establish photographic accuracy or qualify alternate encoder shapes.
 See [the phase 1 diagnostic decision](../Docs/combined-review-input-contract.md).
+
+## AF-center operator comparison
+
+Export a fixed Wildlife / Balanced / 1024 px / embedded-preview dataset:
+
+```sh
+make releaseafcomparison RELEASE_CATALOG="/path/to/burst-photos"
+python3 -m venv /tmp/rawcull-af-env
+/tmp/rawcull-af-env/bin/pip install numpy opencv-python
+/tmp/rawcull-af-env/bin/python Scripts/CompareAFSharpness.py "/path/to/AF-Comparison-UUID"
+```
+
+The exporter runs the production PhotoAnalysisKit analyzer on each full frame and
+saves its AF-center score, anonymous PNG crops, source mapping, rectangle, and
+failures in `manifest.json`. It mirrors the pinned package's sRGB normalization,
+AF radius, Y conversion and integer crop bounds. Update this exporter if that
+geometry changes. Production filtering retains full-frame context; the baselines
+operate on the identical spatial crop with OpenCV reflect-101 boundaries. Thus
+this compares complete scoring recipes, not just derivative kernels. Baselines
+use grayscale 0–255, Laplacian variance (ksize 1), and mean Sobel magnitude (ksize 3),
+as in the linked OpenCV article. No crop resizing or baseline denoising is applied.
+Scores have different units; compare pair order, never absolute magnitudes.
+
+Copy `pairs-template.csv` to `pairs.csv`. Explicitly choose pairs from the same
+burst and intended subject; do not pair unrelated frames. IDs map to source files
+in `manifest.json`. Example (leave labels blank initially):
+
+```csv
+burst,a,b,label
+burst-01,image-0001,image-0002,
+```
+
+Run the script with `--pairs /path/to/pairs.csv` to create `review.html`. Open that
+page and enter A, B, tie, or uncertain in the CSV, judging intended subject detail.
+The page hides filenames, labels and scores and displays crops enlarged with
+nearest-neighbor sampling. Inspect originals separately when the crop is ambiguous;
+use uncertain if the AF point missed the intended subject. Do not inspect
+`scores.json` or `agreement.md` until labeling is finished. Keep pairs/labels fixed
+before comparing methods; use independent held-out bursts for any later tuning.
+
+Rerun with `--pairs` to produce `agreement.md` and `agreement.json`. Reports count
+correct, wrong, model ties, unavailable evidence, photographer ties, uncertain and
+pending labels. Agreement excludes missing method scores, photographer ties and
+uncertain labels; model ties count as non-agreement. Check coverage alongside
+agreement. Multiple pairs from one burst are correlated, so this report does not
+claim statistical significance or general superiority. It does not change app scoring.

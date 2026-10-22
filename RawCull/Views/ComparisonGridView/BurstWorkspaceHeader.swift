@@ -5,6 +5,7 @@ import SwiftUI
 struct BurstWorkspaceHeader: View {
     let viewModel: RawCullViewModel
     let groupID: Int
+    @Binding var sortByAFPoint: Bool
 
     private var burstNumber: Int {
         (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
@@ -21,6 +22,18 @@ struct BurstWorkspaceHeader: View {
                 .font(.headline.monospaced())
                 .foregroundStyle(.secondary)
             Spacer()
+
+            if groupID != -1 {
+                Picker(selection: $sortByAFPoint) {
+                    Text("Best frame").tag(false)
+                    Text("AF-point sharpness").tag(true)
+                } label: {
+                    Text("Sort burst")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 290)
+                .help("Change the display order. AF-point sharpness places frames without a usable focus-point measurement last.")
+            }
 
             Button {
                 viewModel.returnToActiveBurstGroupView()

@@ -270,6 +270,28 @@ struct SharpnessScoringTests {
         #expect(model.sortedByAFPointSharpness([background, noAF, focused]).first?.id == focused.id)
     }
 
+    @Test(.tags(.smoke))
+    @MainActor
+    func `loading cached burst AF evidence preserves best frame scores`() async throws {
+        let image = try #require(makeAFDetailTestImage(sharpCenter: true))
+        let focused = makeSharpnessTestFile(afPoint: CGPoint(x: 0.5, y: 0.5))
+        let other = makeSharpnessTestFile()
+        let adapter = RawCullPhotoAnalysisAdapter(inputLoaderOverride: { file, _, _ in
+            PhotoAnalysisInput(image: image, iso: file.iso, normalizedAFPoint: file.normalizedAFPoint)
+        })
+        let model = SharpnessScoringModel(analysisAdapterOverride: adapter)
+        let original: [UUID: Float] = [focused.id: 0.2, other.id: 0.8]
+        model.applyPreloadedScores([focused, other], preloadedScores: original, preloadedSaliency: [:])
+
+        await model.loadMissingAFPointScores(for: [focused, other])
+
+        #expect(model.scores == original)
+        #expect(model.sortBySharpness == false)
+        #expect(try #require(model.afPointScores[focused.id]) > 0)
+        #expect(model.afPointScores[other.id] == nil)
+        #expect(model.sortedByAFPointSharpness([other, focused]).first?.id == focused.id)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {
