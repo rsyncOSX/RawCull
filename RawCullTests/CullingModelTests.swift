@@ -1545,7 +1545,7 @@ struct RawCullViewModelCullingTests {
         viewModel.similarityModel.burstGroupLookup = Dictionary(
             uniqueKeysWithValues: files.map { ($0.id, groupID) },
         )
-        viewModel.burstAnalysisResults[groupID] = makeCullingBurstResult(groupID: groupID, files: files)
+        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
         viewModel.updateRating(for: files[0], rating: 2)
 
         viewModel.applyDeepAIReviewRecommendation(result, to: files)
@@ -1584,7 +1584,7 @@ struct RawCullViewModelCullingTests {
         viewModel.files = files
         viewModel.selectedFileID = files[0].id
         viewModel.activeBurstComparisonGroupID = groupID
-        viewModel.burstAnalysisResults[groupID] = makeCullingBurstResult(groupID: groupID, files: files)
+        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
         viewModel.updateRatingAndAdvance(for: files[0], rating: rating, in: files)
@@ -1797,8 +1797,8 @@ struct RawCullViewModelCullingTests {
         viewModel.burstAnalysisCoordinator.updateProgress(
             BurstAnalysisProgress(step: .ranking),
         )
-        viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, files: [file])]
-        viewModel.burstReviewStates = [1: .deferred]
+        viewModel.burstReviewSession.replaceRankings([1: makeCullingBurstResult(groupID: 1, files: [file])])
+        viewModel.burstReviewSession.restoreReviewStates([1: .deferred])
         viewModel.burstReviewQueueFilter = .deferred
         viewModel.activeBurstComparisonGroupID = 1
         viewModel.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])

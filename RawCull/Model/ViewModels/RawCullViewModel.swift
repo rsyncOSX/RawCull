@@ -188,8 +188,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     let burstReviewSession = BurstReviewSessionModel()
 
     var burstAnalysisResults: [Int: BurstAnalysisResult] {
-        get { burstReviewSession.results }
-        set { burstReviewSession.results = newValue }
+        burstReviewSession.results
     }
 
     var burstAnalysisProgress: BurstAnalysisProgress {
@@ -201,8 +200,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     var burstReviewStates: [Int: BurstReviewState] {
-        get { burstReviewSession.reviewStates }
-        set { burstReviewSession.reviewStates = newValue }
+        burstReviewSession.reviewStates
     }
 
     var burstReviewQueueFilter: BurstReviewQueueFilter {

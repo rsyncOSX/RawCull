@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 400 unique smoke identifiers and 2 unique performance
+current baselines are 401 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -274,3 +274,22 @@ Verification: all 18 moved/remaining method declarations and bodies matched the
 pre-extraction source byte-for-byte. Focused feature, diagnostics, run-contract,
 and presentation tests passed. `make test-smoke` passed after verifying 400
 unique identifiers.
+
+## Burst review mutation encapsulation — 2026-10-22
+
+Session results and explicit review states are externally read-only, including
+through the view-model facade. Analysis application, ranking replacement,
+restoration, manual winner overrides, and undo synchronization use explicit
+session commands. These preserve intentionally different explicit and ranked
+review states and existing revision/persistence behavior. Queue selection,
+navigation, and undo-entry storage are unchanged.
+
+Existing fixtures now use the commands. One additional test in the already
+selected `CullingGridCoordinatorTests` suite covers manual override precedence,
+missing results, independent restored states, and undo revision behavior. The
+unchanged selectors now expect 401 unique smoke identifiers.
+
+Verification: focused culling, grid projection, burst coordinator, and intelligence
+runtime suites passed. `make test-smoke` passed after verifying 401 unique
+identifiers. Compilation verifies that callers no longer write either dictionary
+directly.

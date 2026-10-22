@@ -214,12 +214,12 @@ extension RawCullViewModel {
         )
         await similarityModel.groupBursts(files: sorted)
         guard !Task.isCancelled, selectedSource?.url == catalog else { return }
-        burstReviewStates = restoredBurstReviewStates(
+        burstReviewSession.restoreReviewStates(restoredBurstReviewStates(
             savedStatesBySignature: savedStatesBySignature,
             groups: similarityModel.burstGroups,
             files: sorted,
             catalog: catalog,
-        )
+        ))
         recomputeBurstRankings(files: sorted)
 
         let generation = completedBurstAnalysisContext?.generation ?? burstAnalysisGeneration
@@ -387,10 +387,7 @@ extension RawCullViewModel {
         cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
         refreshCullingDerivedState()
         lastBurstUndoEntry = nil
-        if var result = burstAnalysisResults[entry.groupID] {
-            result.reviewState = burstReviewStates[entry.groupID] ?? .none
-            burstAnalysisResults[entry.groupID] = result
-        }
+        burstReviewSession.synchronizeResultReviewStateAfterUndo(groupID: entry.groupID)
     }
 
     // MARK: - Review queue
@@ -544,7 +541,7 @@ extension RawCullViewModel {
             "RawCullViewModel.recomputeBurstRankings(): ranking \(similarityModel.burstGroups.count) groups",
         )
         let results = makeBurstRankings(files: files, reviewStates: burstReviewStates)
-        burstAnalysisResults = Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) })
+        burstReviewSession.replaceRankings(Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) }))
         applyManualWinnerOverrides(files: files)
     }
 
@@ -642,12 +639,7 @@ extension RawCullViewModel {
         for group in similarityModel.burstGroups {
             let groupFiles = group.fileIDs.compactMap { filesByID[$0] }
             guard let winner = manualOverrideWinner(in: groupFiles)?.file else { continue }
-            burstReviewStates[group.id] = .manualWinnerOverride
-            guard var result = burstAnalysisResults[group.id] else { continue }
-            result.recommendedFileID = winner.id
-            result.secondBestFileID = result.candidates.first { $0.fileID != winner.id }?.fileID
-            result.reviewState = .manualWinnerOverride
-            burstAnalysisResults[group.id] = result
+            burstReviewSession.applyManualWinnerOverride(groupID: group.id, winnerID: winner.id)
         }
     }
 
@@ -659,12 +651,9 @@ extension RawCullViewModel {
     }
 
     private func markDecisionApplied(groupID: Int) {
-        if burstAnalysisResults[groupID]?.reviewState == .manualWinnerOverride {
-            burstReviewStates[groupID] = .manualWinnerOverride
-            return
+        if burstReviewSession.markDecisionApplied(groupID: groupID, scopedGroups: burstGroupsInActiveCatalogScope) {
+            persistBurstReviewStates()
         }
-        setBurstReviewState(.decisionApplied, groupID: groupID, persist: false)
-        persistBurstReviewStates()
     }
 
     private func setBurstReviewState(
@@ -700,10 +689,7 @@ extension RawCullViewModel {
         _ result: BurstAnalysisPipelineResult,
         request: BurstAnalysisPipelineRequest,
     ) -> BurstAnalysisPipelineResult {
-        burstReviewStates = result.restoredReviewStates
-        burstAnalysisResults = Dictionary(
-            uniqueKeysWithValues: result.rankings.map { ($0.groupID, $0) },
-        )
+        burstReviewSession.applyAnalysis(rankings: result.rankings, restoredReviewStates: result.restoredReviewStates)
         applyManualWinnerOverrides(files: request.orderedFiles)
         completedBurstAnalysisContext = makeCompletedBurstAnalysisContext(
             catalog: request.catalogIdentity,
