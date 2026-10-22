@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 391 unique smoke identifiers and 2 unique performance
+current baselines are 396 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -199,3 +199,25 @@ selects their containing suites, so its selectors remain unchanged; the expected
 enumeration is now 391 unique identifiers. Release metadata assertions now check
 version alignment across app and extension configurations and compare README pins
 against `Package.resolved`, without requiring an obsolete PhotoAIKit revision.
+
+## Smoke inventory reconciliation — 2026-10-22
+
+The unchanged smoke selectors now enumerate 396 unique identifiers. Compared with
+baseline commit `caf83ed8`, the five additions are:
+
+- `CullingGridCoordinatorTests`: `thumbnail workspace follows the current catalog across view switches`
+  and `combined single images preserve workflow states without choosing a winner`.
+- `ObjectAnalysisBoundaryTests`: `Focus abstention preserves paired evidence and unaffected object ownership`
+  and `Focus abstention still requires explicit nullable fields`.
+- `SharpnessScoringTests`:
+  `loading cached burst AF evidence preserves best frame scores`.
+
+These tests belong to suites already selected by the manifest. No selectors or
+source smoke declarations changed during this reconciliation. The Make baseline
+is updated to 396; parameterized invocations remain separate from identifier counts.
+README release references and the RawParserKit pin are aligned with the project
+settings and `Package.resolved` without changing either source of truth.
+
+Verification: the focused release metadata suite and `make test-smoke` passed.
+The smoke gate verified 396 unique identifiers with no duplicates before running
+the selected tests.
