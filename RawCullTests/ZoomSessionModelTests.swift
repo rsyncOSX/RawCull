@@ -15,9 +15,10 @@ struct ZoomSessionModelTests {
             255, 0, 0, 255
         ]
         let provider = try #require(CGDataProvider(data: Data(samples) as CFData))
-        let source = try #require(try CGImage(
+        let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let source = try #require(CGImage(
             width: 4, height: 1, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 16,
-            space: #require(CGColorSpace(name: CGColorSpace.sRGB)),
+            space: colorSpace,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
                 .union(.byteOrder32Big),
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent,

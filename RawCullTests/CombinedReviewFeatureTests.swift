@@ -748,8 +748,12 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             let id = line.map { String($0.dropFirst(type.count + 2)).components(separatedBy: ",").first ?? "" } ?? ""
             choices[type] = .some(invalidReport || (invalidExposureSelection && type == "exposure") ? "invented" : id.isEmpty ? nil : id)
         }
-        let response = ReviewNullableCriteria(composition: choices["composition"],
-                                              exposure: choices["exposure"], visibility: choices["visibility"], detail: choices["detail"])
+        let response = ReviewNullableCriteria(
+            composition: choices["composition", default: nil],
+            exposure: choices["exposure", default: nil],
+            visibility: choices["visibility", default: nil],
+            detail: choices["detail", default: nil],
+        )
         return try String(decoding: JSONEncoder().encode(response), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
 
