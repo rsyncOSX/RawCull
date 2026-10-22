@@ -121,6 +121,7 @@ struct BurstCullingWorkspaceView: View {
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
                 )
+                .id(sortByAFPoint)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -157,6 +158,8 @@ struct BurstCullingWorkspaceView: View {
             isLoadingAFPointScores = true
             defer { isLoadingAFPointScores = false }
             await viewModel.sharpnessModel.loadMissingAFPointScores(for: files)
+            guard !Task.isCancelled, sortByAFPoint else { return }
+            viewModel.selectedFileID = files.first?.id
         }
         .task(id: imageLoadKey) {
             await imageCoordinator.loadWindow(files: files, selectedFile: selectedFile, selectedIndex: selectedIndex)
@@ -167,6 +170,9 @@ struct BurstCullingWorkspaceView: View {
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
+        }
+        .onChange(of: sortByAFPoint) { _, _ in
+            viewModel.selectedFileID = files.first?.id
         }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
