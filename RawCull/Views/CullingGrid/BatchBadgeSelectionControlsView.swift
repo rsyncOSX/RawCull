@@ -15,7 +15,7 @@ struct BatchBadgeSelectionControlsView: View {
         (2, "2"),
         (3, "3"),
         (4, "4"),
-        (5, "5"),
+        (5, "5")
     ]
 
     var body: some View {
@@ -37,7 +37,7 @@ struct BatchBadgeSelectionControlsView: View {
                         // swiftlint:disable:next empty_count
                         .disabled(item.count == 0)
                         .help(
-                            "Select \(item.count) visible thumbnails tagged \(item.label). Hold Command to add or remove from the current selection."
+                            "Select \(item.count) visible thumbnails tagged \(item.label). Hold Command to add or remove from the current selection.",
                         )
                     }
                 }

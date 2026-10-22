@@ -37,7 +37,6 @@ struct SubjectOutlineControlsView: View {
                     ? "Shows or hides the cached subject outline from Deep Review."
                     : "Run Deep Review for this image to create a subject outline.",
             )
-
         }
         .animation(.spring(duration: 0.3), value: showSubjectOutline)
     }

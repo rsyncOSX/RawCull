@@ -41,7 +41,7 @@ struct ZoomOverlayControls: View {
                         .padding(.vertical, 4)
                         .background(.regularMaterial, in: Capsule())
                 }
-                
+
                 RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlayCGImage)
             }
             if !session.evaluateRAWExposure {

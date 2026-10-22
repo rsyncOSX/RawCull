@@ -1,13 +1,12 @@
+@testable import RawCull
 import SwiftUI
 import Testing
-
-@testable import RawCull
 
 @MainActor
 @Suite("Zoom keyboard controller")
 struct ZoomKeyboardControllerTests {
     @Test
-    func exposureInspectionKeepsNavigationAndRatingDisabled() {
+    func `exposure inspection keeps navigation and rating disabled`() {
         let session = ZoomSessionModel()
         var navigations = 0
         var ratings = 0
@@ -37,7 +36,7 @@ struct ZoomKeyboardControllerTests {
     }
 
     @Test
-    func subjectOutlineShortcutRequiresAnAvailableOutline() {
+    func `subject outline shortcut requires an available outline`() {
         let session = ZoomSessionModel()
         let controller = ZoomKeyboardController(
             session: session, hasSubjectOutline: false,

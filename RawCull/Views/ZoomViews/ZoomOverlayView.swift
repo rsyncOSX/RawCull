@@ -149,7 +149,8 @@ struct ZoomOverlayView: View {
                     characters: nil,
                     keyCode: 123,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
-                ))
+                ),
+            )
         }
         .onKeyPress(.rightArrow) {
             keyboardController.handle(
@@ -157,7 +158,8 @@ struct ZoomOverlayView: View {
                     characters: nil,
                     keyCode: 124,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
-                ))
+                ),
+            )
         }
         .onKeyPress(.upArrow) {
             keyboardController.handle(
@@ -165,7 +167,8 @@ struct ZoomOverlayView: View {
                     characters: nil,
                     keyCode: 126,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
-                ))
+                ),
+            )
         }
         .onKeyPress(.downArrow) {
             keyboardController.handle(
@@ -173,7 +176,8 @@ struct ZoomOverlayView: View {
                     characters: nil,
                     keyCode: 125,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
-                ))
+                ),
+            )
         }
         .onKeyPress(.escape) {
             dismiss()
@@ -185,7 +189,8 @@ struct ZoomOverlayView: View {
                     characters: press.characters,
                     keyCode: 0,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
-                ))
+                ),
+            )
         }
         .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
@@ -285,8 +290,8 @@ struct ZoomOverlayView: View {
     private func installKeyMonitor() {
         session.keyMonitor.install { event in
             guard viewModel.zoomOverlayVisible,
-                event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                keyboardScope.accepts(event)
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  keyboardScope.accepts(event)
             else { return .ignored }
 
             return handleKeyEvent(event)
@@ -303,7 +308,8 @@ struct ZoomOverlayView: View {
                 characters: event.characters,
                 keyCode: event.keyCode,
                 navigationAxis: viewModel.zoomOverlayNavigationAxis,
-            ))
+            ),
+        )
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {

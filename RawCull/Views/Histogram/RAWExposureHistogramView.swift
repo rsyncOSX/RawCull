@@ -17,7 +17,7 @@ nonisolated struct RAWExposureHistogram: Sendable {
               let context = CGContext(
                   data: nil, width: width, height: height, bitsPerComponent: 8,
                   bytesPerRow: width * 4, space: space,
-                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue,
               ), let data = context.data else { return nil }
         context.interpolationQuality = .none
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
@@ -25,27 +25,31 @@ nonisolated struct RAWExposureHistogram: Sendable {
         var bins = Array(repeating: Array(repeating: CGFloat.zero, count: 256), count: 3)
         var shadows = 0
         var highlights = 0
-        for row in 0..<height {
+        for row in 0 ..< height {
             guard !Task.isCancelled else { return nil }
-            for column in 0..<width {
+            for column in 0 ..< width {
                 let offset = (row * width + column) * 4
                 var nearBlack = false
                 var nearWhite = false
-                for channel in 0..<3 {
+                for channel in 0 ..< 3 {
                     let value = Int(pixels[offset + channel])
                     bins[channel][value] += 1
                     nearBlack = nearBlack || value <= 1
                     nearWhite = nearWhite || value >= 254
                 }
-                if nearBlack { shadows += 1 }
-                if nearWhite { highlights += 1 }
+                if nearBlack {
+                    shadows += 1
+                }
+                if nearWhite {
+                    highlights += 1
+                }
             }
         }
         let peak = max(bins.flatMap { $0 }.max() ?? 1, 1)
         return Self(
             channels: bins.map { $0.map { $0 / peak } },
             shadowFraction: Double(shadows) / Double(width * height),
-            highlightFraction: Double(highlights) / Double(width * height)
+            highlightFraction: Double(highlights) / Double(width * height),
         )
     }
 }

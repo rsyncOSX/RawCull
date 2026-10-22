@@ -23,7 +23,8 @@ struct ObjectPhotoResultsTable: View {
                 } else {
                     AIAnalysisStatusBadge(
                         title: result.failure == nil ? "Complete" : "Failed",
-                        color: result.failure == nil ? .green : .orange)
+                        color: result.failure == nil ? .green : .orange,
+                    )
                 }
             }
         }

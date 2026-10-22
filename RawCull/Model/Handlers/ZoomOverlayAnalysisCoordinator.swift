@@ -20,15 +20,15 @@ struct ZoomOverlayAnalysisCoordinator {
 
     func regenerateMaskFromCG() async {
         guard let cg = maskAnalysisImage,
-            let selectedFile = viewModel.selectedFile
+              let selectedFile = viewModel.selectedFile
         else { return }
         let selectedFileID = selectedFile.id
         let previewSource = session.sourceSelection.selected
         let config = focusMaskConfig(for: selectedFile)
         guard !Task.isCancelled,
-            viewModel.selectedFile?.id == selectedFileID,
-            maskAnalysisImage === cg,
-            session.sourceSelection.selected == previewSource
+              viewModel.selectedFile?.id == selectedFileID,
+              maskAnalysisImage === cg,
+              session.sourceSelection.selected == previewSource
         else { return }
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: FocusMaskAnalysisResolutionPolicy.prepare(cg),
@@ -40,9 +40,9 @@ struct ZoomOverlayAnalysisCoordinator {
             scoringSource: previewSource == .developedRAW ? .rawDemosaic : .embeddedPreview,
         )
         guard !Task.isCancelled,
-            viewModel.selectedFile?.id == selectedFileID,
-            maskAnalysisImage === cg,
-            session.sourceSelection.selected == previewSource
+              viewModel.selectedFile?.id == selectedFileID,
+              maskAnalysisImage === cg,
+              session.sourceSelection.selected == previewSource
         else { return }
         await MainActor.run {
             session.focusMask = result.mask
@@ -66,8 +66,8 @@ struct ZoomOverlayAnalysisCoordinator {
         session.subjectOutline = nil
         session.isLoadingSubjectOutline = false
         guard session.showSubjectOutline,
-            let file = viewModel.selectedFile,
-            let candidate = subjectOutlineCandidate
+              let file = viewModel.selectedFile,
+              let candidate = subjectOutlineCandidate
         else { return }
 
         session.isLoadingSubjectOutline = true

@@ -5,8 +5,8 @@
 //  Created by Thomas Evensen on 08/02/2026.
 //
 
-import RawParserKit
 import CoreImage
+import RawParserKit
 import SwiftUI
 
 /// Type to handle JPG/preview extraction and window opening
@@ -162,7 +162,7 @@ enum ZoomPreviewHandler {
 /// Serializes expensive inspection renders. Adjusted previews never enter the export/JPEG cache.
 private actor RAWExposurePreviewRenderer {
     static let shared = RAWExposurePreviewRenderer()
-    // Initialize on this actor's executor, not in the initializer called by the UI.
+    /// Initialize on this actor's executor, not in the initializer called by the UI.
     private var context: CIContext?
 
     func render(url: URL, exposureEV: Double) async throws -> CGImage {
@@ -190,7 +190,7 @@ private actor RAWExposurePreviewRenderer {
             // Compress highlights for inspection before the final display conversion.
             let inspected = developed.applyingFilter("CIHighlightShadowAdjust", parameters: [
                 "inputHighlightAmount": 0.25,
-                "inputShadowAmount": 0.0,
+                "inputShadowAmount": 0.0
             ])
             try Task.checkCancellation()
             guard let image = context.createCGImage(

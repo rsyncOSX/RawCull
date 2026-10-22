@@ -163,7 +163,9 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var files: [FileItem] {
-        if groupID == -1 { return viewModel.singleImageReviewFiles }
+        if groupID == -1 {
+            return viewModel.singleImageReviewFiles
+        }
         guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
             uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
@@ -267,10 +269,10 @@ struct BurstCullingWorkspaceView: View {
     private func installOverlayKeyMonitor() {
         session.keyMonitor.install { event in
             guard !viewModel.zoomOverlayVisible,
-                event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                keyboardScope.accepts(event),
-                let characters = event.characters,
-                ["s", "S", "f", "F"].contains(characters)
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  keyboardScope.accepts(event),
+                  let characters = event.characters,
+                  ["s", "S", "f", "F"].contains(characters)
             else { return .ignored }
             return keyboardController.handle(characters)
         }
@@ -284,8 +286,8 @@ struct BurstCullingWorkspaceView: View {
         subjectOutline = nil
         subjectOutlineFileID = nil
         guard showSubjectOutline,
-            let file = selectedFile,
-            let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
+              let file = selectedFile,
+              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
         else { return }
         let outline = await ImageReviewSubjectOutlineLoader.load(
             file: file, candidate: candidate, controller: viewModel.deepAIReviewController,
@@ -294,5 +296,4 @@ struct BurstCullingWorkspaceView: View {
         subjectOutline = outline
         subjectOutlineFileID = file.id
     }
-
 }

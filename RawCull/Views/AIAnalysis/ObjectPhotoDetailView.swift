@@ -17,7 +17,7 @@ struct ObjectPhotoDetailView: View {
 
     private var selectedCrop: CGImage? {
         guard let image = preview.image,
-            let descriptor = result?.instances.first(where: { $0.id == selectedObjectID })
+              let descriptor = result?.instances.first(where: { $0.id == selectedObjectID })
         else { return nil }
         let rect = ObjectReviewBoardRenderer.crop(
             for: descriptor.normalizedBoundingBox,
@@ -36,7 +36,7 @@ struct ObjectPhotoDetailView: View {
                             ObjectOverviewImage(
                                 image: image, instances: result.instances,
                                 outlines: preview.outlines, focusMap: preview.focusMap,
-                                autofocusPoint: preview.autofocusPoint
+                                autofocusPoint: preview.autofocusPoint,
                             )
                             .frame(height: 420)
                         }
@@ -47,7 +47,8 @@ struct ObjectPhotoDetailView: View {
                             ContentUnavailableView(
                                 "No Matching Objects",
                                 systemImage: "square.dashed",
-                                description: Text("Try a different concept or photograph."))
+                                description: Text("Try a different concept or photograph."),
+                            )
                         } else if !result.instances.isEmpty {
                             ObjectInstanceList(
                                 instances: result.instances, spatialEvidence: preview.spatialEvidence,
@@ -77,7 +78,8 @@ struct ObjectPhotoDetailView: View {
                 ContentUnavailableView(
                     "Select an Image",
                     systemImage: "photo",
-                    description: Text("Choose an analyzed photograph to inspect its objects."))
+                    description: Text("Choose an analyzed photograph to inspect its objects."),
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

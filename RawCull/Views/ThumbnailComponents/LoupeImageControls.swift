@@ -15,7 +15,8 @@ struct LoupeImageControls: View {
     private var useThumbnailSourceBinding: Binding<Bool> {
         Binding(
             get: { session.sourceSelection.selected == .thumbnail },
-            set: { session.selectSource($0 ? .thumbnail : .embeddedJPG) })
+            set: { session.selectSource($0 ? .thumbnail : .embeddedJPG) },
+        )
     }
 
     var body: some View {

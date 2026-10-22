@@ -8,7 +8,9 @@ struct ComparisonPane: View {
     let file: FileItem
     let isSelected: Bool
 
-    private var files: [FileItem] { presentation.files }
+    private var files: [FileItem] {
+        presentation.files
+    }
 
     var body: some View {
         let burstAnalysis = presentation.burstComparisonResult
@@ -65,8 +67,8 @@ struct ComparisonPane: View {
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
         let points =
             viewModel.focusPoints?
-            .filter { $0.sourceFile == file.name }
-            .flatMap(\.focusPoints) ?? []
+                .filter { $0.sourceFile == file.name }
+                .flatMap(\.focusPoints) ?? []
         return points.isEmpty ? nil : points
     }
 
@@ -82,7 +84,7 @@ struct ComparisonPane: View {
         in analysis: BurstAnalysisResult?,
     ) -> BurstCandidateScore? {
         guard let analysis,
-            analysis.fileIDs.contains(file.id)
+              analysis.fileIDs.contains(file.id)
         else { return nil }
         return analysis.candidates.first { $0.fileID == file.id }
     }
@@ -106,10 +108,11 @@ struct ComparisonPane: View {
             uniqueKeysWithValues: files.compactMap { file in
                 guard
                     let breakdown = presentation.imageStates[file.id]?.sharpnessBreakdown
-                        ?? viewModel.sharpnessModel.breakdowns[file.id]
+                    ?? viewModel.sharpnessModel.breakdowns[file.id]
                 else { return nil }
                 return (file.id, breakdown)
-            })
+            },
+        )
     }
 
     private func comparisonWinnerFile() -> FileItem? {

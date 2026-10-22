@@ -1,12 +1,12 @@
-@testable import RawCull
 import AppKit
+@testable import RawCull
 import Testing
 
 @MainActor
 @Suite("Overlay presentation")
 struct OverlayPresentationModelTests {
     @Test
-    func cancelledFocusRequestCannotReplaceTheNewSource() async throws {
+    func `cancelled focus request cannot replace the new source`() async {
         let model = LoupeFocusPresentationModel()
         model.isPresented = true
         let oldImage = NSImage(size: NSSize(width: 1, height: 1))
@@ -19,7 +19,9 @@ struct OverlayPresentationModelTests {
                 started.yield()
             }
         }
-        for await _ in events { break }
+        for await _ in events {
+            break
+        }
         model.reset()
         let latest = model.request(url: URL(filePath: "/new"), source: .developedRAW) { newImage }
         await latest?.value
@@ -33,7 +35,7 @@ struct OverlayPresentationModelTests {
     }
 
     @Test
-    func cancellingDebouncePreventsFocusWork() async {
+    func `cancelling debounce prevents focus work`() async {
         let model = LoupeFocusPresentationModel()
         model.isPresented = true
         var didGenerate = false
@@ -49,7 +51,7 @@ struct OverlayPresentationModelTests {
     }
 
     @Test
-    func obsoleteOutlineCompletionCannotClearANewerImage() async {
+    func `obsolete outline completion cannot clear A newer image`() async {
         let model = SubjectOutlinePresentationModel()
         model.isPresented = true
         let (events, started) = AsyncStream.makeStream(of: Void.self)
@@ -62,7 +64,9 @@ struct OverlayPresentationModelTests {
                 }
             }
         }
-        for await _ in events { break }
+        for await _ in events {
+            break
+        }
         model.reset()
         let pixel = Self.pixel()
         await model.load { pixel }

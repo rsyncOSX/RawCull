@@ -98,7 +98,7 @@ struct BurstImageStage: View {
         .frame(minHeight: 420)
     }
 
-    private func tagStrip(for file: FileItem) -> some View {
+    private func tagStrip(for _: FileItem) -> some View {
         HStack(spacing: 8) {
             if let image = imageState?.cgImage {
                 ImagePixelDimensionsBadgeView(width: image.width, height: image.height)

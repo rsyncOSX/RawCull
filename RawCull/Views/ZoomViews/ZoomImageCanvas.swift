@@ -15,17 +15,23 @@ struct ZoomImageCanvas: View {
     let zoomToTarget: () -> Void
 
     private var imageSize: CGSize? {
-        if let cgImage { return CGSize(width: cgImage.width, height: cgImage.height) }
+        if let cgImage {
+            return CGSize(width: cgImage.width, height: cgImage.height)
+        }
         return nsImage?.size
     }
 
     private var image: Image? {
-        if let cgImage { return Image(decorative: cgImage, scale: 1, orientation: .up) }
+        if let cgImage {
+            return Image(decorative: cgImage, scale: 1, orientation: .up)
+        }
         return nsImage.map(Image.init(nsImage:))
     }
 
     private var imageIdentity: ObjectIdentifier? {
-        if let cgImage { return ObjectIdentifier(cgImage) }
+        if let cgImage {
+            return ObjectIdentifier(cgImage)
+        }
         return nsImage.map(ObjectIdentifier.init)
     }
 
@@ -96,7 +102,9 @@ struct ZoomImageCanvas: View {
                 .onChanged { viewport.scale = viewport.lastScale * $0 }
                 .onEnded { _ in
                     viewport.lastScale = viewport.scale
-                    if viewport.scale < 1 { withAnimation(.spring()) { resetToFit() } }
+                    if viewport.scale < 1 {
+                        withAnimation(.spring()) { resetToFit() }
+                    }
                 },
             DragGesture()
                 .onChanged { value in

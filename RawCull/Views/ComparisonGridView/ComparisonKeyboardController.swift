@@ -16,9 +16,18 @@ struct ComparisonKeyboardController {
         )
     }
 
-    private var files: [FileItem] { presentation.files }
-    private var allComparisonFiles: [FileItem] { presentation.allComparisonFiles }
-    private var selectedComparisonFile: FileItem? { presentation.selectedComparisonFile }
+    private var files: [FileItem] {
+        presentation.files
+    }
+
+    private var allComparisonFiles: [FileItem] {
+        presentation.allComparisonFiles
+    }
+
+    private var selectedComparisonFile: FileItem? {
+        presentation.selectedComparisonFile
+    }
+
     private var canApplyOneClickCulling: Bool {
         presentation.burstComparisonResult?.canApplyOneClickCulling(
             hasSharpnessScores: !viewModel.sharpnessModel.scores.isEmpty,
@@ -33,8 +42,8 @@ struct ComparisonKeyboardController {
 
     private func applyBurstKeepBest() -> KeyPress.Result {
         guard viewModel.activeBurstComparisonGroupID != nil,
-            canApplyOneClickCulling,
-            !allComparisonFiles.isEmpty
+              canApplyOneClickCulling,
+              !allComparisonFiles.isEmpty
         else { return .ignored }
         viewModel.keepBestInGroup(from: allComparisonFiles)
         return .handled
@@ -43,8 +52,8 @@ struct ComparisonKeyboardController {
     func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
         let burstAction =
             viewModel.activeBurstComparisonGroupID == nil
-            ? nil
-            : BurstReviewKeyAction.resolve(characters: event.characters)
+                ? nil
+                : BurstReviewKeyAction.resolve(characters: event.characters)
         if let burstAction {
             return handleBurstReviewKeyAction(burstAction)
         }
@@ -76,7 +85,7 @@ struct ComparisonKeyboardController {
 
     private func handleKeyAction(_ action: ComparisonGridKeyAction) -> KeyPress.Result {
         switch action {
-        case .navigate(let direction):
+        case let .navigate(direction):
             navigate(direction)
             return .handled
 
@@ -112,7 +121,7 @@ struct ComparisonKeyboardController {
         case .keepBest:
             return applyBurstKeepBest()
 
-        case .rating(let rating):
+        case let .rating(rating):
             return applyRating(rating)
         }
     }
@@ -124,7 +133,7 @@ struct ComparisonKeyboardController {
     @discardableResult
     private func selectedFileIDForInteraction() -> FileItem.ID? {
         guard let selectedID = viewModel.selectedFileID,
-            files.contains(where: { $0.id == selectedID })
+              files.contains(where: { $0.id == selectedID })
         else { return nil }
 
         return selectedID

@@ -202,7 +202,6 @@ struct RawCullMainView: View {
             viewModel.sheetType = .copytasksview
             viewModel.showCopyARWFilesView = true
         }
-
     }
 
     private var persistenceErrorIsPresented: Binding<Bool> {

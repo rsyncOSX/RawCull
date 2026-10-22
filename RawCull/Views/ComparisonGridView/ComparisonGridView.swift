@@ -22,7 +22,8 @@ struct ComparisonGridView: View {
             initialValue: ComparisonSessionModel(
                 imageService: imageService ?? LiveComparisonSessionImageService(viewModel: viewModel),
                 selection: viewModel,
-            ))
+            ),
+        )
     }
 
     var body: some View {
@@ -136,5 +137,4 @@ struct ComparisonGridView: View {
     private func removeKeyMonitor() {
         keyMonitor.remove()
     }
-
 }

@@ -18,7 +18,7 @@ import SwiftUI
 
 // MARK: - Burst-group section header
 
-/// Renders a single burst-group section header with the review workflow actions.
+// Renders a single burst-group section header with the review workflow actions.
 
 // MARK: - CullingGridView
 
@@ -254,7 +254,8 @@ struct CullingGridView<Header: View>: View {
             CullingGridSelectionCoordinator.reconcileSelection(
                 selectionState,
                 visibleIDs: renderedIDs,
-            ))
+            ),
+        )
     }
 
     // MARK: - Burst grouping helpers
@@ -328,14 +329,14 @@ struct CullingGridView<Header: View>: View {
             return renderedBurstGroups.first?.files
         }
         guard let selectedID = viewModel.selectedFileID,
-            let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
+              let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
         else { return nil }
         return renderedBurstGroups.first { $0.id == groupID }?.files
     }
 
     private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
         guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityFeature.burstGroupLookup[$0.id] }).first,
-            let result = viewModel.burstAnalysisResult(for: groupID)
+              let result = viewModel.burstAnalysisResult(for: groupID)
         else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)
     }
@@ -356,8 +357,8 @@ struct CullingGridView<Header: View>: View {
 
     private var semanticResultCount: Int? {
         guard !viewModel.showsBurstGroups,
-            let summary = semanticSearchFeature.resultSummary,
-            summary.resultCount > 0
+              let summary = semanticSearchFeature.resultSummary,
+              summary.resultCount > 0
         else { return nil }
         return summary.resultCount
     }
@@ -371,5 +372,4 @@ struct CullingGridView<Header: View>: View {
         guard semanticResultCount != nil else { return nil }
         return semanticSearchFeature.resultEvidence(for: file.id)?.score
     }
-
 }

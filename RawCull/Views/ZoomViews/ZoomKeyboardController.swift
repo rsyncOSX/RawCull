@@ -61,7 +61,7 @@ struct ZoomKeyboardController {
             session.viewport.showFocusPoints.toggle()
             return .handled
 
-        case .rating(let rating):
+        case let .rating(rating):
             return applyRating(rating)
         }
     }

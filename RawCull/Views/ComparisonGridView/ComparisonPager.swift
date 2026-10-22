@@ -26,8 +26,8 @@ struct ComparisonPager<Pane: View>: View {
             .scrollPosition(id: $scrollPositionID, anchor: .center)
             .onChange(of: selectedFileID, initial: true) { _, newID in
                 guard let newID,
-                    scrollPositionID != newID,
-                    files.contains(where: { $0.id == newID })
+                      scrollPositionID != newID,
+                      files.contains(where: { $0.id == newID })
                 else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
                     scrollPositionID = newID
@@ -43,8 +43,8 @@ struct ComparisonPager<Pane: View>: View {
                 scrollSettleTask = Task {
                     try? await Task.sleep(for: .milliseconds(120))
                     guard !Task.isCancelled, let newID,
-                        selectedFileID != newID,
-                        files.contains(where: { $0.id == newID })
+                          selectedFileID != newID,
+                          files.contains(where: { $0.id == newID })
                     else { return }
                     select(newID)
                 }

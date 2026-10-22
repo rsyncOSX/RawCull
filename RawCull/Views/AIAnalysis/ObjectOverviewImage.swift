@@ -28,11 +28,11 @@ struct ObjectOverviewImage: View {
                     .stroke(.yellow, lineWidth: 2)
                     .frame(
                         width: box.width * drawnWidth,
-                        height: box.height * drawnHeight
+                        height: box.height * drawnHeight,
                     )
                     .position(
                         x: originX + box.midX * drawnWidth,
-                        y: originY + (1 - box.midY) * drawnHeight
+                        y: originY + (1 - box.midY) * drawnHeight,
                     )
                     .accessibilityLabel("Object \(object.id), \(object.concept)")
                 Text(object.id)
@@ -42,9 +42,9 @@ struct ObjectOverviewImage: View {
                     .foregroundStyle(.white)
                     .position(
                         x: originX + box.minX * drawnWidth + 12,
-                        y: originY + (1 - box.maxY) * drawnHeight + 12)
+                        y: originY + (1 - box.maxY) * drawnHeight + 12,
+                    )
             }
-
         }
         .accessibilityLabel("Photograph with numbered object regions, focus map, and camera autofocus point when available")
     }

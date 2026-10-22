@@ -1,6 +1,6 @@
-@testable import RawCull
 import CoreGraphics
 import Foundation
+@testable import RawCull
 import Testing
 
 @MainActor
@@ -12,12 +12,13 @@ struct ZoomSessionModelTests {
             255, 255, 255, 255,
             0, 0, 0, 255,
             128, 128, 128, 255,
-            255, 0, 0, 255,
+            255, 0, 0, 255
         ]
         let provider = try #require(CGDataProvider(data: Data(samples) as CFData))
+        let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let source = try #require(CGImage(
             width: 4, height: 1, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 16,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            space: colorSpace,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
                 .union(.byteOrder32Big),
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent,
@@ -29,7 +30,7 @@ struct ZoomSessionModelTests {
             180, 0, 0, 180,
             0, 0, 180, 180,
             0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 0, 0, 0
         ])
     }
 
