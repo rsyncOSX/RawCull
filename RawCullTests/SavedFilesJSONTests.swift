@@ -67,7 +67,7 @@ struct SavedFilesJSONTests {
                 catalog: catalog,
                 dateStart: "19 May 2026 12:00",
                 filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 4),
-            ),
+            )
         ]
 
         try await WriteSavedFilesJSON.write(savedFiles, to: fileURL)
@@ -110,7 +110,7 @@ struct SavedFilesJSONTests {
                 catalog: catalog,
                 dateStart: "19 May 2026 12:00",
                 filerecord: FileRecord(fileName: "two.ARW", dateTagged: nil, dateCopied: nil, rating: 5),
-            ),
+            )
         ]
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
@@ -141,14 +141,14 @@ struct SavedFilesJSONTests {
                 catalog: newCatalog,
                 dateStart: "19 May 2026 12:00",
                 filerecord: FileRecord(fileName: "new.ARW", dateTagged: nil, dateCopied: nil, rating: 5),
-            ),
+            )
         ]
         let oldSavedFiles = [
             SavedFiles(
                 catalog: oldCatalog,
                 dateStart: "18 May 2026 12:00",
                 filerecord: FileRecord(fileName: "old.ARW", dateTagged: nil, dateCopied: nil, rating: 1),
-            ),
+            )
         ]
         try FileManager.default.createDirectory(
             at: newFileURL.deletingLastPathComponent(),

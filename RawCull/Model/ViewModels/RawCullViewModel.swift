@@ -81,6 +81,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
             zoomNavigationCache = nil
         }
     }
+
     private(set) var catalogContentRevision: UInt64 = 0
     private(set) var zoomContextRevision: UInt64 = 0
     @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
@@ -160,6 +161,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var zoomOverlayNavigationContext: ZoomOverlayNavigationContext? {
         didSet { zoomContextRevision &+= 1 }
     }
+
     var zoomOverlayLaunchContext: ZoomOverlayLaunchContext = .default
     var zoomOverlayCGImage: CGImage?
     var zoomOverlayAnalysisCGImage: CGImage?
