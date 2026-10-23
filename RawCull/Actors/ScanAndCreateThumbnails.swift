@@ -237,7 +237,7 @@ actor ScanAndCreateThumbnails {
             requestedPixelSize: targetSize,
         )
         if sourceStillMatches {
-            _ = storeInGridCache(image, for: gridKey)
+            _ = storeInGridCache(image, for: gridKey, source: cgImage)
         }
         recordCompletion(succeeded: true)
 
@@ -305,30 +305,12 @@ actor ScanAndCreateThumbnails {
         updateEstimatedTime(itemsProcessed: completedCount)
     }
 
-    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) -> Bool {
-        guard let key else { return false }
+    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?, source: CGImage? = nil) -> Bool {
+        guard !Task.isCancelled, let key else { return false }
         guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return true }
-        let gridSize: CGFloat = 200
-        guard let scaled = downscale(image, to: gridSize) else { return false }
+        guard let scaled = GridThumbnailResizer.resize(image, source: source) else { return false }
         let wrapper = CachedThumbnail(image: scaled)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: key, cost: wrapper.cost)
         return true
-    }
-
-    private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {
-        let size = image.size
-        guard size.width > 0, size.height > 0 else { return nil }
-        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
-        let newSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
-        let result = NSImage(size: newSize)
-        result.lockFocus()
-        image.draw(
-            in: NSRect(origin: .zero, size: newSize),
-            from: NSRect(origin: .zero, size: size),
-            operation: .copy,
-            fraction: 1.0,
-        )
-        result.unlockFocus()
-        return result
     }
 }

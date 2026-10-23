@@ -22,29 +22,48 @@ extension RawCullViewModel {
     }
 
     var sharpnessScoringTargetFiles: [FileItem] {
-        let ordered = activeCatalogFiles.sorted {
-            $0.name.localizedStandardCompare($1.name) == .orderedAscending
-        }
+        let active = activeCatalogFiles
 
         if !selectedFileIDs.isEmpty {
             let visibleSelected = filteredFiles.filter { selectedFileIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
-            let hiddenSelected = ordered.filter {
+            let hiddenSelected = active.filter {
                 selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
-            }
+            }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             return visibleSelected + hiddenSelected
         }
 
         if case let .stars(rating) = ratingFilter {
-            let visible = filteredFiles.isEmpty ? ordered : filteredFiles
-            return visible.filter { self.rating(for: $0) == rating }
+            if !filteredFiles.isEmpty {
+                return filteredFiles.filter { self.rating(for: $0) == rating }
+            }
+            return active.filter { self.rating(for: $0) == rating }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
 
-        return ordered
+        return active.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// Presentation needs membership and count, never the scoring execution order.
+    var sharpnessScoringTargetCount: Int {
+        let selectedIDs = selectedFileIDs
+        if !selectedIDs.isEmpty {
+            let visibleSelected = filteredFiles.filter { selectedIDs.contains($0.id) }
+            let visibleIDs = Set(visibleSelected.map(\.id))
+            return visibleSelected.count + activeCatalogFiles.count {
+                selectedIDs.contains($0.id) && !visibleIDs.contains($0.id)
+            }
+        }
+        if case let .stars(rating) = ratingFilter {
+            let candidates = filteredFiles.isEmpty ? activeCatalogFiles : filteredFiles
+            let ratings = ratingCache
+            return candidates.count { ratings[$0.name] == rating }
+        }
+        return activeCatalogFiles.count
     }
 
     var sharpnessScoringTargetDescription: String {
-        let count = sharpnessScoringTargetFiles.count
+        let count = sharpnessScoringTargetCount
         let fileLabel = count == 1 ? "file" : "files"
 
         if !selectedFileIDs.isEmpty {

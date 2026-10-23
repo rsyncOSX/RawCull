@@ -27,7 +27,7 @@ struct SharpnessControlsView: View {
             }
         }
         .font(.caption)
-        .disabled(viewModel.sharpnessModel.isScoring || viewModel.sharpnessScoringTargetFiles.isEmpty)
+        .disabled(viewModel.sharpnessModel.isScoring || viewModel.sharpnessScoringTargetCount == 0)
         .help("Measure detail around the recorded AF point for \(viewModel.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
 
         // Cancel button — only visible while scoring

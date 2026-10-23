@@ -75,7 +75,16 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
-    var files: [FileItem] = []
+    var files: [FileItem] = [] {
+        didSet {
+            catalogContentRevision &+= 1
+            zoomNavigationCache = nil
+        }
+    }
+    private(set) var catalogContentRevision: UInt64 = 0
+    private(set) var zoomContextRevision: UInt64 = 0
+    @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
+    @ObservationIgnored var zoomNavigationBuildCount = 0
     private(set) var gridContentRevision: UInt64 = 0
     @ObservationIgnored var gridProjectionCache: CullingGridProjection?
     @ObservationIgnored var gridProjectionBuildCount = 0
@@ -148,7 +157,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     // In-window zoom overlay (replaces the old separate zoom windows).
     var zoomOverlayVisible: Bool = false
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
-    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext?
+    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext? {
+        didSet { zoomContextRevision &+= 1 }
+    }
     var zoomOverlayLaunchContext: ZoomOverlayLaunchContext = .default
     var zoomOverlayCGImage: CGImage?
     var zoomOverlayAnalysisCGImage: CGImage?

@@ -1,0 +1,210 @@
+{
+  "trace": "/Users/thomas/Downloads/opencatalog2.trace",
+  "duration_s": 61.668358,
+  "template": "SwiftUI",
+  "xctrace_version": "27.1 (27A9275)",
+  "start_date": "2026-10-23T16:43:59.851+02:00",
+  "end_date": "2026-10-23T16:45:01.519+02:00",
+  "lanes": [
+    {
+      "lane": "hangs",
+      "available": true,
+      "schema_used": "potential-hangs",
+      "metrics": {
+        "count": 0,
+        "total_duration_ms": 0,
+        "worst_duration_ms": 0,
+        "severity_buckets": {
+          "lt_250ms": 0,
+          "250ms_1s": 0,
+          "gt_1s": 0
+        }
+      },
+      "top_offenders": [],
+      "notes": []
+    },
+    {
+      "lane": "hitches",
+      "available": true,
+      "schema_used": "hitches",
+      "metrics": {
+        "count": 51,
+        "total_hitch_ms": 1833.22,
+        "worst_hitch_ms": 508.33,
+        "per_process": {
+          "RawCull": 51
+        },
+        "system_hitches": 0,
+        "app_hitches": 51,
+        "narrative_breakdown": {
+          "Potentially expensive app update(s)": 18,
+          "Potentially expensive app update(s), Potentially expensive render, 0 offscreen passes)": 2
+        }
+      },
+      "top_offenders": [
+        {
+          "start_ms": 3184.18,
+          "hitch_duration_ms": 508.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 780.02,
+          "hitch_duration_ms": 316.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 19525.81,
+          "hitch_duration_ms": 208.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 12867.49,
+          "hitch_duration_ms": 125.0,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 13125.83,
+          "hitch_duration_ms": 108.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 19742.48,
+          "hitch_duration_ms": 66.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s), Potentially expensive render, 0 offscreen passes)",
+          "is_system": false
+        },
+        {
+          "start_ms": 43617.43,
+          "hitch_duration_ms": 41.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 50900.75,
+          "hitch_duration_ms": 33.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 19817.48,
+          "hitch_duration_ms": 25.0,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 50842.42,
+          "hitch_duration_ms": 25.0,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 13100.83,
+          "hitch_duration_ms": 16.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 30817.46,
+          "hitch_duration_ms": 16.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 3859.18,
+          "hitch_duration_ms": 16.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 19913.31,
+          "hitch_duration_ms": 16.67,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s), Potentially expensive render, 0 offscreen passes)",
+          "is_system": false
+        },
+        {
+          "start_ms": 32817.45,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 44350.76,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": "Potentially expensive app update(s)",
+          "is_system": false
+        },
+        {
+          "start_ms": 21534.14,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 23209.14,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 28142.46,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        },
+        {
+          "start_ms": 30800.79,
+          "hitch_duration_ms": 8.33,
+          "frame_duration_ms": null,
+          "process": "RawCull",
+          "narrative": null,
+          "is_system": false
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "swiftui_analysis": "Not completed: full parser reached approximately 9 GB resident memory while parsing SwiftUI events and was stopped. CPU and responsiveness were analyzed separately."
+}
