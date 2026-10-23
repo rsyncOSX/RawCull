@@ -1,0 +1,3185 @@
+{
+  "sample_count": 40435,
+  "sample_weight_ns_distribution": {
+    "1000000": 40435
+  },
+  "total_sample_weight_ms": {
+    "main": 14011.0,
+    "background": 26424.0
+  },
+  "inclusive_pattern_weight_ms": {
+    "metadata_loader": {
+      "background": 6874.0
+    },
+    "image_properties": {
+      "background": 7189.0
+    },
+    "selected_file": {
+      "main": 255.0
+    },
+    "disk_load": {
+      "background": 771.0
+    },
+    "preload": {
+      "background": 10208.0
+    },
+    "grid_resize": {
+      "background": 9228.0
+    },
+    "zoom_keyboard": {
+      "main": 8.0
+    },
+    "zoom_navigate": {
+      "main": 5.0
+    },
+    "zoom_current_index": {
+      "main": 3.0
+    },
+    "zoom_projection": {
+      "main": 3.0
+    }
+  },
+  "top_leaf_symbols_ms": {
+    "main": [
+      [
+        "<deduplicated_symbol>",
+        439.0
+      ],
+      [
+        "objc_msgSend",
+        408.0
+      ],
+      [
+        "AG::Graph::UpdateStack::update()",
+        401.0
+      ],
+      [
+        "AG::Graph::propagate_dirty(AG::AttributeID)",
+        357.0
+      ],
+      [
+        "mach_msg2_trap",
+        296.0
+      ],
+      [
+        "AG::Subgraph::update(unsigned int)",
+        266.0
+      ],
+      [
+        "swift_release",
+        201.0
+      ],
+      [
+        "swift_retain",
+        186.0
+      ],
+      [
+        "__kdebug_trace64",
+        181.0
+      ],
+      [
+        "swift::MetadataCacheKey::operator==(swift::MetadataCacheKey const&) const",
+        166.0
+      ],
+      [
+        "_platform_memmove",
+        147.0
+      ],
+      [
+        "swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::incrementSlow(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
+        142.0
+      ],
+      [
+        "_xzm_free_tc",
+        114.0
+      ],
+      [
+        "getCache(swift::TargetTypeContextDescriptor<swift::InProcess> const&)",
+        111.0
+      ],
+      [
+        "bool swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
+        107.0
+      ],
+      [
+        "___chkstk_darwin",
+        94.0
+      ],
+      [
+        "_xzm_malloc_tc",
+        93.0
+      ],
+      [
+        "swift::TargetContextDescriptor<swift::InProcess>::getGenericContext() const",
+        86.0
+      ],
+      [
+        "swift_beginAccess",
+        81.0
+      ],
+      [
+        "AGGraphGetValue",
+        80.0
+      ],
+      [
+        "_xzm_xzone_malloc_tiny",
+        74.0
+      ],
+      [
+        "swift_bridgeObjectRelease",
+        69.0
+      ],
+      [
+        "find(_:key:filter:)",
+        68.0
+      ],
+      [
+        "AG::Graph::resolve_offset(AG::AttributeID, AGSwiftMetadata const*, unsigned int) const",
+        68.0
+      ],
+      [
+        "_platform_memcmp",
+        60.0
+      ],
+      [
+        "objc_release",
+        59.0
+      ],
+      [
+        "std::__1::pair<swift::GenericCacheEntry*, bool> swift::StableAddressConcurrentReadableHashMap<swift::GenericCacheEntry, swift::TaggedMetadataAllocator<(unsigned short)14>, swift::Mutex>::getOrInsert<swift::MetadataCacheKey, swift::MetadataWaitQueue::Worker&, swift::MetadataRequest&, swift::TargetTypeContextDescriptor<swift::InProcess> const*&, void const* const*&>(swift::MetadataCacheKey, swift::MetadataWaitQueue::Worker&, swift::MetadataRequest&, swift::TargetTypeContextDescriptor<swift::InProcess> const*&, void const* const*&)",
+        57.0
+      ],
+      [
+        "__xzm_xzone_free_to_freelist_chunk",
+        47.0
+      ],
+      [
+        "__CF_IS_OBJC",
+        47.0
+      ],
+      [
+        "swift_bridgeObjectRetain",
+        47.0
+      ]
+    ],
+    "background": [
+      [
+        "mach_msg2_trap",
+        4163.0
+      ],
+      [
+        "_platform_memmove",
+        1189.0
+      ],
+      [
+        "read",
+        957.0
+      ],
+      [
+        "iokit_user_client_trap",
+        770.0
+      ],
+      [
+        "objc_msgSend",
+        629.0
+      ],
+      [
+        "_qsort",
+        582.0
+      ],
+      [
+        "start_wqthread",
+        550.0
+      ],
+      [
+        "__CFStringHash",
+        485.0
+      ],
+      [
+        "<deduplicated_symbol>",
+        456.0
+      ],
+      [
+        "__CF_IS_OBJC",
+        405.0
+      ],
+      [
+        "_xzm_free_tc",
+        376.0
+      ],
+      [
+        "_xzm_malloc_tc",
+        283.0
+      ],
+      [
+        "__open",
+        248.0
+      ],
+      [
+        "AccelerateCrypto_SHA256_compress",
+        246.0
+      ],
+      [
+        "_xzm_xzone_malloc_tiny",
+        244.0
+      ],
+      [
+        "0x1d2b38a20",
+        196.0
+      ],
+      [
+        "void resample_horizontal<unsigned char, int, 4, false>(resample_filter const*, unsigned int, unsigned int, int, void**, void const* const*, int*, int, void const* const*)",
+        195.0
+      ],
+      [
+        "__getattrlist",
+        181.0
+      ],
+      [
+        "stat",
+        177.0
+      ],
+      [
+        "void resample_vertical<int, unsigned char, 4, (AlphaStyle)2>(resample_filter const*, unsigned int, unsigned int, int, void**, void const* const*)",
+        177.0
+      ],
+      [
+        "__CFStringEqual",
+        166.0
+      ],
+      [
+        "-[__NSDictionaryM setObject:forKeyedSubscript:]",
+        162.0
+      ],
+      [
+        "ERROR_ImageIO_SourceBufferRangeIsNotBigEnough(unsigned char*, unsigned long)",
+        156.0
+      ],
+      [
+        "VTPixelTransferGraphBuildChain",
+        150.0
+      ],
+      [
+        "pread",
+        144.0
+      ],
+      [
+        "_platform_strlen",
+        133.0
+      ],
+      [
+        "objc_release",
+        132.0
+      ],
+      [
+        "__mmap",
+        124.0
+      ],
+      [
+        "vVertical_Scale_ARGB_8888_Accelerate_64x16",
+        121.0
+      ],
+      [
+        "__CFStringAppendFormatCore",
+        117.0
+      ]
+    ]
+  },
+  "inclusive_symbol_weights_ms": {
+    "main": [
+      [
+        "start",
+        13725.0
+      ],
+      [
+        "static RawCullApp.$main()",
+        13708.0
+      ],
+      [
+        "main",
+        13708.0
+      ],
+      [
+        "static App.main()",
+        13707.0
+      ],
+      [
+        "runApp<A>(_:)",
+        13664.0
+      ],
+      [
+        "-[NSApplication run]",
+        13652.0
+      ],
+      [
+        "NSApplicationMain",
+        13652.0
+      ],
+      [
+        "specialized runApp(_:)",
+        13652.0
+      ],
+      [
+        "-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]",
+        12583.0
+      ],
+      [
+        "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+        12578.0
+      ],
+      [
+        "_DPSNextEvent",
+        12476.0
+      ],
+      [
+        "_DPSBlockUntilNextEventMatchingListInMode",
+        12264.0
+      ],
+      [
+        "_BlockUntilNextEventMatchingListInMode",
+        12262.0
+      ],
+      [
+        "ReceiveNextEventCommon",
+        12261.0
+      ],
+      [
+        "RunCurrentEventLoopInMode",
+        12208.0
+      ],
+      [
+        "_CFRunLoopRunSpecificWithOptions",
+        12189.0
+      ],
+      [
+        "<deduplicated_symbol>",
+        9368.0
+      ],
+      [
+        "UC::DriverCore::continueProcessing()",
+        9321.0
+      ],
+      [
+        "CA::Transaction::commit()",
+        8484.0
+      ],
+      [
+        "CA::Transaction::flush()",
+        8467.0
+      ],
+      [
+        "__CFRunLoopDoObservers",
+        8381.0
+      ],
+      [
+        "__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__",
+        8335.0
+      ],
+      [
+        "stepTransactionFlush",
+        7759.0
+      ],
+      [
+        "CA::Transaction::flush_as_runloop_observer(bool)",
+        7527.0
+      ],
+      [
+        "CA::Transaction::run_commit_handlers(CATransactionPhase)",
+        7263.0
+      ],
+      [
+        "NSDisplayCycleFlush",
+        7236.0
+      ],
+      [
+        "NSDisplayCycleObserverInvoke",
+        7200.0
+      ],
+      [
+        "NSPerformVisuallyAtomicChange",
+        6897.0
+      ],
+      [
+        "0x19d570234",
+        6580.0
+      ],
+      [
+        "0x19d57020c",
+        6575.0
+      ],
+      [
+        "-[NSView layoutSubtreeIfNeeded]",
+        6567.0
+      ],
+      [
+        "__56-[NSView _layoutSubtreeIfNeededAndAllowTemporaryEngine:]_block_invoke",
+        6564.0
+      ],
+      [
+        "-[NSView _layoutSubtreeIfNeededAndAllowTemporaryEngine:]",
+        6564.0
+      ],
+      [
+        "-[NSWindow(NSConstraintBasedLayoutInternal) _layoutViewTree]",
+        6541.0
+      ],
+      [
+        "-[NSView _layoutSubtreeWithOldSize:]",
+        6497.0
+      ],
+      [
+        "__36-[NSView _layoutSubtreeWithOldSize:]_block_invoke",
+        6495.0
+      ],
+      [
+        "__NSWindowGetDisplayCycleObserverForLayout_block_invoke",
+        6482.0
+      ],
+      [
+        "-[NSWindow(NSConstraintBasedLayoutInternal) layoutIfNeeded]",
+        6481.0
+      ],
+      [
+        "_NSViewLayout",
+        6468.0
+      ],
+      [
+        "___NSViewLayout_block_invoke",
+        6460.0
+      ],
+      [
+        "0x19d621890",
+        6419.0
+      ],
+      [
+        "0x19d620d24",
+        6417.0
+      ],
+      [
+        "ViewGraphRootValueUpdater.render(interval:updateDisplayList:targetTimestamp:)",
+        6173.0
+      ],
+      [
+        "closure #1 in ViewGraphRootValueUpdater.render(interval:updateDisplayList:targetTimestamp:)",
+        6159.0
+      ],
+      [
+        "+[NSAnimationContext runAnimationGroup:]",
+        6156.0
+      ],
+      [
+        "@objc NSHostingView.layout()",
+        6129.0
+      ],
+      [
+        "NSHostingView.layout()",
+        6128.0
+      ],
+      [
+        "closure #1 in NSHostingView.layout()",
+        6070.0
+      ],
+      [
+        "AG::Graph::UpdateStack::update()",
+        6010.0
+      ],
+      [
+        "GraphHost.flushTransactions()",
+        5341.0
+      ],
+      [
+        "AG::Subgraph::update(unsigned int)",
+        5243.0
+      ],
+      [
+        "__CFRunLoopRun",
+        3899.0
+      ],
+      [
+        "partial apply for implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+        3247.0
+      ],
+      [
+        "specialized implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+        3058.0
+      ],
+      [
+        "AG::Graph::update_attribute(AG::data::ptr<AG::Node>, unsigned int)",
+        3047.0
+      ],
+      [
+        "-[NSApplication _handleEvent:]",
+        2710.0
+      ],
+      [
+        "-[NSApplication(NSEventRouting) sendEvent:]",
+        2691.0
+      ],
+      [
+        "-[NSWindow(NSEventRouting) sendEvent:]",
+        2651.0
+      ],
+      [
+        "-[NSWindow(NSEventRouting) _reallySendEvent:isDelayedEvent:]",
+        2586.0
+      ],
+      [
+        "ViewGraphRootValueUpdater._updateViewGraph<A>(body:)",
+        2224.0
+      ],
+      [
+        "@objc closure #1 in static NSRunLoop.addObserver(_:)",
+        2206.0
+      ],
+      [
+        "specialized static NSRunLoop.flushObservers()",
+        2188.0
+      ],
+      [
+        "ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+        2086.0
+      ],
+      [
+        "closure #1 in closure #1 in NSHostingView.beginTransaction()",
+        2054.0
+      ],
+      [
+        "closure #1 in closure #1 in closure #1 in NSHostingView.beginTransaction()",
+        2049.0
+      ],
+      [
+        "partial apply for closure #1 in ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+        2049.0
+      ],
+      [
+        "AGGraphGetValue",
+        2028.0
+      ],
+      [
+        "__CFRunLoopDoSources0",
+        1961.0
+      ],
+      [
+        "__CFRunLoopDoSource0",
+        1945.0
+      ],
+      [
+        "__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__",
+        1943.0
+      ],
+      [
+        "AG::Graph::input_value_ref_slow(AG::data::ptr<AG::Node>, AG::AttributeID, unsigned int, unsigned int, AGSwiftMetadata const*, unsigned char&, long)",
+        1940.0
+      ],
+      [
+        "-[NSWindow _handleLeftMouseDownEvent:isDelayedEvent:]",
+        1721.0
+      ],
+      [
+        "-[NSScroller mouseDown:]",
+        1692.0
+      ],
+      [
+        "-[NSScroller trackKnob:]",
+        1690.0
+      ],
+      [
+        "UpdateGroup.dispatchActions()",
+        1617.0
+      ],
+      [
+        "dispatch #1 () in UpdateGroup.dispatchActions()",
+        1610.0
+      ],
+      [
+        "UpdateGroup.Action.callAsFunction()",
+        1608.0
+      ],
+      [
+        "AG::Graph::value_ref(AG::AttributeID, unsigned int, AGSwiftMetadata const*, unsigned char&)",
+        1426.0
+      ],
+      [
+        "stepIdle",
+        1420.0
+      ],
+      [
+        "AGGraphGetWeakValue",
+        1402.0
+      ],
+      [
+        "__CFRunLoopDoSource1",
+        1365.0
+      ],
+      [
+        "__CFMachPortPerform",
+        1362.0
+      ],
+      [
+        "__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE1_PERFORM_FUNCTION__",
+        1362.0
+      ],
+      [
+        "NSHostingView.sendEvent<A>(_:serial:track:)",
+        1318.0
+      ],
+      [
+        "EventBindingManager.sendDownstream(_:)",
+        1310.0
+      ],
+      [
+        "EventBindingManager.send(_:)",
+        1302.0
+      ],
+      [
+        "NSHostingView.sendEvents(_:track:)",
+        1302.0
+      ],
+      [
+        "ViewLayoutEngine.sizeThatFits(_:)",
+        1288.0
+      ],
+      [
+        "closure #1 in ViewLayoutEngine.sizeThatFits(_:)",
+        1254.0
+      ],
+      [
+        "LayoutEngineBox.sizeThatFits(_:)",
+        1241.0
+      ],
+      [
+        "LayoutProxy.dimensions(in:)",
+        1182.0
+      ],
+      [
+        "protocol witness for ViewGraphRenderHost.renderDisplayList(_:asynchronously:time:nextTime:targetTimestamp:version:maxVersion:) in conformance ViewGraph",
+        1176.0
+      ],
+      [
+        "ViewGraph.renderDisplayList(_:asynchronously:time:nextTime:targetTimestamp:version:maxVersion:)",
+        1175.0
+      ],
+      [
+        "BaseViewList.applyNodes(from:style:list:transform:to:)",
+        1167.0
+      ],
+      [
+        "CA::Context::commit_transaction(CA::Transaction*, double, double*)",
+        1159.0
+      ],
+      [
+        "AGGraphGetInputValue",
+        1148.0
+      ],
+      [
+        "ViewGraphRenderDelegate.withMainThreadRender(wasAsync:_:)",
+        1111.0
+      ],
+      [
+        "closure #1 in renderOnMainThread #1 () in ViewGraph.renderDisplayList(_:asynchronously:time:nextTime:targetTimestamp:version:maxVersion:)",
+        1109.0
+      ],
+      [
+        "DisplayList.ViewUpdater.render(rootView:from:time:version:maxVersion:environment:)",
+        1108.0
+      ],
+      [
+        "implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+        1070.0
+      ],
+      [
+        "ViewResponder.hitTest(globalPoints:weights:mask:cacheKey:options:)",
+        1066.0
+      ],
+      [
+        "DisplayList.ViewUpdater.update(container:from:parentState:)",
+        1049.0
+      ],
+      [
+        "DisplayList.ViewUpdater.updateInheritedView(container:from:parentState:)",
+        1046.0
+      ],
+      [
+        "MultiViewResponder.containsGlobalPoints(_:cacheKey:options:)",
+        1030.0
+      ],
+      [
+        "0x23ba5a288",
+        983.0
+      ],
+      [
+        "UnaryLayoutEngine.sizeThatFits(_:)",
+        982.0
+      ],
+      [
+        "specialized DynamicLayoutComputer.updateValue()",
+        947.0
+      ],
+      [
+        "DisplayList.ViewUpdater.updateItemView(container:from:localState:)",
+        940.0
+      ],
+      [
+        "specialized DynamicContainerInfo.updateValue()",
+        934.0
+      ],
+      [
+        "DynamicViewList.WrappedList.applyNodes(from:style:list:transform:to:)",
+        921.0
+      ],
+      [
+        "specialized DynamicContainerInfo.updateItems(disableTransitions:dirtyFlags:hasDepth:)",
+        908.0
+      ],
+      [
+        "LazySubviewPlacements.updateValue()",
+        903.0
+      ],
+      [
+        "AnimatableFrameAttribute.updateValue()",
+        884.0
+      ],
+      [
+        "_LazyLayoutViewCache.withMutableCacheState<A, B>(type:_:)",
+        876.0
+      ],
+      [
+        "EventBindingManager.dispatchNonGestureEvents(_:)",
+        870.0
+      ],
+      [
+        "closure #1 in EventBindingManager.enqueueHoverUpdateIfNeeded()",
+        855.0
+      ],
+      [
+        "NSHostingView.didRequestHoverUpdate()",
+        855.0
+      ],
+      [
+        "HoverEventDispatcher.receiveEvents(_:manager:)",
+        854.0
+      ],
+      [
+        "LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)",
+        847.0
+      ],
+      [
+        "closure #1 in LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)",
+        842.0
+      ]
+    ],
+    "background": [
+      [
+        "<deduplicated_symbol>",
+        23875.0
+      ],
+      [
+        "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)",
+        23099.0
+      ],
+      [
+        "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+        10191.0
+      ],
+      [
+        "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+        9966.0
+      ],
+      [
+        "ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+        9331.0
+      ],
+      [
+        "specialized ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+        9329.0
+      ],
+      [
+        "specialized static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+        9227.0
+      ],
+      [
+        "static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+        9227.0
+      ],
+      [
+        "CGContextDrawImage",
+        9018.0
+      ],
+      [
+        "CGContextDrawImageWithOptions",
+        9015.0
+      ],
+      [
+        "ripc_DrawImage",
+        9010.0
+      ],
+      [
+        "IIOReadPlugin::callDecodeImage(IIODecodeParameter*, IIOImageType, __IOSurface**, __CVBuffer**, CGImageBlockSet**)",
+        8059.0
+      ],
+      [
+        "CGImageCreateSubsampledImage",
+        8047.0
+      ],
+      [
+        "IIOImageProviderInfo::CopyImageBlockSetWithOptions(void*, CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+        8015.0
+      ],
+      [
+        "IIOImageProviderInfo::copyImageBlockSetWithOptions(CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+        8011.0
+      ],
+      [
+        "IIO_Reader::CopyImageBlockSetProc(void*, CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+        8006.0
+      ],
+      [
+        "AppleJPEGReadPlugin::decodeImageImp(IIODecodeParameter*, IIOImageType, __IOSurface**, __CVBuffer**, CGImageBlockSet**)",
+        7990.0
+      ],
+      [
+        "AppleJPEGReadPlugin::copyImageBlockSetImp(InfoRec*, CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+        7987.0
+      ],
+      [
+        "AppleJPEGReadPlugin::createImageBlockSetWithHardwareDecode(InfoRec*, CGImageProvider*, CGSize, __CFDictionary const*, int*)",
+        7781.0
+      ],
+      [
+        "AppleJPEGReadPlugin::copyIOSurfaceImp(CGImageProvider*, __CFDictionary const*, __IOSurface**, __CFDictionary const**)",
+        7517.0
+      ],
+      [
+        "CGImageSourceCopyPropertiesAtIndexEx",
+        7189.0
+      ],
+      [
+        "IIOImageSource::copyPropertiesAtIndex(unsigned long, IIODictionary*)",
+        7187.0
+      ],
+      [
+        "IIOImageSource::getPropertiesAtIndexInternal(unsigned long, IIODictionary*)",
+        7101.0
+      ],
+      [
+        "IIOImageSource::makeImagePlus(unsigned long, IIODictionary*)",
+        6990.0
+      ],
+      [
+        "closure #1 in static RawImageLoader.loadMetadata(from:)",
+        6870.0
+      ],
+      [
+        "CMPhotoDecompressionContainerCreateImageForIndex",
+        6632.0
+      ],
+      [
+        "0x24ae3ceec",
+        6627.0
+      ],
+      [
+        "0x24ac26594",
+        6624.0
+      ],
+      [
+        "IIOReader_RawCamera::initImageAtOffset(CGImagePlugin*, unsigned long, unsigned long, unsigned long)",
+        6197.0
+      ],
+      [
+        "0x1d2aa5170",
+        6194.0
+      ],
+      [
+        "0x1d2a9642c",
+        6187.0
+      ],
+      [
+        "static RawImageLoader.imageProperties(from:)",
+        5067.0
+      ],
+      [
+        "specialized static RawImageLoader.imageProperties(from:)",
+        5066.0
+      ],
+      [
+        "0x1d2a970b4",
+        4852.0
+      ],
+      [
+        "0x1d2a48288",
+        4745.0
+      ],
+      [
+        "0x1d2a5cc4c",
+        4743.0
+      ],
+      [
+        "CMPhotoScaleAndRotateSessionTransformImage",
+        4185.0
+      ],
+      [
+        "0x24ae0f540",
+        4178.0
+      ],
+      [
+        "mach_msg2_trap",
+        4163.0
+      ],
+      [
+        "0x24ae10ea8",
+        3655.0
+      ],
+      [
+        "IOConnectCallMethod",
+        2775.0
+      ],
+      [
+        "io_connect_method",
+        2757.0
+      ],
+      [
+        "0x1d2a5ec00",
+        2616.0
+      ],
+      [
+        "start_wqthread",
+        2609.0
+      ],
+      [
+        "0x1d2a5f6b0",
+        2588.0
+      ],
+      [
+        "specialized thunk for @escaping @isolated(any) @callee_guaranteed @async () -> (@out A)",
+        2512.0
+      ],
+      [
+        "+[CIRAWFilter filterWithImageURL:]",
+        2397.0
+      ],
+      [
+        "+[CIRAWFilterImpl filterWithImageURL:options:]",
+        2397.0
+      ],
+      [
+        "-[CIRAWFilter initWithImageURL:]",
+        2397.0
+      ],
+      [
+        "@nonobjc CIRAWFilter.__allocating_init(imageURL:)",
+        2396.0
+      ],
+      [
+        "-[CIRAWFilterImpl(Private) initWithImageSource:options:]",
+        2389.0
+      ],
+      [
+        "closure #3 in ImageSourceSelectorView.body.getter",
+        2383.0
+      ],
+      [
+        "static RAW9Support.isSupported(for:)",
+        2383.0
+      ],
+      [
+        "specialized autoreleasepool<A, B>(invoking:)",
+        2381.0
+      ],
+      [
+        "VTPixelTransferSessionTransferImage",
+        2334.0
+      ],
+      [
+        "_VTPixelTransferSessionTransferImage",
+        2326.0
+      ],
+      [
+        "closure #1 in static RAW9Support.isSupported(for:)",
+        2313.0
+      ],
+      [
+        "-[CIRAWFilterImpl setDefaults]",
+        2236.0
+      ],
+      [
+        "vtPixelTransferSession_BuildChain",
+        2183.0
+      ],
+      [
+        "_pthread_wqthread",
+        2059.0
+      ],
+      [
+        "0x24ae4d7b8",
+        2001.0
+      ],
+      [
+        "_dispatch_client_callout",
+        1996.0
+      ],
+      [
+        "closure #1 in FocusMaskEngine.generateFocusMaskWithBreakdown(from:scale:config:afPoint:)",
+        1878.0
+      ],
+      [
+        "-[CIRAWFilterImpl(Private) rawDictionary]",
+        1777.0
+      ],
+      [
+        "0x1d2a5d214",
+        1763.0
+      ],
+      [
+        "-[__NSDictionaryI enumerateKeysAndObjectsWithOptions:usingBlock:]",
+        1732.0
+      ],
+      [
+        "specialized static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "static FocusMaskEngine.computeSharpnessBreakdown(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "__NSDICTIONARY_IS_CALLING_OUT_TO_A_BLOCK__",
+        1621.0
+      ],
+      [
+        "_CFRelease",
+        1571.0
+      ],
+      [
+        "static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+        1468.0
+      ],
+      [
+        "static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+        1462.0
+      ],
+      [
+        "closure #1 in static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+        1462.0
+      ],
+      [
+        "specialized Collection.map<A, B>(_:)",
+        1462.0
+      ],
+      [
+        "specialized static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+        1452.0
+      ],
+      [
+        "bestLocalPatchScore #1 (in:visualRegion:) in static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1393.0
+      ],
+      [
+        "0x1d2a5d778",
+        1306.0
+      ],
+      [
+        "CMPhotoSurfacePoolCreatePixelBuffer",
+        1297.0
+      ],
+      [
+        "0x24adc968c",
+        1294.0
+      ],
+      [
+        "0x1d2ade9bc",
+        1236.0
+      ],
+      [
+        "_platform_memmove",
+        1189.0
+      ],
+      [
+        "IOSurfaceCreate",
+        1184.0
+      ],
+      [
+        "0x24adc86fc",
+        1141.0
+      ],
+      [
+        "_dispatch_call_block_and_release",
+        1133.0
+      ],
+      [
+        "0x1d2a989c0",
+        1122.0
+      ],
+      [
+        "0x1d2a5e1cc",
+        1102.0
+      ],
+      [
+        "0x1d2a5f494",
+        1096.0
+      ],
+      [
+        "0x24ac317dc",
+        1088.0
+      ],
+      [
+        "0x24ac320dc",
+        1061.0
+      ],
+      [
+        "0x1d2aaad90",
+        1054.0
+      ],
+      [
+        "_dispatch_worker_thread2",
+        1046.0
+      ],
+      [
+        "_dispatch_root_queue_drain",
+        1045.0
+      ],
+      [
+        "0x1d2aaccec",
+        1045.0
+      ],
+      [
+        "0x24ae03694",
+        1044.0
+      ],
+      [
+        "IIOImageRead::getBytesAtOffset(void*, unsigned long, unsigned long, bool)",
+        1026.0
+      ],
+      [
+        "-[IOSurface initWithProperties:]",
+        1015.0
+      ],
+      [
+        "IOSurfaceClientCreateChild",
+        1004.0
+      ],
+      [
+        "_dispatch_workloop_worker_thread",
+        1002.0
+      ],
+      [
+        "0x1d2be8528",
+        1001.0
+      ],
+      [
+        "0x1d2a33c88",
+        984.0
+      ],
+      [
+        "0x1d2be6ea0",
+        980.0
+      ],
+      [
+        "0x1d2be6120",
+        979.0
+      ],
+      [
+        "_dispatch_root_queue_drain_deferred_wlh",
+        978.0
+      ],
+      [
+        "0x1d2a33d54",
+        978.0
+      ],
+      [
+        "_dispatch_lane_invoke",
+        975.0
+      ],
+      [
+        "0x1d2adfbb0",
+        974.0
+      ],
+      [
+        "NSFileHandle.read(upToCount:)",
+        965.0
+      ],
+      [
+        "_dispatch_lane_serial_drain",
+        964.0
+      ],
+      [
+        "-[NSConcreteFileHandle readDataUpToLength:error:]",
+        960.0
+      ],
+      [
+        "read",
+        957.0
+      ],
+      [
+        "-[NSConcreteFileHandle readDataOfLength:]",
+        956.0
+      ],
+      [
+        "0x1d2aac1b8",
+        954.0
+      ],
+      [
+        "0x1d2aeed28",
+        949.0
+      ],
+      [
+        "static RawImageLoader.makerNoteFocusPoint(from:)",
+        939.0
+      ],
+      [
+        "-[CIContext(CIRenderDestination) startTaskToRender:fromRect:toDestination:atPoint:error:]",
+        933.0
+      ],
+      [
+        "-[CIContext(CIRenderDestination) _startTaskToRender:toDestination:forPrepareRender:forClear:error:]",
+        931.0
+      ],
+      [
+        "-[CIRAWFilterImpl(CustomAccessors) setInputDecoderVersion:]",
+        929.0
+      ],
+      [
+        "-[CIRenderDestination _render:withContext:]",
+        927.0
+      ],
+      [
+        "specialized static SonyMakerNoteParser.focusLocation(from:)",
+        922.0
+      ]
+    ]
+  },
+  "inclusive_app_symbol_weights_ms": {
+    "main": [
+      [
+        "static RawCullApp.$main()",
+        13708.0
+      ],
+      [
+        "ZoomOverlayView.body.getter",
+        325.0
+      ],
+      [
+        "RawCullViewModel.selectedFile.getter",
+        255.0
+      ],
+      [
+        "closure #1 in ZoomOverlayView.body.getter",
+        224.0
+      ],
+      [
+        "RawCullViewModel.getFocusPoints()",
+        198.0
+      ],
+      [
+        "ZoomOverlayView.focusPoints.getter",
+        197.0
+      ],
+      [
+        "ZoomOverlayView.focusTarget.getter",
+        197.0
+      ],
+      [
+        "closure #1 in RawCullViewModel.selectedFile.getter",
+        174.0
+      ],
+      [
+        "closure #1 in RawCullViewModel.getFocusPoints()",
+        148.0
+      ],
+      [
+        "closure #1 in closure #1 in ZoomOverlayView.body.getter",
+        130.0
+      ],
+      [
+        "ImageItemView.body.getter",
+        101.0
+      ],
+      [
+        "closure #14 in ZoomOverlayView.body.getter",
+        87.0
+      ],
+      [
+        "ZoomOverlayAnalysisCoordinator.regenerateMaskFromCG()",
+        87.0
+      ],
+      [
+        "-[NSFocusStack performWithFocusView:inWindow:usingBlock:]",
+        86.0
+      ],
+      [
+        "PhotoAnalyzer.analyzeWithFocusMask(_:scale:configuration:)",
+        80.0
+      ],
+      [
+        "specialized RawCullViewModel.access<A>(keyPath:)",
+        79.0
+      ],
+      [
+        "static FocusMaskEngine.normalizeToSRGB(_:)",
+        79.0
+      ],
+      [
+        "specialized static FocusMaskEngine.normalizeToSRGB(_:)",
+        79.0
+      ],
+      [
+        "ZoomOverlayControls.body.getter",
+        78.0
+      ],
+      [
+        "protocol witness for View.body.getter in conformance ZoomOverlayControls",
+        78.0
+      ],
+      [
+        "closure #1 in ZoomOverlayControls.body.getter",
+        77.0
+      ],
+      [
+        "closure #1 in closure #1 in ZoomOverlayControls.body.getter",
+        77.0
+      ],
+      [
+        "RawCullViewModel.selectedFileID.getter",
+        73.0
+      ],
+      [
+        "RawCullCatalogAccess.retainAccess(for:)",
+        65.0
+      ],
+      [
+        "closure #1 in closure #1 in ScanFiles.scanFiles(url:onProgress:)",
+        63.0
+      ],
+      [
+        "initializeWithCopy for RawCullFileItem",
+        63.0
+      ],
+      [
+        "ImageItemView.tileContent.getter",
+        45.0
+      ],
+      [
+        "RawCullApp.init()",
+        43.0
+      ],
+      [
+        "protocol witness for App.init() in conformance RawCullApp",
+        43.0
+      ],
+      [
+        "specialized static RawCullApplicationState.live()",
+        43.0
+      ],
+      [
+        "static RawCullApplicationState.live()",
+        43.0
+      ],
+      [
+        "ZoomOverlayView.subjectOutlineTaskID.getter",
+        43.0
+      ],
+      [
+        "static RawCullApplicationState.make(modelRuntime:similarityArtifactStore:userDefaults:evidenceScan:modelDownloadCatalog:modelDownloadCoordinator:rawCullVersion:)",
+        41.0
+      ],
+      [
+        "specialized static RawCullApplicationState.make(modelRuntime:similarityArtifactStore:userDefaults:evidenceScan:modelDownloadCatalog:modelDownloadCoordinator:rawCullVersion:)",
+        41.0
+      ],
+      [
+        "specialized RawCullViewModel.init(similarityModel:similarityFeature:semanticSearchFeature:deepAIReviewController:burstAnalysisCacheRepository:)",
+        40.0
+      ],
+      [
+        "RawCullViewModel.init(similarityModel:similarityFeature:semanticSearchFeature:deepAIReviewController:burstAnalysisCacheRepository:)",
+        40.0
+      ],
+      [
+        "RawCullViewModel.__allocating_init(similarityModel:similarityFeature:semanticSearchFeature:deepAIReviewController:burstAnalysisCacheRepository:)",
+        40.0
+      ],
+      [
+        "specialized FocusMaskEngine.init()",
+        37.0
+      ],
+      [
+        "SharpnessScoringModel.__allocating_init(analysisAdapterOverride:)",
+        37.0
+      ],
+      [
+        "SharpnessScoringModel.init(analysisAdapterOverride:)",
+        37.0
+      ],
+      [
+        "destroy for RawCullFileItem",
+        29.0
+      ],
+      [
+        "closure #1 in ImageItemView.tileContent.getter",
+        29.0
+      ],
+      [
+        "FocusMaskModel.__allocating_init()",
+        28.0
+      ],
+      [
+        "FocusMaskModel.init()",
+        28.0
+      ],
+      [
+        "ZoomOverlayView.focusMaskTaskID.getter",
+        26.0
+      ],
+      [
+        "ZoomOverlayView.subjectOutlineCandidate.getter",
+        26.0
+      ],
+      [
+        "ZoomOverlayControls.subjectOutlineAvailable.getter",
+        26.0
+      ],
+      [
+        "partial apply for closure #1 in RawCullViewModel.handleSourceChange(url:)",
+        20.0
+      ],
+      [
+        "closure #2 in ThumbnailImageView.body.getter",
+        20.0
+      ],
+      [
+        "closure #1 in RawCullViewModel.handleSourceChange(url:)",
+        19.0
+      ],
+      [
+        "ThumbnailPresentationModel.load(request:imageLoader:publish:)",
+        19.0
+      ],
+      [
+        "RawCullPhotoAnalysisAdapter.init(inputLoaderOverride:)",
+        17.0
+      ],
+      [
+        "specialized ThumbnailPresentationModel.withMutation<A, B>(keyPath:_:)",
+        17.0
+      ],
+      [
+        "NSHostingView.invalidateSemanticContext()",
+        16.0
+      ],
+      [
+        "ThumbnailImageView.body.getter",
+        15.0
+      ],
+      [
+        "closure #1 in RawCullViewModel.aiAnalysisFiles(for:)",
+        14.0
+      ],
+      [
+        "RawCullViewModel.aiAnalysisFiles(for:)",
+        14.0
+      ],
+      [
+        "static SemanticFeature.isEnabled.getter",
+        13.0
+      ],
+      [
+        "specialized Toolbar.LocationStorage.updatedVendedItems(newFocusedValues:)",
+        13.0
+      ],
+      [
+        "protocol witness for static PreferenceKey.reduce(value:nextValue:) in conformance FocusableOptionsKey",
+        13.0
+      ],
+      [
+        "specialized RawCullViewModel.withMutation<A, B>(keyPath:_:)",
+        12.0
+      ],
+      [
+        "closure #1 in closure #1 in ImageItemView.tileContent.getter",
+        11.0
+      ],
+      [
+        "static FocusStateBindingModifier._makeView(modifier:inputs:body:)",
+        9.0
+      ],
+      [
+        "static _FocusableModifier._makeView(modifier:inputs:body:)",
+        9.0
+      ],
+      [
+        "ThumbnailPresentationModel.isLoading.setter",
+        9.0
+      ],
+      [
+        "closure #1 in ZoomOverlayView.installKeyMonitor()",
+        9.0
+      ],
+      [
+        "RawCullMainView.body.getter",
+        8.0
+      ],
+      [
+        "-[NSView computed_effectiveSemanticContext]",
+        8.0
+      ],
+      [
+        "closure #1 in ThumbnailImageView.body.getter",
+        8.0
+      ],
+      [
+        "ThumbnailPresentationModel.image.setter",
+        8.0
+      ],
+      [
+        "ZoomOverlayView.handleKeyEvent(_:)",
+        8.0
+      ],
+      [
+        "UpdateViewFocusItem.updateValue()",
+        7.0
+      ],
+      [
+        "FocusBridge.updateDefaultKeyViewLoop()",
+        7.0
+      ],
+      [
+        "RawCullViewModel.selectedFileID.setter",
+        7.0
+      ],
+      [
+        "closure #2 in closure #1 in closure #1 in ImageItemView.tileContent.getter",
+        7.0
+      ],
+      [
+        "FocusState.Box.update(property:phase:)",
+        6.0
+      ],
+      [
+        "RawCullViewModel.handleSourceChange(url:)",
+        6.0
+      ],
+      [
+        "RawCullViewModel.isActiveCatalogLoad(_:)",
+        6.0
+      ],
+      [
+        "closure #1 in closure #2 in closure #1 in closure #1 in ImageItemView.tileContent.getter",
+        6.0
+      ],
+      [
+        "SharpnessControlsView.body.getter",
+        6.0
+      ],
+      [
+        "closure #1 in RawCullMainView.body.getter",
+        5.0
+      ],
+      [
+        "closure #1 in closure #1 in RawCullMainView.body.getter",
+        5.0
+      ],
+      [
+        "UpdateFocusableViewResponder.updateValue()",
+        5.0
+      ],
+      [
+        "closure #1 in RawCullCatalogAccess.retainAccess(for:)",
+        5.0
+      ],
+      [
+        "ImageItemView.hasDeepReviewMask.getter",
+        5.0
+      ],
+      [
+        "$defer #1 () in ThumbnailPresentationModel.load(request:imageLoader:publish:)",
+        5.0
+      ],
+      [
+        "NSHostingView.updateFocusItemIfNeeded(with:)",
+        5.0
+      ],
+      [
+        "-[NSFocusStack focusView:inWindow:]",
+        5.0
+      ],
+      [
+        "ZoomOverlayView.reload()",
+        5.0
+      ],
+      [
+        "closure #13 in ZoomOverlayView.body.getter",
+        5.0
+      ],
+      [
+        "static ImageReviewFeaturePolicy.select(delta:from:in:using:)",
+        5.0
+      ],
+      [
+        "specialized ZoomSessionModel.navigate(by:from:in:using:)",
+        5.0
+      ],
+      [
+        "partial apply for implicit closure #2 in implicit closure #1 in ZoomOverlayView.keyboardController.getter",
+        5.0
+      ],
+      [
+        "ZoomSessionModel.navigate(by:from:in:using:)",
+        5.0
+      ],
+      [
+        "ZoomOverlayView.navigateSelection(by:)",
+        5.0
+      ],
+      [
+        "ZoomKeyboardController.handle(_:)",
+        5.0
+      ],
+      [
+        "protocol witness for ImageReviewSelectionActing.selectedFileID.setter in conformance RawCullViewModel",
+        5.0
+      ],
+      [
+        "RawCullMainView.loupeSplit.getter",
+        4.0
+      ],
+      [
+        "FocusStoreLocation.update()",
+        4.0
+      ],
+      [
+        "-[NSView _invalidateFocus]",
+        4.0
+      ]
+    ],
+    "background": [
+      [
+        "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+        10191.0
+      ],
+      [
+        "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+        9966.0
+      ],
+      [
+        "ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+        9331.0
+      ],
+      [
+        "specialized ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+        9329.0
+      ],
+      [
+        "specialized static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+        9227.0
+      ],
+      [
+        "static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+        9227.0
+      ],
+      [
+        "CGImageSourceCopyPropertiesAtIndexEx",
+        7189.0
+      ],
+      [
+        "IIOImageSource::copyPropertiesAtIndex(unsigned long, IIODictionary*)",
+        7187.0
+      ],
+      [
+        "IIOImageSource::getPropertiesAtIndexInternal(unsigned long, IIODictionary*)",
+        7101.0
+      ],
+      [
+        "IIOImageSource::makeImagePlus(unsigned long, IIODictionary*)",
+        6990.0
+      ],
+      [
+        "closure #1 in static RawImageLoader.loadMetadata(from:)",
+        6870.0
+      ],
+      [
+        "static RawImageLoader.imageProperties(from:)",
+        5067.0
+      ],
+      [
+        "specialized static RawImageLoader.imageProperties(from:)",
+        5066.0
+      ],
+      [
+        "-[CIRAWFilterImpl(Private) initWithImageSource:options:]",
+        2389.0
+      ],
+      [
+        "closure #3 in ImageSourceSelectorView.body.getter",
+        2383.0
+      ],
+      [
+        "closure #1 in FocusMaskEngine.generateFocusMaskWithBreakdown(from:scale:config:afPoint:)",
+        1878.0
+      ],
+      [
+        "specialized static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "static FocusMaskEngine.computeSharpnessBreakdown(from:saliencyDetection:afPoint:context:config:)",
+        1731.0
+      ],
+      [
+        "static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+        1468.0
+      ],
+      [
+        "static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+        1462.0
+      ],
+      [
+        "closure #1 in static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+        1462.0
+      ],
+      [
+        "specialized static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+        1452.0
+      ],
+      [
+        "bestLocalPatchScore #1 (in:visualRegion:) in static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        1393.0
+      ],
+      [
+        "static RawImageLoader.makerNoteFocusPoint(from:)",
+        939.0
+      ],
+      [
+        "static FocusMaskEngine.sortedForOrderStatistics(_:)",
+        689.0
+      ],
+      [
+        "closure #1 in RawCullSimilarityFeature.hydrateCatalog(_:)",
+        673.0
+      ],
+      [
+        "static FocusMaskEngine.redSampleGrid(in:from:context:)",
+        669.0
+      ],
+      [
+        "specialized static FocusMaskEngine.redSampleGrid(in:from:context:)",
+        666.0
+      ],
+      [
+        "closure #1 in DiskCacheManager.load(for:)",
+        556.0
+      ],
+      [
+        "static RawImageLoader.captureDate(from:subsecond:offset:defaultTimeZone:)",
+        508.0
+      ],
+      [
+        "static ThumbnailCacheKey.resolve(for:purpose:requestedPixelSize:orientationPolicy:)",
+        445.0
+      ],
+      [
+        "static ThumbnailSourceFingerprint.resolve(for:)",
+        438.0
+      ],
+      [
+        "CGImageSourceCreateWithURLEx",
+        373.0
+      ],
+      [
+        "IIOImageSource::IIOImageSource(__CFURL const*, IIODictionary*)",
+        355.0
+      ],
+      [
+        "static FocusMaskEngine.redSamples(in:from:context:)",
+        341.0
+      ],
+      [
+        "RawCullSemanticSearchModel.hydrateSemanticArtifacts(_:)",
+        336.0
+      ],
+      [
+        "specialized RawCullAIModelResourceManager.load()",
+        294.0
+      ],
+      [
+        "implicit closure #2 in RawCullAIModelRuntime.refreshCapabilities()",
+        293.0
+      ],
+      [
+        "static RawImageLoader.capturedAtDescription(_:)",
+        288.0
+      ],
+      [
+        "specialized static RawImageLoader.capturedAtDescription(_:)",
+        286.0
+      ],
+      [
+        "static FocusMaskEngine.robustTailScore(_:)",
+        218.0
+      ],
+      [
+        "specialized static FocusMaskEngine.robustTailScore(_:)",
+        218.0
+      ],
+      [
+        "ThumbnailPreloadGate.finished(sourceURL:sessionID:)",
+        217.0
+      ],
+      [
+        "DiskCacheManager.load(for:)",
+        215.0
+      ],
+      [
+        "static FocusMaskEngine.selectOrderStatistic(in:at:within:)",
+        199.0
+      ],
+      [
+        "specialized static FocusMaskEngine.selectOrderStatistic(in:at:within:)",
+        199.0
+      ],
+      [
+        "DiskCacheManager.cacheURL(for:)",
+        181.0
+      ],
+      [
+        "CGImageSourceCreateImageAtIndexEx",
+        180.0
+      ],
+      [
+        "IIOImageSource::createImageAtIndex(unsigned long, IIODictionary*, int*, unsigned int*)",
+        168.0
+      ],
+      [
+        "_CGImageSourceFinalize(void const*)",
+        159.0
+      ],
+      [
+        "IIOImageSource::~IIOImageSource()",
+        157.0
+      ],
+      [
+        "RawCullViewModel.handleSourceChange(url:)",
+        140.0
+      ],
+      [
+        "ScanFiles.scanFiles(url:onProgress:)",
+        126.0
+      ],
+      [
+        "static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+        118.0
+      ],
+      [
+        "specialized static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+        118.0
+      ],
+      [
+        "ThumbnailPresentationModel.load(request:imageLoader:publish:)",
+        115.0
+      ],
+      [
+        "ThumbnailImageView.loadThumbnail()",
+        115.0
+      ],
+      [
+        "ThumbnailLoader.thumbnailLoader(file:targetSize:)",
+        115.0
+      ],
+      [
+        "closure #2 in ThumbnailImageView.body.getter",
+        115.0
+      ],
+      [
+        "ThumbnailLoader.cachedGridImage(for:)",
+        114.0
+      ],
+      [
+        "specialized ThumbnailLoader.cachedGridImage(for:)",
+        114.0
+      ],
+      [
+        "IIOImageSource::doBindToReader()",
+        101.0
+      ],
+      [
+        "closure #1 in closure #1 in ScanFiles.scanFiles(url:onProgress:)",
+        97.0
+      ],
+      [
+        "AG::LayoutDescriptor::make_layout(AG::swift::metadata const*, AGComparisonMode, AG::LayoutDescriptor::HeapMode)",
+        74.0
+      ],
+      [
+        "closure #4 in static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+        69.0
+      ],
+      [
+        "thunk for @callee_guaranteed (@unowned CGRect, @guaranteed CIImage) -> (@owned [FocusPatchRanking])",
+        69.0
+      ],
+      [
+        "ThumbnailCacheKey.memoryCacheKey.getter",
+        66.0
+      ],
+      [
+        "ThumbnailSourceFingerprint.init(sourceURL:fileSize:modificationDate:)",
+        65.0
+      ],
+      [
+        "ThumbnailCacheKey.cacheIdentifier.getter",
+        61.0
+      ],
+      [
+        "static FocusMaskEngine.patchShapeEvidence(samples:width:height:)",
+        47.0
+      ],
+      [
+        "ScanAndCreateThumbnails.recordCompletion(succeeded:)",
+        46.0
+      ],
+      [
+        "specialized TrackedThumbnailCache.locked<A>(_:)",
+        44.0
+      ],
+      [
+        "ThumbnailPreloadGate.resumeEligibleWaiters()",
+        40.0
+      ],
+      [
+        "ThumbnailPreloadGate.isBlocked(_:)",
+        39.0
+      ],
+      [
+        "closure #1 in ThumbnailPreloadGate.resumeEligibleWaiters()",
+        39.0
+      ],
+      [
+        "thunk for @callee_guaranteed (@in_guaranteed UUID, @in_guaranteed ThumbnailPreloadGate.Waiter) -> (@out UUID?)",
+        39.0
+      ],
+      [
+        "TrackedThumbnailCache.setObject(_:forKey:cost:)",
+        37.0
+      ],
+      [
+        "ScanAndCreateThumbnails.notifyFileHandler(_:)",
+        35.0
+      ],
+      [
+        "RawImageLoader.metadata(for:)",
+        33.0
+      ],
+      [
+        "closure #1 in TrackedThumbnailCache.setObject(_:forKey:cost:)",
+        33.0
+      ],
+      [
+        "ThumbnailSourceFingerprint.standardizedPath.getter",
+        31.0
+      ],
+      [
+        "specialized static FocusMaskEngine.patchShapeEvidence(samples:width:height:)",
+        31.0
+      ],
+      [
+        "specialized static ScanFiles.sortFiles(_:by:searchText:)",
+        29.0
+      ],
+      [
+        "static FocusMaskEngine.detectSaliencyAndClassify(for:classify:)",
+        29.0
+      ],
+      [
+        "specialized static FocusMaskEngine.detectSaliencyAndClassify(for:classify:)",
+        29.0
+      ],
+      [
+        "specialized static FocusMaskEngine.renderedMaskCoverage(_:regions:extent:context:)",
+        22.0
+      ],
+      [
+        "static FocusMaskEngine.renderedMaskCoverage(_:regions:extent:context:)",
+        22.0
+      ],
+      [
+        "closure #9 in static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+        22.0
+      ],
+      [
+        "mean #1 (_:) in static FocusMaskEngine.renderedMaskCoverage(_:regions:extent:context:)",
+        22.0
+      ],
+      [
+        "static FocusMaskEngine.robustTailScore(_:p20:p90:p97:)",
+        20.0
+      ],
+      [
+        "static FocusMaskEngine.maskCoverage(_:threshold:)",
+        20.0
+      ],
+      [
+        "closure #1 in ScanFiles.scanFiles(url:onProgress:)",
+        19.0
+      ],
+      [
+        "static FocusMaskEngine.adaptiveVisualThreshold(sortedSamples:fallback:percentile:floorMultiplier:capAtFallback:)",
+        19.0
+      ],
+      [
+        "specialized static FocusMaskEngine.maskCoverage(_:threshold:)",
+        16.0
+      ],
+      [
+        "closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+        15.0
+      ],
+      [
+        "RawCullViewModel.handleSortOrderChange()",
+        15.0
+      ],
+      [
+        "redAt #1 (_:) in static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        15.0
+      ],
+      [
+        "specialized analyzeRegion #1 (_:) in static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+        14.0
+      ],
+      [
+        "specialized RawFocusPoint.init(focusLocation:)",
+        13.0
+      ]
+    ]
+  },
+  "first_last_matching_sample_ms": {
+    "metadata_loader": [
+      10885.416,
+      16423.416
+    ],
+    "image_properties": [
+      10888.417,
+      57802.414
+    ],
+    "selected_file": [
+      17244.418,
+      67982.419
+    ],
+    "disk_load": [
+      17446.416,
+      57668.415
+    ],
+    "preload": [
+      17448.418,
+      30840.416
+    ],
+    "grid_resize": [
+      17464.415,
+      30839.416
+    ],
+    "zoom_keyboard": [
+      43886.415,
+      55961.415
+    ],
+    "zoom_navigate": [
+      54211.415,
+      55961.415
+    ],
+    "zoom_current_index": [
+      57259.415,
+      59816.416
+    ],
+    "zoom_projection": [
+      57259.415,
+      59816.416
+    ]
+  },
+  "per_second_sample_weight_ms": {
+    "0": {
+      "main": 400.0,
+      "background": 89.0
+    },
+    "1": {
+      "main": 7.0,
+      "background": 308.0
+    },
+    "2": {
+      "background": 22.0,
+      "main": 122.0
+    },
+    "4": {
+      "main": 4.0
+    },
+    "5": {
+      "background": 9.0,
+      "main": 14.0
+    },
+    "6": {
+      "main": 12.0,
+      "background": 5.0
+    },
+    "7": {
+      "main": 15.0,
+      "background": 3.0
+    },
+    "8": {
+      "main": 43.0,
+      "background": 18.0
+    },
+    "9": {
+      "main": 30.0,
+      "background": 13.0
+    },
+    "10": {
+      "main": 305.0,
+      "background": 196.0,
+      "metadata_loader": 75.0,
+      "image_properties": 72.0
+    },
+    "11": {
+      "main": 23.0,
+      "background": 1264.0,
+      "image_properties": 859.0,
+      "metadata_loader": 1223.0
+    },
+    "12": {
+      "background": 1318.0,
+      "metadata_loader": 1251.0,
+      "main": 37.0,
+      "image_properties": 873.0
+    },
+    "13": {
+      "background": 1368.0,
+      "metadata_loader": 1300.0,
+      "image_properties": 896.0,
+      "main": 41.0
+    },
+    "14": {
+      "background": 1321.0,
+      "metadata_loader": 1258.0,
+      "image_properties": 858.0,
+      "main": 36.0
+    },
+    "15": {
+      "background": 1300.0,
+      "image_properties": 849.0,
+      "metadata_loader": 1240.0,
+      "main": 35.0
+    },
+    "16": {
+      "background": 1062.0,
+      "image_properties": 366.0,
+      "metadata_loader": 527.0,
+      "main": 29.0
+    },
+    "17": {
+      "background": 744.0,
+      "main": 250.0,
+      "selected_file": 3.0,
+      "image_properties": 61.0,
+      "disk_load": 41.0,
+      "preload": 419.0,
+      "grid_resize": 378.0
+    },
+    "18": {
+      "background": 941.0,
+      "preload": 836.0,
+      "grid_resize": 752.0,
+      "disk_load": 74.0,
+      "main": 34.0,
+      "image_properties": 8.0
+    },
+    "19": {
+      "background": 823.0,
+      "preload": 711.0,
+      "grid_resize": 647.0,
+      "main": 87.0,
+      "disk_load": 85.0,
+      "image_properties": 14.0
+    },
+    "20": {
+      "background": 823.0,
+      "preload": 727.0,
+      "grid_resize": 663.0,
+      "disk_load": 69.0,
+      "main": 73.0,
+      "image_properties": 8.0
+    },
+    "21": {
+      "background": 903.0,
+      "preload": 839.0,
+      "grid_resize": 753.0,
+      "disk_load": 51.0,
+      "main": 240.0,
+      "image_properties": 1.0
+    },
+    "22": {
+      "background": 785.0,
+      "preload": 737.0,
+      "grid_resize": 660.0,
+      "main": 258.0,
+      "disk_load": 39.0,
+      "image_properties": 1.0
+    },
+    "23": {
+      "background": 916.0,
+      "preload": 798.0,
+      "grid_resize": 721.0,
+      "disk_load": 93.0,
+      "main": 69.0,
+      "image_properties": 2.0
+    },
+    "24": {
+      "background": 844.0,
+      "preload": 764.0,
+      "grid_resize": 701.0,
+      "main": 213.0,
+      "disk_load": 48.0,
+      "image_properties": 2.0
+    },
+    "25": {
+      "background": 753.0,
+      "preload": 711.0,
+      "grid_resize": 634.0,
+      "main": 296.0,
+      "disk_load": 27.0,
+      "image_properties": 1.0
+    },
+    "26": {
+      "background": 777.0,
+      "preload": 724.0,
+      "grid_resize": 658.0,
+      "main": 257.0,
+      "disk_load": 34.0,
+      "image_properties": 6.0
+    },
+    "27": {
+      "background": 768.0,
+      "preload": 710.0,
+      "grid_resize": 639.0,
+      "main": 265.0,
+      "disk_load": 34.0,
+      "image_properties": 3.0
+    },
+    "28": {
+      "background": 867.0,
+      "preload": 805.0,
+      "grid_resize": 732.0,
+      "main": 130.0,
+      "disk_load": 50.0,
+      "image_properties": 1.0
+    },
+    "29": {
+      "background": 912.0,
+      "preload": 813.0,
+      "grid_resize": 728.0,
+      "main": 238.0,
+      "disk_load": 56.0,
+      "image_properties": 1.0
+    },
+    "30": {
+      "background": 697.0,
+      "preload": 614.0,
+      "grid_resize": 562.0,
+      "disk_load": 52.0,
+      "main": 265.0,
+      "image_properties": 3.0
+    },
+    "31": {
+      "main": 336.0,
+      "background": 20.0
+    },
+    "32": {
+      "main": 428.0,
+      "background": 21.0
+    },
+    "33": {
+      "main": 315.0,
+      "background": 16.0
+    },
+    "34": {
+      "main": 134.0,
+      "background": 11.0
+    },
+    "35": {
+      "main": 600.0,
+      "background": 66.0
+    },
+    "36": {
+      "main": 971.0,
+      "background": 103.0
+    },
+    "37": {
+      "main": 59.0,
+      "background": 9.0
+    },
+    "38": {
+      "background": 23.0,
+      "main": 172.0
+    },
+    "39": {
+      "main": 106.0,
+      "background": 6.0
+    },
+    "40": {
+      "main": 134.0,
+      "background": 128.0,
+      "selected_file": 6.0,
+      "image_properties": 54.0,
+      "disk_load": 1.0
+    },
+    "41": {
+      "background": 557.0,
+      "main": 82.0,
+      "selected_file": 1.0
+    },
+    "42": {
+      "main": 66.0,
+      "background": 24.0
+    },
+    "43": {
+      "main": 95.0,
+      "selected_file": 8.0,
+      "background": 4.0,
+      "zoom_keyboard": 1.0
+    },
+    "44": {
+      "main": 340.0,
+      "background": 13.0,
+      "selected_file": 6.0
+    },
+    "45": {
+      "main": 105.0,
+      "background": 21.0,
+      "selected_file": 5.0,
+      "image_properties": 4.0
+    },
+    "46": {
+      "main": 68.0,
+      "background": 544.0,
+      "selected_file": 1.0
+    },
+    "47": {
+      "main": 24.0,
+      "background": 4.0
+    },
+    "48": {
+      "main": 79.0,
+      "background": 677.0,
+      "selected_file": 6.0,
+      "image_properties": 84.0
+    },
+    "49": {
+      "background": 508.0,
+      "image_properties": 1.0,
+      "main": 44.0,
+      "selected_file": 8.0
+    },
+    "50": {
+      "main": 67.0,
+      "selected_file": 3.0,
+      "background": 573.0
+    },
+    "51": {
+      "main": 199.0,
+      "background": 13.0,
+      "selected_file": 2.0
+    },
+    "52": {
+      "main": 239.0,
+      "background": 196.0,
+      "selected_file": 25.0,
+      "disk_load": 3.0,
+      "image_properties": 168.0
+    },
+    "53": {
+      "main": 236.0,
+      "background": 440.0,
+      "selected_file": 34.0,
+      "image_properties": 278.0,
+      "zoom_keyboard": 2.0
+    },
+    "54": {
+      "background": 649.0,
+      "image_properties": 595.0,
+      "main": 405.0,
+      "selected_file": 59.0,
+      "disk_load": 2.0,
+      "zoom_navigate": 2.0,
+      "zoom_keyboard": 2.0
+    },
+    "55": {
+      "background": 481.0,
+      "image_properties": 438.0,
+      "main": 294.0,
+      "selected_file": 40.0,
+      "disk_load": 5.0,
+      "zoom_navigate": 3.0,
+      "zoom_keyboard": 3.0
+    },
+    "56": {
+      "background": 380.0,
+      "image_properties": 195.0,
+      "main": 194.0,
+      "selected_file": 11.0
+    },
+    "57": {
+      "background": 542.0,
+      "main": 296.0,
+      "image_properties": 487.0,
+      "selected_file": 32.0,
+      "disk_load": 7.0,
+      "zoom_current_index": 1.0,
+      "zoom_projection": 1.0
+    },
+    "58": {
+      "main": 90.0,
+      "background": 308.0,
+      "selected_file": 2.0
+    },
+    "59": {
+      "main": 128.0,
+      "background": 20.0,
+      "selected_file": 2.0,
+      "zoom_current_index": 2.0,
+      "zoom_projection": 2.0
+    },
+    "60": {
+      "main": 232.0,
+      "background": 23.0
+    },
+    "61": {
+      "main": 487.0,
+      "background": 15.0
+    },
+    "62": {
+      "main": 370.0,
+      "background": 20.0
+    },
+    "63": {
+      "main": 779.0,
+      "background": 33.0
+    },
+    "64": {
+      "main": 507.0,
+      "background": 15.0
+    },
+    "65": {
+      "main": 774.0,
+      "background": 47.0
+    },
+    "66": {
+      "main": 499.0,
+      "background": 27.0
+    },
+    "67": {
+      "main": 131.0,
+      "background": 4.0,
+      "selected_file": 1.0
+    },
+    "68": {
+      "main": 22.0,
+      "background": 1.0
+    },
+    "69": {
+      "main": 1.0
+    },
+    "70": {
+      "main": 75.0,
+      "background": 32.0
+    },
+    "71": {
+      "background": 1.0
+    }
+  },
+  "representative_stacks": {
+    "metadata_loader": [
+      "swift::TargetContextDescriptor<swift::InProcess>::getGenericContext() const",
+      "(anonymous namespace)::DecodedMetadataBuilder::createBoundGenericType(swift::TargetContextDescriptor<swift::InProcess> const*, __swift::__runtime::llvm::ArrayRef<swift::MetadataPackOrValue>, swift::MetadataPackOrValue) const",
+      "swift::Demangle::__runtime::TypeDecoder<(anonymous namespace)::DecodedMetadataBuilder>::decodeMangledType(swift::Demangle::__runtime::Node*, unsigned int, bool, bool)",
+      "swift_getTypeByMangledNodeImpl(swift::MetadataRequest, swift::Demangle::__runtime::Demangler&, swift::Demangle::__runtime::Node*, void const* const*, std::__1::function<void const* (unsigned int, unsigned int)>, std::__1::function<swift::TargetWitnessTable<swift::InProcess> const* (swift::TargetMetadata<swift::InProcess> const*, unsigned int)>)",
+      "swift_getTypeByMangledNode",
+      "swift_getTypeByMangledNameImpl(swift::MetadataRequest, __swift::__runtime::llvm::StringRef, void const* const*, std::__1::function<void const* (unsigned int, unsigned int)>, std::__1::function<swift::TargetWitnessTable<swift::InProcess> const* (swift::TargetMetadata<swift::InProcess> const*, unsigned int)>)",
+      "swift_getTypeByMangledName",
+      "swift_getTypeByMangledNameInContextImpl(char const*, unsigned long, swift::TargetContextDescriptor<swift::InProcess> const*, void const* const*)",
+      "__swift_instantiateConcreteTypeFromMangledNameV2",
+      "closure #1 in static RawImageLoader.loadMetadata(from:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "image_properties": [
+      "dyld4::Loader::matchesPath(dyld4::RuntimeState const&, char const*) const",
+      "dyld4::Loader::forEachResolvedAtPathVar(dyld4::RuntimeState&, char const*, dyld4::Loader::LoadOptions const&, dyld4::ProcessConfig::PathOverrides::Type, bool&, void (char const*, dyld4::ProcessConfig::PathOverrides::Type, bool&) block_pointer)",
+      "dyld4::ProcessConfig::PathOverrides::forEachPathVariant(CString, mach_o::Platform, bool, bool, bool&, void (char const*, dyld4::ProcessConfig::PathOverrides::Type, bool&) block_pointer) const",
+      "dyld4::Loader::forEachPath(Diagnostics&, dyld4::RuntimeState&, char const*, dyld4::Loader::LoadOptions const&, void (char const*, dyld4::ProcessConfig::PathOverrides::Type, bool&) block_pointer)",
+      "dyld4::Loader::getLoader(Diagnostics&, dyld4::RuntimeState&, char const*, dyld4::Loader::LoadOptions const&, bool)",
+      "dyld4::APIs::dlopen_from(char const*, int, void*)::$_0::operator()() const::'lambda'()::operator()() const",
+      "void dyld4::RuntimeLocks::withLoadersWriteLockAndProtectedStack<dyld4::APIs::dlopen_from(char const*, int, void*)::$_0::operator()() const::'lambda'()>(dyld4::APIs::dlopen_from(char const*, int, void*)::$_0::operator()() const::'lambda'())::'lambda'()::operator()() const",
+      "dyld4::APIs::dlopen_from(char const*, int, void*)::$_0::operator()() const",
+      "dyld4::APIs::dlopen_from(char const*, int, void*)",
+      "dyld4::APIs::dlopen(char const*, int)",
+      "IIOLoadAppleOpenExrSymbols()",
+      "invocation function for block in AppleEXREnabled()",
+      "_dispatch_client_callout",
+      "_dispatch_once_callout",
+      "AppleEXREnabled()",
+      "IIO_Reader_OpenEXR::testHeader(unsigned char const*, unsigned long, __CFString const*, IIOHeaderOptions)",
+      "IIO_ReaderHandler::readerForBytesImp(unsigned char const*, unsigned long, __CFString const*, unsigned long, IIOHeaderOptions, IIORequest, int*)",
+      "IIO_ReaderHandler::readerForBytes(unsigned char const*, unsigned long, __CFString const*, IIOImageRead*, unsigned long, IIOHeaderOptions, IIORequest, int*)",
+      "IIOImageSource::doBindToReader()",
+      "IIOImageSource::getPropertiesAtIndexInternal(unsigned long, IIODictionary*)",
+      "IIOImageSource::copyPropertiesAtIndex(unsigned long, IIODictionary*)",
+      "CGImageSourceCopyPropertiesAtIndexEx",
+      "specialized static RawImageLoader.imageProperties(from:)",
+      "static RawImageLoader.imageProperties(from:)",
+      "closure #1 in static RawImageLoader.loadMetadata(from:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "selected_file": [
+      "dispatch_once_f",
+      "__isPlatformOrVariantPlatformVersionAtLeast",
+      "swift_task_getMainExecutorImpl",
+      "closure #1 in RawCullViewModel.selectedFile.getter",
+      "specialized Sequence.first(where:)",
+      "RawCullViewModel.selectedFile.getter",
+      "RawCullDetailContainerView.body.getter",
+      "closure #1 in ViewBodyAccessor.updateBody(of:changed:)",
+      "ViewBodyAccessor.updateBody(of:changed:)",
+      "protocol witness for BodyAccessor.updateBody(of:changed:) in conformance ViewBodyAccessor<A>",
+      "closure #1 in DynamicBody.updateValue()",
+      "DynamicBody.updateValue()",
+      "partial apply for implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+      "AG::Graph::UpdateStack::update()",
+      "AG::Subgraph::update(unsigned int)",
+      "GraphHost.flushTransactions()",
+      "closure #1 in closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "partial apply for closure #1 in ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "ViewGraphRootValueUpdater._updateViewGraph<A>(body:)",
+      "ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "<deduplicated_symbol>",
+      "specialized static NSRunLoop.flushObservers()",
+      "@objc closure #1 in static NSRunLoop.addObserver(_:)",
+      "__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__",
+      "__CFRunLoopDoObservers",
+      "_CFRunLoopRunSpecificWithOptions",
+      "RunCurrentEventLoopInMode",
+      "ReceiveNextEventCommon",
+      "_BlockUntilNextEventMatchingListInMode",
+      "_DPSBlockUntilNextEventMatchingListInMode",
+      "_DPSNextEvent",
+      "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication run]",
+      "NSApplicationMain",
+      "specialized runApp(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ],
+    "disk_load": [
+      "_platform_strlen",
+      "__aj_get_os_log_object_block_invoke",
+      "_dispatch_client_callout",
+      "_dispatch_once_callout",
+      "aj_get_os_log_object",
+      "applejpeg_decode_create",
+      "AppleJPEGReadPlugin::appleJPEGDecodeSetup()",
+      "AppleJPEGReadPlugin::initialize(IIODictionary*)",
+      "IIOReadPlugin::callInitialize(bool&)",
+      "IIO_Reader_AppleJPEG::initImageAtOffset(CGImagePlugin*, unsigned long, unsigned long, unsigned long)",
+      "IIOImageSource::makeImagePlus(unsigned long, IIODictionary*)",
+      "IIOImageSource::createImageAtIndex(unsigned long, IIODictionary*, int*, unsigned int*)",
+      "CGImageSourceCreateImageAtIndexEx",
+      "specialized static OrientationNormalizedImageLoader.loadDirectImage(from:)",
+      "static OrientationNormalizedImageLoader.loadDirectImage(from:)",
+      "specialized static OrientationNormalizedImageLoader.loadCGImage(from:)",
+      "closure #1 in DiskCacheManager.load(for:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "preload": [
+      "specialized __RawDictionaryStorage.find<A>(_:)",
+      "specialized Dictionary._Variant.setValue(_:forKey:)",
+      "specialized Dictionary.subscript.setter",
+      "ThumbnailPreloadGate.begin(catalogURL:)",
+      "ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "grid_resize": [
+      "AppleJPEGReadPlugin::decodeImageImp(IIODecodeParameter*, IIOImageType, __IOSurface**, __CVBuffer**, CGImageBlockSet**)",
+      "IIO_Reader::CopyImageBlockSetProc(void*, CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+      "IIOImageProviderInfo::copyImageBlockSetWithOptions(CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+      "IIOImageProviderInfo::CopyImageBlockSetWithOptions(void*, CGImageProvider*, CGRect, CGSize, __CFDictionary const*)",
+      "CGImageCreateSubsampledImage",
+      "ripc_DrawImage",
+      "CGContextDrawImageWithOptions",
+      "CGContextDrawImage",
+      "specialized static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+      "static GridThumbnailResizer.resize(_:source:maxPixelSize:)",
+      "specialized ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+      "ScanAndCreateThumbnails.storeInGridCache(_:for:source:)",
+      "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+      "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "zoom_keyboard": [
+      "SerialExecutor._isSameExecutor<A>(_:)",
+      "_swift_task_isMainExecutorSwift",
+      "swift::SerialExecutorRef::isMainExecutor() const",
+      "swift_task_isCurrentExecutorWithFlagsImpl(swift::SerialExecutorRef, swift::swift_task_is_current_executor_flag)",
+      "closure #1 in RawCullViewModel.selectedFile.getter",
+      "specialized Sequence.first(where:)",
+      "RawCullViewModel.selectedFile.getter",
+      "ZoomOverlayView.subjectOutlineCandidate.getter",
+      "ZoomOverlayView.keyboardController.getter",
+      "ZoomOverlayView.handleKeyEvent(_:)",
+      "closure #1 in ZoomOverlayView.installKeyMonitor()",
+      "closure #1 in ReviewKeyMonitor.install(handler:)",
+      "thunk for @escaping @callee_guaranteed (@guaranteed NSEvent) -> (@owned NSEvent?)",
+      "_NSSendEventToObservers",
+      "-[NSApplication(NSEventRouting) sendEvent:]",
+      "-[NSApplication _handleEvent:]",
+      "-[NSApplication run]",
+      "NSApplicationMain",
+      "specialized runApp(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ],
+    "zoom_navigate": [
+      "bool swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
+      "destroy for ObservationGraphMutation",
+      "swift_dynamicCast",
+      "InvalidatingGraphMutation.combine<A>(with:)",
+      "ObservationGraphMutation.combine<A>(with:)",
+      "specialized AsyncTransaction.append<A>(_:)",
+      "specialized GraphHost.asyncTransaction<A>(_:id:mutation:style:mayDeferUpdate:)",
+      "closure #2 in ObservationCenter.invalidate<A>(_:with:onChangeIn:)",
+      "partial apply for closure #2 in closure #1 in static ObservationTracking._installTracking(options:_:willSet:didSet:deinit:)",
+      "partial apply for thunk for @escaping @callee_guaranteed @Sendable (@guaranteed AnyKeyPath) -> ()",
+      "specialized ObservationRegistrar.Context.willSet<A, B>(_:keyPath:)",
+      "ObservationRegistrar.withMutation<A, B, C>(of:keyPath:_:)",
+      "specialized RawCullViewModel.withMutation<A, B>(keyPath:_:)",
+      "RawCullViewModel.selectedFileID.setter",
+      "protocol witness for ImageReviewSelectionActing.selectedFileID.setter in conformance RawCullViewModel",
+      "static ImageReviewFeaturePolicy.select(delta:from:in:using:)",
+      "specialized ZoomSessionModel.navigate(by:from:in:using:)",
+      "ZoomSessionModel.navigate(by:from:in:using:)",
+      "ZoomOverlayView.navigateSelection(by:)",
+      "partial apply for implicit closure #2 in implicit closure #1 in ZoomOverlayView.keyboardController.getter",
+      "ZoomKeyboardController.handle(_:)",
+      "ZoomOverlayView.handleKeyEvent(_:)",
+      "closure #1 in ZoomOverlayView.installKeyMonitor()",
+      "closure #1 in ReviewKeyMonitor.install(handler:)",
+      "thunk for @escaping @callee_guaranteed (@guaranteed NSEvent) -> (@owned NSEvent?)",
+      "_NSSendEventToObservers",
+      "-[NSApplication(NSEventRouting) sendEvent:]",
+      "-[NSApplication _handleEvent:]",
+      "-[NSApplication run]",
+      "NSApplicationMain",
+      "specialized runApp(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ],
+    "zoom_current_index": [
+      "static Hasher._hash(seed:_:)",
+      "<deduplicated_symbol>",
+      "ObservationTracking._AccessList.addAccess<A>(keyPath:context:)",
+      "ObservationRegistrar.access<A, B>(_:keyPath:)",
+      "specialized RawCullViewModel.access<A>(keyPath:)",
+      "RawCullViewModel.selectedSource.getter",
+      "RawCullViewModel.zoomNavigationProjection()",
+      "ZoomNavigationPresentation.currentZoomIndex.getter",
+      "ZoomNavigationPresentation.canNavigatePrevious.getter",
+      "closure #1 in closure #1 in ZoomOverlayView.body.getter",
+      "specialized closure #1 in VStack.init(alignment:spacing:content:)",
+      "specialized _VariadicView.Tree.init(_:content:)",
+      "specialized VStack.init(alignment:spacing:content:)",
+      "closure #1 in ZoomOverlayView.body.getter",
+      "specialized closure #1 in ZStack.init(alignment:content:)",
+      "specialized _VariadicView.Tree.init(_:content:)",
+      "specialized ZStack.init(alignment:content:)",
+      "ZoomOverlayView.body.getter",
+      "closure #1 in ViewBodyAccessor.updateBody(of:changed:)",
+      "ViewBodyAccessor.updateBody(of:changed:)",
+      "protocol witness for BodyAccessor.updateBody(of:changed:) in conformance ViewBodyAccessor<A>",
+      "closure #1 in DynamicBody.updateValue()",
+      "DynamicBody.updateValue()",
+      "partial apply for implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+      "AG::Graph::UpdateStack::update()",
+      "AG::Subgraph::update(unsigned int)",
+      "GraphHost.flushTransactions()",
+      "closure #1 in closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "partial apply for closure #1 in ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "ViewGraphRootValueUpdater._updateViewGraph<A>(body:)",
+      "ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "<deduplicated_symbol>",
+      "specialized static NSRunLoop.flushObservers()",
+      "@objc closure #1 in static NSRunLoop.addObserver(_:)",
+      "__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__",
+      "__CFRunLoopDoObservers",
+      "_CFRunLoopRunSpecificWithOptions",
+      "RunCurrentEventLoopInMode",
+      "ReceiveNextEventCommon",
+      "_BlockUntilNextEventMatchingListInMode",
+      "_DPSBlockUntilNextEventMatchingListInMode",
+      "_DPSNextEvent",
+      "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication run]",
+      "NSApplicationMain",
+      "specialized runApp(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ],
+    "zoom_projection": [
+      "static Hasher._hash(seed:_:)",
+      "<deduplicated_symbol>",
+      "ObservationTracking._AccessList.addAccess<A>(keyPath:context:)",
+      "ObservationRegistrar.access<A, B>(_:keyPath:)",
+      "specialized RawCullViewModel.access<A>(keyPath:)",
+      "RawCullViewModel.selectedSource.getter",
+      "RawCullViewModel.zoomNavigationProjection()",
+      "ZoomNavigationPresentation.currentZoomIndex.getter",
+      "ZoomNavigationPresentation.canNavigatePrevious.getter",
+      "closure #1 in closure #1 in ZoomOverlayView.body.getter",
+      "specialized closure #1 in VStack.init(alignment:spacing:content:)",
+      "specialized _VariadicView.Tree.init(_:content:)",
+      "specialized VStack.init(alignment:spacing:content:)",
+      "closure #1 in ZoomOverlayView.body.getter",
+      "specialized closure #1 in ZStack.init(alignment:content:)",
+      "specialized _VariadicView.Tree.init(_:content:)",
+      "specialized ZStack.init(alignment:content:)",
+      "ZoomOverlayView.body.getter",
+      "closure #1 in ViewBodyAccessor.updateBody(of:changed:)",
+      "ViewBodyAccessor.updateBody(of:changed:)",
+      "protocol witness for BodyAccessor.updateBody(of:changed:) in conformance ViewBodyAccessor<A>",
+      "closure #1 in DynamicBody.updateValue()",
+      "DynamicBody.updateValue()",
+      "partial apply for implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)",
+      "AG::Graph::UpdateStack::update()",
+      "AG::Subgraph::update(unsigned int)",
+      "GraphHost.flushTransactions()",
+      "closure #1 in closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "partial apply for closure #1 in ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "ViewGraphRootValueUpdater._updateViewGraph<A>(body:)",
+      "ViewGraphRootValueUpdater.updateGraph<A>(body:)",
+      "closure #1 in closure #1 in NSHostingView.beginTransaction()",
+      "<deduplicated_symbol>",
+      "specialized static NSRunLoop.flushObservers()",
+      "@objc closure #1 in static NSRunLoop.addObserver(_:)",
+      "__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__",
+      "__CFRunLoopDoObservers",
+      "_CFRunLoopRunSpecificWithOptions",
+      "RunCurrentEventLoopInMode",
+      "ReceiveNextEventCommon",
+      "_BlockUntilNextEventMatchingListInMode",
+      "_DPSBlockUntilNextEventMatchingListInMode",
+      "_DPSNextEvent",
+      "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]",
+      "-[NSApplication run]",
+      "NSApplicationMain",
+      "specialized runApp(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ]
+  },
+  "notes": [
+    "Inclusive weights overlap; absent samples do not prove a method was never called.",
+    "First/last sampled activity is not an exact operation latency.",
+    "App symbol classification is a substring heuristic, not binary ownership."
+  ],
+  "after_preload_window": {
+    "start_ms": 31000,
+    "end_ms": 72466.131,
+    "reason": "First whole second after the last sampled preload stack at 30840.416 ms; not an exact completion marker.",
+    "total_sample_weight_ms": {
+      "main": 10183.0,
+      "background": 6575.0
+    },
+    "inclusive_pattern_weight_ms": {
+      "selected_file": {
+        "main": 252.0
+      },
+      "image_properties": {
+        "background": 2304.0
+      },
+      "disk_load": {
+        "background": 18.0
+      },
+      "zoom_keyboard": {
+        "main": 8.0
+      },
+      "zoom_navigate": {
+        "main": 5.0
+      },
+      "zoom_current_index": {
+        "main": 3.0
+      },
+      "zoom_projection": {
+        "main": 3.0
+      }
+    },
+    "inclusive_app_symbol_weights_ms": {
+      "main": [
+        [
+          "static RawCullApp.$main()",
+          10060.0
+        ],
+        [
+          "ZoomOverlayView.body.getter",
+          325.0
+        ],
+        [
+          "RawCullViewModel.selectedFile.getter",
+          252.0
+        ],
+        [
+          "closure #1 in ZoomOverlayView.body.getter",
+          224.0
+        ],
+        [
+          "ZoomOverlayView.focusPoints.getter",
+          197.0
+        ],
+        [
+          "RawCullViewModel.getFocusPoints()",
+          197.0
+        ],
+        [
+          "ZoomOverlayView.focusTarget.getter",
+          197.0
+        ],
+        [
+          "closure #1 in RawCullViewModel.selectedFile.getter",
+          171.0
+        ],
+        [
+          "closure #1 in RawCullViewModel.getFocusPoints()",
+          148.0
+        ],
+        [
+          "closure #1 in closure #1 in ZoomOverlayView.body.getter",
+          130.0
+        ],
+        [
+          "closure #14 in ZoomOverlayView.body.getter",
+          87.0
+        ],
+        [
+          "ZoomOverlayAnalysisCoordinator.regenerateMaskFromCG()",
+          87.0
+        ],
+        [
+          "ImageItemView.body.getter",
+          85.0
+        ],
+        [
+          "PhotoAnalyzer.analyzeWithFocusMask(_:scale:configuration:)",
+          80.0
+        ],
+        [
+          "static FocusMaskEngine.normalizeToSRGB(_:)",
+          79.0
+        ],
+        [
+          "specialized static FocusMaskEngine.normalizeToSRGB(_:)",
+          79.0
+        ],
+        [
+          "specialized RawCullViewModel.access<A>(keyPath:)",
+          78.0
+        ],
+        [
+          "ZoomOverlayControls.body.getter",
+          78.0
+        ],
+        [
+          "protocol witness for View.body.getter in conformance ZoomOverlayControls",
+          78.0
+        ],
+        [
+          "closure #1 in ZoomOverlayControls.body.getter",
+          77.0
+        ],
+        [
+          "closure #1 in closure #1 in ZoomOverlayControls.body.getter",
+          77.0
+        ],
+        [
+          "RawCullViewModel.selectedFileID.getter",
+          73.0
+        ],
+        [
+          "initializeWithCopy for RawCullFileItem",
+          62.0
+        ],
+        [
+          "-[NSFocusStack performWithFocusView:inWindow:usingBlock:]",
+          60.0
+        ],
+        [
+          "ZoomOverlayView.subjectOutlineTaskID.getter",
+          43.0
+        ],
+        [
+          "ImageItemView.tileContent.getter",
+          38.0
+        ],
+        [
+          "destroy for RawCullFileItem",
+          27.0
+        ],
+        [
+          "ZoomOverlayView.focusMaskTaskID.getter",
+          26.0
+        ],
+        [
+          "ZoomOverlayView.subjectOutlineCandidate.getter",
+          26.0
+        ],
+        [
+          "ZoomOverlayControls.subjectOutlineAvailable.getter",
+          26.0
+        ],
+        [
+          "closure #1 in ImageItemView.tileContent.getter",
+          23.0
+        ],
+        [
+          "closure #2 in ThumbnailImageView.body.getter",
+          19.0
+        ],
+        [
+          "ThumbnailPresentationModel.load(request:imageLoader:publish:)",
+          18.0
+        ],
+        [
+          "specialized ThumbnailPresentationModel.withMutation<A, B>(keyPath:_:)",
+          16.0
+        ],
+        [
+          "ThumbnailImageView.body.getter",
+          13.0
+        ],
+        [
+          "protocol witness for static PreferenceKey.reduce(value:nextValue:) in conformance FocusableOptionsKey",
+          13.0
+        ],
+        [
+          "closure #1 in RawCullViewModel.aiAnalysisFiles(for:)",
+          13.0
+        ],
+        [
+          "RawCullViewModel.aiAnalysisFiles(for:)",
+          13.0
+        ],
+        [
+          "specialized Toolbar.LocationStorage.updatedVendedItems(newFocusedValues:)",
+          12.0
+        ],
+        [
+          "specialized RawCullViewModel.withMutation<A, B>(keyPath:_:)",
+          10.0
+        ]
+      ],
+      "background": [
+        [
+          "-[CIRAWFilterImpl(Private) initWithImageSource:options:]",
+          2328.0
+        ],
+        [
+          "closure #3 in ImageSourceSelectorView.body.getter",
+          2319.0
+        ],
+        [
+          "CGImageSourceCopyPropertiesAtIndexEx",
+          2304.0
+        ],
+        [
+          "IIOImageSource::copyPropertiesAtIndex(unsigned long, IIODictionary*)",
+          2303.0
+        ],
+        [
+          "IIOImageSource::getPropertiesAtIndexInternal(unsigned long, IIODictionary*)",
+          2267.0
+        ],
+        [
+          "IIOImageSource::makeImagePlus(unsigned long, IIODictionary*)",
+          2238.0
+        ],
+        [
+          "closure #1 in FocusMaskEngine.generateFocusMaskWithBreakdown(from:scale:config:afPoint:)",
+          1878.0
+        ],
+        [
+          "specialized static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+          1731.0
+        ],
+        [
+          "static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+          1731.0
+        ],
+        [
+          "static FocusMaskEngine.computeSharpnessBreakdown(from:saliencyDetection:afPoint:context:config:)",
+          1731.0
+        ],
+        [
+          "static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+          1468.0
+        ],
+        [
+          "static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+          1462.0
+        ],
+        [
+          "closure #1 in static FocusMaskEngine.patchRankings(in:sourceImage:extent:afPoint:visualRegion:context:)",
+          1462.0
+        ],
+        [
+          "specialized static FocusMaskEngine.patchRanking(for:searchRegion:sourceImage:extent:afPoint:visualRegion:context:)",
+          1452.0
+        ],
+        [
+          "bestLocalPatchScore #1 (in:visualRegion:) in static FocusMaskEngine.computeSharpnessAnalysis(from:saliencyDetection:afPoint:context:config:)",
+          1393.0
+        ],
+        [
+          "static FocusMaskEngine.sortedForOrderStatistics(_:)",
+          689.0
+        ],
+        [
+          "static FocusMaskEngine.redSampleGrid(in:from:context:)",
+          669.0
+        ],
+        [
+          "specialized static FocusMaskEngine.redSampleGrid(in:from:context:)",
+          666.0
+        ],
+        [
+          "static FocusMaskEngine.redSamples(in:from:context:)",
+          341.0
+        ],
+        [
+          "static FocusMaskEngine.robustTailScore(_:)",
+          218.0
+        ],
+        [
+          "specialized static FocusMaskEngine.robustTailScore(_:)",
+          218.0
+        ],
+        [
+          "static FocusMaskEngine.selectOrderStatistic(in:at:within:)",
+          199.0
+        ],
+        [
+          "specialized static FocusMaskEngine.selectOrderStatistic(in:at:within:)",
+          199.0
+        ],
+        [
+          "static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+          118.0
+        ],
+        [
+          "specialized static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+          118.0
+        ],
+        [
+          "ThumbnailPresentationModel.load(request:imageLoader:publish:)",
+          104.0
+        ],
+        [
+          "ThumbnailImageView.loadThumbnail()",
+          104.0
+        ],
+        [
+          "ThumbnailLoader.thumbnailLoader(file:targetSize:)",
+          104.0
+        ],
+        [
+          "ThumbnailLoader.cachedGridImage(for:)",
+          104.0
+        ],
+        [
+          "specialized ThumbnailLoader.cachedGridImage(for:)",
+          104.0
+        ],
+        [
+          "closure #2 in ThumbnailImageView.body.getter",
+          104.0
+        ],
+        [
+          "static ThumbnailCacheKey.resolve(for:purpose:requestedPixelSize:orientationPolicy:)",
+          104.0
+        ],
+        [
+          "static ThumbnailSourceFingerprint.resolve(for:)",
+          102.0
+        ],
+        [
+          "closure #4 in static FocusMaskEngine.buildFocusMask(from:scale:salientRegion:afPoint:evidenceRegion:evidence:context:config:)",
+          69.0
+        ],
+        [
+          "thunk for @callee_guaranteed (@unowned CGRect, @guaranteed CIImage) -> (@owned [FocusPatchRanking])",
+          69.0
+        ],
+        [
+          "static FocusMaskEngine.patchShapeEvidence(samples:width:height:)",
+          47.0
+        ],
+        [
+          "specialized static FocusMaskEngine.patchShapeEvidence(samples:width:height:)",
+          31.0
+        ],
+        [
+          "static FocusMaskEngine.detectSaliencyAndClassify(for:classify:)",
+          29.0
+        ],
+        [
+          "specialized static FocusMaskEngine.detectSaliencyAndClassify(for:classify:)",
+          29.0
+        ],
+        [
+          "specialized static FocusMaskEngine.renderedMaskCoverage(_:regions:extent:context:)",
+          22.0
+        ]
+      ]
+    }
+  }
+}

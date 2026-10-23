@@ -1,0 +1,982 @@
+{
+  "trace_label": "before",
+  "sample_count": 877383,
+  "sample_weight_ns_distribution": {
+    "100000": 877383
+  },
+  "total_sample_weight_ms": {
+    "main": 18983.5,
+    "background": 68754.8
+  },
+  "inclusive_sample_weight_ms": {
+    "tracing_named_frame_heuristic": {
+      "main": 1283.7,
+      "background": 75.1
+    },
+    "scan_files": {
+      "background": 358.7,
+      "main": 62.7
+    },
+    "metadata_loader": {
+      "background": 5957.7
+    },
+    "image_properties": {
+      "background": 4834.2
+    },
+    "preload": {
+      "background": 41617.9,
+      "main": 31.7
+    },
+    "disk_load": {
+      "background": 149.0
+    },
+    "process_single": {
+      "background": 41132.4,
+      "main": 31.7
+    },
+    "jpeg_encode": {
+      "background": 13067.0
+    },
+    "old_grid_downscale": {
+      "background": 26961.6
+    },
+    "grid_store": {
+      "background": 27064.8
+    }
+  },
+  "first_last_matching_sample_ms": {
+    "tracing_named_frame_heuristic": [
+      847.473,
+      86024.173
+    ],
+    "scan_files": [
+      20697.88,
+      26243.476
+    ],
+    "metadata_loader": [
+      21009.074,
+      26241.173
+    ],
+    "image_properties": [
+      21013.973,
+      27238.873
+    ],
+    "preload": [
+      27181.274,
+      73892.973
+    ],
+    "disk_load": [
+      27181.473,
+      73836.773
+    ],
+    "process_single": [
+      27184.175,
+      73889.673
+    ],
+    "jpeg_encode": [
+      27202.673,
+      73889.673
+    ],
+    "old_grid_downscale": [
+      27268.775,
+      73879.673
+    ],
+    "grid_store": [
+      27268.775,
+      73879.773
+    ]
+  },
+  "per_second_sample_weight_ms": {
+    "0": {
+      "main": 150.1,
+      "background": 92.9,
+      "tracing_named_frame_heuristic": 83.3
+    },
+    "1": {
+      "main": 271.7,
+      "background": 178.7,
+      "tracing_named_frame_heuristic": 33.5
+    },
+    "2": {
+      "background": 167.5,
+      "main": 32.6
+    },
+    "3": {
+      "main": 101.8,
+      "background": 17.3,
+      "tracing_named_frame_heuristic": 5.3
+    },
+    "4": {
+      "main": 57.5,
+      "tracing_named_frame_heuristic": 2.1,
+      "background": 13.2
+    },
+    "5": {
+      "main": 21.6,
+      "background": 13.1
+    },
+    "6": {
+      "background": 5.7,
+      "main": 11.5
+    },
+    "7": {
+      "background": 1.3,
+      "main": 3.4
+    },
+    "8": {
+      "background": 4.4,
+      "main": 12.5
+    },
+    "9": {
+      "main": 6.2,
+      "background": 2.1
+    },
+    "11": {
+      "background": 15.1,
+      "main": 25.5
+    },
+    "12": {
+      "background": 26.5,
+      "main": 46.1
+    },
+    "13": {
+      "background": 9.4,
+      "main": 14.0
+    },
+    "14": {
+      "background": 7.8,
+      "main": 16.2
+    },
+    "15": {
+      "main": 12.0,
+      "background": 7.7
+    },
+    "16": {
+      "main": 8.9,
+      "background": 6.1
+    },
+    "17": {
+      "main": 23.3,
+      "background": 14.5
+    },
+    "18": {
+      "background": 36.1,
+      "main": 20.2
+    },
+    "19": {
+      "background": 15.0,
+      "main": 27.7
+    },
+    "20": {
+      "background": 284.1,
+      "main": 308.5,
+      "tracing_named_frame_heuristic": 43.7,
+      "scan_files": 275.1
+    },
+    "21": {
+      "main": 41.5,
+      "scan_files": 25.7,
+      "tracing_named_frame_heuristic": 5.3,
+      "background": 1085.7,
+      "metadata_loader": 1045.7,
+      "image_properties": 848.5
+    },
+    "22": {
+      "background": 1193.6,
+      "metadata_loader": 1144.8,
+      "image_properties": 917.3,
+      "scan_files": 25.9,
+      "main": 32.9,
+      "tracing_named_frame_heuristic": 3.4
+    },
+    "23": {
+      "background": 1248.3,
+      "metadata_loader": 1196.6,
+      "scan_files": 29.2,
+      "image_properties": 958.7,
+      "main": 35.2,
+      "tracing_named_frame_heuristic": 3.4
+    },
+    "24": {
+      "background": 1184.2,
+      "metadata_loader": 1138.4,
+      "image_properties": 911.6,
+      "main": 35.2,
+      "scan_files": 25.1,
+      "tracing_named_frame_heuristic": 3.4
+    },
+    "25": {
+      "background": 1237.9,
+      "metadata_loader": 1183.8,
+      "image_properties": 946.8,
+      "scan_files": 31.6,
+      "main": 37.5,
+      "tracing_named_frame_heuristic": 3.2
+    },
+    "26": {
+      "background": 932.4,
+      "metadata_loader": 248.4,
+      "scan_files": 8.8,
+      "main": 94.8,
+      "image_properties": 197.8,
+      "tracing_named_frame_heuristic": 16.2
+    },
+    "27": {
+      "main": 434.7,
+      "tracing_named_frame_heuristic": 41.0,
+      "background": 1150.5,
+      "preload": 672.0,
+      "image_properties": 53.5,
+      "disk_load": 3.8,
+      "process_single": 662.6,
+      "jpeg_encode": 208.1,
+      "old_grid_downscale": 442.1,
+      "grid_store": 443.3
+    },
+    "28": {
+      "background": 1314.8,
+      "old_grid_downscale": 584.0,
+      "process_single": 893.8,
+      "grid_store": 586.5,
+      "preload": 904.5,
+      "main": 350.1,
+      "tracing_named_frame_heuristic": 21.2,
+      "jpeg_encode": 283.2,
+      "disk_load": 3.8
+    },
+    "29": {
+      "background": 1314.9,
+      "old_grid_downscale": 591.4,
+      "process_single": 888.9,
+      "grid_store": 594.3,
+      "preload": 899.1,
+      "main": 352.5,
+      "tracing_named_frame_heuristic": 20.7,
+      "jpeg_encode": 275.2,
+      "disk_load": 2.5
+    },
+    "30": {
+      "background": 1322.2,
+      "old_grid_downscale": 565.9,
+      "process_single": 890.3,
+      "grid_store": 568.8,
+      "preload": 901.9,
+      "main": 350.5,
+      "tracing_named_frame_heuristic": 19.1,
+      "jpeg_encode": 297.9,
+      "disk_load": 3.4
+    },
+    "31": {
+      "background": 1317.1,
+      "old_grid_downscale": 575.9,
+      "process_single": 892.4,
+      "grid_store": 577.9,
+      "preload": 902.8,
+      "main": 341.5,
+      "jpeg_encode": 291.0,
+      "tracing_named_frame_heuristic": 20.2,
+      "disk_load": 3.0
+    },
+    "32": {
+      "background": 1308.8,
+      "jpeg_encode": 270.2,
+      "process_single": 879.5,
+      "preload": 891.1,
+      "main": 352.9,
+      "disk_load": 3.2,
+      "tracing_named_frame_heuristic": 19.3,
+      "old_grid_downscale": 581.9,
+      "grid_store": 584.2
+    },
+    "33": {
+      "background": 1319.4,
+      "main": 349.8,
+      "tracing_named_frame_heuristic": 18.4,
+      "process_single": 866.7,
+      "preload": 878.2,
+      "old_grid_downscale": 571.2,
+      "grid_store": 573.5,
+      "jpeg_encode": 270.7,
+      "disk_load": 2.4
+    },
+    "34": {
+      "background": 1329.2,
+      "main": 365.3,
+      "process_single": 881.8,
+      "preload": 893.1,
+      "old_grid_downscale": 578.5,
+      "grid_store": 580.9,
+      "tracing_named_frame_heuristic": 20.1,
+      "jpeg_encode": 275.8,
+      "disk_load": 2.9
+    },
+    "35": {
+      "background": 1340.7,
+      "old_grid_downscale": 559.0,
+      "process_single": 883.9,
+      "grid_store": 561.4,
+      "preload": 893.3,
+      "main": 348.1,
+      "tracing_named_frame_heuristic": 19.0,
+      "jpeg_encode": 299.9,
+      "disk_load": 3.3
+    },
+    "36": {
+      "background": 1317.1,
+      "jpeg_encode": 296.0,
+      "process_single": 882.4,
+      "preload": 894.0,
+      "main": 356.4,
+      "tracing_named_frame_heuristic": 19.0,
+      "old_grid_downscale": 560.7,
+      "grid_store": 563.0,
+      "disk_load": 2.7
+    },
+    "37": {
+      "background": 1285.0,
+      "old_grid_downscale": 574.7,
+      "process_single": 878.7,
+      "grid_store": 576.7,
+      "preload": 889.0,
+      "main": 342.3,
+      "tracing_named_frame_heuristic": 20.0,
+      "jpeg_encode": 279.9,
+      "disk_load": 3.6
+    },
+    "38": {
+      "background": 1359.1,
+      "old_grid_downscale": 570.2,
+      "process_single": 870.2,
+      "grid_store": 572.8,
+      "preload": 880.8,
+      "jpeg_encode": 272.0,
+      "main": 357.9,
+      "tracing_named_frame_heuristic": 19.8,
+      "disk_load": 3.7
+    },
+    "39": {
+      "background": 1328.2,
+      "old_grid_downscale": 589.7,
+      "process_single": 887.8,
+      "grid_store": 592.1,
+      "preload": 898.4,
+      "main": 353.6,
+      "tracing_named_frame_heuristic": 18.6,
+      "jpeg_encode": 270.7,
+      "disk_load": 4.7
+    },
+    "40": {
+      "background": 1307.9,
+      "old_grid_downscale": 548.6,
+      "process_single": 883.8,
+      "grid_store": 550.8,
+      "preload": 894.6,
+      "main": 349.1,
+      "jpeg_encode": 310.9,
+      "tracing_named_frame_heuristic": 18.2,
+      "disk_load": 3.0
+    },
+    "41": {
+      "background": 1287.1,
+      "jpeg_encode": 252.7,
+      "process_single": 878.8,
+      "preload": 890.0,
+      "main": 359.4,
+      "tracing_named_frame_heuristic": 18.5,
+      "old_grid_downscale": 601.1,
+      "grid_store": 603.4,
+      "disk_load": 3.6
+    },
+    "42": {
+      "background": 1327.8,
+      "old_grid_downscale": 580.2,
+      "process_single": 891.0,
+      "grid_store": 582.1,
+      "preload": 901.8,
+      "main": 352.4,
+      "jpeg_encode": 284.6,
+      "tracing_named_frame_heuristic": 20.1,
+      "disk_load": 3.2
+    },
+    "43": {
+      "background": 1333.3,
+      "old_grid_downscale": 578.3,
+      "process_single": 876.1,
+      "grid_store": 580.1,
+      "preload": 885.9,
+      "main": 349.9,
+      "tracing_named_frame_heuristic": 20.3,
+      "jpeg_encode": 271.8,
+      "disk_load": 4.3
+    },
+    "44": {
+      "background": 1324.3,
+      "old_grid_downscale": 590.0,
+      "process_single": 891.6,
+      "grid_store": 591.9,
+      "preload": 902.0,
+      "main": 345.9,
+      "tracing_named_frame_heuristic": 18.3,
+      "jpeg_encode": 278.6,
+      "disk_load": 2.9
+    },
+    "45": {
+      "background": 1318.6,
+      "old_grid_downscale": 587.5,
+      "process_single": 890.6,
+      "grid_store": 590.8,
+      "preload": 903.1,
+      "main": 360.3,
+      "tracing_named_frame_heuristic": 17.8,
+      "jpeg_encode": 275.4,
+      "disk_load": 3.6
+    },
+    "46": {
+      "background": 1353.9,
+      "jpeg_encode": 279.2,
+      "process_single": 878.8,
+      "preload": 888.9,
+      "main": 361.4,
+      "tracing_named_frame_heuristic": 19.7,
+      "disk_load": 3.6,
+      "old_grid_downscale": 572.8,
+      "grid_store": 574.6
+    },
+    "47": {
+      "background": 1301.6,
+      "old_grid_downscale": 582.9,
+      "process_single": 892.5,
+      "grid_store": 585.4,
+      "preload": 902.5,
+      "main": 360.1,
+      "tracing_named_frame_heuristic": 17.9,
+      "jpeg_encode": 286.4,
+      "disk_load": 2.4
+    },
+    "48": {
+      "background": 1320.5,
+      "old_grid_downscale": 611.1,
+      "process_single": 889.7,
+      "grid_store": 614.2,
+      "preload": 898.8,
+      "main": 362.9,
+      "tracing_named_frame_heuristic": 20.1,
+      "jpeg_encode": 254.4,
+      "disk_load": 2.6
+    },
+    "49": {
+      "background": 1315.7,
+      "jpeg_encode": 280.5,
+      "process_single": 884.1,
+      "preload": 895.6,
+      "main": 357.0,
+      "tracing_named_frame_heuristic": 17.9,
+      "disk_load": 3.0,
+      "grid_store": 581.4,
+      "old_grid_downscale": 579.6
+    },
+    "50": {
+      "background": 1319.4,
+      "old_grid_downscale": 554.2,
+      "process_single": 850.5,
+      "grid_store": 556.3,
+      "preload": 862.1,
+      "main": 361.7,
+      "tracing_named_frame_heuristic": 17.1,
+      "jpeg_encode": 267.4,
+      "disk_load": 4.4
+    },
+    "51": {
+      "background": 1244.8,
+      "jpeg_encode": 287.3,
+      "process_single": 920.7,
+      "preload": 929.8,
+      "main": 340.8,
+      "old_grid_downscale": 613.8,
+      "grid_store": 615.2,
+      "tracing_named_frame_heuristic": 16.1,
+      "disk_load": 2.1
+    },
+    "52": {
+      "background": 1135.4,
+      "old_grid_downscale": 531.1,
+      "process_single": 803.4,
+      "grid_store": 533.1,
+      "preload": 810.8,
+      "main": 417.3,
+      "tracing_named_frame_heuristic": 17.7,
+      "jpeg_encode": 255.0,
+      "disk_load": 2.6
+    },
+    "53": {
+      "background": 1287.8,
+      "old_grid_downscale": 586.4,
+      "process_single": 881.9,
+      "grid_store": 588.8,
+      "preload": 891.0,
+      "main": 361.5,
+      "tracing_named_frame_heuristic": 18.7,
+      "jpeg_encode": 272.2,
+      "disk_load": 3.3
+    },
+    "54": {
+      "background": 1274.6,
+      "old_grid_downscale": 586.4,
+      "process_single": 877.5,
+      "grid_store": 589.0,
+      "preload": 886.8,
+      "main": 353.6,
+      "tracing_named_frame_heuristic": 16.4,
+      "jpeg_encode": 267.6,
+      "disk_load": 3.1
+    },
+    "55": {
+      "background": 1274.1,
+      "jpeg_encode": 273.0,
+      "process_single": 876.7,
+      "preload": 886.7,
+      "main": 345.5,
+      "tracing_named_frame_heuristic": 16.1,
+      "old_grid_downscale": 579.9,
+      "grid_store": 581.9,
+      "disk_load": 3.8
+    },
+    "56": {
+      "background": 1247.7,
+      "jpeg_encode": 284.0,
+      "process_single": 904.7,
+      "preload": 915.1,
+      "main": 355.6,
+      "old_grid_downscale": 597.4,
+      "grid_store": 599.7,
+      "tracing_named_frame_heuristic": 16.8,
+      "disk_load": 3.1
+    },
+    "57": {
+      "background": 1183.7,
+      "old_grid_downscale": 564.4,
+      "process_single": 861.3,
+      "grid_store": 566.1,
+      "preload": 870.2,
+      "main": 416.5,
+      "jpeg_encode": 277.4,
+      "tracing_named_frame_heuristic": 16.5,
+      "disk_load": 2.5
+    },
+    "58": {
+      "background": 1286.0,
+      "old_grid_downscale": 566.2,
+      "process_single": 891.6,
+      "grid_store": 568.2,
+      "preload": 901.1,
+      "main": 353.6,
+      "tracing_named_frame_heuristic": 20.3,
+      "jpeg_encode": 302.8,
+      "disk_load": 2.6
+    },
+    "59": {
+      "background": 1295.7,
+      "old_grid_downscale": 572.4,
+      "process_single": 869.5,
+      "grid_store": 573.9,
+      "preload": 879.2,
+      "main": 358.8,
+      "tracing_named_frame_heuristic": 17.8,
+      "jpeg_encode": 271.6,
+      "disk_load": 3.7
+    },
+    "60": {
+      "background": 1320.3,
+      "old_grid_downscale": 600.1,
+      "process_single": 895.0,
+      "grid_store": 602.2,
+      "preload": 906.0,
+      "main": 356.0,
+      "tracing_named_frame_heuristic": 17.7,
+      "jpeg_encode": 271.8,
+      "disk_load": 3.1
+    },
+    "61": {
+      "background": 1299.5,
+      "old_grid_downscale": 574.0,
+      "process_single": 883.0,
+      "grid_store": 576.5,
+      "preload": 892.9,
+      "main": 375.9,
+      "jpeg_encode": 285.0,
+      "tracing_named_frame_heuristic": 17.0,
+      "disk_load": 2.9
+    },
+    "62": {
+      "background": 1289.3,
+      "process_single": 891.2,
+      "grid_store": 566.6,
+      "preload": 901.9,
+      "main": 382.8,
+      "jpeg_encode": 301.3,
+      "tracing_named_frame_heuristic": 18.1,
+      "old_grid_downscale": 564.3,
+      "disk_load": 3.9
+    },
+    "63": {
+      "background": 1341.8,
+      "main": 357.6,
+      "process_single": 894.4,
+      "preload": 904.6,
+      "grid_store": 578.0,
+      "old_grid_downscale": 575.4,
+      "tracing_named_frame_heuristic": 16.4,
+      "jpeg_encode": 294.2,
+      "disk_load": 3.6
+    },
+    "64": {
+      "background": 1328.1,
+      "old_grid_downscale": 585.4,
+      "process_single": 890.0,
+      "grid_store": 587.8,
+      "preload": 902.3,
+      "main": 385.7,
+      "jpeg_encode": 277.5,
+      "tracing_named_frame_heuristic": 20.2,
+      "disk_load": 2.7
+    },
+    "65": {
+      "background": 1313.0,
+      "old_grid_downscale": 578.0,
+      "process_single": 882.9,
+      "grid_store": 581.5,
+      "preload": 894.8,
+      "main": 371.9,
+      "tracing_named_frame_heuristic": 14.5,
+      "jpeg_encode": 278.0,
+      "disk_load": 3.3
+    },
+    "66": {
+      "background": 1312.1,
+      "old_grid_downscale": 571.3,
+      "process_single": 874.7,
+      "grid_store": 572.8,
+      "preload": 884.7,
+      "main": 353.8,
+      "tracing_named_frame_heuristic": 16.2,
+      "jpeg_encode": 280.3,
+      "disk_load": 2.9
+    },
+    "67": {
+      "background": 1281.1,
+      "old_grid_downscale": 581.8,
+      "process_single": 883.1,
+      "grid_store": 583.8,
+      "preload": 893.6,
+      "main": 352.3,
+      "tracing_named_frame_heuristic": 14.7,
+      "jpeg_encode": 277.2,
+      "disk_load": 2.2
+    },
+    "68": {
+      "background": 1339.6,
+      "jpeg_encode": 275.6,
+      "process_single": 873.4,
+      "preload": 884.0,
+      "main": 346.9,
+      "tracing_named_frame_heuristic": 17.3,
+      "disk_load": 3.7,
+      "old_grid_downscale": 571.3,
+      "grid_store": 572.9
+    },
+    "69": {
+      "background": 1284.3,
+      "old_grid_downscale": 559.0,
+      "process_single": 886.3,
+      "grid_store": 560.9,
+      "preload": 895.9,
+      "main": 351.1,
+      "tracing_named_frame_heuristic": 16.5,
+      "jpeg_encode": 307.3,
+      "disk_load": 2.5
+    },
+    "70": {
+      "background": 1342.5,
+      "old_grid_downscale": 587.2,
+      "process_single": 891.3,
+      "grid_store": 589.3,
+      "preload": 900.8,
+      "main": 373.3,
+      "jpeg_encode": 280.2,
+      "tracing_named_frame_heuristic": 15.8,
+      "disk_load": 3.4
+    },
+    "71": {
+      "background": 1290.4,
+      "jpeg_encode": 272.9,
+      "process_single": 896.5,
+      "preload": 907.1,
+      "main": 373.5,
+      "old_grid_downscale": 599.6,
+      "grid_store": 601.7,
+      "tracing_named_frame_heuristic": 15.4,
+      "disk_load": 2.9
+    },
+    "72": {
+      "background": 1250.3,
+      "old_grid_downscale": 574.2,
+      "process_single": 881.7,
+      "grid_store": 576.0,
+      "preload": 890.6,
+      "main": 379.4,
+      "tracing_named_frame_heuristic": 15.7,
+      "jpeg_encode": 285.0,
+      "disk_load": 3.2
+    },
+    "73": {
+      "background": 1159.6,
+      "main": 341.2,
+      "tracing_named_frame_heuristic": 14.3,
+      "process_single": 786.8,
+      "preload": 796.2,
+      "old_grid_downscale": 510.5,
+      "grid_store": 512.5,
+      "jpeg_encode": 257.3,
+      "disk_load": 2.3
+    },
+    "74": {
+      "main": 0.5
+    },
+    "75": {
+      "background": 0.1
+    },
+    "76": {
+      "background": 0.1
+    },
+    "77": {
+      "background": 0.1
+    },
+    "78": {
+      "background": 3.3,
+      "main": 0.2
+    },
+    "79": {
+      "background": 0.6
+    },
+    "80": {
+      "background": 0.1
+    },
+    "81": {
+      "background": 0.1
+    },
+    "82": {
+      "background": 0.1
+    },
+    "83": {
+      "background": 11.0,
+      "main": 75.0,
+      "tracing_named_frame_heuristic": 2.5
+    },
+    "84": {
+      "main": 94.7,
+      "background": 14.6,
+      "tracing_named_frame_heuristic": 5.1
+    },
+    "85": {
+      "background": 23.0,
+      "main": 360.0,
+      "tracing_named_frame_heuristic": 255.8
+    },
+    "86": {
+      "main": 24.4,
+      "tracing_named_frame_heuristic": 24.1,
+      "background": 2.3
+    }
+  },
+  "representative_stacks": {
+    "tracing_named_frame_heuristic": [
+      "swift_conformsToProtocolMaybeInstantiateSuperclasses(swift::TargetMetadata<swift::InProcess> const*, swift::TargetProtocolDescriptor<swift::InProcess> const*, bool)",
+      "swift_conformsToProtocolWithExecutionContext",
+      "swift::_conformsToProtocol(swift::OpaqueValue const*, swift::TargetMetadata<swift::InProcess> const*, swift::TargetProtocolDescriptorRef<swift::InProcess>, swift::TargetWitnessTable<swift::InProcess> const**, swift::ConformanceExecutionContext*)",
+      "swift::_checkGenericRequirements(__swift::__runtime::llvm::ArrayRef<swift::GenericParamDescriptor>, __swift::__runtime::llvm::ArrayRef<swift::TargetGenericRequirementDescriptor<swift::InProcess>>, __swift::__runtime::llvm::SmallVectorImpl<void const*>&, __swift::__runtime::llvm::function_ref<void const* (unsigned int, unsigned int)>, __swift::__runtime::llvm::function_ref<void const* (unsigned int, unsigned int)>, __swift::__runtime::llvm::function_ref<swift::TargetWitnessTable<swift::InProcess> const* (swift::TargetMetadata<swift::InProcess> const*, unsigned int)>, swift::ConformanceExecutionContext*)",
+      "_gatherGenericParameters(swift::TargetContextDescriptor<swift::InProcess> const*, __swift::__runtime::llvm::ArrayRef<swift::MetadataPackOrValue>, swift::TargetMetadata<swift::InProcess> const*, __swift::__runtime::llvm::SmallVectorImpl<unsigned int>&, __swift::__runtime::llvm::SmallVectorImpl<void const*>&, swift::Demangle::__runtime::Demangler&)",
+      "(anonymous namespace)::DecodedMetadataBuilder::createBoundGenericType(swift::TargetContextDescriptor<swift::InProcess> const*, __swift::__runtime::llvm::ArrayRef<swift::MetadataPackOrValue>, swift::MetadataPackOrValue) const",
+      "swift::Demangle::__runtime::TypeDecoder<(anonymous namespace)::DecodedMetadataBuilder>::decodeMangledType(swift::Demangle::__runtime::Node*, unsigned int, bool, bool)",
+      "swift_getTypeByMangledNodeImpl(swift::MetadataRequest, swift::Demangle::__runtime::Demangler&, swift::Demangle::__runtime::Node*, void const* const*, std::__1::function<void const* (unsigned int, unsigned int)>, std::__1::function<swift::TargetWitnessTable<swift::InProcess> const* (swift::TargetMetadata<swift::InProcess> const*, unsigned int)>)",
+      "swift_getTypeByMangledNode",
+      "swift_getTypeByMangledNameImpl(swift::MetadataRequest, __swift::__runtime::llvm::StringRef, void const* const*, std::__1::function<void const* (unsigned int, unsigned int)>, std::__1::function<swift::TargetWitnessTable<swift::InProcess> const* (swift::TargetMetadata<swift::InProcess> const*, unsigned int)>)",
+      "swift_getTypeByMangledName",
+      "swift_getTypeByMangledNameInContextImpl(char const*, unsigned long, swift::TargetContextDescriptor<swift::InProcess> const*, void const* const*)",
+      "__swift_instantiateConcreteTypeFromMangledNameV2",
+      "Mirror.init(internalReflecting:subjectType:customAncestor:)",
+      "Mirror.init(reflecting:)",
+      "String.init<A>(describing:)",
+      "specialized static SwiftUITrace.register<A>(h:)",
+      "specialized registerHandle(_:_:)",
+      "swiftUITraceRegister(_:_:)",
+      "swiftUITraceRegister",
+      "closure #1 in handleTraceNotification(updateGroup:token:)",
+      "handleTraceNotification(updateGroup:token:)",
+      "specialized static GraphHost.initializeSharedGraph(_:updateGroup:)",
+      "one-time initialization function for main",
+      "_dispatch_client_callout",
+      "_dispatch_once_callout",
+      "static UpdateGroup.main.getter",
+      "closure #1 in runApp<A>(_:)",
+      "runApp<A>(_:)",
+      "static App.main()",
+      "static RawCullApp.$main()",
+      "main",
+      "start"
+    ],
+    "scan_files": [
+      "__getattrlist",
+      "prepareValuesForBitmap(__CFURL const*, __FileCache*, _FilePropertyBitmap*, __CFError**)",
+      "_FSURLCopyResourcePropertyForKeyInternal(__CFURL const*, __CFString const*, void*, void*, __CFError**, unsigned char)",
+      "CFURLCopyResourcePropertyForKey",
+      "URLCopyPathForKey(__CFURL const*, __CFString const**, __CFError**)",
+      "SandboxExtensionCache::consume(__CFURL const*, __CFData const*)",
+      "_FSURLStartAccessingSecurityScopedResource",
+      "CFURLStartAccessingSecurityScopedResource",
+      "-[NSURL startAccessingSecurityScopedResource]",
+      "URL.startAccessingSecurityScopedResource()",
+      "ScanFiles.scanFiles(url:onProgress:)",
+      "RawCullViewModel.handleSourceChange(url:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "closure #1 in CatalogLifecycleCoordinator.startLoad(for:operation:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "metadata_loader": [
+      "__CFSearchStringROM",
+      "__CFStringCreateImmutableFunnel3",
+      "specialized static NSURL.__swiftParseSmall(_:into:allowEncoding:)",
+      "@objc static NSURL.__swiftParseSmall(_:into:allowEncoding:)",
+      "_CFURLCreateWithURLString",
+      "CFURLCreateCopyDeletingPathExtension",
+      "-[NSURL(NSURLPathUtilities) URLByDeletingPathExtension]",
+      "_BridgedURL.deletingPathExtension()",
+      "URL.deletingPathExtension()",
+      "closure #1 in static RawImageLoader.loadMetadata(from:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "image_properties": [
+      "0x1a76cbd41",
+      "IIOReader_RawCamera::testHeader(unsigned char const*, unsigned long, __CFString const*, IIOHeaderOptions)",
+      "IIO_ReaderHandler::readerForBytesImp(unsigned char const*, unsigned long, __CFString const*, unsigned long, IIOHeaderOptions, IIORequest, int*)",
+      "IIO_ReaderHandler::readerForBytes(unsigned char const*, unsigned long, __CFString const*, IIOImageRead*, unsigned long, IIOHeaderOptions, IIORequest, int*)",
+      "IIOImageSource::doBindToReader()",
+      "IIOImageSource::getPropertiesAtIndexInternal(unsigned long, IIODictionary*)",
+      "IIOImageSource::copyPropertiesAtIndex(unsigned long, IIODictionary*)",
+      "CGImageSourceCopyPropertiesAtIndexEx",
+      "specialized static RawImageLoader.imageProperties(from:)",
+      "static RawImageLoader.imageProperties(from:)",
+      "closure #1 in static RawImageLoader.loadMetadata(from:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "preload": [
+      "__workq_kernreturn",
+      "_dispatch_root_queue_poke_slow",
+      "swift_task_enqueueGlobalImpl",
+      "swift::AsyncTask::flagAsAndEnqueueOnExecutor(swift::SerialExecutorRef)",
+      "swift_task_create_commonImpl(unsigned long, swift::TaskOptionRecord*, swift::TargetMetadata<swift::InProcess> const*, void (swift::AsyncContext* swift_async_context) swiftasynccall*, void*, unsigned long)",
+      "specialized Task<>.init(name:priority:operation:)",
+      "DiscoverFiles.discoverFiles(at:recursive:)",
+      "ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "disk_load": [
+      "lstat",
+      "specialized _SwiftURL.appending<A>(path:directoryHint:encodingSlashes:)",
+      "URL.appendingPathComponent(_:)",
+      "DiskCacheManager.cacheURL(for:)",
+      "DiskCacheManager.load(for:)",
+      "RequestThumbnail.resolveImage(for:targetSize:cacheKey:)",
+      "RequestThumbnail.performRequest(for:targetSize:cacheKey:)",
+      "closure #1 in RequestThumbnail.enqueue(waiterID:continuation:url:targetSize:cacheKey:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "process_single": [
+      "_xzm_free_tc",
+      "bool swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
+      "specialized static NSURL.__swiftParseFilePath(_:into:pathStyle:isDirectory:)",
+      "@objc static NSURL.__swiftParseFilePath(_:into:pathStyle:isDirectory:)",
+      "_CFURLCreateWithFileSystemPath",
+      "-[NSURL(NSURL) initFileURLWithPath:]",
+      "+[NSURL(NSURL) fileURLWithPath:]",
+      "protocol witness for _URLProtocol.standardizedFileURL.getter in conformance _BridgedURL",
+      "URL.standardizedFileURL.getter",
+      "static ThumbnailSourceFingerprint.resolve(for:)",
+      "static ThumbnailCacheKey.resolve(for:purpose:requestedPixelSize:orientationPolicy:)",
+      "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+      "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "jpeg_encode": [
+      "objc_msgSend",
+      "specialized static DiskCacheManager.jpegData(from:)",
+      "static DiskCacheManager.jpegData(from:)",
+      "RequestThumbnail.resolveImage(for:targetSize:cacheKey:)",
+      "RequestThumbnail.performRequest(for:targetSize:cacheKey:)",
+      "closure #1 in RequestThumbnail.enqueue(waiterID:continuation:url:targetSize:cacheKey:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "old_grid_downscale": [
+      "getMethodFromRelativeList(relative_list_list_t<method_list_t>*, objc_selector*)",
+      "objc_lookUpImpOrForward",
+      "_objc_msgSend_uncached",
+      "-[NSImage _usingBestRepresentationForRect:context:hints:body:]",
+      "-[NSImage lockFocusWithRect:context:hints:flipped:]",
+      "specialized ScanAndCreateThumbnails.downscale(_:to:)",
+      "ScanAndCreateThumbnails.downscale(_:to:)",
+      "specialized ScanAndCreateThumbnails.storeInGridCache(_:for:)",
+      "ScanAndCreateThumbnails.storeInGridCache(_:for:)",
+      "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+      "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ],
+    "grid_store": [
+      "getMethodFromRelativeList(relative_list_list_t<method_list_t>*, objc_selector*)",
+      "objc_lookUpImpOrForward",
+      "_objc_msgSend_uncached",
+      "-[NSImage _usingBestRepresentationForRect:context:hints:body:]",
+      "-[NSImage lockFocusWithRect:context:hints:flipped:]",
+      "specialized ScanAndCreateThumbnails.downscale(_:to:)",
+      "ScanAndCreateThumbnails.downscale(_:to:)",
+      "specialized ScanAndCreateThumbnails.storeInGridCache(_:for:)",
+      "ScanAndCreateThumbnails.storeInGridCache(_:for:)",
+      "ScanAndCreateThumbnails.processSingleFile(_:targetSize:)",
+      "closure #1 in closure #1 in closure #1 in ScanAndCreateThumbnails.preloadCatalog(at:targetSize:)",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "<deduplicated_symbol>",
+      "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+    ]
+  },
+  "notes": [
+    "Inclusive pattern weights overlap; never add parents and children.",
+    "First/last matching samples are sampled activity bounds, not operation latency or completion markers.",
+    "Missing sampled frames do not prove that a method was never called.",
+    "Truncation at 300 frames may omit deeper callers."
+  ]
+}

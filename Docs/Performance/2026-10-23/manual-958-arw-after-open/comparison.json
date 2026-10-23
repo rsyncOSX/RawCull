@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-23-manual-958-arw",
+  "before_trace": "/Users/thomas/Downloads/opencatalog.trace",
+  "after_trace": "/Users/thomas/Downloads/opencatalog2.trace",
+  "catalog_arw_count_context_user_reported": 958,
+  "catalog_count_independently_verified": false,
+  "reviewed_checkout_revision": "30a1924628d95adc1d16f782f03f3223ad9e3d2e",
+  "recorded_binary_uuid": null,
+  "metadata": {
+    "before": {
+      "start_date": "2026-10-23T16:03:26.857+02:00",
+      "duration_s": 86.067668,
+      "template": "SwiftUI",
+      "recording_mode": "Deferred",
+      "end_reason": "Target app exited",
+      "host_model": "MacBook Pro",
+      "memory_bytes": 19327352832,
+      "os_version": "27.0.1 (26A434)",
+      "process_name": "RawCull",
+      "process_termination_reason": "exit(0)",
+      "recording_options": {
+        "SwiftUI": {
+          "Layout Updates": "Not Included"
+        },
+        "Time Profiler": {
+          "Sampling Frequency": "High"
+        },
+        "Hangs": {
+          "Reporting Threshold": "Include Microhangs (>250ms)"
+        }
+      }
+    },
+    "after": {
+      "start_date": "2026-10-23T16:43:59.851+02:00",
+      "duration_s": 61.668358,
+      "template": "SwiftUI",
+      "recording_mode": "Deferred",
+      "end_reason": "User pressed Stop",
+      "host_model": "MacBook Pro",
+      "memory_bytes": 19327352832,
+      "os_version": "27.0.1 (26A434)",
+      "process_name": "RawCull",
+      "process_termination_reason": "SIGKILL",
+      "recording_options": {
+        "SwiftUI": {
+          "Layout Updates": "Not Included"
+        },
+        "Time Profiler": {
+          "Sampling Frequency": "High"
+        },
+        "Hangs": {
+          "Reporting Threshold": "Include Microhangs (>250ms)"
+        }
+      }
+    }
+  },
+  "cpu_path_comparison": [
+    {
+      "path": "grid resizing",
+      "thread": "background",
+      "before_sample_weight_ms": 26961.6,
+      "after_sample_weight_ms": 7821.9,
+      "observed_reduction_percent": 70.99
+    },
+    {
+      "path": "preload",
+      "thread": "background",
+      "before_sample_weight_ms": 41617.9,
+      "after_sample_weight_ms": 21427.1,
+      "observed_reduction_percent": 48.51
+    },
+    {
+      "path": "metadata loader",
+      "thread": "background",
+      "before_sample_weight_ms": 5957.7,
+      "after_sample_weight_ms": 5807.0,
+      "observed_reduction_percent": 2.53
+    },
+    {
+      "path": "JPEG encoding",
+      "thread": "background",
+      "before_sample_weight_ms": 13067.0,
+      "after_sample_weight_ms": 12258.7,
+      "observed_reduction_percent": 6.19
+    }
+  ],
+  "responsiveness": {
+    "hangs": {
+      "before": {
+        "count": 1,
+        "total_duration_ms": 325.31,
+        "worst_duration_ms": 325.31,
+        "severity_buckets": {
+          "lt_250ms": 0,
+          "250ms_1s": 1,
+          "gt_1s": 0
+        }
+      },
+      "after": {
+        "count": 0,
+        "total_duration_ms": 0,
+        "worst_duration_ms": 0,
+        "severity_buckets": {
+          "lt_250ms": 0,
+          "250ms_1s": 0,
+          "gt_1s": 0
+        }
+      }
+    },
+    "hitches": {
+      "before": {
+        "count": 53,
+        "total_hitch_ms": 1791.53,
+        "worst_hitch_ms": 500.0,
+        "per_process": {
+          "RawCull": 53
+        },
+        "system_hitches": 0,
+        "app_hitches": 53,
+        "narrative_breakdown": {
+          "Potentially expensive app update(s)": 16,
+          "Potentially expensive render, 0 offscreen passes)": 2,
+          "Potentially expensive app update(s), Potentially expensive GPU work": 1,
+          "Potentially expensive app update(s), Potentially expensive render, 0 offscreen passes)": 1
+        }
+      },
+      "after": {
+        "count": 51,
+        "total_hitch_ms": 1833.22,
+        "worst_hitch_ms": 508.33,
+        "per_process": {
+          "RawCull": 51
+        },
+        "system_hitches": 0,
+        "app_hitches": 51,
+        "narrative_breakdown": {
+          "Potentially expensive app update(s)": 18,
+          "Potentially expensive app update(s), Potentially expensive render, 0 offscreen passes)": 2
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Inclusive sampled CPU weights overlap and are not elapsed action latency.",
+    "Different recording duration/start delays/cache state and no exact operation-count or completion markers prevent a controlled speedup claim.",
+    "Both captures contain substantial JPEG encoding, with similar metadata and JPEG sample weights; this supports but does not prove comparable work.",
+    "Before SwiftUI update/cause tables were empty; after event analysis was stopped at approximately 9 GB parser RSS. SwiftUI cause/view comparison unavailable.",
+    "No count-derived main-thread coverage or blocked/CPU-bound labels were used; sample weights are 0.1 ms in both captures.",
+    "Before trace ended with exit(0), after process metadata reports SIGKILL; zero new hangs does not prove graceful-termination hang removal.",
+    "No process footprint/allocation measurements here; do not use analyzer memory as RawCull memory.",
+    "Exact recorded binary UUID/source revision not verified; new resize function appears in after stacks and current source hashes match the saved implementation."
+  ]
+}
