@@ -22,3 +22,9 @@ a Python environment with both `cv2` and `numpy`, then run
 the Makefile targets. `VerifyAIImportBoundary.sh` checks the AI import boundary.
 `release.sh` orchestrates release work; it is not a unit test and is not executed
 by `test-scripts`.
+
+`RunCatalogPerformance.py` builds and runs an opt-in Release integration benchmark
+against a supplied ARW catalog, writing raw logs and comparable JSON/Markdown
+reports. See [the catalog benchmark guide](../Docs/CatalogPerformance.md) for
+commands, phases, baseline comparisons, and measurement limits. Its script tests
+are in `TestRunCatalogPerformance.py` and require no photographs.
