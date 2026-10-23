@@ -1,0 +1,188 @@
+{
+  "trace": "/tmp/rawcull-54058fce-timeprofiler.trace",
+  "xctrace_version": "27.1 (27A9275)",
+  "run": 1,
+  "runs_available": [
+    1
+  ],
+  "template": "Time Profiler",
+  "duration_s": 45.328651,
+  "start_date": "2026-10-23T06:42:01.638+02:00",
+  "end_date": "2026-10-23T06:42:46.967+02:00",
+  "schemas_available": [
+    "OSSignpostIntervals",
+    "PointsOfInterestEvents",
+    "StateReportingIntervals",
+    "device-thermal-state-intervals",
+    "dyld-library-load",
+    "hang-risks",
+    "kdebug",
+    "kdebug-strings",
+    "life-cycle-period",
+    "os-log",
+    "os-signpost",
+    "os-signpost-arg",
+    "potential-hangs",
+    "process-info",
+    "runloop-events",
+    "thread-info",
+    "tick",
+    "time-profile",
+    "time-sample"
+  ],
+  "lanes": [
+    {
+      "lane": "time-profiler",
+      "available": true,
+      "schema_used": "time-profile",
+      "metrics": {
+        "total_samples": 3127,
+        "total_weight_ns": 3127000000,
+        "total_weight_ms": 3127.0,
+        "window_start_ns": 725997541,
+        "window_end_ns": 45326996541,
+        "processes": [
+          "RawCull"
+        ]
+      },
+      "top_offenders": [
+        {
+          "symbol": "read",
+          "weight_ns": 153000000,
+          "weight_ms": 153.0,
+          "samples": 153,
+          "percent": 4.89,
+          "thread": "RawCull (0x12803) (RawCull, pid: 8223)"
+        },
+        {
+          "symbol": "objc_msgSend",
+          "weight_ns": 131000000,
+          "weight_ms": 131.0,
+          "samples": 131,
+          "percent": 4.19,
+          "thread": "main"
+        },
+        {
+          "symbol": "<deduplicated_symbol>",
+          "weight_ns": 120000000,
+          "weight_ms": 120.0,
+          "samples": 120,
+          "percent": 3.84,
+          "thread": "main"
+        },
+        {
+          "symbol": "_xzm_xzone_malloc_tiny",
+          "weight_ns": 101000000,
+          "weight_ms": 101.0,
+          "samples": 101,
+          "percent": 3.23,
+          "thread": "main"
+        },
+        {
+          "symbol": "__CFStringHash",
+          "weight_ns": 78000000,
+          "weight_ms": 78.0,
+          "samples": 78,
+          "percent": 2.49,
+          "thread": "main"
+        },
+        {
+          "symbol": "_xzm_free_main",
+          "weight_ns": 75000000,
+          "weight_ms": 75.0,
+          "samples": 75,
+          "percent": 2.4,
+          "thread": "main"
+        },
+        {
+          "symbol": "__CF_IS_OBJC",
+          "weight_ns": 49000000,
+          "weight_ms": 49.0,
+          "samples": 49,
+          "percent": 1.57,
+          "thread": "main"
+        },
+        {
+          "symbol": "__CFStringEqual",
+          "weight_ns": 48000000,
+          "weight_ms": 48.0,
+          "samples": 48,
+          "percent": 1.54,
+          "thread": "main"
+        },
+        {
+          "symbol": "_platform_memmove",
+          "weight_ns": 44000000,
+          "weight_ms": 44.0,
+          "samples": 44,
+          "percent": 1.41,
+          "thread": "main"
+        },
+        {
+          "symbol": "mach_msg2_trap",
+          "weight_ns": 42000000,
+          "weight_ms": 42.0,
+          "samples": 42,
+          "percent": 1.34,
+          "thread": "main"
+        },
+        {
+          "symbol": "start_wqthread",
+          "weight_ns": 37000000,
+          "weight_ms": 37.0,
+          "samples": 37,
+          "percent": 1.18,
+          "thread": "RawCull (0x120ee) (RawCull, pid: 8223)"
+        },
+        {
+          "symbol": "AG::Graph::UpdateStack::update()",
+          "weight_ns": 33000000,
+          "weight_ms": 33.0,
+          "samples": 33,
+          "percent": 1.06,
+          "thread": "main"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "lane": "hangs",
+      "available": true,
+      "schema_used": "potential-hangs",
+      "metrics": {
+        "count": 0,
+        "total_duration_ms": 0,
+        "worst_duration_ms": 0,
+        "severity_buckets": {
+          "lt_250ms": 0,
+          "250ms_1s": 0,
+          "gt_1s": 0
+        }
+      },
+      "top_offenders": [],
+      "notes": []
+    },
+    {
+      "lane": "hitches",
+      "available": false,
+      "notes": [
+        "Animation hitches not present in trace."
+      ]
+    },
+    {
+      "lane": "swiftui",
+      "available": false,
+      "notes": [
+        "SwiftUI lane not in trace (Xcode 26+ SwiftUI template required)."
+      ]
+    },
+    {
+      "lane": "swiftui-causes",
+      "available": false,
+      "notes": [
+        "SwiftUI causes data not present (requires SwiftUI template on a real device)."
+      ]
+    }
+  ],
+  "correlations": []
+}

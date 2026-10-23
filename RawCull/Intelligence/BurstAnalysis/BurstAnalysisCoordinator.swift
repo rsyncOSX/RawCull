@@ -355,16 +355,11 @@ final class BurstAnalysisCoordinator {
         files: [FileItem],
         catalog: URL,
     ) -> [BurstReviewStateSnapshot] {
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        return groups.compactMap { group in
-            guard let state = states[group.id],
-                  state != .none,
-                  let signature = BurstGroupSignature(
-                      files: group.fileIDs.compactMap { filesByID[$0] },
-                      catalog: catalog,
-                  )
-            else { return nil }
-            return BurstReviewStateSnapshot(signature: signature, state: state)
-        }
+        BurstReviewStateMapping.snapshots(
+            states: states,
+            groups: groups,
+            files: files,
+            catalog: catalog,
+        )
     }
 }

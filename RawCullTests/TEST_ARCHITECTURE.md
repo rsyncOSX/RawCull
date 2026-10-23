@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 391 unique smoke identifiers and 2 unique performance
+current baselines are 401 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -199,3 +199,97 @@ selects their containing suites, so its selectors remain unchanged; the expected
 enumeration is now 391 unique identifiers. Release metadata assertions now check
 version alignment across app and extension configurations and compare README pins
 against `Package.resolved`, without requiring an obsolete PhotoAIKit revision.
+
+## Smoke inventory reconciliation — 2026-10-22
+
+The unchanged smoke selectors now enumerate 396 unique identifiers. Compared with
+baseline commit `caf83ed8`, the five additions are:
+
+- `CullingGridCoordinatorTests`: `thumbnail workspace follows the current catalog across view switches`
+  and `combined single images preserve workflow states without choosing a winner`.
+- `ObjectAnalysisBoundaryTests`: `Focus abstention preserves paired evidence and unaffected object ownership`
+  and `Focus abstention still requires explicit nullable fields`.
+- `SharpnessScoringTests`:
+  `loading cached burst AF evidence preserves best frame scores`.
+
+These tests belong to suites already selected by the manifest. No selectors or
+source smoke declarations changed during this reconciliation. The Make baseline
+is updated to 396; parameterized invocations remain separate from identifier counts.
+README release references and the RawParserKit pin are aligned with the project
+settings and `Package.resolved` without changing either source of truth.
+
+Verification: the focused release metadata suite and `make test-smoke` passed.
+The smoke gate verified 396 unique identifiers with no duplicates before running
+the selected tests.
+
+## Burst review session ownership — 2026-10-22
+
+`BurstReviewSessionModel` owns application-lifetime review state independently of
+viewport and image presentation. The view model retains rating, navigation, and
+persistence coordination. Two new tests in the already selected
+`CullingGridCoordinatorTests` suite cover observable facade forwarding, result
+revision invalidation, stable session identity across reset, and rating undo
+without reverting workflow state. The unchanged selectors now expect 398 unique
+smoke identifiers.
+
+Verification: focused culling, grid projection, burst coordinator, and intelligence
+runtime tests passed. `make test-smoke` passed after verifying all 398 unique
+identifiers.
+
+## Semantic search model ownership — 2026-10-22
+
+`RawCullSemanticSearchModel` owns semantic capability, cached evidence, hydration,
+query execution, and result selection. `SimilarityScoringModel` keeps its existing
+semantic API as forwarding methods and projections. It hands off compatible
+indexing artifacts with replacement semantics and legacy artifacts with
+preserve-existing semantics. Its grid revision combines image and semantic
+revisions. Application admission and selection remain in the semantic feature;
+catalog hydration orchestration remains in the similarity feature.
+
+Two new tests in the already selected `RawCullSemanticSearchTests` suite cover
+artifact handoff semantics, observable forwarding, grid revision changes,
+classification isolation, and configuration replacement during suspended
+hydration. The unchanged selectors now expect 400 unique smoke identifiers.
+
+Verification: focused semantic search/UI, similarity feature, intelligence runtime,
+artifact migration, and grid projection tests passed. `make test-smoke` passed
+after verifying 400 unique identifiers.
+
+## Combined Review responsibility separation — 2026-10-22
+
+Combined Review keeps one mutable run owner in `CombinedReviewFeature`:
+
+- `CombinedReviewExecution.swift` orchestrates image preparation, planning,
+  inspection, and report synthesis.
+- `CombinedReviewWorkExecution.swift` provides shared work execution, response
+  repair, diagnostics, dependencies, retained inputs, and provenance.
+- `CombinedReviewComparisonExecution.swift` builds comparison prompts and runs selection
+  and pair comparisons.
+
+Manifest transition rules remain in `ReviewRunManifest`; persistence remains in
+`ReviewArtifactStore`. This is a mechanical separation with unchanged method
+bodies, execution ordering, and test identifiers. The smoke baseline remains 400.
+
+Verification: all 18 moved/remaining method declarations and bodies matched the
+pre-extraction source byte-for-byte. Focused feature, diagnostics, run-contract,
+and presentation tests passed. `make test-smoke` passed after verifying 400
+unique identifiers.
+
+## Burst review mutation encapsulation — 2026-10-22
+
+Session results and explicit review states are externally read-only, including
+through the view-model facade. Analysis application, ranking replacement,
+restoration, manual winner overrides, and undo synchronization use explicit
+session commands. These preserve intentionally different explicit and ranked
+review states and existing revision/persistence behavior. Queue selection,
+navigation, and undo-entry storage are unchanged.
+
+Existing fixtures now use the commands. One additional test in the already
+selected `CullingGridCoordinatorTests` suite covers manual override precedence,
+missing results, independent restored states, and undo revision behavior. The
+unchanged selectors now expect 401 unique smoke identifiers.
+
+Verification: focused culling, grid projection, burst coordinator, and intelligence
+runtime suites passed. `make test-smoke` passed after verifying 401 unique
+identifiers. Compilation verifies that callers no longer write either dictionary
+directly.

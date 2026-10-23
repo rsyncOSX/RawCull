@@ -1,4 +1,6 @@
 import Foundation
+import Observation
+import Synchronization
 import PhotoAIContracts
 @testable import RawCull
 import RawCullCore
@@ -245,8 +247,127 @@ private nonisolated func semanticCandidate(
     )
 }
 
+private actor SemanticHydrationGateStore: SimilarityArtifactStoring {
+    private var pending: CheckedContinuation<PerFileAnalysisArtifactLoadResult, Never>?
+    private var startedWaiter: CheckedContinuation<Void, Never>?
+
+    func waitUntilLoading() async {
+        if pending != nil { return }
+        await withCheckedContinuation { startedWaiter = $0 }
+    }
+
+    func load(
+        sources: [AIImageSource],
+        allowedBackends: [SimilarityBackendDescriptor],
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactLoadResult {
+        await withCheckedContinuation {
+            pending = $0
+            startedWaiter?.resume()
+            startedWaiter = nil
+        }
+    }
+
+    func release(_ artifacts: [UUID: SimilarityArtifact]) {
+        pending?.resume(returning: PerFileAnalysisArtifactLoadResult(artifacts: artifacts, misses: []))
+        pending = nil
+    }
+
+    func upsert(
+        artifacts: [UUID: SimilarityArtifact],
+        sources: [UUID: AIImageSource],
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactCommitResult {
+        PerFileAnalysisArtifactCommitResult(committedSourceIDs: [], failures: [], wasCancelled: false)
+    }
+
+    func remove(
+        source: AIImageSource,
+        backend: SimilarityBackendDescriptor,
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async {}
+}
+
 @Suite("RawCull semantic search", .tags(.smoke))
 struct RawCullSemanticSearchTests {
+    @MainActor
+    @Test
+    func `Semantic artifact handoffs preserve merge rules and observable facade revisions`() async throws {
+        let fixture = try SemanticCatalogFixture(names: ["one.raw"])
+        defer { fixture.remove() }
+        let service = RawCullCLIPSemanticSearchService(
+            textProvider: SemanticTestTextProvider(), comparator: SemanticPayloadComparator(),
+        )
+        let model = SimilarityScoringModel(
+            semanticSearchCapability: .ready(location: nil, backend: semanticTestBackend),
+            semanticSearchService: service, artifactStore: fixture.store,
+        )
+        let semantic = model.semanticSearchModel
+        let file = try #require(fixture.files.first)
+        let source = SimilarityScoringModel.source(for: file)
+        let sources = [file.id: source]
+        func accept(_ value: UInt8, preserve: Bool, backend: SimilarityBackendDescriptor = semanticTestBackend) {
+            semantic.acceptArtifacts(
+                [file.id: semanticArtifact(source: source, backend: backend, value: value)],
+                sources: sources, preservingExisting: preserve, catalogFileCount: 1,
+            )
+        }
+        accept(50, preserve: false)
+        accept(90, preserve: true)
+        let observed = Mutex(false)
+        withObservationTracking {
+            _ = model.semanticSearchState
+        } onChange: {
+            observed.withLock { $0 = true }
+        }
+        let revision = model.gridContentRevision
+        await model.rankSemantically(query: "bird", files: fixture.files)
+        #expect(observed.withLock { $0 })
+        #expect(model.gridContentRevision > revision)
+        #expect(model.semanticScores[file.id] == 0.5)
+        accept(90, preserve: false)
+        accept(10, preserve: false, backend: visionOnlyTestBackend)
+        await model.rankSemantically(query: "bird", files: fixture.files)
+        #expect(model.semanticScores[file.id] == 0.9)
+        let state = model.semanticSearchState
+        let selection = model.semanticResultOrder
+        _ = await model.classifySubjects(in: fixture.files)
+        #expect(model.semanticSearchState == state)
+        #expect(model.semanticResultOrder == selection)
+        model.clearSemanticSearch()
+        #expect(model.semanticIndexedFileCount == 1)
+        model.reset()
+        #expect(model.semanticSearchModel === semantic)
+        #expect(model.semanticIndexedFileCount == 0)
+    }
+
+    @MainActor
+    @Test
+    func `Semantic configuration replacement rejects an in-flight hydration completion`() async throws {
+        let fixture = try SemanticCatalogFixture(names: ["one.raw"])
+        defer { fixture.remove() }
+        let store = SemanticHydrationGateStore()
+        let service = RawCullCLIPSemanticSearchService(
+            textProvider: SemanticTestTextProvider(), comparator: SemanticPayloadComparator(),
+        )
+        let model = SimilarityScoringModel(
+            semanticSearchCapability: .ready(location: nil, backend: semanticTestBackend),
+            semanticSearchService: service, artifactStore: store,
+        )
+        let task = Task { await model.hydrateSemanticArtifacts(fixture.files) }
+        await store.waitUntilLoading()
+        model.setSemanticSearchCapability(.unavailable(reason: "removed", expectedLocations: []), service: nil)
+        let file = try #require(fixture.files.first)
+        await store.release([file.id: semanticArtifact(
+            source: SimilarityScoringModel.source(for: file), backend: semanticTestBackend, value: 90,
+        )])
+        #expect(await task.value == 0)
+        #expect(model.semanticIndexedFileCount == 0)
+        #expect(model.semanticCatalogFileCount == 0)
+        #expect(model.semanticSearchState == .idle)
+        #expect(model.semanticSearchBackendDescriptor == nil)
+    }
+
     @Test
     func `Literal query encodes once, excludes Vision, isolates failures, and ranks deterministically`() async throws {
         let provider = SemanticTestTextProvider()
