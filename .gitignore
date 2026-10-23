@@ -73,3 +73,7 @@ fastlane/test_output/
 # Note: Be careful with this - only ignore if it's truly generated
 # info.plist
 .build
+
+# Python generated files
+__pycache__/
+*.py[cod]

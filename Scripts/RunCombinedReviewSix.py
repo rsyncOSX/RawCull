@@ -54,7 +54,7 @@ def select_names(directory, frozen=False):
                   if path.is_file() and path.suffix.lower() == '.arw')
 
 
-def main():
+def _main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, required=True, help='Directory containing input ARW files')
     parser.add_argument('--models', type=Path, default=Path.home() / 'ModelAssets/Release/Models')
@@ -132,6 +132,16 @@ def main():
     print('Engineering acceptance PASSED; visual qualification remains required.' if result.returncode == 0 else
           'FAILED: acceptance checks did not pass. Evidence retained; no code changed.', flush=True)
     return result.returncode
+
+
+def main():
+    # Evidence can contain private photographs. Restore the caller's process mask
+    # even on preflight errors, so calling this runner has no lasting side effect.
+    previous_mask = os.umask(0o077)
+    try:
+        return _main()
+    finally:
+        os.umask(previous_mask)
 
 
 if __name__ == '__main__':
