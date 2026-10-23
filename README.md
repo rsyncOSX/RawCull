@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.3.3**.
+Current project version: **3.3.5**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -99,7 +99,7 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 | `photoaikit` | `1.0.0` |
 | `photoanalysiskit` | `1.3.1` |
 | `rawcullcore` | `1.1.2` |
-| `rawparserkit` | `1.3.1` |
+| `rawparserkit` | `1.3.2` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.3` |
@@ -157,7 +157,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.3.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.5.dmg
 ```
 
 ### App Store Connect and TestFlight uploads

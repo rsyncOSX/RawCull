@@ -1,0 +1,11 @@
+{"epoch": 1792730176.7815301, "event": "initial_catalog_open_requested"}
+{"epoch": 1792730198.0576131, "event": "catalog_1198_and_first_preview_observed_no_progress_indicator"}
+{"epoch": 1792730254.262795, "event": "grid_scrolled_to_DSC1138_selection_verified"}
+{"epoch": 1792730310.720132, "event": "embedded_JPEG_8640x5760_zoom140_verified"}
+{"epoch": 1792730310.7201548, "event": "developed_RAW_selected_verified"}
+{"epoch": 1792730310.72016, "event": "warm_reload_prepare"}
+{"epoch": 1792730355.975335, "event": "unexpected_zero_files_after_loupe_then_cmdO_no_picker_confirmed"}
+{"epoch": 1792730366.1360729, "event": "warm_explicit_open_requested"}
+{"epoch": 1792730387.4171379, "event": "warm_load_1198_preview_observed", "upper_bound_seconds": 8.358, "still_scanning_at_seconds": 5.586}
+{"epoch": 1792730401.270668, "event": "reload_aborted_cmdK_empty_state_observed", "seconds_open_and_abort": 1.074}
+{"epoch": 1792730430.823968, "event": "post_cancel_recovery_1198_and_preview_verified"}

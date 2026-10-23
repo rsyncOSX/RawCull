@@ -8,21 +8,12 @@ extension BurstAnalysisCoordinator {
         files: [FileItem],
         catalog: URL,
     ) -> [Int: BurstReviewState] {
-        let savedStates = Dictionary(
-            uniqueKeysWithValues: snapshots.map { ($0.signature, $0.state) },
+        BurstReviewStateMapping.restore(
+            snapshots: snapshots,
+            groups: groups,
+            files: files,
+            catalog: catalog,
         )
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        return Dictionary(uniqueKeysWithValues: groups.compactMap { group in
-            let groupFiles = group.fileIDs.compactMap { filesByID[$0] }
-            guard let signature = BurstGroupSignature(
-                files: groupFiles,
-                catalog: catalog,
-            ),
-                let state = savedStates[signature],
-                state != .none
-            else { return nil }
-            return (group.id, state)
-        })
     }
 
     nonisolated static func remap(

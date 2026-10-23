@@ -1,6 +1,8 @@
 import Foundation
+import Observation
 @testable import RawCull
 import RawCullCore
+import Synchronization
 import Testing
 
 private func makeGridTestFile(_ name: String, id: UUID = UUID()) -> FileItem {
@@ -73,6 +75,104 @@ private func makeReviewQueueResult(
 @MainActor
 @Suite("CullingGridCoordinator")
 struct CullingGridCoordinatorTests {
+    @Test
+    func `session commands preserve manual override and independent restored states`() {
+        let session = BurstReviewSessionModel()
+        let first = UUID(), second = UUID()
+        let ranking = makeReviewQueueResult(
+            groupID: 1, fileIDs: [first, second], confidence: .medium, reviewState: .algorithmReviewed,
+        )
+        session.applyAnalysis(rankings: [ranking], restoredReviewStates: [1: .deferred])
+        #expect(session.reviewStates[1] == .deferred)
+        #expect(session.results[1]?.reviewState == .algorithmReviewed)
+        session.applyManualWinnerOverride(groupID: 1, winnerID: second)
+        #expect(session.results[1]?.recommendedFileID == second)
+        #expect(session.results[1]?.reviewState == .manualWinnerOverride)
+        #expect(session.reviewStates[1] == .manualWinnerOverride)
+        let revision = session.contentRevision
+        #expect(!session.markDecisionApplied(groupID: 1, scopedGroups: []))
+        #expect(session.contentRevision == revision)
+        session.applyManualWinnerOverride(groupID: 2, winnerID: first)
+        #expect(session.reviewStates[2] == .manualWinnerOverride)
+        #expect(session.results[2] == nil)
+        #expect(session.contentRevision == revision)
+        session.restoreReviewStates([:])
+        session.synchronizeResultReviewStateAfterUndo(groupID: 1)
+        #expect(session.results[1]?.reviewState == BurstReviewState.none)
+        #expect(session.contentRevision == revision + 1)
+        #expect(session.reviewStates.isEmpty)
+    }
+
+    @Test
+    func `review session mutations reach facade observers and invalidate grid results`() {
+        let model = makeRawCullViewModel()
+        let session = model.burstReviewSession
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.filteredFiles = [first, second]
+        model.mainViewMode = .similarityGrid
+        model.similarityModel.burstModeActive = true
+        model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
+        model.burstReviewSession.replaceRankings([1: makeReviewQueueResult(
+            groupID: 1, fileIDs: [first.id, second.id], confidence: .medium,
+        )])
+        model.burstReviewQueueFilter = .needsReview
+        #expect(model.cullingGridProjection(ratingFilter: .all).groups.count == 1)
+        let buildCount = model.gridProjectionBuildCount
+        let changed = Mutex(false)
+        withObservationTracking {
+            _ = model.burstAnalysisResults
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        session.setReviewState(.reviewed, groupID: 1, scopedGroups: model.similarityModel.burstGroups)
+        #expect(changed.withLock { $0 })
+        #expect(model.burstReviewStates[1] == .reviewed)
+        #expect(model.burstAnalysisResults[1]?.reviewState == .reviewed)
+        #expect(model.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
+        #expect(model.gridProjectionBuildCount == buildCount + 1)
+        let revision = session.contentRevision
+        session.setReviewState(.deferred, groupID: 1, scopedGroups: model.similarityModel.burstGroups)
+        #expect(session.contentRevision == revision + 1)
+        #expect(session.results[1]?.reviewState == .deferred)
+        model.activeBurstComparisonGroupID = 1
+        model.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [:])
+        model.cancelAndResetBurstAnalysis()
+        #expect(model.burstReviewSession === session)
+        #expect(session.results.isEmpty)
+        #expect(session.reviewStates.isEmpty)
+        #expect(session.queueFilter == .all)
+        #expect(session.activeComparisonGroupID == nil)
+        #expect(session.lastUndoEntry == nil)
+    }
+
+    @Test
+    func `burst undo restores ratings and consumes session entry without reverting review state`() {
+        let model = makeRawCullViewModel()
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.files = [first, second]
+        model.updateRating(for: first, rating: 2)
+        model.updateRating(for: second, rating: 0)
+        model.burstReviewSession.replaceRankings([1: makeReviewQueueResult(
+            groupID: 1, fileIDs: [first.id, second.id], confidence: .medium, reviewState: .decisionApplied,
+        )])
+        model.burstReviewSession.restoreReviewStates([1: .decisionApplied])
+        model.lastBurstUndoEntry = BurstUndoEntry(
+            groupID: 1, previousRatingsByFileName: [first.name: 2, second.name: 0],
+        )
+        model.updateRating(for: first, rating: 3)
+        model.updateRating(for: second, rating: -1)
+        model.undoLastBurstAction()
+        #expect(model.rating(for: first) == 2)
+        #expect(model.rating(for: second) == 0)
+        #expect(model.burstReviewSession.lastUndoEntry == nil)
+        #expect(model.burstAnalysisResults[1]?.reviewState == .decisionApplied)
+        #expect(model.burstReviewStates[1] == .decisionApplied)
+    }
+
     @Test func `thumbnail workspace follows the current catalog across view switches`() {
         let viewModel = makeRawCullViewModel()
         #expect(!viewModel.canShowThumbnailWorkspace)
@@ -343,7 +443,7 @@ struct CullingGridCoordinatorTests {
         let missingResults = Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) })
         let viewModel = makeRawCullViewModel()
         viewModel.similarityModel.burstGroups = [missingResultGroup]
-        viewModel.burstAnalysisResults = missingResults
+        viewModel.burstReviewSession.replaceRankings(missingResults)
         viewModel.burstReviewQueueFilter = .needsReview
         #expect(viewModel.filteredBurstGroupsForReviewQueue == [missingResultGroup])
     }
@@ -363,7 +463,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 2, fileIDs: [deferredFile.id, deferredPeer.id]),
             BurstGroup(id: 3, fileIDs: [reviewedFile.id, reviewedPeer.id])
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(groupID: 1, fileIDs: [reviewFile.id, reviewPeer.id], confidence: .low),
             2: makeReviewQueueResult(
                 groupID: 2,
@@ -377,7 +477,7 @@ struct CullingGridCoordinatorTests {
                 confidence: .low,
                 reviewState: .reviewed,
             )
-        ]
+        ])
 
         viewModel.burstReviewQueueFilter = .needsReview
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1])
@@ -403,7 +503,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 3, fileIDs: reviewed.map(\.id)),
             BurstGroup(id: 4, fileIDs: next.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(
                 groupID: 1,
                 fileIDs: first.map(\.id),
@@ -417,7 +517,7 @@ struct CullingGridCoordinatorTests {
                 reviewState: .reviewed,
             ),
             4: makeReviewQueueResult(groupID: 4, fileIDs: next.map(\.id), confidence: .low)
-        ]
+        ])
         viewModel.burstReviewQueueFilter = .needsReview
 
         #expect(viewModel.advanceToNextBurstGroup(after: 1))
@@ -437,10 +537,10 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
             2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
-        ]
+        ])
 
         #expect(viewModel.advanceToNextBurstGroup(after: 1))
         #expect(viewModel.burstAnalysisResults[1]?.reviewState == .deferred)
@@ -464,10 +564,10 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
             2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
-        ]
+        ])
         viewModel.updateRating(for: current[0], rating: rating)
 
         #expect(viewModel.advanceToNextBurstGroup(after: 1))
@@ -496,10 +596,10 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
             2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
-        ]
+        ])
 
         #expect(viewModel.advanceToNextBurstGroup(after: 1))
         #expect(viewModel.burstAnalysisResults[1]?.reviewState == .deferred)
@@ -526,7 +626,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id)),
             BurstGroup(id: 6, fileIDs: safeFiles.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(groupID: 1, fileIDs: needsReviewFiles.map(\.id), confidence: .low),
             2: makeReviewQueueResult(
                 groupID: 2,
@@ -553,7 +653,7 @@ struct CullingGridCoordinatorTests {
                 confidence: .high,
                 isSafeForOneClickCulling: true,
             )
-        ]
+        ])
 
         #expect(viewModel.burstReviewSummary == BurstReviewSummary(
             totalGroups: 7,
@@ -641,13 +741,13 @@ struct CullingGridCoordinatorTests {
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: [first.id, second.id])
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(
                 groupID: 1,
                 fileIDs: [first.id, second.id],
                 confidence: .low,
             )
-        ]
+        ])
 
         #expect(viewModel.toggleBurstGroupReviewed(groupID: 1))
         #expect(viewModel.burstAnalysisResults[1]?.reviewState == .reviewed)
@@ -673,7 +773,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 1, fileIDs: reviewedFiles.map(\.id)),
             BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id))
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             1: makeReviewQueueResult(
                 groupID: 1,
                 fileIDs: reviewedFiles.map(\.id),
@@ -684,7 +784,7 @@ struct CullingGridCoordinatorTests {
                 fileIDs: deferredFiles.map(\.id),
                 confidence: .low,
             )
-        ]
+        ])
         viewModel.burstReviewQueueFilter = .needsReview
 
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1, 2])
@@ -708,7 +808,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 0, fileIDs: [singleton.id]),
             BurstGroup(id: 1, fileIDs: [first.id, second.id])
         ]
-        viewModel.burstAnalysisResults = [
+        viewModel.burstReviewSession.replaceRankings([
             0: makeReviewQueueResult(
                 groupID: 0,
                 fileIDs: [singleton.id],
@@ -719,7 +819,7 @@ struct CullingGridCoordinatorTests {
                 fileIDs: [first.id, second.id],
                 confidence: .low,
             )
-        ]
+        ])
 
         #expect(viewModel.burstReviewSummary.needsReview == 1)
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1])

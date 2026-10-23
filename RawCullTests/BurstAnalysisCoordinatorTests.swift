@@ -151,6 +151,39 @@ struct BurstAnalysisCoordinatorTests {
         )
 
         #expect(restored == [9: .deferred])
+
+        let missingID = UUID()
+        let snapshots = BurstReviewStateMapping.snapshots(
+            states: [9: .deferred, 4: .reviewed, 5: .none, 6: .reviewed],
+            groups: [
+                BurstGroup(id: 9, fileIDs: [second.id, first.id, missingID]),
+                BurstGroup(id: 4, fileIDs: [third.id]),
+                BurstGroup(id: 5, fileIDs: [first.id]),
+                BurstGroup(id: 6, fileIDs: [missingID]),
+                BurstGroup(id: 7, fileIDs: [second.id])
+            ],
+            files: [first, second, third],
+            catalog: catalog,
+        )
+        let thirdSignature = try #require(BurstGroupSignature(files: [third], catalog: catalog))
+        #expect(snapshots == [
+            BurstReviewStateSnapshot(signature: signature, state: .deferred),
+            BurstReviewStateSnapshot(
+                signature: thirdSignature,
+                state: .reviewed,
+            )
+        ])
+        let roundTrip = BurstReviewStateMapping.restore(
+            snapshots: snapshots,
+            groups: [
+                BurstGroup(id: 20, fileIDs: [first.id, second.id]),
+                BurstGroup(id: 21, fileIDs: [third.id, missingID]),
+                BurstGroup(id: 22, fileIDs: [missingID])
+            ],
+            files: [first, second, third],
+            catalog: catalog,
+        )
+        #expect(roundTrip == [20: .deferred, 21: .reviewed])
     }
 
     @Test

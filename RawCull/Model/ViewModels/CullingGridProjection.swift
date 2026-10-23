@@ -3,6 +3,7 @@ import RawCullCore
 
 struct CullingGridProjectionKey: Equatable {
     let contentRevision: UInt64
+    let reviewRevision: UInt64
     let similarityRevision: UInt64
     let saliencyRevision: UInt64
     let sourceURL: URL?
@@ -29,6 +30,7 @@ extension RawCullViewModel {
     func cullingGridProjection(ratingFilter: GridRatingFilter) -> CullingGridProjection {
         let key = CullingGridProjectionKey(
             contentRevision: gridContentRevision,
+            reviewRevision: burstReviewSession.contentRevision,
             similarityRevision: similarityModel.gridContentRevision,
             saliencyRevision: sharpnessModel.saliencyRevision,
             sourceURL: selectedSource?.url,

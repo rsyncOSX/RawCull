@@ -23,7 +23,7 @@ protocol RawCullSemanticSearchApplicationTarget: AnyObject {
 
 /// Stable semantic-search presentation and action surface.
 ///
-/// Semantic state remains owned by `SimilarityScoringModel`. Every property here
+/// Semantic state belongs to the shared model’s `RawCullSemanticSearchModel`. Every property here
 /// is a computed projection, so views observe the existing model without a second
 /// state store.
 @MainActor
