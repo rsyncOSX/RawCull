@@ -9,7 +9,7 @@ nonisolated struct CombinedReviewPair: Sendable {
     let rightRegion: ReviewRegionRecord
 }
 
-// Selection-wide and paired comparison of completed image evidence.
+/// Selection-wide and paired comparison of completed image evidence.
 extension CombinedReviewFeature {
     func comparisonPrompt(_ values: [CombinedReviewResult], model: ReviewModelSnapshot, pair: Bool = false) throws -> (text: String, pruned: Bool) {
         let snapshot = try currentManifest().snapshot

@@ -160,7 +160,7 @@ struct BurstAnalysisCoordinatorTests {
                 BurstGroup(id: 4, fileIDs: [third.id]),
                 BurstGroup(id: 5, fileIDs: [first.id]),
                 BurstGroup(id: 6, fileIDs: [missingID]),
-                BurstGroup(id: 7, fileIDs: [second.id]),
+                BurstGroup(id: 7, fileIDs: [second.id])
             ],
             files: [first, second, third],
             catalog: catalog,
@@ -171,14 +171,14 @@ struct BurstAnalysisCoordinatorTests {
             BurstReviewStateSnapshot(
                 signature: thirdSignature,
                 state: .reviewed,
-            ),
+            )
         ])
         let roundTrip = BurstReviewStateMapping.restore(
             snapshots: snapshots,
             groups: [
                 BurstGroup(id: 20, fileIDs: [first.id, second.id]),
                 BurstGroup(id: 21, fileIDs: [third.id, missingID]),
-                BurstGroup(id: 22, fileIDs: [missingID]),
+                BurstGroup(id: 22, fileIDs: [missingID])
             ],
             files: [first, second, third],
             catalog: catalog,

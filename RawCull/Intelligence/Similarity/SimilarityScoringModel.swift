@@ -70,8 +70,14 @@ final class SimilarityScoringModel {
 
     let semanticSearchModel: RawCullSemanticSearchModel
 
-    func cancelSemanticSearch() { semanticSearchModel.cancelSemanticSearch() }
-    func clearSemanticSearch() { semanticSearchModel.clearSemanticSearch() }
+    func cancelSemanticSearch() {
+        semanticSearchModel.cancelSemanticSearch()
+    }
+
+    func clearSemanticSearch() {
+        semanticSearchModel.clearSemanticSearch()
+    }
+
     func setSemanticSearchCapability(
         _ capability: RawCullSemanticSearchCapabilityStatus,
         service: (any RawCullSemanticSearchServicing)?,
@@ -104,18 +110,53 @@ final class SimilarityScoringModel {
         semanticSearchModel.setSemanticSearchSelectionCount(requestedCount)
     }
 
-    var semanticSearchCapability: RawCullSemanticSearchCapabilityStatus { semanticSearchModel.semanticSearchCapability }
-    var semanticSearchState: RawCullSemanticSearchState { semanticSearchModel.semanticSearchState }
-    var semanticMatches: [RawCullSemanticSearchMatch] { semanticSearchModel.semanticMatches }
-    var semanticScores: [UUID: Float] { semanticSearchModel.semanticScores }
-    var semanticResultOrder: [UUID: Int] { semanticSearchModel.semanticResultOrder }
-    var semanticSearchProgress: RawCullSemanticSearchProgress? { semanticSearchModel.semanticSearchProgress }
-    var semanticIndexedFileCount: Int { semanticSearchModel.semanticIndexedFileCount }
-    var semanticCatalogFileCount: Int { semanticSearchModel.semanticCatalogFileCount }
-    var semanticSearchSelectionCount: Int { semanticSearchModel.semanticSearchSelectionCount }
-    var semanticSearchSelectedFileIDs: Set<UUID> { semanticSearchModel.semanticSearchSelectedFileIDs }
-    var hasSemanticSearchResults: Bool { semanticSearchModel.hasSemanticSearchResults }
-    var semanticSearchHasEmptyIndex: Bool { semanticSearchModel.semanticSearchHasEmptyIndex }
+    var semanticSearchCapability: RawCullSemanticSearchCapabilityStatus {
+        semanticSearchModel.semanticSearchCapability
+    }
+
+    var semanticSearchState: RawCullSemanticSearchState {
+        semanticSearchModel.semanticSearchState
+    }
+
+    var semanticMatches: [RawCullSemanticSearchMatch] {
+        semanticSearchModel.semanticMatches
+    }
+
+    var semanticScores: [UUID: Float] {
+        semanticSearchModel.semanticScores
+    }
+
+    var semanticResultOrder: [UUID: Int] {
+        semanticSearchModel.semanticResultOrder
+    }
+
+    var semanticSearchProgress: RawCullSemanticSearchProgress? {
+        semanticSearchModel.semanticSearchProgress
+    }
+
+    var semanticIndexedFileCount: Int {
+        semanticSearchModel.semanticIndexedFileCount
+    }
+
+    var semanticCatalogFileCount: Int {
+        semanticSearchModel.semanticCatalogFileCount
+    }
+
+    var semanticSearchSelectionCount: Int {
+        semanticSearchModel.semanticSearchSelectionCount
+    }
+
+    var semanticSearchSelectedFileIDs: Set<UUID> {
+        semanticSearchModel.semanticSearchSelectedFileIDs
+    }
+
+    var hasSemanticSearchResults: Bool {
+        semanticSearchModel.hasSemanticSearchResults
+    }
+
+    var semanticSearchHasEmptyIndex: Bool {
+        semanticSearchModel.semanticSearchHasEmptyIndex
+    }
 
     // MARK: Indexing progress
 

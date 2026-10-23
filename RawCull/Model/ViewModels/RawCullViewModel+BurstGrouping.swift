@@ -155,16 +155,16 @@ extension RawCullViewModel {
             generation: generation,
         )
         guard let cachePreparation = await burstAnalysisCoordinator.prepareCache(
-            for: request,
-            importLegacyCandidate: false,
-            isCurrent: { [weak self] in
-                self?.isCurrentBurstAnalysis(
-                    generation: generation,
-                    catalog: catalog,
-                ) ?? false
-            },
-        ),
-            let snapshot = cachePreparation.compatibleSnapshot
+                  for: request,
+                  importLegacyCandidate: false,
+                  isCurrent: { [weak self] in
+                      self?.isCurrentBurstAnalysis(
+                          generation: generation,
+                          catalog: catalog,
+                      ) ?? false
+                  },
+              ),
+              let snapshot = cachePreparation.compatibleSnapshot
         else { return false }
 
         burstAnalysisCoordinator.applyCachedWorkerState(

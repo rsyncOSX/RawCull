@@ -493,7 +493,9 @@ final class RawCullSemanticSearchModel {
     }
 
     func noteCatalogFileCount(_ count: Int) {
-        if semanticSearchService != nil { semanticCatalogFileCount = count }
+        if semanticSearchService != nil {
+            semanticCatalogFileCount = count
+        }
     }
 
     /// Indexing replaces matching artifacts; legacy import preserves existing ones.
@@ -511,7 +513,9 @@ final class RawCullSemanticSearchModel {
             semanticArtifacts.merge(compatible) { current, incoming in
                 preservingExisting ? current : incoming
             }
-            if let catalogFileCount { semanticCatalogFileCount = catalogFileCount }
+            if let catalogFileCount {
+                semanticCatalogFileCount = catalogFileCount
+            }
         }
         semanticIndexedFileCount = semanticArtifacts.count
         dismissStaleEmptySemanticIndexState()

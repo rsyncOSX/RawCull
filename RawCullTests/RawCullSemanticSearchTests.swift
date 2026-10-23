@@ -1,9 +1,9 @@
 import Foundation
 import Observation
-import Synchronization
 import PhotoAIContracts
 @testable import RawCull
 import RawCullCore
+import Synchronization
 import Testing
 
 private nonisolated let semanticTestBackend = SimilarityBackendDescriptor(
@@ -252,14 +252,16 @@ private actor SemanticHydrationGateStore: SimilarityArtifactStoring {
     private var startedWaiter: CheckedContinuation<Void, Never>?
 
     func waitUntilLoading() async {
-        if pending != nil { return }
+        if pending != nil {
+            return
+        }
         await withCheckedContinuation { startedWaiter = $0 }
     }
 
     func load(
-        sources: [AIImageSource],
-        allowedBackends: [SimilarityBackendDescriptor],
-        pipeline: SimilarityArtifactPipelineSignature,
+        sources _: [AIImageSource],
+        allowedBackends _: [SimilarityBackendDescriptor],
+        pipeline _: SimilarityArtifactPipelineSignature,
     ) async -> PerFileAnalysisArtifactLoadResult {
         await withCheckedContinuation {
             pending = $0
@@ -274,17 +276,17 @@ private actor SemanticHydrationGateStore: SimilarityArtifactStoring {
     }
 
     func upsert(
-        artifacts: [UUID: SimilarityArtifact],
-        sources: [UUID: AIImageSource],
-        pipeline: SimilarityArtifactPipelineSignature,
+        artifacts _: [UUID: SimilarityArtifact],
+        sources _: [UUID: AIImageSource],
+        pipeline _: SimilarityArtifactPipelineSignature,
     ) async -> PerFileAnalysisArtifactCommitResult {
         PerFileAnalysisArtifactCommitResult(committedSourceIDs: [], failures: [], wasCancelled: false)
     }
 
     func remove(
-        source: AIImageSource,
-        backend: SimilarityBackendDescriptor,
-        pipeline: SimilarityArtifactPipelineSignature,
+        source _: AIImageSource,
+        backend _: SimilarityBackendDescriptor,
+        pipeline _: SimilarityArtifactPipelineSignature,
     ) async {}
 }
 

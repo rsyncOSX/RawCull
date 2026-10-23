@@ -9,6 +9,7 @@ final class BurstReviewSessionModel {
     private(set) var results: [Int: BurstAnalysisResult] = [:] {
         didSet { contentRevision &+= 1 }
     }
+
     private(set) var contentRevision: UInt64 = 0
     private(set) var reviewStates: [Int: BurstReviewState] = [:]
     var queueFilter: BurstReviewQueueFilter = .all
@@ -96,6 +97,7 @@ final class BurstReviewSessionModel {
         switch state {
         case .none:
             reviewStates.removeValue(forKey: groupID)
+
         default:
             reviewStates[groupID] = state
         }

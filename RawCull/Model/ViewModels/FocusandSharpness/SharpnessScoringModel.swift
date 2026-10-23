@@ -278,22 +278,22 @@ final class SharpnessScoringModel {
             }
 
             guard let results = await analysisAdapter.analyzeBatch(
-                requests: requests,
-                configuration: config,
-                maximumPixelSize: thumbSize,
-                source: scoringSource,
-                maximumConcurrentTasks: maxConcurrent,
-                progress: { completedCount, totalCount in
-                    await MainActor.run {
-                        guard self.activeScoringGeneration == generation else { return }
-                        self.recordScoringProgress(
-                            completedCount: completedCount,
-                            totalCount: totalCount,
-                        )
-                    }
-                },
-            ), !Task.isCancelled,
-            self.activeScoringGeneration == generation
+                      requests: requests,
+                      configuration: config,
+                      maximumPixelSize: thumbSize,
+                      source: scoringSource,
+                      maximumConcurrentTasks: maxConcurrent,
+                      progress: { completedCount, totalCount in
+                          await MainActor.run {
+                              guard self.activeScoringGeneration == generation else { return }
+                              self.recordScoringProgress(
+                                  completedCount: completedCount,
+                                  totalCount: totalCount,
+                              )
+                          }
+                      },
+                  ), !Task.isCancelled,
+                  self.activeScoringGeneration == generation
             else { return }
 
             self.scores = Dictionary(

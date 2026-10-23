@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-// Shared work lifecycle and evidence support. Mutable run state remains on the feature.
+/// Shared work lifecycle and evidence support. Mutable run state remains on the feature.
 extension CombinedReviewFeature {
     func perform<Value: Codable & Sendable>(_ id: ReviewWorkID, category: ReviewAttemptCategory? = nil,
                                             operation: () async throws -> Value) async throws -> Value? {

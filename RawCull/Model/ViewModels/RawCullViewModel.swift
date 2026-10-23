@@ -217,6 +217,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         get { burstReviewSession.lastUndoEntry }
         set { burstReviewSession.lastUndoEntry = newValue }
     }
+
     var burstFullReindexRequest: BurstFullReindexRequest?
     var isPreparingBurstCatalog = false
     @ObservationIgnored var burstCatalogPreparationGeneration = 0
