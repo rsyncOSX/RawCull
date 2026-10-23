@@ -151,4 +151,3 @@ struct FocusNumericHelperTests {
         #expect(result == .none)
     }
 }
-

@@ -62,4 +62,3 @@ struct ApertureHintTests {
         #expect(FocusDetectorConfig.ApertureHint.landscape.blurDamp == 0.8)
     }
 }
-

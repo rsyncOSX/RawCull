@@ -224,7 +224,7 @@ struct SharpnessScoringTests {
         model.scores = [files[0].id: 1.0, files[3].id: 0.01]
         model.afPointScores = [files[1].id: 0.3, files[2].id: 0.3, files[3].id: 0.7]
         #expect(model.sortedByAFPointSharpness(files).map(\.id) == [
-            files[3].id, files[1].id, files[2].id, files[0].id, files[4].id,
+            files[3].id, files[1].id, files[2].id, files[0].id, files[4].id
         ])
     }
 
@@ -378,8 +378,7 @@ private func makeSharpnessTestImage(size: Int = 128) -> CGImage? {
     let tile = 8
     for y in stride(from: 0, to: size, by: tile) {
         for x in stride(from: 0, to: size, by: tile)
-            where (x / tile + y / tile).isMultiple(of: 2)
-        {
+            where (x / tile + y / tile).isMultiple(of: 2) {
             context.fill(CGRect(x: x, y: y, width: tile, height: tile))
         }
     }

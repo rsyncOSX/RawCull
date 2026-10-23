@@ -113,7 +113,7 @@ struct CullingModelTests {
         let previousDistanceID = UUID()
         model.embeddings = [
             anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
-            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
         ]
         model.anchorFileID = previousAnchorID
         model.distances = [previousDistanceID: 0.5]
@@ -148,7 +148,7 @@ struct CullingModelTests {
         let previousDistances: [UUID: Float] = [UUID(): 0.25]
         model.embeddings = [
             anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
-            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
         ]
         model.anchorFileID = previousAnchorID
         model.distances = previousDistances
@@ -367,12 +367,12 @@ struct CullingModelTests {
         let matching = [
             makeCullingTestFile("C.ARW"),
             makeCullingTestFile("A.ARW"),
-            makeCullingTestFile("B.ARW"),
+            makeCullingTestFile("B.ARW")
         ]
         let changed = [
             makeCullingTestFile("A.ARW"),
             makeCullingTestFile("X.ARW"),
-            makeCullingTestFile("Y.ARW"),
+            makeCullingTestFile("Y.ARW")
         ]
 
         #expect(model.overrideWinner(for: matching, in: catalog)?.winnerFileName == "A.ARW")

@@ -14,7 +14,7 @@ struct RawCullViewModelCullingTests {
         let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         let catalog = URL(fileURLWithPath: "/tmp/af-persistence-\(UUID().uuidString)")
         model.mergeScoringResults([
-            CullingScoringResult(fileName: "photo.ARW", score: 0.9, saliencySubject: nil, afPointScore: 0.2),
+            CullingScoringResult(fileName: "photo.ARW", score: 0.9, saliencySubject: nil, afPointScore: 0.2)
         ], in: catalog)
         let data = try JSONEncoder().encode(model.savedFiles)
         let decoded = try JSONDecoder().decode([DecodeSavedFiles].self, from: data).map { SavedFiles($0) }
@@ -23,7 +23,7 @@ struct RawCullViewModelCullingTests {
 
         // A fresh run with no AF evidence must remove any earlier AF measurement.
         model.mergeScoringResults([
-            CullingScoringResult(fileName: "photo.ARW", score: 0.8, saliencySubject: nil),
+            CullingScoringResult(fileName: "photo.ARW", score: 0.8, saliencySubject: nil)
         ], in: catalog)
         #expect(model.savedFiles.first?.filerecords?.first?.afPointSharpnessScore == nil)
         let legacy = try JSONDecoder().decode(
@@ -60,7 +60,7 @@ struct RawCullViewModelCullingTests {
         viewModel.ratingCache = [
             rejected.name: -1,
             keeper.name: 0,
-            star.name: 4,
+            star.name: 4
         ]
 
         viewModel.ratingFilter = .rejected
@@ -176,7 +176,7 @@ struct RawCullViewModelCullingTests {
         viewModel.files = [twoStar, fourStar, unrated]
         viewModel.ratingCache = [
             twoStar.name: 2,
-            fourStar.name: 4,
+            fourStar.name: 4
         ]
         viewModel.ratingFilter = .stars(2)
 
@@ -192,7 +192,7 @@ struct RawCullViewModelCullingTests {
         viewModel.files = [rejected, keeper, rated]
         viewModel.ratingCache = [
             rejected.name: -1,
-            rated.name: 3,
+            rated.name: 3
         ]
 
         let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
@@ -218,7 +218,7 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
             "Z-earliest.ARW",
             "M-fallback.ARW",
-            "A-latest.ARW",
+            "A-latest.ARW"
         ])
     }
 
@@ -248,7 +248,7 @@ struct RawCullViewModelCullingTests {
         viewModel.ratingCache = [
             firstVisible.name: 2,
             secondVisible.name: 2,
-            fourStar.name: 4,
+            fourStar.name: 4
         ]
         viewModel.ratingFilter = .stars(2)
 
@@ -265,7 +265,7 @@ struct RawCullViewModelCullingTests {
         viewModel.filteredFiles = [rated]
         viewModel.ratingCache = [
             rejected.name: -1,
-            rated.name: 3,
+            rated.name: 3
         ]
 
         let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
@@ -292,7 +292,7 @@ struct RawCullViewModelCullingTests {
 
         #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == [
             "C-visible-selected.ARW",
-            "A-hidden-selected.ARW",
+            "A-hidden-selected.ARW"
         ])
     }
 
@@ -343,12 +343,12 @@ struct RawCullViewModelCullingTests {
         let files = [
             makeCullingTestFile("two.ARW"),
             makeCullingTestFile("four.ARW"),
-            makeCullingTestFile("unrated.ARW"),
+            makeCullingTestFile("unrated.ARW")
         ]
         viewModel.filteredFiles = files
         viewModel.ratingCache = [
             "two.ARW": 2,
-            "four.ARW": 4,
+            "four.ARW": 4
         ]
 
         #expect(viewModel.extractRatedfilenames(3) == ["four.ARW"])
@@ -988,14 +988,14 @@ struct RawCullViewModelCullingTests {
             BurstGroupSignature(files: [first, second], catalog: catalog),
         )
         let saved: [BurstGroupSignature: BurstReviewState] = [
-            originalSignature: .deferred,
+            originalSignature: .deferred
         ]
 
         let restored = viewModel.restoredBurstReviewStates(
             savedStatesBySignature: saved,
             groups: [
                 BurstGroup(id: 7, fileIDs: [first.id, second.id]),
-                BurstGroup(id: 0, fileIDs: [third.id]),
+                BurstGroup(id: 0, fileIDs: [third.id])
             ],
             files: [first, second, third],
             catalog: catalog,
