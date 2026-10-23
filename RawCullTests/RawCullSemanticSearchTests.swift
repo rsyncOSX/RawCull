@@ -582,6 +582,7 @@ struct RawCullSemanticSearchTests {
         #expect(Set(viewModel.activeCatalogFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
+        #expect(viewModel.sharpnessScoringTargetCount == selectedIDs.count)
         #expect(await provider.queries() == ["wildlife"])
 
         let selectedFile = try #require(viewModel.filteredFiles.first)

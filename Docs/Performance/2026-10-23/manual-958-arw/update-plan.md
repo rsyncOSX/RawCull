@@ -1,6 +1,6 @@
 # Prepared update plan — 958-ARW baseline
 
-Status: source inspected; baseline saved; implementation and validation remain pending. This preparation changes documentation only. See `report.md` for evidence and limitations.
+Status: all three changes subsequently authorized and implemented. See [implementation.md](implementation.md) for validation and the next recording procedure. The plan below preserves the original preparation; `report.md` remains the unchanged baseline.
 
 ## Change 1 — remove sorting from sharpness control presentation
 
