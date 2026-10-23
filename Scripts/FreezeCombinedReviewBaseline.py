@@ -14,7 +14,10 @@ def freeze(root, run_id):
             continue
         data = path.read_bytes()
         entry = dict(path=str(path.relative_to(root)), bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
-        if path.suffix.lower() == '.png' and data[:8] == b'\x89PNG\r\n\x1a\n':
+        if path.suffix.lower() == '.png':
+            if (len(data) < 33 or data[:8] != b'\x89PNG\r\n\x1a\n'
+                    or data[8:12] != (13).to_bytes(4, 'big') or data[12:16] != b'IHDR'):
+                raise ValueError(f'Invalid or truncated PNG header: {path}')
             entry['png'] = dict(width=int.from_bytes(data[16:20], 'big'), height=int.from_bytes(data[20:24], 'big'), bitDepth=data[24], colorType=data[25])
         if path.suffix.lower() == '.json':
             envelope = json.loads(data)

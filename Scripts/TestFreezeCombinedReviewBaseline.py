@@ -28,6 +28,27 @@ class BaselineInventoryTests(unittest.TestCase):
             self.assertFalse(result['exportAvailable'])
             self.assertEqual(result['files'], [])
 
+    def test_truncated_or_invalid_png_header_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for contents in [b'', b'not a PNG', b'\x89PNG\r\n\x1a\n',
+                             b'\x89PNG\r\n\x1a\n' + bytes(25)]:
+                with self.subTest(contents=contents):
+                    (root / 'mask.png').write_bytes(contents)
+                    with self.assertRaisesRegex(ValueError, 'PNG header'):
+                        freeze(root, 'baseline')
+
+    def test_png_dimensions_and_format_are_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # A real 1x1 grayscale PNG, including IHDR CRC and image/end chunks.
+            png = base64.b64decode(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==')
+            (root / 'mask.png').write_bytes(png)
+            result = freeze(root, 'baseline')
+            self.assertEqual(result['files'][0]['png'],
+                             dict(width=1, height=1, bitDepth=8, colorType=0))
+
 
 if __name__ == '__main__':
     unittest.main()

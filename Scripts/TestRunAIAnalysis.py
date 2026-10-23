@@ -45,14 +45,21 @@ class RunnerTests(unittest.TestCase):
                     patch.object(runner.subprocess, 'run', side_effect=run), contextlib.redirect_stdout(io.StringIO()):
                 return runner.main()
 
-    def test_missing_evidence_cannot_pass(self):
-        self.assertEqual(self.run_fixture(False, 0), 1)
+    def test_runner_exit_and_evidence_outcomes(self):
+        for complete, code, expected in [(False, 0, 1), (True, 65, 65), (True, 0, 0)]:
+            with self.subTest(complete=complete, exit_code=code):
+                self.assertEqual(self.run_fixture(complete, code), expected)
 
-    def test_failures_are_preserved(self):
-        self.assertEqual(self.run_fixture(True, 65), 65)
-
-    def test_complete_run_passes(self):
-        self.assertEqual(self.run_fixture(True, 0), 0)
+    def test_progress_ignores_incomplete_or_malformed_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertIsNone(runner.progress_message(root))
+            for contents in ['{', 'null', '{}', '[null]', '[]', '[{}]']:
+                with self.subTest(contents=contents):
+                    (root / 'progress.json').write_text(contents)
+                    self.assertIsNone(runner.progress_message(root))
+            (root / 'progress.json').write_text('[{"stage": "Qwen", "file": "one.ARW"}]')
+            self.assertEqual(runner.progress_message(root), 'Finished 1 analyses; last: Qwen one.ARW')
 
 
 if __name__ == '__main__':

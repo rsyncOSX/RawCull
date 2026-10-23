@@ -85,20 +85,14 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 2)
                 run.assert_not_called()
 
-    def test_zero_exit_without_executed_test_fails(self):
-        self.assertEqual(self.run_fixture(lambda output: None, 0), 1)
-
-    def test_failing_test_keeps_diagnostic_and_failure(self):
-        def save(output):
-            output.mkdir()
-            (output / 'diagnostic.json').write_text('{}')
-        self.assertEqual(self.run_fixture(save, 65), 65)
-
-    def test_success_requires_diagnostic(self):
-        def save(output):
-            output.mkdir()
-            (output / 'diagnostic.json').write_text('{}')
-        self.assertEqual(self.run_fixture(save, 0), 0)
+    def test_runner_exit_and_evidence_outcomes(self):
+        for complete, code, expected in [(False, 0, 1), (True, 65, 65), (True, 0, 0)]:
+            with self.subTest(complete=complete, exit_code=code):
+                def save(output):
+                    if complete:
+                        output.mkdir()
+                        (output / 'diagnostic.json').write_text('{}')
+                self.assertEqual(self.run_fixture(save, code), expected)
 
 
 if __name__ == '__main__':

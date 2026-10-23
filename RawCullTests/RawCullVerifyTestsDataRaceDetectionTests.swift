@@ -2,7 +2,7 @@
 //  RawCullVerifyTestsDataRaceDetectionTests.swift
 //  RawCullVerify
 //
-//  These tests intentionally exercise RawCullVerify shared state from many tasks.
+//  These tests intentionally exercise isolated cache state from many tasks.
 //  They are most valuable when `make test-full` runs with Thread Sanitizer.
 //
 
@@ -13,95 +13,88 @@ import Testing
 
 @Suite(.tags(.threadSafety))
 struct DataRaceDetectionTests {
-    @Test
-    func `memory cache supports concurrent nonisolated reads and writes`() async {
+    @Test(arguments: [false, true])
+    func `cache supports concurrent nonisolated reads and writes`(grid: Bool) async throws {
         let cache = await makeIsolatedCache()
+        let thumbnail = try #require(createTestThumbnail(size: 12))
         let keys = (0 ..< 100).map { index in
             makeThumbnailCacheKey(
                 sourceURL: URL(fileURLWithPath: "/tmp/rawcull-cache-race-\(index).jpg"),
+                purpose: grid ? .grid : .preview,
+                requestedPixelSize: 200,
             )
         }
-
         await withTaskGroup(of: Void.self) { group in
-            for (index, key) in keys.enumerated() {
+            for key in keys {
                 group.addTask {
-                    if let thumbnail = createTestThumbnail(size: 10 + index % 5) {
+                    if grid {
+                        cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
+                    } else {
                         cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
                     }
                 }
                 group.addTask {
-                    _ = cache.object(forKey: key)
-                }
-            }
-        }
-
-        let count = cache.getMemoryCacheCount()
-        let cost = cache.getMemoryCacheCurrentCost()
-        #expect(count >= 0)
-        #expect(count <= keys.count)
-        #expect(cost >= 0)
-    }
-
-    @Test
-    func `grid cache supports concurrent nonisolated reads and writes`() async {
-        let cache = await makeIsolatedCache()
-        let keys = (0 ..< 100).map { index in
-            makeThumbnailCacheKey(
-                sourceURL: URL(fileURLWithPath: "/tmp/rawcull-grid-race-\(index).jpg"),
-                purpose: .grid,
-                requestedPixelSize: 200,
-            )
-        }
-
-        await withTaskGroup(of: Void.self) { group in
-            for (index, key) in keys.enumerated() {
-                group.addTask {
-                    if let thumbnail = createTestThumbnail(size: 8 + index % 5) {
-                        cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
+                    if grid {
+                        _ = cache.gridObject(forKey: key)
+                    } else {
+                        _ = cache.object(forKey: key)
                     }
                 }
-                group.addTask {
-                    _ = cache.gridObject(forKey: key)
-                }
             }
         }
-
-        let count = cache.getGridCacheCount()
-        let cost = cache.getGridCacheCurrentCost()
-        #expect(count >= 0)
+        let count = grid ? cache.getGridCacheCount() : cache.getMemoryCacheCount()
+        let cost = grid ? cache.getGridCacheCurrentCost() : cache.getMemoryCacheCurrentCost()
+        #expect(count > 0)
         #expect(count <= keys.count)
-        #expect(cost >= 0)
+        #expect(cost == count * thumbnail.cost)
     }
 
     @Test(
         .timeLimit(.minutes(1)),
         .tags(.performance),
     )
-    func `Extreme concurrent load reveals no data races`() async {
+    func `Extreme concurrent load reveals no data races`() async throws {
         let cache = await makeIsolatedCache()
-        let settings = await makeIsolatedSettingsViewModel()
-
+        let thumbnail = try #require(createTestThumbnail(size: 12))
+        // Bound task creation while contending on both public cache APIs.
         await withTaskGroup(of: Void.self) { group in
-            for index in 0 ..< 10000 {
+            for worker in 0 ..< 16 {
                 group.addTask {
-                    switch index % 4 {
-                    case 0:
-                        await cache.ensureReady()
-
-                    case 1:
-                        _ = cache.getMemoryCacheCount()
-
-                    case 2:
-                        _ = cache.getGridCacheCurrentCost()
-
-                    default:
-                        _ = await settings.asyncgetsettings()
+                    for iteration in 0 ..< 256 {
+                        let key = makeThumbnailCacheKey(
+                            sourceURL: URL(fileURLWithPath: "/tmp/stress-\(worker)-\(iteration % 8).jpg"),
+                        )
+                        cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
+                        cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
+                        _ = cache.object(forKey: key)
+                        _ = cache.gridObject(forKey: key)
+                        _ = cache.getMemoryCacheCurrentCost()
+                        _ = cache.getGridCacheCount()
+                        if iteration.isMultiple(of: 32) {
+                            cache.removeAllObjects()
+                            cache.removeAllGridObjects()
+                        }
                     }
                 }
             }
         }
-
-        #expect(cache.getMemoryCacheCount() >= 0)
+        // After workers drain, counters must agree with the actual live entries.
+        let keys = (0 ..< 16).flatMap { worker in
+            (0 ..< 8).map { index in
+                makeThumbnailCacheKey(sourceURL: URL(fileURLWithPath: "/tmp/stress-\(worker)-\(index).jpg"))
+            }
+        }
+        let memoryCount = keys.filter { cache.object(forKey: $0) != nil }.count
+        let gridCount = keys.filter { cache.gridObject(forKey: $0) != nil }.count
+        #expect(cache.getMemoryCacheCount() == memoryCount)
+        #expect(cache.getMemoryCacheCurrentCost() == memoryCount * thumbnail.cost)
+        #expect(cache.getGridCacheCount() == gridCount)
+        #expect(cache.getGridCacheCurrentCost() == gridCount * thumbnail.cost)
+        await cache.clearCaches()
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getMemoryCacheCurrentCost() == 0)
+        #expect(cache.getGridCacheCount() == 0)
+        #expect(cache.getGridCacheCurrentCost() == 0)
     }
 }
 

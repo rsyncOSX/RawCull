@@ -28,6 +28,12 @@ build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
 debug: clean archive-debug open-debug
 
 # Test targets
+PYTHON ?= python3
+
+.PHONY: test-scripts
+test-scripts:
+	$(PYTHON) -B -m unittest discover -s Scripts -p 'Test*.py' -v
+
 # Opt-in, hostless Release integration against real Downloads ARW files.
 RELEASE_CATALOG ?= $(HOME)/Downloads
 RELEASE_MODELS ?= $(HOME)/ModelAssets/Release/Models

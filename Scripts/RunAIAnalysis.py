@@ -14,7 +14,7 @@ def progress_message(output):
     try:
         rows = json.loads((output / 'progress.json').read_text())
         return f"Finished {len(rows)} analyses; last: {rows[-1]['stage']} {rows[-1]['file']}"
-    except (OSError, ValueError, IndexError, KeyError):
+    except (OSError, ValueError, IndexError, KeyError, TypeError):
         return None
 
 
@@ -33,7 +33,7 @@ def select_names(directory, limit=None):
                   if path.is_file() and path.suffix.lower() == '.arw')[:limit]
 
 
-def main():
+def _main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, required=True, help='Directory containing input ARW files')
     parser.add_argument('--models', type=Path, default=Path.home() / 'ModelAssets/Release/Models')
@@ -44,7 +44,6 @@ def main():
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error('--limit must be a positive integer.')
-    os.umask(0o077)
     repository = Path(__file__).resolve().parent.parent
     if not args.directory.is_dir():
         parser.error(f'Missing directory: {args.directory}')
@@ -116,6 +115,16 @@ def main():
     print('All analysis probes PASSED; inspect diagnostics for model behavior.' if result.returncode == 0 else
           'FAILED: analysis probes reported failures. Evidence retained.', flush=True)
     return result.returncode
+
+
+def main():
+    # Evidence can contain private photographs. Restore the caller's process mask
+    # even on preflight errors, so calling this runner has no lasting side effect.
+    previous_mask = os.umask(0o077)
+    try:
+        return _main()
+    finally:
+        os.umask(previous_mask)
 
 
 if __name__ == '__main__':
