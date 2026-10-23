@@ -46,3 +46,18 @@ A possible future plan is to await preload-originated saves within the bounded w
 Other candidates remain: first-content publication waits for artifact hydration; visible misses follow preload discovery order; native cancelled reads may keep running; comparison presentation rebuilds a full-catalog lookup; session image memory lies outside thumbnail-cache limits. Their practical cost was not isolated in this recording.
 
 Before proceeding next session, check remaining usage. The user reported 18% remaining and asked to stop before exhaustion. No additional work is authorized by this handoff itself beyond the existing measurement scope.
+
+## Follow-up — 2026-10-23
+
+The user approved implementing bounded preload saves. The working-tree change is based on bfd8fa62 (the only change since ff3230fb was this handoff).
+
+- `ScanAndCreateThumbnails.processSingleFile` returns an optional encoded save payload. Each task-group worker releases its file's preload gate, then awaits the save before returning its worker slot. Pending preload writes and encoded payloads are therefore bounded by the existing per-group preload limit.
+- Cancellation is checked after waiting for a worker slot and before encoding/saving. The catalog-access grant remains retained until the worker group finishes. An atomic disk write that has already begun is still awaited; it is not interrupted mid-write.
+- `DiskCacheManager.save` already awaits its detached atomic writer, so no shared cache change was necessary. Interactive `RequestThumbnail` saves, JPEG quality/size, cache identity, and cache admission remain unchanged.
+- A narrow injected saver supports controlled stalled-write tests. Both normal completion and cancellation verify the worker bound, gate release before save completion, no scan admission to preview RAM, and save ownership through preload completion. Normal completion also verifies disk-backed warm reload without further decoding or saving. Cancellation verifies that waiting saves do not create disk entries after cancellation and later files are not decoded.
+- Focused Debug validation: 36 tests in 8 suites passed, including disk-cache/orientation regressions, scan admission, preload gates, interactive requests, image-loading integration, and the new parameterized ownership test. Log: `/tmp/rawcull-preload-final-tests.log`.
+- The test host emitted `MDB_MAP_FULL` startup messages; all selected tests passed. These messages were not investigated as part of the preload change.
+
+A fresh real-catalog performance recording is still needed before claiming improved browsing latency or memory use. The controlled warm-reload/cancellation tests use generated catalog fixtures, not the 1,198-file catalog above. The original recording's limitations still apply.
+
+Release validation also passed: direct `RawCull` target build, Release configuration, coverage disabled. App: `/tmp/rawcull-preload-release/Products/Release/RawCull.app`; build log: `/tmp/rawcull-preload-release.log`. This is a build check, not a new workload measurement. The final focused test rerun after moving the new suite into `RawCullTests/ThumbnailPreloadSaveOwnershipTests.swift` passed all 36 tests. SwiftLint reported no source findings in the changed Swift files (only existing analyzer-rule configuration warnings). No commit was created.

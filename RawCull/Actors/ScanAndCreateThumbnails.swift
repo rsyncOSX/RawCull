@@ -15,6 +15,7 @@ actor ScanAndCreateThumbnails {
     private var successCount = 0
     private var completedCount = 0
     private let diskCache: DiskCacheManager
+    private let saveToDisk: @Sendable (Data, ThumbnailCacheKey) async -> Void
 
     // Timing tracking
     private var processingTimes: [TimeInterval] = []
@@ -39,9 +40,14 @@ actor ScanAndCreateThumbnails {
         config _: CacheConfig? = nil,
         diskCache: DiskCacheManager? = nil,
         rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
+        saveToDisk: (@Sendable (Data, ThumbnailCacheKey) async -> Void)? = nil,
     ) {
         Logger.process.debugMessageOnly("ScanAndCreateThumbnails.init()")
-        self.diskCache = diskCache ?? DiskCacheManager()
+        let resolvedDiskCache = diskCache ?? DiskCacheManager()
+        self.diskCache = resolvedDiskCache
+        self.saveToDisk = saveToDisk ?? { data, key in
+            await resolvedDiskCache.save(data, for: key)
+        }
         self.rawLoader = rawLoader
         // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
@@ -116,13 +122,23 @@ actor ScanAndCreateThumbnails {
                         await group.next()
                     }
 
+                    guard !Task.isCancelled else {
+                        group.cancelAll()
+                        break
+                    }
+
                     group.addTask {
-                        await self.processSingleFile(
+                        let pendingSave = await self.processSingleFile(
                             url,
                             targetSize: targetSize,
-                            itemIndex: index,
                         )
+                        // Publish decode availability before disk latency. Keep the
+                        // save in this worker so encoded data and pending writes
+                        // share the decode concurrency bound.
                         await ThumbnailPreloadGate.shared.finished(sourceURL: url, sessionID: gateID)
+                        if let pendingSave, !Task.isCancelled {
+                            await self.saveToDisk(pendingSave.data, pendingSave.key)
+                        }
                     }
                 }
 
@@ -149,11 +165,10 @@ actor ScanAndCreateThumbnails {
     private func processSingleFile(
         _ url: URL,
         targetSize: Int,
-        itemIndex _: Int,
-    ) async {
+    ) async -> (data: Data, key: ThumbnailCacheKey)? {
         // Logger.process.debugMessageOnly("ScanAndCreateThumbnails.processSingleFile()")
         if Task.isCancelled {
-            return
+            return nil
         }
 
         let previewKey = ThumbnailCacheKey.resolve(
@@ -170,11 +185,11 @@ actor ScanAndCreateThumbnails {
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
             recordCompletion(succeeded: true)
-            return
+            return nil
         }
 
         if Task.isCancelled {
-            return
+            return nil
         }
 
         // B. Check Disk
@@ -185,12 +200,12 @@ actor ScanAndCreateThumbnails {
             // scan-driven evictions from boomeranging UI-active items.
             _ = storeInGridCache(diskImage, for: gridKey)
             recordCompletion(succeeded: true)
-            return
+            return nil
         }
 
         // C. Extract from source file
         if Task.isCancelled {
-            return
+            return nil
         }
         notifyExtractionNeeded()
 
@@ -199,14 +214,14 @@ actor ScanAndCreateThumbnails {
             maxPixelSize: targetSize,
         )
         if Task.isCancelled {
-            return
+            return nil
         }
 
         guard let image = decodedImage,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else {
             recordCompletion(succeeded: false)
-            return
+            return nil
         }
 
         // Invariant (uniform across branches A/B/C): scan never admits to
@@ -230,18 +245,16 @@ actor ScanAndCreateThumbnails {
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
-        guard sourceStillMatches,
+        guard !Task.isCancelled,
+              sourceStillMatches,
               let previewKey,
               let jpegData = DiskCacheManager.jpegData(from: cgImage)
         else {
             // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
-            return
+            return nil
         }
 
-        let dcache = diskCache
-        Task.detached(priority: .background) {
-            await dcache.save(jpegData, for: previewKey)
-        }
+        return (jpegData, previewKey)
     }
 
     // MARK: - UI Notifications (fire-and-forget)
