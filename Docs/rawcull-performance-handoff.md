@@ -61,3 +61,15 @@ The user approved implementing bounded preload saves. The working-tree change is
 A fresh real-catalog performance recording is still needed before claiming improved browsing latency or memory use. The controlled warm-reload/cancellation tests use generated catalog fixtures, not the 1,198-file catalog above. The original recording's limitations still apply.
 
 Release validation also passed: direct `RawCull` target build, Release configuration, coverage disabled. App: `/tmp/rawcull-preload-release/Products/Release/RawCull.app`; build log: `/tmp/rawcull-preload-release.log`. This is a build check, not a new workload measurement. The final focused test rerun after moving the new suite into `RawCullTests/ThumbnailPreloadSaveOwnershipTests.swift` passed all 36 tests. SwiftLint reported no source findings in the changed Swift files (only existing analyzer-rule configuration warnings). No commit was created.
+
+## Real-catalog remeasurement — 2026-10-23
+
+Completed at the user's request using the same 1,198-file catalog and Release build (arm64 UUID `60782AD2-A618-385A-A5BA-3BD3A30B07A9`), source checkout `54058fce`. Full report and durable measurements: [Performance/2026-10-23/report.md](Performance/2026-10-23/report.md).
+
+- Longer browsing/source-switch/reload session: about 285 seconds; footprint initial 531.2 MiB, peak 4,836.9 MiB during full-size source exercise, final 692.9 MiB; read/write deltas 14,782.4/261.3 MiB. Different workload from yesterday; no direct memory/speed comparison is justified.
+- Warm reload: still scanning at 5.586 seconds, 1,198 files and preview observed by 8.358 seconds (automation observation bounds). Early-load abort returned to an empty state; subsequent recovery loaded all files. Cancellation during thumbnail writes remains unverified.
+- Separate fresh-process preload: footprint peak/final about 990 MiB, read delta 5,131.2 MiB, zero process disk writes. Recoverable 60.33-second CPU trace: 12,341 symbolicated samples, preload inclusive weight 3,072 ms (24.9%), downscaling 2,803 ms (overlapping), no sampled JPEG encoding, no recorded hangs. This cache-preserved workload did not stress the disk-write backlog and cannot establish the bounded-save performance benefit.
+- Primary SwiftUI trace failed to finalize and was unusable. Both shorter Time Profiler traces reported corrupt/incomplete logging streams but exported CPU and hang tables. No reliable SwiftUI cause graph or hitch metrics. Keep conclusions qualified.
+- Intermittent zero-file states occurred during same-folder reopening, with retry recovery; restored picker locations sometimes required selecting the catalog from its parent to enable Open. Cause and regression status are unestablished. Reproduce separately; do not silently attribute this to the preload change.
+
+No further source changes or cache purge. Recording and metric sampling stopped; profiling app remains open with catalog loaded. Raw traces remain under `/tmp/rawcull-54058fce-*`; summaries and resource samples are saved in Docs. Next candidates are the reopening correctness issue and cached-preload grid downscaling, subject to separate investigation/implementation scope.

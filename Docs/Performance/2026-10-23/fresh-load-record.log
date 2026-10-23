@@ -1,0 +1,8 @@
+Starting recording with the Time Profiler template. Attaching to: RawCull (8538). Time limit: 60.0 s
+Ctrl-C to stop the recording
+Reached specified time limit, ending recording...
+Run issues were detected (trace is still ready to be viewed):
+* [Error] Data stream: Fatal logging system error: The log archive is corrupt or incomplete and cannot be read
+
+Recording failed with errors. Saving output file...
+Output file saved as: rawcull-54058fce-fresh-load.trace

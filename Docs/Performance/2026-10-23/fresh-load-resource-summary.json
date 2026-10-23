@@ -1,0 +1,9 @@
+{
+  "samples": 82,
+  "duration_seconds": 81.27500009536743,
+  "initial_mib": 666.8609771728516,
+  "peak_mib": 990.1582641601562,
+  "final_mib": 989.9082641601562,
+  "read_mib": 5131.171875,
+  "write_mib": 0.0
+}
