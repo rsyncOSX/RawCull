@@ -267,7 +267,7 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 | 0 — Preserve and reproduce | Complete (user confirmed) | — | Archive: `/Volumes/MacMini4/TestRunPerformance/firstrun` (user confirmed) |
 | 1 — Measurement visibility | Complete with documented UI limitation | `8b44df75` + close-out commit | Cold/warm/switch CPU + signposts validated and archived; SwiftUI correlation remains a phase 2 measurement prerequisite |
 | 2 — Progress publication/animation | Implementation retained; full UI acceptance incomplete | `0cccc19c`, `649cea17`, `de0dbef8` | Final capture: main sampled weight 1.26 s vs original 4.58 s; preload 20.22 s vs 20.58 s (slower than coalescing-only 18.21–19.14 s). Missing SwiftUI/hitch validation and timing uncertainty remain explicit. See [phase 2 report](PerformancePhase2.md) |
-| 3 — JPEG encoding | Pending | — | Experiment required |
+| 3 — JPEG encoding | Investigated; optimization deferred | `f7e9b6de` + findings commit | Three-run baseline passes; options reuse has no useful benefit; no production encoder change. See [phase 3 report](PerformancePhase3.md) |
 | 4 — Grid/warm preparation | Pending | — | Experiment required |
 | 5 — Decode outliers | Pending | — | Same-run diagnostics required |
 | 6 — Remaining UI hitches | Pending | — | Phase-aligned recording required |
