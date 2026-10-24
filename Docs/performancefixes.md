@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **plan only; implementation has not started**.
+Planning date: 24 October 2026. Status: **phase 0 complete per user; phase 1 in progress**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -264,11 +264,93 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 
 | Phase | Status | Commit | Evidence / decision |
 | --- | --- | --- | --- |
-| 0 — Preserve and reproduce | Pending | — | Archive location not yet chosen |
-| 1 — Measurement visibility | Pending | — | Empty signposts; duplicate profiler weights |
+| 0 — Preserve and reproduce | Complete (user confirmed) | — | Archive: `/Volumes/MacMini4/TestRunPerformance/firstrun` (user confirmed) |
+| 1 — Measurement visibility | In progress | — | Exporter diagnostics implemented and tested; fresh recording and full export validation pending |
 | 2 — Progress publication/animation | Pending | — | Experiment required |
 | 3 — JPEG encoding | Pending | — | Experiment required |
 | 4 — Grid/warm preparation | Pending | — | Experiment required |
 | 5 — Decode outliers | Pending | — | Same-run diagnostics required |
 | 6 — Remaining UI hitches | Pending | — | Phase-aligned recording required |
 | 7 — Final comparison | Pending | — | Depends on preceding retained changes |
+
+### Phase 1 work log — 24 October 2026
+
+Hypothesis: schema-only diagnostics hid the missing phase data, and independently
+exported profiler views need explicit identity/weight diagnostics before analysis.
+Added missing/empty/nonempty signpost states, conservative phase readiness,
+resolved profiler identity/weight fingerprints with a temporary SQLite index,
+duplicate/conflicting-view warnings, and primary SwiftUI update-group export.
+All original table attributes and independent XML documents remain preserved.
+No application emission or benchmark semantics changed; version 2 remains intact.
+
+Validation: `python3 -B -W error::ResourceWarning -m unittest discover -s Scripts -p 'Test*Catalog*.py' -v`
+passed all 14 tests. `git diff --check` passed. Tests cover absent/empty/nonempty
+signposts, duplicate profiler identities with conflicting weights, unresolved
+references, truncated XML, empty CPU exports, and overwrite protection.
+
+The existing Release executable at
+`~/Library/Developer/Xcode/DerivedData/RawCull-gcnyfiqsskrykfdbxvxmozmmdpac/Build/Products/Release/RawCull.app/Contents/MacOS/RawCull`
+contains all four expected signpost names and public `prepared`/`pixels` formats
+(checked with `strings`). Source inspection confirms all three intervals use
+`defer` to end on return, including cancellation/early-return paths. This is static
+evidence only; cancellation/switch pairing still requires recording validation.
+`xcrun xctrace list templates` succeeded with cache access and lists SwiftUI,
+Logging, MySwiftUI and MySwitfUI. Instrument filters and collection are unverified.
+
+Remaining: locate the user-preserved phase 0 archive, inspect its recording
+configuration and source/build identity, perform a fresh short Release catalog
+recording, derive actual phase boundaries, and validate full exports against the
+archived multi-gigabyte dataset. `/Volumes/MacMini4` is currently unmounted;
+previous `/tmp` artifacts and `~/Downloads/opencatalog.trace` are absent in this
+session. No historical artifacts were modified. Phase 1 is deliberately incomplete
+and uncommitted until its recording/export exit criteria are met. Do not begin phase 2.
+
+#### Archive located and validated
+
+User supplied archive: `/Volumes/MacMini4/TestRunPerformance/firstrun`.
+The `tmp/` subtree contains the benchmark, all 23 XML exports and analysis;
+`Downloads/opencatalog.trace` contains the historical trace bundle. Read-only
+validation on 24 October confirmed all 23 XML row counts and file sizes match
+its manifest, including the 1.79 GB SwiftUI table. Resolved profiler fingerprints
+identify tables 057/058 as duplicate ordered samples with conflicting weights;
+the signpost diagnostic correctly reports `empty_data`. Detailed validation:
+`/tmp/rawcull-phase1-archive-validation.json` (new, temporary derived artifact).
+The mounted original catalog matches the entire archived manifest exactly:
+809 files, 50,126,917,632 bytes, fingerprint
+`be62561f3e8de6cd31775afc3df0c282586f0c6803ed2fe3697f559faef549ce`.
+
+The current MySwiftUI template's `--show-recording-options` reports an empty
+`os_signpost.dynamicTracingEnabledSubsystems` list and high-frequency profiler
+sampling. A new options file explicitly enables `no.blogspot.RawCull` and uses
+standard sampling; it must include every required field, not just overrides.
+Also, `/Applications/RawCull.app` is an older installed executable lacking the
+catalog signpost strings. Attaching by process name selected that executable.
+Always launch the explicit verified Release executable; this finding does not
+establish which executable produced the historical trace.
+
+#### Recording blocker and partial outputs
+
+Both new xctrace attempts reported: `Data stream: Fatal logging system error:
+The log archive is corrupt or incomplete and cannot be read`. One attached by
+name to the old installed app; the second requested a launch via the DerivedData
+executable, but process inspection still showed an installed-app launch alongside
+the independently opened DerivedData app. The 809-file catalog did open in the
+verified Release app via its native picker. This does **not** prove the recording
+target collected its signposts. Future smoke checks must attach by verified PID,
+not name, and first resolve the Instruments logging-stream failure.
+No valid new phase timings or completion metadata were obtained.
+
+Failed captures and options are retained in temporary phase 1 paths; they are
+failure diagnostics, not baselines. A fresh historical re-export at
+`/tmp/rawcull-phase1-full-export` was interrupted after the recording failures;
+its manifest explicitly says `interrupted`, and it is not a validated full export.
+The original 23 archived documents were independently validated in full, as above.
+The exporter now also records an explicit interrupted status on Ctrl-C (covered
+by the existing integration test). All 14 Python tests and diff checks pass.
+Phase 1 remains in progress, uncommitted; phase 2 has not started.
+
+The failed finalizer exited with status 2 after termination; its partial output
+was moved outside the repository to `/tmp/rawcull-phase1-failed-launch.trace`.
+The earlier failed attachment is `/tmp/rawcull-phase1-smoke.trace`; complete
+recording options are `/tmp/rawcull-phase1-recording-options.json`. None of these
+is a valid replacement baseline. No recording/export process remains active.

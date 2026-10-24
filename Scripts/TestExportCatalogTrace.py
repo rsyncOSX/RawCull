@@ -9,7 +9,7 @@ import ExportCatalogTrace as exporter
 
 class CatalogTraceExportTests(unittest.TestCase):
     def test_selection_includes_waits_and_io_without_exporting_raw_kernel_by_default(self):
-        for schema in ('time-profile', 'swiftui-updates', 'os-signpost', 'file-activity', 'thread-state', 'disk-io'):
+        for schema in ('time-profile', 'swiftui-updates', 'swiftui-update-groups', 'os-signpost', 'file-activity', 'thread-state', 'disk-io'):
             self.assertTrue(exporter.selected(schema))
         self.assertFalse(exporter.selected('kdebug'))
         self.assertTrue(exporter.selected('kdebug', True))
@@ -22,6 +22,34 @@ class CatalogTraceExportTests(unittest.TestCase):
             path.write_text('<trace-query-result><node><row/>')
             with self.assertRaises(exporter.ET.ParseError):
                 exporter.count_rows(path)
+
+    def test_signpost_status_distinguishes_missing_empty_and_unverified_rows(self):
+        for rows, expected in ((None, 'missing_schema'), (0, 'empty_data'), (2, 'exported_nonempty')):
+            manifest = {'tables': [] if rows is None else [{'schema': 'os-signpost', 'rows': rows}], 'warnings': []}
+            exporter.diagnose(manifest)
+            self.assertEqual(manifest['phase_alignment']['signpost_status'], expected)
+            self.assertFalse(manifest['phase_alignment']['ready'])
+            self.assertTrue(manifest['warnings'])
+
+    def test_profiler_resolves_references_and_detects_conflicting_weights(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'cpu.xml'
+            tables = []
+            for index, weight in enumerate((100000, 1000000)):
+                path.write_text(f'<result><row><time id="1">42</time><weight>{weight}</weight></row>'
+                                f'<row><time ref="1"/><weight>{weight}</weight></row></result>')
+                tables.append({'schema': 'time-profile', 'file': str(index),
+                               'profiler': exporter.profiler_fingerprint(path)})
+            manifest = {'tables': tables, 'warnings': []}
+            exporter.diagnose(manifest)
+            self.assertTrue(manifest['profiler_selection']['duplicate_views'][0]['conflicting_weights'])
+            self.assertIsNone(manifest['profiler_selection']['selected_file'])
+            path.write_text('<result><row><time ref="missing"/></row></result>')
+            with self.assertRaisesRegex(ValueError, 'Unresolved'):
+                exporter.profiler_fingerprint(path)
+            path.write_text('<result><row>')
+            with self.assertRaises(exporter.ET.ParseError):
+                exporter.profiler_fingerprint(path)
 
     def test_export_packages_context_and_rejects_empty_cpu_or_overwrite(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -59,6 +87,12 @@ class CatalogTraceExportTests(unittest.TestCase):
                 self.assertEqual((output / 'benchmark-results.json').read_bytes(), benchmark.read_bytes())
                 self.assertEqual(exporter.main(args), 2)
                 self.assertEqual(json.loads((output / 'export-manifest.json').read_text())['status'], 'exported')
+
+            with patch.object(exporter.subprocess, 'run', side_effect=execute), \
+                 patch.object(exporter, 'export', side_effect=KeyboardInterrupt), patch('builtins.print'):
+                self.assertEqual(exporter.main([str(trace), '--benchmark', str(benchmark),
+                                                '--output', str(root / 'interrupted')]), 130)
+                self.assertEqual(json.loads((root / 'interrupted/export-manifest.json').read_text())['status'], 'interrupted')
 
             def empty_cpu(trace_path, xpath, path):
                 path.write_text('<trace-query-result/>')

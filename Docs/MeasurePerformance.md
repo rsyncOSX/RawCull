@@ -197,3 +197,52 @@ python3 -B Scripts/RunCatalogPerformance.py "$CATALOG" \
 An optional `--max-regression-percent 20` fails when a measured median increases by more than 20% and more than 5 ms. p95/worst remain diagnostic; three repetitions do not establish a strong tail distribution. Instrumentation/harness changes require a fresh baseline. Record the optimized app again with the same Instruments setup and export it to a different directory.
 
 See [CatalogPerformance.md](CatalogPerformance.md) for detailed benchmark semantics and correctness checks.
+
+## Phase 1 exporter diagnostics
+
+Before a full recording, save a short Release smoke trace to a **new** path.
+In the os_signpost instrument, enable the `no.blogspot.RawCull` subsystem and
+`CatalogPerformance` category (check process and signpost filters). Open a small
+catalog after recording starts. Verify `CatalogOpen`, `CatalogMetadataScan`,
+`CatalogThumbnailPreload`, and `CatalogThumbnailPreloadComplete` in the timeline,
+including `pixels` and `prepared` metadata. Repeat cancellation and catalog
+replacement and check that each started interval ends under its own signpost ID.
+If tables remain empty, inspect instrument configuration before changing emission.
+Binary strings establish instrumentation presence, not successful collection.
+
+The exporter now records `phase_alignment.signpost_status` as `missing_schema`,
+`empty_data`, or `exported_nonempty`. An exported document can be valid while
+phase alignment is unavailable. Nonempty rows may belong to unrelated signposts;
+`ready` remains false until a separate recording review verifies catalog names,
+interval pairing and completion metadata. Retain that review alongside the manifest.
+
+Each profiler view retains all TOC attributes and its own XML document. A
+streaming, disk-backed reference index computes ordered sample and weight
+fingerprints without retaining the XML reference graph in memory. Identical
+resolved sample sequences with differing weights produce a warning; views are
+never merged or automatically selected. These fingerprints detect identical
+ordered views, not partially overlapping samples. Forward or missing references
+fail validation explicitly. XML fingerprints are diagnostics, not CPU estimates.
+Use recorded weight values and units for analysis; validate any chosen view
+against the recording's sampling configuration and independent thread running
+intervals. Until resolved, report relative shares and qualify absolute CPU values.
+The temporary reference database requires disk space proportional to unique IDs.
+
+`swiftui-update-groups` is exported by default when present. Its row count counts
+groups; `swiftui-updates` counts primary events, whose body-update subset must be
+classified separately. Do not add these counts together.
+
+For this baseline, preserved inputs are under
+`/Volumes/MacMini4/TestRunPerformance/firstrun/tmp/` and the trace is under
+`/Volumes/MacMini4/TestRunPerformance/firstrun/Downloads/`. Export to a fresh
+location, never into that archive. The installed `/Applications/RawCull.app`
+may lag the profiled build: check executable identity and instrumentation before
+attaching. Prefer launching the explicit Release executable over attaching by name.
+
+On Xcode 27.1, inspect `xcrun xctrace record --template MySwiftUI --show-recording-options`.
+To enable collection, save its **complete** JSON, add `no.blogspot.RawCull` to
+`os_signpost.dynamicTracingEnabledSubsystems`, and pass the file with
+`--recording-options`. Partial objects can fail with a missing-data error. Save
+those options with the new trace; an empty subsystem list alone does not prove
+the historical cause. A recording with logging-stream errors is diagnostic
+failure evidence and cannot satisfy the smoke-test exit criterion.
