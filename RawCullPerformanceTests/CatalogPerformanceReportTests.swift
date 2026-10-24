@@ -37,6 +37,35 @@ struct CatalogPerformanceReportTests {
     }
 
     @Test
+    func `source stage timestamps survive reporting without becoming ordinary metrics`() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let journal = try CatalogPerformanceJournal(url: url)
+        let timing = RawSourceLoadDiagnostic(
+            id: UUID(),
+            operation: "thumbnail.preload",
+            source: URL(fileURLWithPath: "/tmp/test.ARW"),
+            requestedPixelSize: 1616,
+            submitted: 1,
+            accessReady: 2,
+            taskStarted: 3,
+            parserReturned: 4,
+            delivered: 5,
+            succeeded: false,
+            cancelled: true,
+        )
+        await journal.record(timing)
+        let snapshot = try await journal.snapshot()
+        #expect(snapshot.metrics.isEmpty)
+        let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["event"] as? String == "source-load")
+        let recorded = try #require(object["timing"] as? [String: Any])
+        #expect(recorded["delivered"] as? Double == 5)
+        #expect(recorded["cancelled"] as? Bool == true)
+        #expect(object["journalOriginUptime"] is Double)
+    }
+
+    @Test
     @MainActor
     func `navigation benchmark validates real presentation without a catalog fixture`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

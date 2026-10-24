@@ -5,10 +5,17 @@ import Foundation
 /// Forwards every operation to the production parser; only adds measurements.
 actor CatalogPerformanceLoader: RawImageLoading {
     let journal: CatalogPerformanceJournal
-    private let base = RawParserKitImageLoader.shared
+    private let base: RawParserKitImageLoader
 
     init(journal: CatalogPerformanceJournal) {
         self.journal = journal
+        if ProcessInfo.processInfo.environment["RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS"] == "1" {
+            base = RawParserKitImageLoader(diagnostic: { diagnostic in
+                await journal.record(diagnostic)
+            })
+        } else {
+            base = .shared
+        }
     }
 
     func fileMetadata(for url: URL) async -> RawImageFileMetadata? {
