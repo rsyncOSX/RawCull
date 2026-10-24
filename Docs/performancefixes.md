@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; SwiftUI collection limitation remains documented**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phase 3 investigated with optimization deferred; phases 4–7 pending**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -125,6 +125,47 @@ Validation and exit criteria:
 
 Commit: `perf: coalesce catalog progress and simplify progress animation`.
 
+### Phase 2 results — 24 October 2026
+
+Retained independent 100 ms progress coalescers for metadata and thumbnail
+preparation, with immediate initial/terminal values, exact final counts and ETA,
+and cancellation/generation guards against stale publication. A separate animation
+experiment retained a ring-only 100 ms linear transition, immediate numeric text
+and Reduce Motion support. Internal accounting, readiness, decode concurrency and
+awaited saves retain their existing semantics.
+
+Comparable Immediate CPU/signpost captures on the original 809-file catalog at
+1616 pixels show:
+
+| Thumbnail-preload measurement | Original | Coalescing 1 | Coalescing 2 | Coalescing + animation |
+| --- | ---: | ---: | ---: | ---: |
+| Wall time | 20.577 s | 19.138 s | 18.206 s | 20.218 s |
+| All-thread sampled weight | 34.545 s | 31.853 s | 30.551 s | 31.094 s |
+| Main-thread sampled weight | 4.575 s | 3.303 s | 3.026 s | 1.261 s |
+
+All captures completed with prepared=809 and pixels=1616. The final candidate's
+main-thread sampled weight is approximately 72% below the original, but preload
+is only 1.7% shorter than the original and 5.6–11.1% longer than coalescing-only.
+Retain the work reduction and positive manual feedback without claiming faster
+loading or attributing the wall-time variation. Sample weights are approximate
+and lack independent thread-running validation; CPU stack counts are not SwiftUI
+body invocation counts.
+
+Validation recorded in the report: 11 focused Swift tests pass, 18 Python catalog
+checks pass, optimized Release builds pass, changed-view SwiftLint has no source
+violations, and diff checks pass. User feedback reported normal behavior, but did
+not separately enumerate every accessibility/edge-case check. Combined Deferred
+collection still fails, so phase-scoped SwiftUI/hitch acceptance is **incomplete**;
+no smoother-frame or hitch improvement is claimed. Carry timing uncertainty and
+remaining UI validation into phase 7.
+
+Implementation: `0cccc19c`, `649cea17`, `de0dbef8`; final findings: `1a291cd8`.
+Evidence archives under `/Volumes/MacMini4/TestRunPerformance/`:
+`phase2-publication-candidate-2026-10-24`,
+`phase2-publication-repeat-2026-10-24`, and `phase2-animation-2026-10-24`.
+See [the phase 2 report](PerformancePhase2.md) for commands, capture identity,
+comparison procedures and limitations.
+
 ## Phase 3 — Reduce thumbnail JPEG encoding cost
 
 **Purpose:** reduce the measured encoding cost without degrading persisted thumbnail usefulness.
@@ -146,7 +187,55 @@ Validation and exit criteria:
 - Confirm warm preload and prepared browsing still need no source fallback. Check failure/cancel/recovery paths.
 - Retain only a repeatable improvement with acceptable quality and resource costs; record rejected experiments.
 
-Commit: `perf: reduce catalog thumbnail encoding overhead`.
+Commit: `perf: reduce catalog thumbnail encoding overhead` (proposed optimization;
+actual retained work uses the diagnostic/findings commits below).
+
+### Phase 3 results — 24 October 2026
+
+**Investigation complete; production optimization deferred under the evidence
+gate.** The unchanged version 2 harness passed three runs on the original 809 ARWs,
+1616 pixels and 100 browsing steps, using independent empty thumbnail caches.
+This is a current baseline, not an after-optimization result.
+
+| Measurement | Run 1 | Run 2 | Run 3 |
+| --- | ---: | ---: | ---: |
+| JPEG encode median | 4.942 ms | 4.928 ms | 4.917 ms |
+| Cold preload | 8.400 s | 8.465 s | 8.385 s |
+| Warm preload | 3.639 s | 3.602 s | 3.532 s |
+| Process CPU delta | 30.447 s | 29.422 s | 29.425 s |
+| Sampled peak footprint | 306.3 MiB | 211.1 MiB | 221.3 MiB |
+| Zoom readiness median | 10.505 ms | 10.502 ms | 3.090 ms |
+
+All 809 ordinary decodes/saves succeeded per repetition. Warm preparation and
+prepared browsing passed no-source-fallback checks; cancellation/drain and recovery
+passed. Pooled disk browse median was 0.305 ms. OS/parser caches were not flushed;
+display, power and unrelated background activity were not independently verified.
+Zoom and resource variation remain baseline observations.
+
+Within the final phase 2 trace's exact preload interval, inclusive
+`DiskCacheManager.jpegData` sampled weight is 10.977 s of 31.094 s (35.3%), mostly
+codec processing. Inclusive weights overlap and are approximate, not elapsed time.
+The controlled diagnostic compared fresh encoder options with an immutable shared
+dictionary on 12 persisted JPEGs. Quiet trials showed shared options 0.153% and
+0.063% slower, below between-invocation drift; the overlapping trial was excluded.
+Both variants produced byte-identical output with matching decoded dimensions.
+Wrapper construction/retrieval averaged only 0.0036–0.0037 ms.
+
+Rejected options reuse for no useful repeatable benefit. Source inspection found
+that RawParserKit's CGImage convenience path retains the wrapper round trip, so
+no dependency rewrite was justified. Production encoding, quality, orientation/
+color handling, cache keys, bounded concurrency, cancellation and awaited saves
+remain unchanged. The sequential persisted-JPEG diagnostic is not a native RAW
+benchmark or an exhaustive visual-quality corpus. A second nominal after-run
+would contain no production intervention.
+
+Retained `Scripts/BenchmarkJPEGEncoding.swift` and the findings. The optimized
+diagnostic validates bytes/dimensions; all 18 Python catalog checks and diff checks
+pass. SwiftLint reports no source errors, with diagnostic style/complexity warnings.
+Diagnostic commit: `f7e9b6de`; findings: `43acd4af`.
+Archive: `/Volumes/MacMini4/TestRunPerformance/phase3-encoding-investigation-2026-10-24`.
+See [the phase 3 report](PerformancePhase3.md) for exact commands, provenance,
+profiling results and rejected paths. Phase 4 has not started.
 
 ## Phase 4 — Reduce grid preparation and warm-cache work
 
@@ -266,8 +355,8 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 | --- | --- | --- | --- |
 | 0 — Preserve and reproduce | Complete (user confirmed) | — | Archive: `/Volumes/MacMini4/TestRunPerformance/firstrun` (user confirmed) |
 | 1 — Measurement visibility | Complete with documented UI limitation | `8b44df75` + close-out commit | Cold/warm/switch CPU + signposts validated and archived; SwiftUI correlation remains a phase 2 measurement prerequisite |
-| 2 — Progress publication/animation | Implementation retained; full UI acceptance incomplete | `0cccc19c`, `649cea17`, `de0dbef8` | Final capture: main sampled weight 1.26 s vs original 4.58 s; preload 20.22 s vs 20.58 s (slower than coalescing-only 18.21–19.14 s). Missing SwiftUI/hitch validation and timing uncertainty remain explicit. See [phase 2 report](PerformancePhase2.md) |
-| 3 — JPEG encoding | Investigated; optimization deferred | `f7e9b6de` + findings commit | Three-run baseline passes; options reuse has no useful benefit; no production encoder change. See [phase 3 report](PerformancePhase3.md) |
+| 2 — Progress publication/animation | Implementation retained; full UI acceptance incomplete | `0cccc19c`, `649cea17`, `de0dbef8`; findings `1a291cd8` | Final capture: main sampled weight 1.26 s vs original 4.58 s; preload 20.22 s vs 20.58 s (slower than coalescing-only 18.21–19.14 s). Missing SwiftUI/hitch validation and timing uncertainty remain explicit. See [phase 2 report](PerformancePhase2.md) |
+| 3 — JPEG encoding | Investigated; optimization deferred | `f7e9b6de`, `43acd4af` | Three-run baseline passes; options reuse has no useful benefit; no production encoder change. See [phase 3 report](PerformancePhase3.md) |
 | 4 — Grid/warm preparation | Pending | — | Experiment required |
 | 5 — Decode outliers | Pending | — | Same-run diagnostics required |
 | 6 — Remaining UI hitches | Pending | — | Phase-aligned recording required |
