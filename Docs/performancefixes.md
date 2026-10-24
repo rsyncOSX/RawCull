@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phase 3 investigated with optimization deferred; phases 4–7 pending**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–4 investigated with optimizations deferred; phases 5–7 pending**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -260,6 +260,35 @@ Validation and exit criteria:
 - Avoid introducing a visual first-scroll penalty concealed by faster preload completion.
 
 Commit: `perf: reduce grid thumbnail preparation cost`.
+
+### Phase 4 results — 24 October 2026
+
+**Tested alternative rejected; production optimization deferred.** Reanalysis of
+phase 3's three-run baseline assigns 809 grid operations to each of cold, warm,
+concurrent browsing and recovery, with no failed or unassigned operations.
+The 3,236 operations are four deliberate RAM-cleared passes, not one cold load.
+Warm grid-duration sums are 3.313–3.407 s within 3.532–3.639 s preload windows;
+these sums include lazy JPEG decoding triggered by drawing and are not pure
+resampling CPU or an additive wall-time breakdown.
+
+The optimized diagnostic compares the actual production resizer with direct
+ImageIO downsampling on 12 normalized cached JPEGs. Across three sequential
+invocations, direct downsampling is 2.95%, 3.45% and 3.31% slower. Dimensions and
+RGB comparison pixels match on the sample. Retain diagnostics and phase-analysis
+tooling; no production, cache, scale, memory-budget or readiness change is justified
+by this experiment. Persisted variants/lazy preparation and independent production
+metadata/key/decode/resample timing remain deferred. No app speedup is claimed.
+
+Optimized diagnostic compilation/execution, 26 Python checks and diff checks pass.
+Production correctness/no-fallback/cancellation/recovery evidence is the unchanged
+phase 3 baseline, not a fresh run. Manual scrolling, pressure, multiple-catalog and
+visual acceptance remain outstanding; no new Instruments capture is needed to
+reject this alternative. See [the phase 4 report](PerformancePhase4.md).
+
+Diagnostic implementation: `61f661a9`. External evidence archive pending explicit
+user approval (automatic approval review blocked the copy):
+`/Volumes/MacMini4/TestRunPerformance/phase4-grid-investigation-2026-10-24`.
+Raw diagnostic trials and phase summary remain in `/tmp`; see the report before cleanup.
 
 ## Phase 5 — Diagnose and address source-load latency outliers
 
