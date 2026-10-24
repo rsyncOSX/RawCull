@@ -118,6 +118,8 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Number of RAW files discovered by the active catalog scan. This is
     /// reset with the catalog working set and is the source of truth for the
     /// scanning progress label.
+    @ObservationIgnored var metadataProgress: CatalogProgressCoalescer<Int>?
+    @ObservationIgnored var thumbnailProgress: CatalogProgressCoalescer<CatalogThumbnailProgress>?
     var scanDiscoveredCount: Int = 0
     var fileOperationCompleted: Int = 0
     var fileOperationTotal: Int = 0
