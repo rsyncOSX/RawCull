@@ -28,3 +28,7 @@ against a supplied ARW catalog, writing raw logs and comparable JSON/Markdown
 reports. See [the catalog benchmark guide](../Docs/CatalogPerformance.md) for
 commands, phases, baseline comparisons, and measurement limits. Its script tests
 are in `TestRunCatalogPerformance.py` and require no photographs.
+
+`ExportCatalogTrace.py` packages validated, self-contained Instruments XML tables
+with a matching benchmark report. See [measureperformance.md](../Docs/measureperformance.md)
+for recording `~/Downloads/opencatalog.trace`, export commands, and comparison guidance.

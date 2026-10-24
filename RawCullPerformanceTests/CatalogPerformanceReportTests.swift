@@ -5,6 +5,38 @@ import Testing
 
 struct CatalogPerformanceReportTests {
     @Test
+    func `CPU counters convert Mach ticks and avoid integer overflow`() {
+        #expect(abs(CatalogPerformanceResource.cpuSeconds(
+            userTicks: 4_800_000, systemTicks: 1_200_000, numerator: 125, denominator: 3,
+        ) - 0.25) < 0.000001)
+        #expect(CatalogPerformanceResource.cpuSeconds(
+            userTicks: 1_000_000_000, systemTicks: 0, numerator: 1, denominator: 1,
+        ) == 1)
+        #expect(CatalogPerformanceResource.cpuSeconds(
+            userTicks: .max, systemTicks: .max, numerator: 125, denominator: 3,
+        ).isFinite)
+    }
+
+    @Test
+    func `operation timings exclude the journal actor wait`() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let journal = try CatalogPerformanceJournal(url: url)
+        let end = ProcessInfo.processInfo.systemUptime
+        await journal.record(ScanAndCreateThumbnails.Measurement(
+            phase: "jpeg.encode",
+            source: URL(fileURLWithPath: "/tmp/image.ARW"),
+            start: end - 0.025,
+            end: end,
+            succeeded: true,
+        ))
+        let result = try await journal.snapshot()
+        let metric = try #require(result.metrics.first)
+        #expect(abs(metric.milliseconds - 25) < 0.001)
+        #expect(metric.phase == "jpeg.encode" && metric.detail == "image.ARW")
+    }
+
+    @Test
     @MainActor
     func `navigation benchmark validates real presentation without a catalog fixture`() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

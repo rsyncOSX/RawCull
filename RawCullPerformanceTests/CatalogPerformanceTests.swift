@@ -39,7 +39,9 @@ struct CatalogPerformanceTests {
         }
         let loader = CatalogPerformanceLoader(journal: journal)
         let disk = DiskCacheManager(cacheDirectory: directory.appendingPathComponent("thumbnail-cache"))
-        let preloader = ScanAndCreateThumbnails(diskCache: disk, rawLoader: loader) { data, key in
+        let preloader = ScanAndCreateThumbnails(diskCache: disk, rawLoader: loader, measure: { measurement in
+            await journal.record(measurement)
+        }, saveToDisk: { data, key in
             await journal.beginSave(bytes: data.count)
             let start = ProcessInfo.processInfo.systemUptime
             await disk.save(data, for: key)
@@ -51,7 +53,7 @@ struct CatalogPerformanceTests {
                 detail: key.source.standardizedURL.lastPathComponent,
             )
             await journal.endSave()
-        }
+        })
         print("Catalog benchmark: run \(run), \(catalog.path)")
         do {
             let pipeline = Pipeline(journal: journal, loader: loader, disk: disk, preloader: preloader)
@@ -131,6 +133,11 @@ extension CatalogPerformanceTests {
             detail: "\(prepared)/\(files.count) files",
         )
         try await verifyDiskOutputs(files, pixelSize: pixelSize, disk: disk)
+        let coldMetrics = await journal.metrics
+        try #require(coldMetrics.filter { $0.phase == "jpeg.encode" }.count == files.count,
+                     "Every cold thumbnail must have an encoding measurement")
+        try #require(coldMetrics.filter { $0.phase == "grid.preloadResize" }.count == files.count,
+                     "Every cold thumbnail must have a grid creation measurement")
         let countsBeforeWarm = await journal.counts
         clearRAM()
         start = ProcessInfo.processInfo.systemUptime

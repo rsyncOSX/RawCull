@@ -56,6 +56,8 @@ class CatalogPerformanceRunnerTests(unittest.TestCase):
             self.assertEqual(summary["phases"]["browse.disk"]["p95_ms"], 100)
             self.assertIn("bad.ARW", summary["failures"][0])
             self.assertEqual(summary["runs"][0]["metrics"], metrics)
+            self.assertEqual(summary["resources"][0]["phases"]["browse.disk"]["count"], 2)
+            self.assertEqual(summary["resources"][0]["phases"]["browse.disk"]["total_operation_ms"], 101)
 
     def report(self):
         return {"benchmark_version": runner.VERSION, "settings": {"runs": 3}, "machine": {"hardware": "test"},

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+@testable import RawCull
 
 /// Test-only report types. Times use the monotonic clock; wall time is provenance only.
 struct CatalogPerformanceMetric: Codable {
@@ -11,6 +12,16 @@ struct CatalogPerformanceMetric: Codable {
 }
 
 struct CatalogPerformanceResource: Codable {
+    private static let timebase: mach_timebase_info_data_t = {
+        var value = mach_timebase_info_data_t()
+        mach_timebase_info(&value)
+        return value
+    }()
+
+    static func cpuSeconds(userTicks: UInt64, systemTicks: UInt64, numerator: UInt32, denominator: UInt32) -> Double {
+        (Double(userTicks) + Double(systemTicks)) * Double(numerator) / Double(denominator) / 1_000_000_000
+    }
+
     let elapsedSeconds: Double
     let footprintBytes: UInt64?
     let cpuSeconds: Double?
@@ -27,7 +38,12 @@ struct CatalogPerformanceResource: Codable {
         return Self(
             elapsedSeconds: ProcessInfo.processInfo.systemUptime - start,
             footprintBytes: result == 0 ? usage.ri_phys_footprint : nil,
-            cpuSeconds: result == 0 ? Double(usage.ri_user_time + usage.ri_system_time) / 1_000_000_000 : nil,
+            cpuSeconds: result == 0 ? cpuSeconds(
+                userTicks: usage.ri_user_time,
+                systemTicks: usage.ri_system_time,
+                numerator: timebase.numer,
+                denominator: timebase.denom,
+            ) : nil,
             diskReadBytes: result == 0 ? usage.ri_diskio_bytesread : nil,
             diskWriteBytes: result == 0 ? usage.ri_diskio_byteswritten : nil,
         )
@@ -61,6 +77,18 @@ actor CatalogPerformanceJournal {
             elapsedSeconds: ProcessInfo.processInfo.systemUptime - self.start,
             succeeded: succeeded,
             detail: detail,
+        )
+        metrics.append(metric)
+        append(metric)
+    }
+
+    func record(_ measurement: ScanAndCreateThumbnails.Measurement) {
+        let metric = CatalogPerformanceMetric(
+            phase: measurement.phase,
+            milliseconds: (measurement.end - measurement.start) * 1000,
+            elapsedSeconds: measurement.end - start,
+            succeeded: measurement.succeeded,
+            detail: measurement.source.lastPathComponent,
         )
         metrics.append(metric)
         append(metric)

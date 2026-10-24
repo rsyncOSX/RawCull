@@ -16,13 +16,13 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 1
+VERSION = 2
 REQUIRED_PHASES = {
     "catalog.discovery", "catalog.metadata", "preload.emptyDiskCache", "preload.warmDiskCache",
     "browse.disk", "browse.revisit", "browse.duringPreload", "browse.noSourceFallback",
     "preload.withBrowsing", "navigation.build", "navigation.selectionAndControls",
     "navigation.ratingFilter", "navigation.reuseAndInvalidation", "zoom.previewReady",
-    "preload.cancelAndDrain", "preload.recovery", "grid.resize",
+    "preload.cancelAndDrain", "preload.recovery", "grid.resize", "grid.preloadResize", "jpeg.encode",
 }
 # These are structural assertions, not useful timing measurements.
 CHECK_ONLY = {"browse.noSourceFallback", "navigation.reuseAndInvalidation", "run.error"}
@@ -119,6 +119,9 @@ def summarize(output, runs):
                           "cpu_seconds_delta": cpus[-1] - cpus[0] if cpus else None,
                           "disk_read_bytes_delta": reads[-1] - reads[0] if reads else None,
                           "disk_write_bytes_delta": writes[-1] - writes[0] if writes else None,
+                          "phases": {name: {**distribution(values), "total_operation_ms": sum(values)}
+                                     for name in sorted(phases - CHECK_ONLY)
+                                     if (values := [m["milliseconds"] for m in result["metrics"] if m["phase"] == name])},
                           "peak_preload_saves": result["peakSaves"], "operation_counts": result["counts"]})
     return {"phases": {name: distribution(values) for name, values in sorted(per_phase.items())},
             "resources": resources, "failures": failures, "runs": raw_runs}
@@ -183,9 +186,23 @@ def markdown(report):
              "Empty disk cache means a new benchmark thumbnail cache; OS/parser caches are not flushed.",
              "Runs share a process; later runs can benefit from OS/parser warm-up. Keep run order consistent.",
              "Per-file metrics include measurement/logging overhead. Times are monotonic wall durations, not CPU weights.", "",
+             "jpeg.encode measures thumbnail JPEG creation; cache.save starts after encoding.",
+             "grid.preloadResize measures actual grid creation throughout preload; grid.resize is the separate image sample.",
+             "CPU seconds use Mach timebase conversion and sum all process threads; they can exceed wall time.", "",
              "| Phase | Samples | Median ms | p95 ms | Worst ms |", "| --- | ---: | ---: | ---: | ---: |"]
     for name, values in report["summary"]["phases"].items():
         lines.append(f"| {name} | {values['count']} | {values['median_ms']:.3f} | {values['p95_ms']:.3f} | {values['max_ms']:.3f} |")
+    lines += ["", "## Individual repetitions", "",
+              "Operation sums can overlap and are not CPU time or total phase wall time.", "",
+              "| Run | Phase | Samples | Median ms | Operation sum ms |",
+              "| --- | --- | ---: | ---: | ---: |"]
+    for resource in report["summary"]["resources"]:
+        for name in ("catalog.discovery", "catalog.metadata", "preload.emptyDiskCache", "preload.warmDiskCache",
+                     "jpeg.encode", "grid.preloadResize"):
+            values = resource.get("phases", {}).get(name)
+            if values:
+                lines.append(f"| {resource['run']} | {name} | {values['count']} | {values['median_ms']:.3f} | "
+                             f"{values['total_operation_ms']:.3f} |")
     lines += ["", "## Resources", "", "Process footprint sampled every 100 ms; brief peaks may be missed. Includes the test host.", ""]
     for resource in report["summary"]["resources"]:
         peak = resource["sampled_peak_footprint_bytes"]
