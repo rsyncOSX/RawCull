@@ -1,10 +1,131 @@
 # Phase 6 — UI hitches (in progress)
 
-24 October 2026. **Not complete.** Recording setup and failure investigation are
-complete for this step; an annotated interactive capture is pending. No
-application optimization has been made or validated. Phase 7 has not started.
+24 October 2026. **Interactive investigation complete; production optimization
+deferred.** No application change or smoother-frame claim is justified by this
+capture. Full acceptance remains limited by missing phase markers, workload/source
+provenance and unverified interaction coverage. Phase 7 has not started.
 
-## Prepared build and current recording state
+## User capture findings
+
+Preserved recording: `~/Downloads/rawcull-phase6-ui-before.trace` (approximately
+1.3 GB). Run **1**, 50.798646 seconds, 24 October 2026 at 20:55:48–20:56:39 Oslo
+time; Xcode/Instruments 27.1, Deferred, standard Time Profiler sampling, SwiftUI
+layout updates off, Hangs threshold 250 ms. The user replied “no” to the question
+about errors/visible pauses and supplied no action timestamps.
+
+This was an Xcode-launched process, PID 12167, not the prepared attach PID 7499.
+The exported main-image identity is:
+`D64E676D-90C4-3746-B932-088CBCA1D738`, at
+`/Users/thomas/Library/Developer/Xcode/DerivedData/RawCull-gcnyfiqsskrykfdbxvxmozmmdpac/Build/Products/Release/RawCull.app/Contents/MacOS/RawCull`.
+That binary/dSYM is no longer at the recorded path after cleanup. Do not label
+prepared UUID `5691876A-7C8A-3D18-BCF3-A24BA8991DBD` as matching this recording.
+The trace's embedded symbol data is retained. Exact capture source hash, cache
+state, pixels/prepared count, workload manifest, display/power conditions and
+complete action coverage were not independently established for this run.
+
+| Finding | Result |
+| --- | ---: |
+| Non-system hitches | 31 |
+| Total recorded hitch duration | 1800.119 ms |
+| Worst hitch | 516.701 ms |
+| Detected hangs at 250 ms threshold | 0 |
+| Independent main-thread running time | 3.202 s |
+| Main-thread sampled weight | 3.205 s |
+| CPU samples | 47,152, each recorded at 1 ms |
+
+The independent main running total corroborates the selected single profiler
+view's approximate sample weights. No duplicate conflicting view was found.
+Blocked intervals include normal idle time and must not be called stalled work.
+Inclusive stack weights overlap and are not additive elapsed time.
+
+| Hitch start | Duration | Main running | Evidence-backed context |
+| --- | ---: | ---: | --- |
+| 0.695 s | 316.687 ms | 249.856 ms (78.9%) | Initial-window creation, SwiftUI/AppKit layout |
+| 2.846 s | 516.701 ms | 32.674 ms (6.3%) | Native picker presentation, NSSavePanel/FileImportExportBridge stacks; predominantly waiting |
+| 7.779 s | 83.339 ms | 66.347 ms (79.6%) | Native picker/sheet dismissal |
+| 8.029 s | 83.339 ms | 64.241 ms (77.1%) | Main-thread update/render work |
+| 12.663 s | 200.013 ms | 144.881 ms (72.4%) | Initial content/layout and thumbnail presentation |
+| 42.048 s | 66.671 ms | 31.315 ms (47.0%) | Mixed main-thread/render/wait work; action not independently labelled |
+
+After 13 seconds there are 24 hitches, worst 66.671 ms, mostly approximately
+one frame. Neither these counts nor zero detected hangs prove smoothness.
+The native picker wait does not justify moving unrelated RAW work or replacing
+the picker. Startup's grain renderer accounts for approximately 8 ms of inclusive
+main sampled work inside the 316.687 ms hitch. This is not its dominant cause.
+Other named application callers contribute only a few sampled milliseconds to
+the 200 ms event; framework graph/layout work dominates the inclusive stacks.
+Reject a speculative grain, observation, picker or view-hierarchy rewrite here.
+
+SwiftUI export: 290,560 primary updates (281,629 Other, 8,628 View Body,
+303 Representable), 827,719 separate update groups and 179,258 cause edges.
+Groups and primary events are distinct measures and must not be added together.
+Selected body events across the whole trace:
+
+| View | Body event count | Sum of body event durations |
+| --- | ---: | ---: |
+| RawCullMainView | 10 | 4.505 ms |
+| FileDetailView | 16 | 15.454 ms |
+| SidebarARWCatalogFileView | 220 | 16.292 ms |
+| ProgressCount | 202 | 10.601 ms |
+
+The largest FileDetailView body event is 14.188 ms; Canvas has a 9.614 ms
+non-body event. Counts are actual exported events, not CPU sample counts.
+These whole-recording values are not phase-matched before/after evidence for
+phase 2, and reduced totals versus historical captures cannot establish causality.
+The cause graph includes native environment, animation and interaction work;
+its generic aggregate names do not establish an application feedback loop.
+
+All 13 selected export documents validated. RawCull catalog signposts and logs
+are unavailable: the only exported signpost schema is for ConditionInducer and
+has zero rows. No catalog phase interval or completion metadata is available.
+Sampled occurrences of ScanFiles (~8.09–12.19 s) and ScanAndCreateThumbnails
+(~12.91–40.15 s) are context clues, not precise phase durations. ZoomOverlayView
+body events and zoom-named CPU frames are absent; ZoomMetadataPanel is also used
+by Loupe, so its presence does not prove the zoom overlay was exercised. Grid,
+rating/filter, reverse-navigation, cancellation and switching coverage are not
+independently established. Carry these acceptance gaps into phase 7 rather than
+claiming they passed. No optimization was retained, so there is no new after-run
+or production performance improvement to report.
+
+## Analysis, retention and disk-space limits
+
+The first TOC attempts failed while the internal disk was effectively full.
+After space was reclaimed, the same preserved trace exported successfully.
+Only checksum-verified phase 5 temporary duplicates were removed (approximately
+1.7 GB); their external archive and all source/new trace files were preserved.
+No further deletion was performed during resumed analysis.
+
+Selected UI/CPU/thread tables were exported with the repository exporter, using
+an explicit schema subset to omit raw kernel/filesystem tables. XML references
+in the analyses were resolved with disk-backed SQLite indexes; missing references
+fail rather than silently becoming empty values. Main-thread running intervals
+were merged before hitch intersections. Row/type totals were checked against
+export counts; native recorded weights and independent running totals were
+cross-checked. No application source changed and no build/tests were needed for
+this documentation-only close-out.
+
+Evidence paths:
+
+- Original: `~/Downloads/rawcull-phase6-ui-before.trace` — preserve this bundle.
+- `/tmp/rawcull-phase6-before-export/`: 13 XML tables, TOC and export manifest.
+- `/tmp/rawcull-phase6-before-analysis-core.json`, `-analysis-causes.json`,
+  `-analysis-updates.json`: derived detailed findings.
+- `/tmp/rawcull-phase6-export-selected.py`, `-analyze.py`, `-analyze-ui.py`,
+  `-analyze-updates.py`: the exact export/analysis procedures.
+- Matching logs use `/tmp/rawcull-phase6-*.log`.
+
+The procedure uses `Scripts/ExportCatalogTrace.py` with Run 1 and the archived
+phase 5 normal benchmark as context only; it is not a same-run catalog benchmark.
+Source/log/symbolication and uncollected lanes cannot be recovered by exporting.
+A durable external archive of these new exports/analysis is still pending; do
+not delete the temporary evidence before archiving. The original trace is kept
+in Downloads. Earlier setup paths below are historical and may no longer exist
+following reboot/cleanup. In particular, they do not describe the current UI or
+running processes.
+
+
+
+## Historical setup before the user capture
 
 Built RawCull with project defaults, Release, arm64, pinned packages restored in
 phase 5. The build succeeded:
@@ -53,7 +174,7 @@ collection is not established as clean. If the app is restarted, the PID changes
 verify the executable path again before recording. Do not select the older
 `/Applications/RawCull.app` merely because it has the same name.
 
-## Recording failure investigation
+## Historical recording failure investigation
 
 | Smoke | Target identity | Result |
 | --- | --- | --- |
@@ -100,7 +221,7 @@ collection, full recording completeness or catalog phase alignment. Acceptance
 criteria remain open. No log-store reset, permission change or speculative
 application workaround was performed.
 
-## Next user capture — interactive diagnostic baseline
+## Historical recording handoff (superseded by the results above)
 
 Leave the prepared RawCull and Instruments windows open; **do not quit RawCull**.
 The currently prepared target is the verified running process, so this capture
@@ -137,7 +258,7 @@ The existing disk cache is left intact. A controlled cold run, cancellation/
 catalog-switch checks and a repeat/after capture are later steps; this first
 interactive recording is not a substitute for all phase 6 exit criteria.
 
-## Evidence retained locally
+## Historical setup evidence (paths may no longer exist)
 
 - `/tmp/rawcull-phase6-ui-smoke.trace`, `-ui-smoke-record.log`,
   `-ui-smoke-export/`, `-ui-smoke-export.log`: first failed CLI trace/export.

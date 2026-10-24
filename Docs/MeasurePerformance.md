@@ -347,5 +347,7 @@ The fatal logging-archive error is reproducible even in a GUI recording attached
 to the current Release process with Hangs removed. Preserve the trace and error;
 validate surviving CPU/UI/hitch/thread lanes independently. Do not treat valid
 XML as proof of complete logging or signpost phase alignment, and do not discard
-all surviving data solely because one stream failed. Annotated interactive data
-is pending; phase 6 remains in progress and no new performance gain is claimed.
+all surviving data solely because one stream failed. The user
+interactive capture is now analyzed in [phase 6](PerformancePhase6.md). The
+optimization is deferred, acceptance limits remain explicit, and no new
+performance gain is claimed.
