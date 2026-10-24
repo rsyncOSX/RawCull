@@ -10,6 +10,15 @@ import Foundation
 import OSLog
 
 actor ScanAndCreateThumbnails {
+    nonisolated struct Measurement: Sendable {
+        let phase: String
+        let source: URL
+        let start: Double
+        let end: Double
+        let succeeded: Bool
+    }
+
+    private let measure: (@Sendable (Measurement) async -> Void)?
     // MARK: - Isolated State
 
     private var successCount = 0
@@ -40,6 +49,7 @@ actor ScanAndCreateThumbnails {
         config _: CacheConfig? = nil,
         diskCache: DiskCacheManager? = nil,
         rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
+        measure: (@Sendable (Measurement) async -> Void)? = nil,
         saveToDisk: (@Sendable (Data, ThumbnailCacheKey) async -> Void)? = nil,
     ) {
         Logger.process.debugMessageOnly("ScanAndCreateThumbnails.init()")
@@ -49,6 +59,7 @@ actor ScanAndCreateThumbnails {
             await resolvedDiskCache.save(data, for: key)
         }
         self.rawLoader = rawLoader
+        self.measure = measure
         // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
 
@@ -91,6 +102,10 @@ actor ScanAndCreateThumbnails {
 
     @discardableResult
     func preloadCatalog(at catalogURL: URL, targetSize: Int) async -> Int {
+        let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "CatalogPerformance")
+        let signpostID = signposter.makeSignpostID()
+        let interval = signposter.beginInterval("CatalogThumbnailPreload", id: signpostID, "pixels=\(targetSize, privacy: .public)")
+        defer { signposter.endInterval("CatalogThumbnailPreload", interval) }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [catalogURL])
         Logger.process.debugMessageOnly("ScanAndCreateThumbnails.preloadCatalog()")
         await ensureReady()
@@ -157,6 +172,10 @@ actor ScanAndCreateThumbnails {
         if preloadTask == task {
             preloadTask = nil
         }
+        signposter.emitEvent(
+            "CatalogThumbnailPreloadComplete", id: signpostID,
+            "prepared=\(result, privacy: .public) pixels=\(targetSize, privacy: .public)",
+        )
         return result
     }
 
@@ -180,7 +199,7 @@ actor ScanAndCreateThumbnails {
 
         // A. Check RAM
         if let previewKey, let wrapper = SharedMemoryCache.shared.object(forKey: previewKey) {
-            _ = storeInGridCache(wrapper.image, for: gridKey)
+            await prepareGrid(wrapper.image, for: gridKey, sourceURL: url)
             // Do not re-admit to memoryCache: object(forKey:) already touched
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
@@ -198,7 +217,7 @@ actor ScanAndCreateThumbnails {
             // RequestThumbnail (its branch B promotes on user-driven hits)
             // keeps LRU ordering aligned with UI traffic and prevents
             // scan-driven evictions from boomeranging UI-active items.
-            _ = storeInGridCache(diskImage, for: gridKey)
+            await prepareGrid(diskImage, for: gridKey, sourceURL: url)
             recordCompletion(succeeded: true)
             return nil
         }
@@ -237,7 +256,7 @@ actor ScanAndCreateThumbnails {
             requestedPixelSize: targetSize,
         )
         if sourceStillMatches {
-            _ = storeInGridCache(image, for: gridKey, source: cgImage)
+            await prepareGrid(image, for: gridKey, source: cgImage, sourceURL: url)
         }
         recordCompletion(succeeded: true)
 
@@ -247,12 +266,19 @@ actor ScanAndCreateThumbnails {
         // `Data` is Sendable; `CGImage` is not.
         guard !Task.isCancelled,
               sourceStillMatches,
-              let previewKey,
-              let jpegData = DiskCacheManager.jpegData(from: cgImage)
+              let previewKey
         else {
             // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
             return nil
         }
+
+        let encodeStart = ProcessInfo.processInfo.systemUptime
+        let jpegData = DiskCacheManager.jpegData(from: cgImage)
+        let encodeEnd = ProcessInfo.processInfo.systemUptime
+        await measure?(Measurement(
+            phase: "jpeg.encode", source: url, start: encodeStart, end: encodeEnd, succeeded: jpegData != nil,
+        ))
+        guard let jpegData else { return nil }
 
         return (jpegData, previewKey)
     }
@@ -294,6 +320,19 @@ actor ScanAndCreateThumbnails {
     }
 
     // MARK: - Cache Helpers
+
+    private func prepareGrid(_ image: NSImage, for key: ThumbnailCacheKey?, source: CGImage? = nil, sourceURL: URL) async {
+        // Record actual grid creation only, excluding hits and journal scheduling.
+        let shouldMeasure = measure != nil && key.map { SharedMemoryCache.shared.gridObject(forKey: $0) == nil } == true
+        let start = ProcessInfo.processInfo.systemUptime
+        let succeeded = storeInGridCache(image, for: key, source: source)
+        let end = ProcessInfo.processInfo.systemUptime
+        if shouldMeasure {
+            await measure?(Measurement(
+                phase: "grid.preloadResize", source: sourceURL, start: start, end: end, succeeded: succeeded,
+            ))
+        }
+    }
 
     private func recordCompletion(succeeded: Bool) {
         // Logger.process.debugMessageOnly("ScanAndCreateThumbnails.recordCompletion()")

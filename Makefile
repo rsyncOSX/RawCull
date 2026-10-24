@@ -318,3 +318,12 @@ open-debug:
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
 .PHONY: combinedreviewtest combinedselectiontest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+
+# Real ARW catalog benchmark. Output must be a new directory outside this checkout.
+# Example: make catalog-performance CATALOG="/Volumes/Photos/Catalog" PERF_ARGS='--output /tmp/rawcull-before'
+CATALOG ?=
+PERF_ARGS ?=
+.PHONY: catalog-performance
+catalog-performance:
+	@test -n "$(CATALOG)" || (echo 'Set CATALOG to a folder containing ARW files'; exit 1)
+	$(PYTHON) -B Scripts/RunCatalogPerformance.py "$(CATALOG)" $(PERF_ARGS)

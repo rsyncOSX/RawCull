@@ -88,6 +88,9 @@ extension RawCullViewModel {
     }
 
     func handleSourceChange(url: URL) async {
+        let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "CatalogPerformance")
+        let interval = signposter.beginInterval("CatalogOpen", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("CatalogOpen", interval) }
         Logger.process.debugMessageOnly("RawCullViewModel.handleSourceChange()")
         guard isActiveCatalogLoad(url) else { return }
         scanning = true

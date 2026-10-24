@@ -100,6 +100,9 @@ actor ScanFiles {
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil,
     ) async -> [FileItem] {
+        let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "CatalogPerformance")
+        let interval = signposter.beginInterval("CatalogMetadataScan", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("CatalogMetadataScan", interval) }
         Logger.process.debugMessageOnly("ScanFiles.scanFiles()")
         let didStartSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
