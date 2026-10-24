@@ -301,3 +301,33 @@ completion metadata; the trace itself does not identify the catalog paths or
 explicitly label cancellation. Keep the written action notes with it. This closes
 the observed switching pairing check; it does not establish UI correctness or
 remove the phase 2 SwiftUI/hitch measurement limitation.
+
+
+## Optional source-load latency diagnostics (phase 5)
+
+Use `Scripts/RunCatalogPerformance.py --source-diagnostics` with a new output
+directory to capture adapter-stage timing and `RawSourceLoad` UUID/file
+signposts. Normal app use does not enable this path. Diagnostic run settings
+prevent comparison with normal baselines; the updated harness fingerprint also
+requires a compatible new baseline. Preserve `events.jsonl` and the separate
+cancellation journal, then analyze with:
+
+```sh
+python3 -B Scripts/AnalyzeSourceLoadDiagnostics.py /path/to/diagnostic-output
+```
+
+The parser roundtrip includes private actor/limiter waits, scheduling, native I/O
+and decode. It is not decode CPU time. The journal preserves original monotonic
+timestamps and its clock origin before reporting waits. The analyzer joins by
+operation, filename and containing interval, keeping cancelled calls separate.
+No source event is converted into an ordinary required benchmark phase.
+The runner forces diagnostics off unless explicitly requested, including when an
+opt-in flag is inherited from the shell. See [phase 5](PerformancePhase5.md) for
+validated commands, measurements, source identities and unresolved limits.
+
+For cause-level attribution, collect thread-state and file-I/O evidence in that
+same diagnostic run and correlate UUID/file/time boundaries. Validate the new
+signpost category in a smoke recording first; phase 5 compiled/emitted it but did
+not validate an Instruments capture. A different recording's slow read cannot
+explain the benchmark's named outlier. Prepared warm browsing does not measure
+cold interactive-source contention alongside cold preload.

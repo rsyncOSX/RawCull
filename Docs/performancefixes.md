@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–4 investigated with optimizations deferred; phases 5–7 pending**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–5 investigated with optimizations deferred; phases 6–7 pending**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -312,6 +312,40 @@ Validation and exit criteria:
 - If no application fix is justified, commit diagnostic/reporting improvements and defer the optimization explicitly.
 
 Commit: `perf: diagnose and address catalog decode latency outliers` (adjust to `test:` or `docs:` if only diagnostics/findings are retained).
+
+### Phase 5 results — 24 October 2026
+
+**Diagnostic investigation closed; production optimization deferred.** Retained
+opt-in source adapter timestamps and UUID/file signposts, separate JSONL source
+records, a diagnostic runner flag with normal-mode isolation, and a containing-
+interval analysis that keeps cancellation separate. Default application behavior,
+concurrency limits, priorities and dependency implementations are unchanged.
+
+Three diagnostic and three normal-control repetitions on the original 809 ARWs,
+1616 pixels and 100 browsing steps pass all harness checks. All 2,487 ordinary
+diagnostic source records succeed and match outer metrics; nine cancellation
+records remain separately classified. Fifteen diagnostic preload calls exceed
+one second (maximum 3.192 s); at least 99.995% of each adapter delay is inside the
+RawParserKit API round trip. Adapter work outside it is at most 0.068 ms and the
+outer timer adds at most 0.074 ms for these outliers. They affect 15 different
+files, each loading in 11.496–36.819 ms in the other repetitions. Normal controls
+also reproduce outliers. No stable slow file or application-side access/reporting
+cause is established for these events.
+
+The parser span combines internal scheduling, actor/limiter waits, I/O and decode;
+no same-run thread-state/syscall capture separates them. Cold interactive
+contention remains unmeasured: the existing concurrent browse workload is warm.
+No concurrency/priority fix or dependency rewrite is justified, and no speedup is
+claimed. Diagnostic overhead is explicitly labelled; the sequential controls do
+not establish a causal overhead percentage. See [the phase 5 report](PerformancePhase5.md).
+
+All 31 Python checks, five focused Swift report tests, optimized builds and diff
+checks pass. Final lint has only verified pre-existing identifier/complexity
+findings; it is not a clean repository-wide result. Complete captured source
+fingerprints and the matching app/dSYM are retained locally. Diagnostic
+implementation: `0b1efff7`. User-approved, checksum/inventory-verified archive:
+`/Volumes/MacMini4/TestRunPerformance/phase5-source-load-investigation-2026-10-24`.
+No Instruments recording is required from the user for this defer decision.
 
 ## Phase 6 — Address remaining startup, picker, browsing and zoom hitches
 
