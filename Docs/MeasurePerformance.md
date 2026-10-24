@@ -197,3 +197,107 @@ python3 -B Scripts/RunCatalogPerformance.py "$CATALOG" \
 An optional `--max-regression-percent 20` fails when a measured median increases by more than 20% and more than 5 ms. p95/worst remain diagnostic; three repetitions do not establish a strong tail distribution. Instrumentation/harness changes require a fresh baseline. Record the optimized app again with the same Instruments setup and export it to a different directory.
 
 See [CatalogPerformance.md](CatalogPerformance.md) for detailed benchmark semantics and correctness checks.
+
+## Phase 1 exporter diagnostics
+
+Before a full recording, save a short Release smoke trace to a **new** path.
+In the os_signpost instrument, enable the `no.blogspot.RawCull` subsystem and
+`CatalogPerformance` category (check process and signpost filters). Open a small
+catalog after recording starts. Verify `CatalogOpen`, `CatalogMetadataScan`,
+`CatalogThumbnailPreload`, and `CatalogThumbnailPreloadComplete` in the timeline,
+including `pixels` and `prepared` metadata. Repeat cancellation and catalog
+replacement and check that each started interval ends under its own signpost ID.
+If tables remain empty, inspect instrument configuration before changing emission.
+Binary strings establish instrumentation presence, not successful collection.
+
+The exporter now records `phase_alignment.signpost_status` as `missing_schema`,
+`empty_data`, or `exported_nonempty`. An exported document can be valid while
+phase alignment is unavailable. Nonempty rows may belong to unrelated signposts;
+`ready` remains false until a separate recording review verifies catalog names,
+interval pairing and completion metadata. Retain that review alongside the manifest.
+
+Each profiler view retains all TOC attributes and its own XML document. A
+streaming, disk-backed reference index computes ordered sample and weight
+fingerprints without retaining the XML reference graph in memory. Identical
+resolved sample sequences with differing weights produce a warning; views are
+never merged or automatically selected. These fingerprints detect identical
+ordered views, not partially overlapping samples. Forward or missing references
+fail validation explicitly. XML fingerprints are diagnostics, not CPU estimates.
+Use recorded weight values and units for analysis; validate any chosen view
+against the recording's sampling configuration and independent thread running
+intervals. Until resolved, report relative shares and qualify absolute CPU values.
+The temporary reference database requires disk space proportional to unique IDs.
+
+`swiftui-update-groups` is exported by default when present. Its row count counts
+groups; `swiftui-updates` counts primary events, whose body-update subset must be
+classified separately. Do not add these counts together.
+
+For this baseline, preserved inputs are under
+`/Volumes/MacMini4/TestRunPerformance/firstrun/tmp/` and the trace is under
+`/Volumes/MacMini4/TestRunPerformance/firstrun/Downloads/`. Export to a fresh
+location, never into that archive. The installed `/Applications/RawCull.app`
+may lag the profiled build: check executable identity and instrumentation before
+attaching. Prefer launching the explicit Release executable over attaching by name.
+
+On Xcode 27.1, inspect `xcrun xctrace record --template MySwiftUI --show-recording-options`.
+To enable collection, save its **complete** JSON, add `no.blogspot.RawCull` to
+`os_signpost.dynamicTracingEnabledSubsystems`, and pass the file with
+`--recording-options`. Partial objects can fail with a missing-data error. Save
+those options with the new trace; an empty subsystem list alone does not prove
+the historical cause. A recording with logging-stream errors is diagnostic
+failure evidence and cannot satisfy the smoke-test exit criterion.
+
+Validated smoke configuration (24 October): Xcode Profile of the DerivedData
+Release app, Blank template plus os_signpost, Immediate mode, enabled subsystem
+`no.blogspot.RawCull`. The completed smoke trace contains balanced catalog
+intervals and `prepared=809 pixels=1616`. A yellow warning about backdated
+intervals appearing only after Stop is distinct from the fatal log-archive error;
+inspect the stopped trace before declaring missing intervals. Save this setup
+and retain Immediate mode for subsequent correlated captures, recording the mode
+as part of provenance. Cancellation and catalog-switch pairing still need checking.
+
+The combined os_signpost/Hangs/Time Profiler/SwiftUI/Hitches setup disables
+Immediate mode in the user's Instruments 27.1. A 40.7-second Deferred trial
+reproduced the fatal logging archive error and exported zero signpost rows,
+while CPU samples survived. Do not assume the successful Immediate-only smoke
+configuration works with the full set. Check availability of Immediate mode in
+a smaller instrument subset before further recording. Do not use phase timings
+from separate recordings to align CPU/SwiftUI windows.
+
+### Repeatable signpost pairing validation
+
+The working combined subset is Time Profiler plus os_signpost in Immediate mode,
+standard sampling, enabled subsystem `no.blogspot.RawCull`. Complete warm/cold
+captures contain CPU samples and balanced catalog intervals. Raw event XML must
+be exported independently for the selected table index from its TOC; indices vary
+between traces. Do not use modeled intervals for the following check:
+
+```sh
+python3 -B Scripts/ValidateCatalogSignposts.py /absolute/path/raw-os-signpost.xml
+```
+
+The checker resolves references with a disk-backed index, filters the RawCull
+catalog category, sorts its events by timestamp, pairs Begin/End by process,
+scope, identifier and name, and checks completion pixels/prepared metadata.
+Exit 0 means the exported events pair correctly; exit 1 reports missing,
+truncated, duplicated or malformed data. It intentionally accepts partial prepared
+counts after cancellation. It does not infer cancellation from such a count,
+prove that UI callbacks are current, or label unrelated SwiftUI events by timing
+from another recording. Use the dynamic-subsystem table containing RawCull events;
+empty sibling os-signpost views may coexist in the same trace.
+
+For cancellation/switch validation, record selecting a replacement catalog during
+preparation with caches unchanged, allow all cancelled work to drain and the new
+load to finish, then stop. Record the action sequence separately: the current
+signposts do not carry catalog URL identity. A balanced normal load alone does
+not establish this path was exercised. Do not quit the app to simulate cancellation;
+process termination cannot execute deferred interval cleanup.
+
+Phase 1 evidence archive: `/Volumes/MacMini4/TestRunPerformance/phase1-2026-10-24`.
+It includes complete warm/cold/switch CPU-signpost traces/exports and the failing
+Deferred trial, plus the matching Release binary/dSYM and checksum inventory.
+The switch trace passes pairing for both overlapping catalog loads, including
+completion metadata; the trace itself does not identify the catalog paths or
+explicitly label cancellation. Keep the written action notes with it. This closes
+the observed switching pairing check; it does not establish UI correctness or
+remove the phase 2 SwiftUI/hitch measurement limitation.

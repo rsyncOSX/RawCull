@@ -97,6 +97,7 @@
 
 /* Begin PBXFileReference section */
 		01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputProbe.swift; sourceTree = SOURCE_ROOT; };
+		0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullPerformanceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Main/RawCullFileItem.swift; sourceTree = SOURCE_ROOT; };
 		17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift; sourceTree = SOURCE_ROOT; };
 		19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenGenerationGate.swift; sourceTree = SOURCE_ROOT; };
@@ -131,7 +132,6 @@
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
-		0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullPerformanceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -145,6 +145,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		1D47D4FAAC09560099E29D11 /* RawCullPerformanceTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RawCullPerformanceTests;
+			sourceTree = "<group>";
+		};
 		E90B07A42F1E58EA00A95D4A /* RawCull */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RawCull;
@@ -153,11 +158,6 @@
 		E95355DE2F33B70A006C2851 /* RawCullTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RawCullTests;
-			sourceTree = "<group>";
-		};
-		1D47D4FAAC09560099E29D11 /* RawCullPerformanceTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RawCullPerformanceTests;
 			sourceTree = "<group>";
 		};
 		E9D000062F34000000000006 /* RawCullModelDownloader */ = {
@@ -187,6 +187,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		78601F376204583CBF228816 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E90B079F2F1E58EA00A95D4A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -210,13 +217,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E95355DA2F33B70A006C2851 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		78601F376204583CBF228816 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -335,6 +335,29 @@
 			productReference = 290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		9FAB7C07ACB05E92962C9732 /* RawCullPerformanceTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 31F93F35C5DF543995B89F3D /* Build configuration list for PBXNativeTarget "RawCullPerformanceTests" */;
+			buildPhases = (
+				ABE729B93C0C5FDA989914B1 /* Sources */,
+				78601F376204583CBF228816 /* Frameworks */,
+				BAB764BFC24752428E765ECE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E95355E22F33B70A006C2851 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1D47D4FAAC09560099E29D11 /* RawCullPerformanceTests */,
+			);
+			name = RawCullPerformanceTests;
+			packageProductDependencies = (
+			);
+			productName = RawCullPerformanceTests;
+			productReference = 0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		E90B07A12F1E58EA00A95D4A /* RawCull */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E90B07AD2F1E58EB00A95D4A /* Build configuration list for PBXNativeTarget "RawCull" */;
@@ -395,29 +418,6 @@
 			);
 			productName = RawCullTests;
 			productReference = E95355DD2F33B70A006C2851 /* RawCullTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		9FAB7C07ACB05E92962C9732 /* RawCullPerformanceTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 31F93F35C5DF543995B89F3D /* Build configuration list for PBXNativeTarget "RawCullPerformanceTests" */;
-			buildPhases = (
-				ABE729B93C0C5FDA989914B1 /* Sources */,
-				78601F376204583CBF228816 /* Frameworks */,
-				BAB764BFC24752428E765ECE /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E95355E22F33B70A006C2851 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				1D47D4FAAC09560099E29D11 /* RawCullPerformanceTests */,
-			);
-			name = RawCullPerformanceTests;
-			packageProductDependencies = (
-			);
-			productName = RawCullPerformanceTests;
-			productReference = 0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		E9D000092F34000000000009 /* RawCullModelDownloader */ = {
@@ -506,6 +506,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BAB764BFC24752428E765ECE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E90B07A02F1E58EA00A95D4A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -522,13 +529,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BAB764BFC24752428E765ECE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		E9D0000A2F3400000000000A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -539,6 +539,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		ABE729B93C0C5FDA989914B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E90B079E2F1E58EA00A95D4A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -547,13 +554,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E95355D92F33B70A006C2851 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		ABE729B93C0C5FDA989914B1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -652,6 +652,37 @@
 				SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES;
 				SWIFT_VERSION = 6.0;
 				TEST_HOST = "";
+			};
+			name = Release;
+		};
+		66303AFCED515242A5624A44 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = RawCullPerformanceTests;
+			};
+			name = AppStore;
+		};
+		D6281DA7A2255043AA87CA14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = myapp.RawCullPerformanceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCull.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RawCull";
 			};
 			name = Release;
 		};
@@ -928,31 +959,6 @@
 			};
 			name = Debug;
 		};
-		FE31246AC2AF5C41B9D6A7CF /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 93M47F4H9T;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = myapp.RawCullPerformanceTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCull.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RawCull";
-			};
-			name = Debug;
-		};
 		E95355E42F33B70A006C2851 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -977,41 +983,10 @@
 			};
 			name = Release;
 		};
-		D6281DA7A2255043AA87CA14 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 93M47F4H9T;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = myapp.RawCullPerformanceTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCull.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RawCull";
-			};
-			name = Release;
-		};
 		E95FC3EC305BB5FC0048A4EE /* AppStore */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = RawCullTests;
-			};
-			name = AppStore;
-		};
-		66303AFCED515242A5624A44 /* AppStore */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = RawCullPerformanceTests;
 			};
 			name = AppStore;
 		};
@@ -1259,6 +1234,31 @@
 			};
 			name = Debug;
 		};
+		FE31246AC2AF5C41B9D6A7CF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = myapp.RawCullPerformanceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RawCull.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RawCull";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1268,6 +1268,16 @@
 				FD42ABBDF326531384EE876C /* Debug */,
 				2D3BAB01F616531AB628850A /* Release */,
 				0BDBF3497F5F5C97A3B0DC72 /* AppStore */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		31F93F35C5DF543995B89F3D /* Build configuration list for PBXNativeTarget "RawCullPerformanceTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE31246AC2AF5C41B9D6A7CF /* Debug */,
+				D6281DA7A2255043AA87CA14 /* Release */,
+				66303AFCED515242A5624A44 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1298,16 +1308,6 @@
 				E95355E32F33B70A006C2851 /* Debug */,
 				E95355E42F33B70A006C2851 /* Release */,
 				E95FC3EC305BB5FC0048A4EE /* AppStore */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		31F93F35C5DF543995B89F3D /* Build configuration list for PBXNativeTarget "RawCullPerformanceTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FE31246AC2AF5C41B9D6A7CF /* Debug */,
-				D6281DA7A2255043AA87CA14 /* Release */,
-				66303AFCED515242A5624A44 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
