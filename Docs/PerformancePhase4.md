@@ -135,13 +135,11 @@ A future recording should target an explicit remaining hypothesis and distinguis
 materialization from resampling rather than infer them from the current label.
 
 Diagnostic implementation: `61f661a9`.
-Evidence archive **pending explicit user approval**:
+Evidence archive:
 `/Volumes/MacMini4/TestRunPerformance/phase4-grid-investigation-2026-10-24`.
-Automatic approval review rejected copying source, binary and evidence to this
-external volume without specific payload/destination authorization. No archive
-was created. Raw trials and phase summary remain at the `/tmp` paths above;
-the diagnostic executable is `/tmp/rawcull-grid-diagnostic`. Preserve them until
-a durable archive is approved. Source and findings are retained in Git. The
-planned archive should retain these files with source identity and checksums,
-and reference the existing phase 3 baseline rather than duplicate it.
-No historical evidence was removed. Phase 5 has not started.
+The user explicitly approved this payload and destination after automatic review
+initially blocked the copy. Diagnostic sources, executable, three raw trials,
+phase summary and reports are copied with matching SHA-256 checksums. The input
+manifest fingerprints the existing phase 3 results and 809 cached JPEGs rather
+than duplicating that archive. No historical evidence was removed.
+Phase 5 has not started.

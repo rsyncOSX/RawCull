@@ -285,10 +285,9 @@ phase 3 baseline, not a fresh run. Manual scrolling, pressure, multiple-catalog 
 visual acceptance remain outstanding; no new Instruments capture is needed to
 reject this alternative. See [the phase 4 report](PerformancePhase4.md).
 
-Diagnostic implementation: `61f661a9`. External evidence archive pending explicit
-user approval (automatic approval review blocked the copy):
+Diagnostic implementation: `61f661a9`. User-approved evidence archive, with
+matching copy checksums and existing input fingerprints:
 `/Volumes/MacMini4/TestRunPerformance/phase4-grid-investigation-2026-10-24`.
-Raw diagnostic trials and phase summary remain in `/tmp`; see the report before cleanup.
 
 ## Phase 5 — Diagnose and address source-load latency outliers
 
