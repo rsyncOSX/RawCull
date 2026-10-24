@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ProgressCount: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let completed: Int
     let total: Int
     let estimatedSeconds: Int // seconds to completion
@@ -47,12 +48,11 @@ struct ProgressCount: View {
                             ),
                         )
                         .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: completed)
+                        .animation(reduceMotion ? nil : .linear(duration: 0.1), value: completed)
                 }
 
                 Text("\(completed)")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .contentTransition(.numericText(countsDown: false))
             }
             .frame(width: 60, height: 60)
 
@@ -71,7 +71,6 @@ struct ProgressCount: View {
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
         .cornerRadius(6)
-        .animation(.default, value: completed)
         .onAppear {
             updateDisplayedEstimatedSeconds(estimatedSeconds)
         }
