@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–5 investigated with optimizations deferred; phases 6–7 pending**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–5 investigated with optimizations deferred; phase 6 in progress (interactive UI capture pending); phase 7 pending**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -367,6 +367,25 @@ Validation and exit criteria:
 - No new hangs, stale views or delayed first visible images. Do not use zero detected hangs as the smoothness criterion.
 
 Commit: `perf: reduce measured catalog and preview UI hitches` (name the actual retained change more specifically).
+
+### Phase 6 progress — 24 October 2026
+
+**In progress; not complete.** Prepared a project-default Release build and
+verified its actual process path, PID and app/dSYM identity. Active app settings
+show 1616-pixel previews and zoom sharpening off; cache state is left as-is.
+Three CLI smoke configurations reproduce the fatal logging-archive error, but
+those launch attempts resolved the supplied .app path to the older installed
+app. They are recording-failure evidence, not current-code measurements.
+A GUI smoke attached to the verified workspace process reproduces the same error.
+Some CPU/hitch/thread data survives; that does not establish intact log collection
+or catalog phase alignment. No application optimization is made or claimed.
+
+Instruments is prepared for a diagnostic interactive run with SwiftUI, Hitches,
+Time Profiler and Thread Activity on the correct process. User action timestamps
+and an actual picker/catalog/browse/zoom sequence are needed next. Logging errors
+must be reported and the trace preserved for lane-by-lane validation. Startup,
+cold/cancel/switch checks, controlled comparisons and phase 2's outstanding UI
+acceptance remain open. See [the phase 6 recording handoff](PerformancePhase6.md).
 
 ## Phase 7 — Final comparison and reproducible handoff
 
