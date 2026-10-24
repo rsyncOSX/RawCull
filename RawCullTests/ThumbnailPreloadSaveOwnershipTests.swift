@@ -116,13 +116,13 @@ struct ThumbnailPreloadSaveOwnershipTests {
             ))] = source
         }
         let resolvedSources = sourceByKey
-        let provider = ScanAndCreateThumbnails(diskCache: disk, rawLoader: loader) { data, key in
+        let provider = ScanAndCreateThumbnails(diskCache: disk, rawLoader: loader, saveToDisk: { data, key in
             guard let source = resolvedSources[key] else {
                 Issue.record("Unexpected cache key")
                 return
             }
             await saves.save(data, key: key, diskCache: disk, source: source)
-        }
+        })
         let preload = Task {
             let count = await provider.preloadCatalog(at: catalog, targetSize: 256)
             await saves.markPreloadReturned()
@@ -150,6 +150,9 @@ struct ThumbnailPreloadSaveOwnershipTests {
         let processed = await preload.value
         let expectedCount = cancel ? limit : sources.count
         #expect(processed == expectedCount)
+        let progress = await provider.progressCounts()
+        #expect(progress.completed == expectedCount)
+        #expect(progress.total == sources.count)
         #expect(await loader.calls == expectedCount)
         #expect(await saves.finished == expectedCount)
         #expect(await saves.peak <= limit)

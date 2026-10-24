@@ -179,6 +179,11 @@ actor ScanAndCreateThumbnails {
         return result
     }
 
+    /// Exact accounting after preload drains; independent of queued UI notifications.
+    func progressCounts() -> (completed: Int, total: Int) {
+        (completedCount, totalFilesToProcess)
+    }
+
     // MARK: - Single File Processing
 
     private func processSingleFile(

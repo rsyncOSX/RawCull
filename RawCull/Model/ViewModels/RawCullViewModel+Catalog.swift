@@ -59,6 +59,10 @@ extension RawCullViewModel {
     }
 
     private func cancelCurrentCatalogLoad() {
+        metadataProgress?.cancel()
+        metadataProgress = nil
+        thumbnailProgress?.cancel()
+        thumbnailProgress = nil
         CombinedReviewLease.shared.invalidate()
         sortGeneration &+= 1
         isSorting = false
@@ -92,7 +96,7 @@ extension RawCullViewModel {
         let interval = signposter.beginInterval("CatalogOpen", id: signposter.makeSignpostID())
         defer { signposter.endInterval("CatalogOpen", interval) }
         Logger.process.debugMessageOnly("RawCullViewModel.handleSourceChange()")
-        guard isActiveCatalogLoad(url) else { return }
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         scanning = true
         scanDiscoveredCount = 0
 
@@ -102,15 +106,23 @@ extension RawCullViewModel {
         ratingFilter = .all
         burstReviewQueueFilter = .all
 
+        let metadata = CatalogProgressCoalescer(initial: 0) { [weak self] count in
+            guard let self, self.isActiveCatalogLoad(url) else { return }
+            self.scanDiscoveredCount = count
+        }
+        metadataProgress = metadata
+        metadata.update(immediately: true) { $0 = 0 }
         let scan = ScanFiles()
         let scannedFiles = await scan.scanFiles(
             url: url,
             onProgress: { [weak self] count in
                 guard let self, self.isActiveCatalogLoad(url) else { return }
-                self.scanDiscoveredCount = count
+                metadata.update { $0 = max($0, count) }
             },
         )
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        metadata.finish()
+        metadataProgress = nil
 
         // Map raw decoded data → FocusPointsModel here on @MainActor
         if let raw = await scan.decodedFocusPoints {
@@ -162,53 +174,83 @@ extension RawCullViewModel {
             preloadedAFPointScores: sharpnessModel.afPointScores,
         )
 
-        if !processedURLs.contains(url) {
-            let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
-            let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
-
-            let handlers = CreateFileHandlers().createFileHandlers(
-                fileHandler: { [weak self] update in
-                    guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.fileHandler(update)
-                },
-                maxfilesHandler: { [weak self] maxfiles in
-                    guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.maxfilesHandler(maxfiles)
-                },
-                estimatedTimeHandler: { [weak self] seconds in
-                    guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.estimatedTimeHandler(seconds)
-                },
-                memorypressurewarning: { [weak self] warning in
-                    guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.setMemoryPressureWarning(warning)
-                },
-                onExtractionNeeded: { [weak self] in
-                    guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.extractionNeeded()
-                },
-            )
-
-            let scanAndCreateThumbnails = ScanAndCreateThumbnails()
-            await scanAndCreateThumbnails.setFileHandlers(handlers)
-            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-            currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
-
-            preloadTask = Task {
-                await scanAndCreateThumbnails.preloadCatalog(
-                    at: url,
-                    targetSize: thumbnailSizePreview,
-                )
-            }
-
-            await preloadTask?.value
-            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-            processedURLs.insert(url)
-            isCreatingThumbnails = false
-            currentScanAndCreateThumbnailsActor = nil
-        }
+        await prepareCatalogThumbnails(at: url)
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         catalogLifecycle.finishLoad(for: url)
+    }
+
+    private func prepareCatalogThumbnails(at url: URL) async {
+        guard !processedURLs.contains(url) else { return }
+        let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
+
+        let progress = CatalogProgressCoalescer(initial: CatalogThumbnailProgress()) { [weak self] value in
+            guard let self, self.isActiveCatalogLoad(url) else { return }
+            self.fileOperationCompleted = value.completed
+            self.fileOperationTotal = value.total
+            self.fileOperationEstimatedSeconds = value.estimatedSeconds
+        }
+        thumbnailProgress = progress
+        progress.update(immediately: true) { _ in }
+        let handlers = makeCatalogThumbnailHandlers(progress: progress)
+
+        let scanAndCreateThumbnails = ScanAndCreateThumbnails()
+        await scanAndCreateThumbnails.setFileHandlers(handlers)
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
+
+        preloadTask = Task {
+            await scanAndCreateThumbnails.preloadCatalog(
+                at: url,
+                targetSize: thumbnailSizePreview,
+            )
+        }
+
+        await preloadTask?.value
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        // Fire-and-forget per-file callbacks may still be queued. Read the
+        // actor's accounting after drain, publish once, then reject late callbacks.
+        let counts = await scanAndCreateThumbnails.progressCounts()
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        progress.finish {
+            $0.completed = counts.completed
+            $0.total = counts.total
+            $0.estimatedSeconds = 0
+        }
+        thumbnailProgress = nil
+        processedURLs.insert(url)
+        isCreatingThumbnails = false
+        currentScanAndCreateThumbnailsActor = nil
+    }
+
+    private func makeCatalogThumbnailHandlers(
+        progress: CatalogProgressCoalescer<CatalogThumbnailProgress>,
+    ) -> FileHandlers {
+        CreateFileHandlers().createFileHandlers(
+            fileHandler: { [weak self] update in
+                guard self?.thumbnailProgress === progress else { return }
+                let isTerminal = progress.latest.total > 0 && update >= progress.latest.total
+                progress.update(immediately: isTerminal) { $0.completed = max($0.completed, update) }
+            },
+            maxfilesHandler: { [weak self] maxfiles in
+                guard self?.thumbnailProgress === progress else { return }
+                progress.update(immediately: true) { $0.total = maxfiles }
+            },
+            estimatedTimeHandler: { [weak self] seconds in
+                guard self?.thumbnailProgress === progress else { return }
+                progress.update { $0.estimatedSeconds = seconds }
+            },
+            memorypressurewarning: { [weak self] warning in
+                guard self?.thumbnailProgress === progress else { return }
+                self?.setMemoryPressureWarning(warning)
+            },
+            onExtractionNeeded: { [weak self] in
+                guard self?.thumbnailProgress === progress else { return }
+                self?.extractionNeeded()
+            },
+        )
     }
 
     func handleSortOrderChange() async {
