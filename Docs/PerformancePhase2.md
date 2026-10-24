@@ -1,6 +1,6 @@
 # Phase 2 — progress publication experiment
 
-Status: progress coalescing retained after correctness checks and two after-captures; animation experiment remains deferred. Implementation recorded in `0cccc19c` and `649cea17`. The full original phase 2 UI/animation acceptance scope is not claimed complete.
+Status: progress coalescing retained after correctness checks and two after-captures; animation simplification is retained on sampled-work and manual evidence, with full UI/hitch acceptance still unavailable. Implementation recorded in `0cccc19c` and `649cea17`. The full original phase 2 UI/animation acceptance scope is not claimed complete.
 
 The historical trace showed repeated ProgressCount/Sidebar body updates and
 animation work. The first experiment changes only publication cadence, leaving
@@ -69,8 +69,8 @@ on success and cancellation; log `/tmp/rawcull-phase2-counts-tests.log`.
   context, not an after-result.
 - Resolve the SwiftUI/Deferred collection limitation or establish a documented
   comparable alternative before claiming reduced SwiftUI fan-out/hitches.
-- Evaluate animation simplification as a separate intervention, including Reduce
-  Motion, after publication-only evidence is available.
+- Confirm loading-time variation and accessibility behavior in later controlled
+  UI validation; the separate animation experiment is documented below.
 - The coalescing substep is retained as described below. Complete the remaining
   UI/animation scope before marking the full phase complete. No baseline is overwritten.
 
@@ -191,3 +191,87 @@ Derived comparison: `/tmp/rawcull-phase2-repeat-comparison.json`; script:
 `/Volumes/MacMini4/TestRunPerformance/phase2-publication-repeat-2026-10-24`.
 The first after-capture and its source/binary snapshot remain in
 `/Volumes/MacMini4/TestRunPerformance/phase2-publication-candidate-2026-10-24`.
+
+## Separate animation candidate (after the repeated coalescing comparison)
+
+The repeat results are committed as `0a635a49`. The following experiment changes
+only `ProgressCount.swift`: remove the parent-wide default animation and numeric
+content transition; replace the 600 ms spring with a 100 ms linear animation
+scoped to the ring, disabled when accessibilityReduceMotion is true. This aligns
+the transition length with the progress publication cadence and avoids animating
+frequently changing text. Publication code and decode/cache semantics are unchanged.
+
+Hypothesis: simpler, narrower animation reduces remaining progress-related work
+without impairing readable counts, completion or accessibility. This is an
+unmeasured candidate, not part of the already captured before/after results.
+SwiftLint and diff checks pass. The optimized Release build also passes; log:
+`/tmp/rawcull-phase2-animation-build.log`. No mirror unit tests are added for these
+view modifiers. Manual normal/Reduce Motion behavior and an otherwise comparable
+cold CPU/signpost capture are required before retention. The SwiftUI/hitch
+collection limitation still prevents direct frame-smoothness conclusions.
+
+## Animation capture and retention decision — 24 October, 15:22 Oslo
+
+User reported the visual check "seems OK", then recorded
+`~/Downloads/rawcull-phase2-animation-cold.trace`. TOC confirms Immediate,
+standard sampling, 43.761723 s; 37,022 CPU samples. Pairing validation passes
+all three catalog intervals; preload runs 11.857836958–32.075632000 s and
+completion records prepared=809 pixels=1616. Metadata duration 4.069469 s;
+catalog-open duration 24.854256 s. All nine exported documents parse independently
+and the manifest retains explicit missing-SwiftUI/hitch/wait-table warnings.
+The recorded RawCull UUID matches the current Release app and dSYM:
+3DC3A324-5FDC-362C-8493-BE1AEAB76988.
+
+| Preload measurement | Original | Coalescing 1 | Coalescing 2 | Coalescing + animation |
+| --- | ---: | ---: | ---: | ---: |
+| Wall time | 20.577 s | 19.138 s | 18.206 s | 20.218 s |
+| All-thread sampled weight | 34.545 s | 31.853 s | 30.551 s | 31.094 s |
+| Main-thread sampled weight | 4.575 s | 3.303 s | 3.026 s | 1.261 s |
+
+Interpretation: main-thread sampled weight is 58–62% below the two
+coalescing-only captures and 72% below the original capture. Total sampled
+weight is within the coalescing-only range. Preload wall time is **5.6–11.1%
+longer than coalescing-only**, and 1.7% below the original. This is not evidence
+of faster loading, and the longer readiness time relative to the intermediate
+captures must remain visible. The available tables cannot attribute that
+variation to storage, scheduling, animation or other causes. Metadata is similar
+in all captures. One animation capture is descriptive, not a repeatable latency
+or statistical conclusion.
+
+Decision: retain the narrowly scoped animation simplification for the observed
+main-thread work reduction and positive manual feedback, with the wall-time
+uncertainty explicitly recorded for phase 7 comparison. The final phase 2 code
+contains coalescing plus the ring-only 100 ms animation, immediate numeric text
+and Reduce Motion support. No pipeline/decode/cache semantics changed in the
+animation experiment. No smoother-frame, hitch or body-invocation-count claim
+is made. The user feedback did not separately enumerate every accessibility
+setting; Reduce Motion behavior is implemented by using nil animation when the
+system environment reports it.
+
+The implementation and CPU-based work experiment are retained, but the original
+full phase-scoped SwiftUI/hitch acceptance remains **incomplete** because that
+instrument set fails Deferred signpost collection. This is an explicitly deferred
+measurement requirement, not an assertion that all original exit criteria passed.
+No more identical CPU-only captures are requested now; they would not resolve
+that missing UI evidence. Do not start phase 3 silently on the basis of this
+partial acceptance.
+
+Release build passed (`/tmp/rawcull-phase2-animation-build.log`), changed-view
+SwiftLint has no source violations (existing analyzer configuration warnings),
+18 Python catalog tests pass and diff checks pass. The previously passing
+11 focused Swift tests cover the unchanged publication/pipeline behavior.
+No mirror test was added for these simple view modifiers.
+
+Comparison procedure: `/tmp/compare_rawcull_phase2_animation.py`; result:
+`/tmp/rawcull-phase2-animation-comparison.json`; event pairing:
+`/tmp/rawcull-phase2-animation-pairing.json`; full independent export package:
+`/tmp/rawcull-phase2-animation-reviewed-export`. Durable archive:
+`/Volumes/MacMini4/TestRunPerformance/phase2-animation-2026-10-24`, including
+trace, exports, comparison, view source, report, matching binary/dSYM and verified
+SHA-256 inventories. Historical source/trace archives remain unchanged.
+
+Animation implementation commit: `de0dbef8` (`perf: simplify progress animation
+and respect reduced motion`). Report/ledger update follows separately so this
+source hash can be recorded without a self-reference. The archive snapshot was
+verified before adding this Git provenance annotation; original artifacts were
+not changed.
