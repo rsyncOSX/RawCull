@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phase 0 complete per user; phase 1 in progress**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; SwiftUI collection limitation remains documented**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -265,7 +265,7 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 | Phase | Status | Commit | Evidence / decision |
 | --- | --- | --- | --- |
 | 0 — Preserve and reproduce | Complete (user confirmed) | — | Archive: `/Volumes/MacMini4/TestRunPerformance/firstrun` (user confirmed) |
-| 1 — Measurement visibility | In progress | — | Exporter diagnostics implemented and tested; fresh recording and full export validation pending |
+| 1 — Measurement visibility | Complete with documented UI limitation | `8b44df75` + close-out commit | Cold/warm/switch CPU + signposts validated and archived; SwiftUI correlation remains a phase 2 measurement prerequisite |
 | 2 — Progress publication/animation | Pending | — | Experiment required |
 | 3 — JPEG encoding | Pending | — | Experiment required |
 | 4 — Grid/warm preparation | Pending | — | Experiment required |
@@ -354,3 +354,194 @@ was moved outside the repository to `/tmp/rawcull-phase1-failed-launch.trace`.
 The earlier failed attachment is `/tmp/rawcull-phase1-smoke.trace`; complete
 recording options are `/tmp/rawcull-phase1-recording-options.json`. None of these
 is a valid replacement baseline. No recording/export process remains active.
+
+#### User-recorded Immediate smoke trace — 13:33 Oslo
+
+Saved trace: `/Users/thomas/Downloads/rawcull-phase1-signpost-smoke.trace`.
+Read-only TOC/interval/raw-event exports succeeded, retained at
+`/tmp/rawcull-phase1-user-smoke-{toc,intervals,events}.xml`.
+TOC confirms Immediate recording, explicit RawCull dynamic subsystem,
+DerivedData Release app path, PID 4940, duration 14.508992 s and user Stop.
+Catalog signposts are present: metadata begins at 5.187582 s and ends after
+4.027597 s. CatalogOpen begins at 5.187501 s but has a sentinel end-process;
+thumbnail preload begins at 9.780380 s with pixels=1616 and also has a sentinel
+end-process. Both modeled durations reach the recording boundary; these are
+incomplete intervals, not measured completed phase times. Raw dynamic-subsystem
+events contain no CatalogThumbnailPreloadComplete name. A longer Immediate run
+is required to capture full preparation and prepared-count completion metadata.
+The screenshot shows a yellow warning whose text remains unverified.
+This establishes a working collection configuration, not that Immediate mode
+alone caused the improvement. Phase 1 remains incomplete.
+
+#### Complete user smoke trace — 13:40 Oslo
+
+Validated `/Users/thomas/Downloads/rawcull-phase1-signpost-complete.trace` by
+independent TOC, interval and raw dynamic-signpost event exports to
+`/tmp/rawcull-phase1-complete-{toc,intervals,events}.xml`. TOC identifies the
+DerivedData Release app, PID 5306, Immediate mode and enabled RawCull subsystem.
+All three intervals have matching raw Begin/End events and IDs:
+
+| Interval | Start (s) | End (s) | Duration (s) |
+| --- | ---: | ---: | ---: |
+| CatalogOpen | 5.230207 | 16.162209 | 10.932002 |
+| CatalogMetadataScan | 5.230300 | 9.317921 | 4.087621 |
+| CatalogThumbnailPreload | 9.900918 | 16.162087 | 6.261169 |
+
+Completion event at 16.162040 s shares preload ID 0xf7 and records
+`prepared=809 pixels=1616`. Recording ends at 17.393850 s. This passes the normal
+success-path signpost smoke check; timings are diagnostic, not a speed comparison
+(cache conditions and instrument set differ). The user-shared yellow warning says
+backdated intervals are not visualized until Immediate recording stops; it does
+not report the previous fatal archive-reading failure. Successful collection is
+established for this configuration; no application instrumentation change is needed
+on this evidence. Cancellation/switch pairing and the full correlated recording
+remain to validate before phase 1 is complete.
+
+#### Combined Deferred trial — 13:58 Oslo
+
+User saved `/Users/thomas/Downloads/rawcull-phase1-deferred-trial.trace` and
+reported the fatal logging archive error again. Independently exported TOC,
+OSSignpostIntervals (table 35), dynamic RawCull os-signpost (table 8) and
+Time Profiler (table 13) to `/tmp/rawcull-phase1-deferred-trial-*.xml`.
+Recording is 40.742397 s, Deferred, enabled RawCull subsystem, standard profiler
+sampling, hang threshold 250 ms. XML documents parse; intervals and dynamic
+signposts both have zero rows, while Time Profiler has 46,514 rows. Thus the
+combined trial cannot support phase alignment, despite surviving CPU samples.
+Immediate mode is disabled by the combined instrument set (user screenshot).
+Do not request another identical combined Deferred run or clear caches for it.
+Next isolate an Immediate-compatible subset starting with os_signpost plus
+Time Profiler, checking mode availability before recording. Separate sessions
+cannot provide same-run CPU/SwiftUI phase correlation.
+
+#### Warm CPU + signposts Immediate trial — 14:05 Oslo
+
+Validated `/Users/thomas/Downloads/rawcull-phase1-cpu-signposts.trace` via
+independent TOC/interval/raw-event/CPU exports. Immediate mode; standard sampling;
+15.429780 s duration. CPU has 10,203 rows and passes resolved-reference
+fingerprinting. Intervals table has 4,537 rows; dynamic signpost events 9,413.
+Metadata completes from 6.070478 to 10.116750 s (4.046272 s). CatalogOpen
+starts 6.070397 s; preload starts 10.646612 s with pixels=1616. Both have sentinel
+end-process and no raw End or completion event before Stop. Thus simultaneous
+CPU/signpost collection works but this capture is truncated during preparation.
+Warm cache is user-reported, not independently proven. Retain it and repeat
+unchanged configuration/cache with a longer recording before any cold run.
+Derived evidence: `/tmp/rawcull-phase1-cpu-signposts-validation.json` and
+`/tmp/rawcull-phase1-cpu-signposts-{toc,intervals,events,cpu}.xml`.
+
+#### Complete warm CPU/signpost trial — 14:08 Oslo
+
+`~/Downloads/rawcull-phase1-cpu-signposts-complete.trace` validated: Immediate,
+60.990540 s, standard profiler sampling. Independent XML exports have 4,690
+interval rows, 9,768 dynamic signpost event rows and 11,050 CPU samples; profiler
+references resolve. All catalog Begin/End IDs balance: CatalogOpen 0x98 from
+4.980372 to 15.545556 s (10.565184 s); metadata 0x99 from 4.980444 to 8.959697 s
+(3.979253 s); preload 0xb4 from 9.498076 to 15.545405 s (6.047329 s).
+Completion at 15.545340 s records prepared=809 pixels=1616, same ID 0xb4.
+Warm cache is user-reported. This confirms same-run CPU/catalog phase collection
+with this smaller set. SwiftUI/hitch correlation remains unavailable under the
+failed combined Deferred configuration. Derived validation and independent XML:
+`/tmp/rawcull-phase1-cpu-signposts-complete-validation.json` and sibling
+`*-{toc,intervals,events,cpu}.xml`. Do not treat these timings as a cold comparison.
+
+#### Cold CPU/signpost recording — 14:13 Oslo
+
+User saved `~/Downloads/rawcull-phase1-cold-cpu-signposts.trace` after moving
+thumbnail cache aside per the agreed protocol (cache state user-reported).
+TOC confirms Immediate mode, 79.159900 s duration and standard CPU sampling.
+Independent XML exports to `/tmp/rawcull-phase1-cold-cpu-signposts-*.xml` contain
+39,201 modeled intervals and 81,886 dynamic signpost events. All three catalog
+intervals balance in raw events: CatalogOpen 0xcc 6.031183–31.210348 s
+(25.179165 s); metadata 0xcd 6.031254–10.098829 s (4.067575 s); preload 0x117
+10.632797–31.210177 s (20.577380 s). Completion at 31.210084 s shares preload
+ID and records prepared=809 pixels=1616. Same-run CPU export and resolved
+fingerprinting are retained in the sibling validation JSON. These are app
+recording timings under instrumentation, not directly comparable to the original
+component benchmark. Cold/warm differences do not establish a code regression
+or improvement. Cancellation/switch validation and SwiftUI correlation remain
+outstanding; no further phase is started.
+
+#### Phase 1 close-out review
+
+Exporter implementation is already committed by the user as `8b44df75` (Phase 1).
+Subsequent trace findings and the pairing checker remain pending final review.
+Complete default exporter runs succeeded for both captured cold/warm recordings:
+`/tmp/rawcull-phase1-cold-reviewed-export` and
+`/tmp/rawcull-phase1-warm-reviewed-export`, each with nine independently parsed
+XML documents, checked row counts and explicit missing-instrument warnings.
+No automatic profiler CPU selection is claimed without independent running-time
+validation. Exact phase timing is available from raw signposts in these same runs.
+
+Added `Scripts/ValidateCatalogSignposts.py` and four tests for process/ID/name
+pairing, overlapping sessions, partial cancellation counts, truncated/unmatched/
+duplicate events, metadata disagreement, missing references and malformed XML.
+All 18 catalog Python tests pass with ResourceWarnings treated as errors.
+The checker passes the complete cold/warm raw exports and deliberately rejects
+the earlier truncated CPU/signpost capture. These are parser tests, not simulated
+proof that actual app cancellation or UI state is correct.
+
+Swift Concurrency skill consulted for source review: Swift 6, complete checking,
+approachable concurrency; app default isolation MainActor. Catalog switching calls
+cancelCurrentCatalogLoad, cancels catalog/preload tasks and asks the old actor to
+cancel preload. The preloader forwards parent cancellation to its worker task,
+drains its group, emits completion, then closes via defer. Metadata/catalog-open
+also close via defer. No application behavior or instrumentation changed.
+Runtime cancellation/switch pairing remains pending the requested user recording.
+
+SwiftUI limitation: combined Deferred collection reproducibly loses signposts;
+Immediate-compatible CPU/signpost subset succeeds. Root cause is unresolved;
+no claim is made that SwiftUI or progress caused a particular hitch. The original
+phase-scoped SwiftUI acceptance criterion for phase 2 remains blocked. Separate
+SwiftUI captures may provide qualitative evidence, but cannot establish same-run
+phase-aligned UI/hitch improvements. Record this as a deferred measurement blocker;
+do not silently weaken the phase 2 acceptance criteria or mark phase 1 complete.
+
+#### Switching validation and final phase 1 decision — 24 October
+
+User reports starting with cold cache and selecting a warm replacement during
+thumbnail creation. `~/Downloads/rawcull-phase1-switch.trace`: Immediate,
+76.314569 s, standard CPU sampling. Raw events pass the repeatable pairing
+checker with six completed catalog intervals and no unfinished interval:
+
+| Load / phase | ID (decimal) | Start (s) | End (s) | Prepared |
+| --- | ---: | ---: | ---: | ---: |
+| First catalog open | 638 | 20.086154 | 55.403796 | — |
+| First metadata | 639 | 20.086236 | 29.794781 | — |
+| First preload | 695 | 30.808335 | 55.398297 | 1,107 |
+| Replacement catalog open | 2142 | 55.343505 | 65.312695 | — |
+| Replacement metadata | 2143 | 55.343595 | 59.321761 | — |
+| Replacement preload | 2147 | 59.791054 | 65.312588 | 809 |
+
+Both completion events report pixels=1616 and match their preload IDs. The
+replacement begins approximately 55 ms before the first preload ends; the earlier
+catalog-open interval drains approximately 60 ms after replacement starts. This
+validates pairing across the user-performed switch/cancellation path. It does not
+prove how many files were skipped, because source totals/catalog URLs and explicit
+cancellation outcomes are not recorded in the existing metadata. No claim of
+zero stale UI callbacks or standalone cancellation-button testing is made.
+
+All three successful CPU/signpost captures now have full default-export packages,
+nine independently validated documents each, retained with explicit warnings.
+All 18 catalog Python tests pass; diff checks pass. Normal success and switching
+paths have runtime evidence; source review covers deferred closure on other
+returns. No application instrumentation fix or benchmark semantic change was needed.
+The historical duplicate profiler weights remain unresolved; report shares and
+qualify absolute CPU estimates. New standard-sampling views are retained without
+asserting independent thread-running validation, which their instrument set lacks.
+
+Phase 1 measurement/exporter work is complete **with the documented SwiftUI
+collection limitation**. Exact catalog phase boundaries and same-run CPU data
+are available. Phase 2 may begin with investigation, but its retention gate still
+requires evidence of UI/progress work reduction; these CPU-only recordings cannot
+establish smoother frames or phase-scoped SwiftUI/hitch improvement. Resolving or
+replacing that measurement remains an explicit prerequisite for those claims.
+Earlier in-progress entries above are historical and superseded by this decision.
+
+Durable phase 1 archive: `/Volumes/MacMini4/TestRunPerformance/phase1-2026-10-24`.
+Contains cold/warm/switch traces, the failing Deferred trial, complete export
+packages, pairing summaries/tools, and matching Release app/dSYM. Mach-O and dSYM
+UUID A767BC36-0ACE-3925-9375-8664678CC15E matches the RawCull emit locations in
+the switch raw-event XML. Archive manifest records original paths, file inventories,
+byte sizes and SHA-256 digests; source/destination inventories compared exactly.
+First-run archive and original new traces remain untouched. No generated evidence
+is committed to Git. Exporter core: `8b44df75`; close-out commit is recorded in Git
+history with this report (self-referential hash omitted).
