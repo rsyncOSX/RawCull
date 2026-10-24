@@ -266,7 +266,7 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 | --- | --- | --- | --- |
 | 0 — Preserve and reproduce | Complete (user confirmed) | — | Archive: `/Volumes/MacMini4/TestRunPerformance/firstrun` (user confirmed) |
 | 1 — Measurement visibility | Complete with documented UI limitation | `8b44df75` + close-out commit | Cold/warm/switch CPU + signposts validated and archived; SwiftUI correlation remains a phase 2 measurement prerequisite |
-| 2 — Progress publication/animation | In progress | — | Publication-only candidate; see [phase 2 report](PerformancePhase2.md). UI measurements/animation experiment pending |
+| 2 — Progress publication/animation | In progress | — | Publication-only candidate tested; first cold pair: preload -7.0%, main sampled weight -27.8%; repeatability/UI validation pending. See [phase 2 report](PerformancePhase2.md) |
 | 3 — JPEG encoding | Pending | — | Experiment required |
 | 4 — Grid/warm preparation | Pending | — | Experiment required |
 | 5 — Decode outliers | Pending | — | Same-run diagnostics required |
