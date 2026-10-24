@@ -1,6 +1,6 @@
-# Performance changes through phases 0–3
+# Performance changes through phases 0–6
 
-As of 24 October 2026. This document consolidates the changes, their mechanisms, and the measured results through phase 3. It covers catalog opening and thumbnail preparation, not AI inference throughput. It describes existing work; no new performance experiment was run while preparing this summary.
+As of 24 October 2026. This document consolidates the changes, their mechanisms, and the measured results through phase 6. It covers catalog opening and thumbnail preparation, not AI inference throughput. It describes existing work; no new performance experiment was run while preparing this summary.
 
 ## What actually improved
 
@@ -10,25 +10,29 @@ The retained production optimization is **less progress-related main-thread work
 - **Animation simplification, on top of coalescing:** main-thread sampled weight fell to 1.261 s, approximately 72.4% below the original 4.575 s. However, preload took 20.218 s, compared with 18.206–19.138 s for coalescing alone. This supports retaining a reduction in sampled main-thread work, **not claiming faster loading from the animation change**.
 - **Phases 0 and 1:** made the evidence reproducible and phase comparisons possible. They did not demonstrate an application speed improvement.
 - **Phase 3:** found no useful repeatable benefit from reusing JPEG encoder options. Production encoding was left unchanged. There is no phase 3 speedup to report.
+- **Phase 4:** direct ImageIO grid downsampling was approximately 3% slower in three diagnostic trials. The existing grid path was retained.
+- **Phase 5:** opt-in timing localized long-tail source-load delays to the RawParserKit API round trip, without identifying its internal cause. No concurrency, priority or dependency fix was justified.
+- **Phase 6:** the interactive trace contained 31 hitches and no detected hangs over 250 ms. Its worst hitch was predominantly native picker waiting. No targeted application rewrite was justified, and no phase 6 speedup is claimed.
 
 The final combined implementation therefore has a substantial observed reduction in main-thread sampled work, but only a 1.7% shorter preload in its single capture versus the original. That small elapsed-time difference is not convincing evidence of a repeatable loading-speed improvement. Smoother frames and fewer hitches remain unverified.
 
 ## Workload and how to read the numbers
 
-The common catalog contains 809 ARWs totaling 50,126,917,632 bytes, at `/Volumes/MacMini4/Hornugle_24_jun_2025/100MSDCF`. Preview size is 1616 pixels. Benchmark runs use Release, three repetitions and 100 browsing steps, with an independent initially empty thumbnail disk cache for each repetition.
+The common benchmark and phases 0–5 catalog contains 809 ARWs totaling 50,126,917,632 bytes, at `/Volumes/MacMini4/Hornugle_24_jun_2025/100MSDCF`. Preview size is 1616 pixels. Benchmark runs use Release, three repetitions and 100 browsing steps, with an independent initially empty thumbnail disk cache for each repetition.
 
-There are two distinct measurement environments:
+There are three distinct measurement environments:
 
 | Environment | What it measures | Appropriate comparison |
 | --- | --- | --- |
 | Version 2 catalog benchmark | Pipeline operations, cold/warm preload, prepared browsing, zoom image readiness, resources and correctness | Compatible benchmark runs with matching workload/settings |
 | App in Instruments, Immediate Time Profiler plus os_signpost | Real app catalog intervals and sampled stack work within those intervals | Matching signpost windows in comparable app captures |
+| Phase 6 app trace, Deferred CPU/SwiftUI/hitch/thread collection | Interactive UI events, sampled work and independent thread states | Within-run correlations; no matched phase 2 before/after claim |
 
 The original benchmark's cold preload median was 8.206 s and warm preload median was 3.553 s. The original phase 1 cold **app trace** measured 20.577 s of preload. Those numbers are not a before/after pair: instrumentation and execution environments differ. An 8-second benchmark result must not be presented as an improvement over a 20-second app recording.
 
 “Cold” means initially empty thumbnail disk cache. OS and parser caches were not flushed. App cache state and action sequences were user-reported; signposts corroborate prepared count and pixel size. Display, power and unrelated background activity were not independently verified for every run.
 
-“Sampled weight” means the profiler's recorded sample weights summed within a selected interval. The new app captures use standard sampling with recorded 1 ms weights. These are approximate work estimates, without independent thread-running validation in that instrument subset. They are not exact CPU accounting. Inclusive stack weights overlap; their sums cannot be interpreted as elapsed time. Image-ready latency also does not measure the first painted frame.
+“Sampled weight” means the profiler's recorded sample weights summed within a selected interval. The new app captures use standard sampling with recorded 1 ms weights. These are approximate work estimates, without independent thread-running validation in the Immediate CPU/signpost subset. Phase 6 independently corroborates its own main-thread sample weight with thread-state intervals; that does not retroactively validate every historical capture. They are not exact CPU accounting. Inclusive stack weights overlap; their sums cannot be interpreted as elapsed time. Image-ready latency also does not measure the first painted frame.
 
 ## Phase 0 — Preserve the baseline and make it reproducible
 
@@ -175,7 +179,7 @@ However, preload elapsed time was **5.6–11.1% longer than coalescing alone**, 
 
 The retained benefit is therefore reduced sampled main-thread work, supported by positive manual visual feedback. No repeatable loading-speed gain, smoother-frame result, reduced hitch count or measured input-latency improvement is established. More main-thread headroom is useful, but the recordings do not directly measure the user's resulting responsiveness.
 
-Release build and changed-view lint checks passed; existing behavioral tests cover the unchanged coalescing/pipeline behavior. Reduce Motion is implemented, but the manual feedback did not separately document every accessibility setting. Full phase 2 SwiftUI/hitch acceptance remains incomplete because the combined Deferred collection fails.
+Release build and changed-view lint checks passed; existing behavioral tests cover the unchanged coalescing/pipeline behavior. Reduce Motion is implemented, but the manual feedback did not separately document every accessibility setting. Full phase 2 SwiftUI/hitch acceptance remains incomplete: the earlier combined Deferred collection failed, and the later phase 6 UI capture lacks RawCull phase markers and comparable before/after conditions.
 
 Implementation: `de0dbef8`; final findings: `1a291cd8`. Archive: `/Volumes/MacMini4/TestRunPerformance/phase2-animation-2026-10-24`. See [the phase 2 report](PerformancePhase2.md) for capture identities and analysis procedures.
 
@@ -225,6 +229,59 @@ Phase 3's useful outcome is rejecting a low-value optimization and identifying w
 
 The optimized diagnostic ran successfully with byte/dimension validation; all 18 Python catalog checks and diff checks passed. These are recorded phase results, not tests rerun for this document. Implementation: `f7e9b6de`; findings: `43acd4af`. Archive: `/Volumes/MacMini4/TestRunPerformance/phase3-encoding-investigation-2026-10-24`. See [the phase 3 report](PerformancePhase3.md) for exact commands.
 
+## Phase 4 — Investigate grid preparation and warm-cache work
+
+`Scripts/AnalyzeGridPreparation.py` separates the phase 3 baseline's grid operations into cold, warm, concurrent-browsing and recovery passes. Each has 809 successful operations, with no unassigned operations. The 3,236 total is four deliberately RAM-cleared passes, not one cold load or evidence of broken app cache reuse.
+
+Warm preload takes 3.532–3.639 s; its grid-operation duration sums are 3.313–3.407 s. The resize draw can trigger lazy JPEG decoding, so these measurements include materialization and must not be labelled pure resampling CPU or an additive wall-time breakdown.
+
+`Scripts/BenchmarkGridPreparation.swift` compares the actual production resizer with direct ImageIO downsampling on 12 normalized persisted JPEGs, using paired rounds and alternating order:
+
+| Diagnostic invocation | Current path | Direct downsample | Relative result |
+| --- | ---: | ---: | ---: |
+| 1 | 1.8753 ms/image | 1.9306 ms/image | 2.95% slower |
+| 2 | 1.8520 ms/image | 1.9159 ms/image | 3.45% slower |
+| 3 | 1.8736 ms/image | 1.9356 ms/image | 3.31% slower |
+
+Dimensions and RGB comparison pixels match for the sample. This is a sequential JPEG diagnostic, not catalog throughput or exhaustive orientation/color quality validation. Direct downsampling was rejected. Production sizing, cache identity, memory budgets, readiness and eviction remain unchanged; lazy preparation and persisted grid variants remain deferred. **No phase 4 production speedup was retained.**
+
+Optimized diagnostic runs and 26 Python checks passed. Source identity/cache-pressure behavior was reviewed; manual scrolling, pressure and multi-catalog acceptance were not newly established. Implementation: `61f661a9`. Archive: `/Volumes/MacMini4/TestRunPerformance/phase4-grid-investigation-2026-10-24`. See [the phase 4 report](PerformancePhase4.md).
+
+## Phase 5 — Localize source-load latency without guessing its cause
+
+Added opt-in adapter stage timing, UUID/file signposts, separate JSONL source records and `Scripts/AnalyzeSourceLoadDiagnostics.py`. The runner's `--source-diagnostics` flag labels diagnostic settings and prevents comparison with normal baselines. Normal application use leaves the callback disabled. Timestamps distinguish access acquisition, read-task scheduling, the parser API round trip and result delivery; reporting occurs after delivery is timed.
+
+Three diagnostic and three normal-control repetitions on the original workload passed. All 2,487 ordinary diagnostic source records succeeded and matched their outer measurements; nine cancellation records remained separately classified. Normal control journals contained no source-load events.
+
+Fifteen diagnostic preload calls exceeded one second, with a maximum of 3.192 s. At least 99.995% of each adapter delay lay inside the parser API round trip. Adapter work outside that span was at most 0.068 ms, and the outer timer added at most 0.074 ms for these outliers. The 15 outliers affected different files; those same files took 11.496–36.819 ms in the other repetitions. Normal controls also reproduced the long tail.
+
+This localizes the boundary, not the internal cause. The parser span combines actor/limiter waits, scheduling, native I/O and decode; no same-run syscall/thread trace separates them. Cold interactive-source contention remains unmeasured because the existing concurrent browsing workload is warm. Sequential diagnostic/control timing differences do not establish a causal instrumentation-overhead estimate.
+
+Retained diagnostics, not a speculative priority/concurrency or dependency change. **No phase 5 production speedup is claimed.** All 31 Python checks, five focused Swift report tests and optimized builds passed. Final lint retained verified pre-existing findings. Implementation: `0b1efff7`; findings: `195174b4`. Archive: `/Volumes/MacMini4/TestRunPerformance/phase5-source-load-investigation-2026-10-24`. Its checksum-verified temporary duplicates were subsequently removed to reclaim disk space; the external archive remains. See [the phase 5 report](PerformancePhase5.md).
+
+## Phase 6 — Inspect the remaining UI hitches
+
+The preserved user recording, `~/Downloads/rawcull-phase6-ui-before.trace`, contains one 50.798646-second Xcode-launched Release run. The recorded main-image UUID is `D64E676D-90C4-3746-B932-088CBCA1D738`, distinct from the earlier prepared attach build. Thirteen selected export documents validated. The user reported no recording error or visible pause and supplied no action timestamps.
+
+| Measurement | Recorded result |
+| --- | ---: |
+| Non-system hitches | 31 |
+| Total hitch duration | 1800.119 ms |
+| Worst hitch | 516.701 ms |
+| Detected hangs at the 250 ms threshold | 0 |
+| Independent main-thread running | 3.202 s |
+| Main-thread sampled weight | 3.205 s |
+
+The worst hitch starts at 2.846 s and overlaps native picker presentation. Only 32.674 ms (6.3%) is main-thread running, so it is predominantly waiting. The 316.687 ms startup hitch has 249.856 ms running (78.9%), with initial-window/layout stacks. The grain renderer contributes approximately 8 ms of inclusive sampled main work within that startup hitch, not its dominant cost. A 200.013 ms event near 12.7 s is predominantly layout/update work with only small contributions from individual application callers. After 13 s, the worst recorded hitch is 66.671 ms.
+
+The SwiftUI table contains 290,560 primary updates, including 8,628 body events. Separate tables contain 827,719 update groups and 179,258 cause edges; these counts must not be added together. Across the whole trace, ProgressCount has 202 body events totaling 10.601 ms, SidebarARWCatalogFileView 220 totaling 16.292 ms, and RawCullMainView 10 totaling 4.505 ms. These are exported event counts, not sampled body invocations.
+
+The single profiler view's recorded weights agree closely with independent main-thread running intervals. Nevertheless, this is not a phase-matched before/after comparison with the historical 25-hitch recording. RawCull catalog signposts are unavailable, exact capture workload/cache/source provenance is incomplete, and sampled phase occurrences are not exact elapsed intervals. Zoom-overlay, grid/filter, reverse-navigation, cancellation and switching coverage are not independently established. The matching Xcode binary/dSYM was not found after cleanup; the trace retains embedded symbol data.
+
+No dominant application cause justified a grain, picker, observation or view-hierarchy rewrite. **Phase 6 retains findings, with optimization deferred and no smoother-frame claim.** Phase 2's UI acceptance and the remaining interaction/provenance gaps carry into phase 7. Findings are committed in `261eef51`; see [the phase 6 report](PerformancePhase6.md).
+
+The user is keeping the original trace in Downloads. New exports and derived analyses remain under `/tmp/rawcull-phase6-*`, pending a durable archive; they must not be treated as permanently retained merely because this summary is committed. No recording, benchmark, build or test was rerun for this summary update.
+
 ## Overall interpretation and remaining evidence
 
 | Change | Demonstrated result | Claim supported today |
@@ -235,9 +292,12 @@ The optimized diagnostic ran successfully with byte/dimension validation; all 18
 | Ring-only short animation and immediate numeric text | Much lower main-thread sampled weight in one capture; preload slower than coalescing alone | Retained sampled-work reduction; no demonstrated extra loading-speed gain |
 | JPEG options reuse | No useful repeatable improvement | Rejected; no production change |
 | JPEG diagnostic and codec profiling | Repeatable comparison procedure and clearer cost distribution | Investigation capability; no runtime gain |
+| Grid phase analysis and direct-downsample diagnostic | Four preparation passes separated; tested alternative slower | Rejected alternative; no production change |
+| Source-load stage diagnostics | Long tail localized to parser API round trip | Internal cause unresolved; no production fix |
+| UI hitch investigation | Native picker wait and startup/layout work distinguished | No justified rewrite or demonstrated smoothness gain |
 
-The best-supported answer to “why did performance improve?” is that the app spends less sampled main-thread work presenting progress: it publishes fewer intermediate observable snapshots and animates a smaller part of the UI for less time. The evidence does not show a faster RAW decoder, faster JPEG codec, faster metadata scanner or faster grid resizer from phases 0–3.
+The best-supported answer to “why did performance improve?” is that the app spends less sampled main-thread work presenting progress: it publishes fewer intermediate observable snapshots and animates a smaller part of the UI for less time. The evidence does not show a faster RAW decoder, faster JPEG codec, faster metadata scanner or faster grid resizer from phases 0–6.
 
-A final controlled comparison still needs to resolve loading-time variation and obtain usable phase-scoped SwiftUI/hitch evidence before claiming smoother interaction. The historical 25 hitches, including a worst hitch associated with picker presentation, cannot be attributed wholesale to progress or compared with missing after-tables. Grid/warm-cache preparation, decode outliers and remaining hitches belong to pending phases 4–6; final acceptance/comparison belongs to phase 7.
+A final controlled comparison still needs to resolve loading-time variation and establish comparable phase-scoped SwiftUI/hitch evidence before claiming smoother interaction. The phase 6 capture supplies fresh UI data, but missing RawCull phase markers and provenance prevent a matched comparison with the historical 25 hitches. Phases 3–6 are closed as investigations with production optimizations deferred; full acceptance, remaining interaction checks, evidence retention and the final comparison belong to pending phase 7.
 
 This document summarizes repository source, commit history and the recorded reports; it does not revalidate the external archives. Large traces, caches and raw exports remain outside Git. For the full status ledger and pending work, see [the performance plan](performancefixes.md); for measurement definitions and reproducible procedures, see [CatalogPerformance.md](CatalogPerformance.md) and [MeasurePerformance.md](MeasurePerformance.md).
