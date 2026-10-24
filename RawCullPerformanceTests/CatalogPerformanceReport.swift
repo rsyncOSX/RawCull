@@ -94,6 +94,17 @@ actor CatalogPerformanceJournal {
         append(metric)
     }
 
+    private struct SourceLoadEvent: Encodable {
+        let event = "source-load"
+        let journalOriginUptime: Double
+        let timing: RawSourceLoadDiagnostic
+    }
+
+    /// Raw timestamps are captured before this actor hop, unlike record(since:).
+    func record(_ timing: RawSourceLoadDiagnostic) {
+        append(SourceLoadEvent(journalOriginUptime: start, timing: timing))
+    }
+
     private func append(_ value: some Encodable) {
         do {
             var data = try JSONEncoder().encode(value)

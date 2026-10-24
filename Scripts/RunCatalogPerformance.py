@@ -272,6 +272,8 @@ def main(argv=None):
     parser.add_argument("--baseline", type=Path, help="Prior results.json or its containing output directory")
     parser.add_argument("--max-regression-percent", type=float, help="Optional median-time regression gate; requires baseline")
     parser.add_argument("--timeout", type=int, default=3600, help="Build and test timeout in seconds")
+    parser.add_argument("--source-diagnostics", action="store_true",
+                        help="Opt-in adapter stage timing/signposts; diagnostic runs are not normal baselines")
     parser.add_argument("--notes", default="", help="Storage, power mode, other applications, and display context")
     parser.add_argument("--validate-only", action="store_true", help="Validate and print catalog manifest without building")
     args = parser.parse_args(argv)
@@ -298,6 +300,8 @@ def main(argv=None):
         settings = {"runs": args.runs, "steps": args.steps, "pixels": args.pixels,
                     "preview_cache_bytes": 256 * 1024 * 1024, "grid_cache_bytes": 128 * 1024 * 1024,
                     "resource_sample_ms": 100, "configuration": "Release", "testability": True, "app_sandbox": False}
+        if args.source_diagnostics:
+            settings["source_diagnostics"] = True
         preflight = {"benchmark_version": VERSION, "settings": settings, "machine": machine,
                      "source": source, "catalog": manifest, "summary": {"phases": {}}}
         if baseline:
@@ -315,6 +319,9 @@ def main(argv=None):
         for name, value in {"RUN": "1", "INPUT": manifest["directory"], "OUTPUT": str(output),
                             "RUNS": str(args.runs), "STEPS": str(args.steps), "PIXELS": str(args.pixels)}.items():
             environment[f"TEST_RUNNER_RAWCULL_CATALOG_PERFORMANCE_{name}"] = value
+        # Explicitly set both names so inherited diagnostic flags cannot contaminate a normal run.
+        environment.pop("RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS", None)
+        environment["TEST_RUNNER_RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS"] = "1" if args.source_diagnostics else "0"
         # Explicitly disable an inherited opt-in value; Xcode forwards TEST_RUNNER_ variables.
         environment.pop("RAWCULL_CATALOG_PERFORMANCE_RUN", None)
         command = ["xcodebuild", "test", "-project", "RawCull.xcodeproj", "-scheme", "RawCullPerformance",

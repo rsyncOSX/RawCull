@@ -109,6 +109,9 @@ class CatalogPerformanceRunnerTests(unittest.TestCase):
                       "benchmark_sha256": "harness"}
 
             def execute(command, environment, output, timeout):
+                expected = "1" if "diagnostic" in output.name else "0"
+                self.assertEqual(environment["TEST_RUNNER_RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS"], expected)
+                self.assertNotIn("RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS", environment)
                 self.assertIn("Release", command)
                 self.assertIn("RawCullPerformance", command)
                 self.assertEqual(environment["TEST_RUNNER_RAWCULL_CATALOG_PERFORMANCE_INPUT"], str(catalog.resolve()))
@@ -137,6 +140,15 @@ class CatalogPerformanceRunnerTests(unittest.TestCase):
                 compared = json.loads((second / "results.json").read_text())
                 self.assertTrue(compared["comparison"])
                 self.assertTrue(compared["resource_comparison"])
+                diagnostic = root / "diagnostic"
+                with patch.dict(runner.os.environ, {"RAWCULL_CATALOG_PERFORMANCE_SOURCE_DIAGNOSTICS": "1"}):
+                    self.assertEqual(runner.main([str(catalog), "--runs", "1", "--output", str(diagnostic),
+                                                  "--source-diagnostics"]), 0)
+                report = json.loads((diagnostic / "results.json").read_text())
+                self.assertTrue(report["settings"]["source_diagnostics"])
+                with self.assertRaisesRegex(ValueError, "settings"):
+                    runner.compare(report, compared, None)
+
 
 
 

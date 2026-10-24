@@ -3,6 +3,7 @@ import CoreGraphics
 import CoreImage
 import Foundation
 import ImageIO
+import OSLog
 import RawParserKit
 
 nonisolated struct RawImageFileMetadata: Sendable {
@@ -38,6 +39,57 @@ nonisolated enum RawImageLoadingConstants {
 /// discard the result, but does not release access while native I/O is running.
 nonisolated struct RawParserKitImageLoader: RawImageLoading {
     static let shared = RawParserKitImageLoader()
+
+    /// Nil in normal app use. Diagnostic callbacks execute after delivery is timed.
+    private let diagnostic: (@Sendable (RawSourceLoadDiagnostic) async -> Void)?
+
+    init(diagnostic: (@Sendable (RawSourceLoadDiagnostic) async -> Void)? = nil) {
+        self.diagnostic = diagnostic
+    }
+
+    private func diagnosedRead<Value: Sendable>(
+        for url: URL,
+        operation: String,
+        requestedPixelSize: Int? = nil,
+        report: @Sendable (RawSourceLoadDiagnostic) async -> Void,
+        read: @escaping @Sendable () async -> Value?,
+    ) async -> Value? {
+        let submitted = ProcessInfo.processInfo.systemUptime
+        let id = UUID()
+        let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "SourceLoadDiagnostics")
+        let interval = signposter.beginInterval(
+            "RawSourceLoad",
+            id: signposter.makeSignpostID(),
+            "id=\(id.uuidString, privacy: .public) file=\(url.lastPathComponent, privacy: .public)",
+        )
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        let accessReady = ProcessInfo.processInfo.systemUptime
+        let task = Task {
+            defer { withExtendedLifetime(access) {} }
+            let taskStarted = ProcessInfo.processInfo.systemUptime
+            let value = await read()
+            return (value, taskStarted, ProcessInfo.processInfo.systemUptime)
+        }
+        let (value, taskStarted, parserReturned) = await task.value
+        let delivered = ProcessInfo.processInfo.systemUptime
+        let cancelled = Task.isCancelled
+        signposter.endInterval("RawSourceLoad", interval)
+        await report(RawSourceLoadDiagnostic(
+            id: id,
+            operation: operation,
+            source: url,
+            requestedPixelSize: requestedPixelSize,
+            submitted: submitted,
+            accessReady: accessReady,
+            taskStarted: taskStarted,
+            parserReturned: parserReturned,
+            delivered: delivered,
+            succeeded: value != nil && !cancelled,
+            cancelled: cancelled,
+        ))
+        // Recheck after reporting so cancellation cannot make a stale image visible.
+        return Task.isCancelled ? nil : value
+    }
 
     func fileMetadata(for url: URL) async -> RawImageFileMetadata? {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
@@ -76,6 +128,16 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
     }
 
     func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage? {
+        if let diagnostic {
+            return await diagnosedRead(
+                for: url,
+                operation: "thumbnail.interactive",
+                requestedPixelSize: maxPixelSize,
+                report: diagnostic,
+            ) {
+                await RawParserKit.RawImageLoader.shared.thumbnailCGImage(for: url, maxPixelSize: maxPixelSize)
+            }
+        }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         let read = Task {
             defer { withExtendedLifetime(access) {} }
@@ -86,6 +148,16 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
     }
 
     func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage? {
+        if let diagnostic {
+            return await diagnosedRead(
+                for: url,
+                operation: "thumbnail.preload",
+                requestedPixelSize: maxPixelSize,
+                report: diagnostic,
+            ) {
+                await RawParserKit.RawImageLoader.shared.thumbnail(for: url, maxPixelSize: maxPixelSize)
+            }
+        }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         let read = Task {
             defer { withExtendedLifetime(access) {} }
@@ -96,6 +168,11 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
     }
 
     func previewCGImage(for url: URL) async -> CGImage? {
+        if let diagnostic {
+            return await diagnosedRead(for: url, operation: "preview", report: diagnostic) {
+                await RawParserKit.RawImageLoader.shared.previewImage(for: url)
+            }
+        }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         let read = Task {
             defer { withExtendedLifetime(access) {} }
