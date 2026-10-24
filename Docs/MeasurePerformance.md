@@ -331,3 +331,23 @@ signpost category in a smoke recording first; phase 5 compiled/emitted it but di
 not validate an Instruments capture. A different recording's slow read cannot
 explain the benchmark's named outlier. Prepared warm browsing does not measure
 cold interactive-source contention alongside cold preload.
+
+
+## Phase 6 interactive capture and launch-identity caution
+
+See [the phase 6 handoff](PerformancePhase6.md) for the prepared build, current
+Instruments state and exact action sequence. On this machine, three xctrace
+launches supplied a workspace **.app** path but the exported main-image path/UUID
+identified the older installed app. A command-line path alone is insufficient
+identity evidence. Prefer attachment to an executable-path-verified PID. For a
+future launch, use the explicit `Contents/MacOS/RawCull` executable and validate
+the recorded image identity before accepting performance data.
+
+The fatal logging-archive error is reproducible even in a GUI recording attached
+to the current Release process with Hangs removed. Preserve the trace and error;
+validate surviving CPU/UI/hitch/thread lanes independently. Do not treat valid
+XML as proof of complete logging or signpost phase alignment, and do not discard
+all surviving data solely because one stream failed. The user
+interactive capture is now analyzed in [phase 6](PerformancePhase6.md). The
+optimization is deferred, acceptance limits remain explicit, and no new
+performance gain is claimed.

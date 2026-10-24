@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–5 investigated with optimizations deferred; phases 6–7 pending**.
+Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–6 investigated with optimizations deferred; phase 7 pending**.
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -367,6 +367,33 @@ Validation and exit criteria:
 - No new hangs, stale views or delayed first visible images. Do not use zero detected hangs as the smoothness criterion.
 
 Commit: `perf: reduce measured catalog and preview UI hitches` (name the actual retained change more specifically).
+
+### Phase 6 results — 24 October 2026
+
+**Interactive investigation complete; production optimization deferred.** The
+preserved user trace is Run 1, 50.799 s, standard sampling, Xcode-launched app UUID
+`D64E676D-90C4-3746-B932-088CBCA1D738`. It contains 31 non-system hitches totaling
+1800.119 ms, worst 516.701 ms, with zero detected hangs at the 250 ms threshold.
+The worst hitch overlaps native picker presentation and only 32.674 ms of main
+running (6.3%); startup's 316.687 ms hitch overlaps 249.856 ms running (78.9%).
+The 200.013 ms event near 12.7 s is predominantly layout/update work. No dominant
+application caller justifies a targeted rewrite. After 13 s, the worst event is
+66.671 ms. The user reported no error or visible pause; that is not proof of
+zero hitches or full interaction coverage.
+
+Thirteen selected export documents validate; CPU weights are independently
+corroborated by main running intervals. Whole-trace SwiftUI counts are not a
+phase-matched before/after comparison. RawCull signposts, exact workload/cache/
+source provenance and action timestamps remain unavailable. Zoom overlay,
+filter/grid, reverse browsing, cancellation and switching acceptance are not
+independently established. These gaps and phase 2 UI acceptance carry into
+phase 7. No new optimization or smoother-frame result is claimed.
+
+See [the phase 6 report](PerformancePhase6.md). Original evidence is preserved at
+`~/Downloads/rawcull-phase6-ui-before.trace`; selected exports and derived
+analysis remain under `/tmp/rawcull-phase6-*`, pending durable external archive.
+The matching Xcode app/dSYM was not found after cleanup; preserve embedded trace
+symbols and do not substitute a different build UUID. No phase 7 work started.
 
 ## Phase 7 — Final comparison and reproducible handoff
 
