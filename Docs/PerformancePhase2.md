@@ -1,6 +1,6 @@
 # Phase 2 — progress publication experiment
 
-Status: candidate in the worktree, not accepted or committed as a completed phase.
+Status: progress coalescing retained after correctness checks and two after-captures; animation experiment remains deferred. Implementation recorded in `0cccc19c` and `649cea17`. The full original phase 2 UI/animation acceptance scope is not claimed complete.
 
 The historical trace showed repeated ProgressCount/Sidebar body updates and
 animation work. The first experiment changes only publication cadence, leaving
@@ -71,8 +71,8 @@ on success and cancellation; log `/tmp/rawcull-phase2-counts-tests.log`.
   comparable alternative before claiming reduced SwiftUI fan-out/hitches.
 - Evaluate animation simplification as a separate intervention, including Reduce
   Motion, after publication-only evidence is available.
-- Retain/commit a completed phase only after the plan's correctness and measured
-  benefit criteria are met. No performance baseline or raw trace is overwritten.
+- The coalescing substep is retained as described below. Complete the remaining
+  UI/animation scope before marking the full phase complete. No baseline is overwritten.
 
 Focused test command (uses the existing pinned package cache):
 
@@ -149,3 +149,45 @@ Raw derived comparison: `/tmp/rawcull-phase2-comparison.json`; procedure:
 `/tmp/rawcull-phase2-cold-pairing.json`. Retain these alongside the trace/exports
 and matching binary/dSYM before cleanup. A repeat under the same cache/setup is
 needed before treating the apparent work reduction as repeatable.
+
+## Repeated cold after-capture — 24 October, 15:09 Oslo
+
+`~/Downloads/rawcull-phase2-cold-repeat.trace` validates: Immediate, standard
+sampling, 40.999906 s, 36,509 CPU samples. All catalog intervals pair; completion
+records prepared=809 pixels=1616. RawCull binary UUID matches the first candidate
+capture (E51C75B8-62A5-3AEB-9096-15D3C35A2BF2). Preload runs from
+10.949546291 to 29.155160000 s. All nine documents in the complete default export
+parse independently with checked rows and explicit missing-instrument warnings.
+
+| Measurement | Original cold | First after | Repeat after |
+| --- | ---: | ---: | ---: |
+| Metadata wall time | 4.068 s | 4.066 s | 4.093 s |
+| Catalog-open wall time | 25.179 s | 23.785 s | 22.889 s |
+| Preload wall time | 20.577 s | 19.138 s | 18.206 s |
+| Preload all-thread sampled weight | 34.545 s | 31.853 s | 30.551 s |
+| Preload main-thread sampled weight | 4.575 s | 3.303 s | 3.026 s |
+
+Repeat versus original: preload wall time -11.5%, main-thread sampled weight
+-33.9%. Both after-captures show lower phase-scoped sampled main-thread work
+and successful preparation. Retain publication coalescing on this directional
+work-reduction evidence, plus controlled correctness tests and positive manual
+feedback. The source implementation is already committed as `0cccc19c`/`649cea17`.
+No extra source change was made in response to the repeat.
+
+Limits remain: a single before-run and two after-runs do not establish statistical
+significance or isolate storage/scheduling variation. Recorded weights remain
+approximate and lack independent thread-running confirmation. No frame-smoothness,
+SwiftUI invocation-count or hitch improvement is claimed. Actual publication
+frequency is constrained by the tested scheduler but was not independently
+counted in the captured app. Animations remain unchanged; a separate animation
+experiment and full phase-scoped UI validation remain deferred because the
+combined Deferred instrument set fails collection. Do not treat this substep's
+acceptance as completion of the original full phase 2 validation scope.
+
+Derived comparison: `/tmp/rawcull-phase2-repeat-comparison.json`; script:
+`/tmp/compare_rawcull_phase2_repeat.py`; pairing report:
+`/tmp/rawcull-phase2-repeat-pairing.json`; full package:
+`/tmp/rawcull-phase2-repeat-reviewed-export`. Durable repeat archive:
+`/Volumes/MacMini4/TestRunPerformance/phase2-publication-repeat-2026-10-24`.
+The first after-capture and its source/binary snapshot remain in
+`/Volumes/MacMini4/TestRunPerformance/phase2-publication-candidate-2026-10-24`.
