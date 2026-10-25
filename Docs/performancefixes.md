@@ -1,6 +1,6 @@
 # RawCull performance improvement plan
 
-Planning date: 24 October 2026. Status: **phases 0–1 complete; phase 2 implementation retained with UI acceptance incomplete; phases 3–6 investigated with optimizations deferred; phase 7 pending**.
+Planning date: 24 October 2026. Close-out: 25 October 2026. Status: **performance investigation closed by user decision with qualified acceptance; phase 2 optimizations retained; phases 3–6 optimizations deferred; incomplete phase 7 validation recorded as follow-up**. See [final verdict for RawCull 3.3.5](PerformancePhase7.md).
 
 This plan covers catalog opening, thumbnail preparation, prepared browsing, zoom readiness, and UI responsiveness. AI model throughput and the separate AI/data-race performance tests require their own workloads and are outside this baseline.
 
@@ -399,6 +399,14 @@ symbols and do not substitute a different build UUID. No phase 7 work started.
 
 **Purpose:** leave trustworthy results and a clear future regression procedure.
 
+25 October progress: three-run current reference passed; CPU/signpost and warm
+hitch recordings analyzed and checksum-archived. Historical numerical comparison
+shows no demonstrated loading speedup and flags source-load/resource increases;
+strict harness compatibility and UI acceptance remain unresolved. See
+[Phase 7 findings and comparison](PerformancePhase7.md). The user subsequently
+closed the investigation with qualified acceptance: retain Phase 2, stop further
+optimization, and defer remaining original validation criteria explicitly.
+
 Tasks:
 
 - Run the unchanged normal harness for three repetitions with the established workload/settings and a compatible baseline. Preserve raw after-results and per-repetition values.
@@ -446,10 +454,10 @@ On resuming: check the worktree and current source fingerprints; locate the evid
 | 1 — Measurement visibility | Complete with documented UI limitation | `8b44df75` + close-out commit | Cold/warm/switch CPU + signposts validated and archived; SwiftUI correlation remains a phase 2 measurement prerequisite |
 | 2 — Progress publication/animation | Implementation retained; full UI acceptance incomplete | `0cccc19c`, `649cea17`, `de0dbef8`; findings `1a291cd8` | Final capture: main sampled weight 1.26 s vs original 4.58 s; preload 20.22 s vs 20.58 s (slower than coalescing-only 18.21–19.14 s). Missing SwiftUI/hitch validation and timing uncertainty remain explicit. See [phase 2 report](PerformancePhase2.md) |
 | 3 — JPEG encoding | Investigated; optimization deferred | `f7e9b6de`, `43acd4af` | Three-run baseline passes; options reuse has no useful benefit; no production encoder change. See [phase 3 report](PerformancePhase3.md) |
-| 4 — Grid/warm preparation | Pending | — | Experiment required |
-| 5 — Decode outliers | Pending | — | Same-run diagnostics required |
-| 6 — Remaining UI hitches | Pending | — | Phase-aligned recording required |
-| 7 — Final comparison | Pending | — | Depends on preceding retained changes |
+| 4 — Grid/warm preparation | Investigated; optimization deferred | `0f56ecb5` | Tested alternative slower; see phase 4 report |
+| 5 — Decode outliers | Investigated; optimization deferred | `0b1efff7`, `195174b4` | Opt-in stage diagnostics retained; parser-internal cause unresolved |
+| 6 — Remaining UI hitches | Investigated; optimization deferred | `261eef51` | UI evidence retained; no justified rewrite or smoother-frame claim |
+| 7 — Final comparison | Closed by scope decision; qualified acceptance | See phase 7 report history | Current reference passed and reduced captures archived; strict comparison, regression-signal investigation and full UI validation deferred, not passed; see [final verdict](PerformancePhase7.md) |
 
 ### Phase 1 work log — 24 October 2026
 
