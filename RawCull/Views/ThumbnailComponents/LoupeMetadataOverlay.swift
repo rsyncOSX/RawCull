@@ -4,6 +4,7 @@ struct LoupeMetadataOverlay: View {
     let viewModel: RawCullViewModel
     let file: FileItem
     let image: NSImage?
+    let previewSource: ImagePreviewSource
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
     var body: some View {
@@ -27,6 +28,8 @@ struct LoupeMetadataOverlay: View {
                             viewModel.showsLoupeMetadataPanel = false
                         }
                     },
+                    previewSource: previewSource,
+                    onOpenZoom: { viewModel.openZoomOverlay(initialSource: .embeddedJPG) },
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }

@@ -6,6 +6,8 @@ struct ZoomMetadataPanel: View {
     let image: NSImage?
     let cullingMetadata: ZoomCullingMetadata
     let onHide: () -> Void
+    let previewSource: ImagePreviewSource
+    let onOpenZoom: () -> Void
 
     @State private var isCollapsed = false
 
@@ -27,11 +29,11 @@ struct ZoomMetadataPanel: View {
                             metadataSection("Culling", rows: cullingMetadata.decisionRows)
                         }
 
-                        metadataSection("File Attributes", rows: fileAttributeRows)
-
                         if !cameraSettingRows.isEmpty {
                             metadataSection("Camera Settings", rows: cameraSettingRows)
                         }
+
+                        metadataSection("File Attributes", rows: fileAttributeRows)
 
                         quickActions
                     }
@@ -91,9 +93,35 @@ struct ZoomMetadataPanel: View {
 
     private var histogramSection: some View {
         VStack(alignment: .leading, spacing: 5) {
-            sectionTitle("Histogram")
+            sectionTitle("Histogram · Displayed Preview")
             HistogramView(nsImage: image)
+
+            Text(previewDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            Text("Double-click image to open Zoom View.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Open Zoom View", action: onOpenZoom)
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
+    }
+
+    private var previewDescription: String {
+        let source: String
+        switch previewSource {
+        case .thumbnail: source = String(localized: "Generated preview")
+        case .embeddedJPG: source = String(localized: "Embedded JPEG preview")
+        case .developedRAW: source = String(localized: "Developed RAW preview")
+        }
+        guard let representation = image?.representations.first(where: {
+            $0.pixelsWide > 0 && $0.pixelsHigh > 0
+        }) else { return source }
+        return "\(source) · \(representation.pixelsWide.formatted()) × \(representation.pixelsHigh.formatted()) px"
     }
 
     private func metadataSection(_ title: LocalizedStringKey, rows: [MetadataRow]) -> some View {
@@ -124,18 +152,11 @@ struct ZoomMetadataPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Quick Actions")
 
-            HStack(spacing: 8) {
-                Spacer()
-
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([file.url])
-                }
-
-                Button("Open RAW File") {
-                    NSWorkspace.shared.open(file.url)
-                }
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([file.url])
             }
             .controlSize(.small)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
@@ -197,7 +218,7 @@ struct ZoomMetadataPanel: View {
             if let rawSizeClass = exif.rawSizeClass {
                 value += " (\(rawSizeClass))"
             }
-            rows.append(MetadataRow(id: "dimensions", label: "Dimensions", value: value))
+            rows.append(MetadataRow(id: "dimensions", label: "Original Dimensions", value: value))
         }
 
         return rows
