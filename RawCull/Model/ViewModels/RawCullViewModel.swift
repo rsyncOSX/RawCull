@@ -46,7 +46,7 @@ struct ZoomOverlayLaunchContext: Equatable {
     var showFocusPointsOnOpen: Bool
 
     static let `default` = ZoomOverlayLaunchContext(
-        initialSource: .thumbnail,
+        initialSource: .embeddedJPG,
         initialZoomMode: .fit,
         showFocusPointsOnOpen: false,
     )
@@ -338,7 +338,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     func openZoomOverlay(
         navigationIDs: [FileItem.ID]? = nil,
-        initialSource: ImagePreviewSource = .thumbnail,
+        initialSource: ImagePreviewSource = .embeddedJPG,
         initialZoomMode: ZoomOverlayInitialZoomMode = .fit,
         showFocusPointsOnOpen: Bool = false,
     ) {

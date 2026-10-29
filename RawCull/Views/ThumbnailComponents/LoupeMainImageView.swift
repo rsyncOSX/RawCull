@@ -61,6 +61,7 @@ struct LoupeMainImageView: View {
                             if let file {
                                 LoupeMetadataOverlay(
                                     viewModel: viewModel, file: file, image: currentDisplayedImage,
+                                    previewSource: session.sourceSelection.selected,
                                     semanticSearchFeature: semanticSearchFeature,
                                 )
                             }
@@ -141,7 +142,7 @@ struct LoupeMainImageView: View {
         if session.sourceSelection.selected == .developedRAW, let developedRAWImage = session.developedRAWImage {
             return NSImage(cgImage: developedRAWImage, size: .zero)
         }
-        return session.thumbnailImage
+        return session.sourceSelection.selected == .thumbnail ? session.thumbnailImage : nil
     }
 
     private var currentImageSize: NSSize? {
