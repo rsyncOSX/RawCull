@@ -107,6 +107,7 @@ struct ZoomMetadataPanel: View {
 
             Button("Open Zoom View", action: onOpenZoom)
                 .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
@@ -151,18 +152,11 @@ struct ZoomMetadataPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Quick Actions")
 
-            HStack(spacing: 8) {
-                Spacer()
-
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([file.url])
-                }
-
-                Button("Open RAW File") {
-                    NSWorkspace.shared.open(file.url)
-                }
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([file.url])
             }
             .controlSize(.small)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
