@@ -282,6 +282,7 @@ actor SharedMemoryCache {
             memoryCache.totalCostLimit = reducedCost
             gridThumbnailCache.totalCostLimit = Int(Double(gridThumbnailCache.totalCostLimit) * 0.6)
             Task {
+                await RAWPreviewRenderer.shared.clearCache()
                 await fileHandlers?.memorypressurewarning(true)
             }
 
@@ -292,6 +293,7 @@ actor SharedMemoryCache {
             memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB minimum
             removeAllGridObjects()
             Task {
+                await RAWPreviewRenderer.shared.clearCache()
                 await fileHandlers?.memorypressurewarning(true)
             }
 
@@ -363,6 +365,7 @@ actor SharedMemoryCache {
     }
 
     func clearCaches() async {
+        await RAWPreviewRenderer.shared.clearCache()
         removeAllObjects()
         removeAllGridObjects()
 
