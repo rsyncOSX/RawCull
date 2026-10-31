@@ -12,6 +12,7 @@ import RawCullCore
 import SwiftUI
 
 struct ZoomOverlayView: View {
+    @Environment(\.displayScale) private var displayScale
     @Bindable var viewModel: RawCullViewModel
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = ZoomSessionModel()
@@ -97,6 +98,7 @@ struct ZoomOverlayView: View {
 
             ZoomImageCanvas(
                 cgImage: viewModel.zoomOverlayCGImage, nsImage: viewModel.zoomOverlayNSImage,
+                nativeImageSize: viewModel.zoomOverlayNativeSize,
                 focusMask: session.focusMask, subjectOutline: session.subjectOutline,
                 clippingOverlay: rawClippingOverlay, showsSubjectOutline: session.showSubjectOutline,
                 focusTarget: focusTarget, viewport: $session.viewport,
@@ -114,7 +116,8 @@ struct ZoomOverlayView: View {
 
             VStack {
                 ZoomOverlayChrome(
-                    dimensions: viewModel.zoomOverlayCGImage.map { CGSize(width: $0.width, height: $0.height) }
+                    dimensions: viewModel.zoomOverlayNativeSize
+                        ?? viewModel.zoomOverlayCGImage.map { CGSize(width: $0.width, height: $0.height) }
                         ?? viewModel.zoomOverlayNSImage?.size,
                     rating: viewModel.selectedFile.map(ratingDisplay(for:)),
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
@@ -139,6 +142,18 @@ struct ZoomOverlayView: View {
                 .keyboardShortcut(.cancelAction)
                 .opacity(0)
                 .frame(width: 0, height: 0)
+        }
+        .onGeometryChange(for: Int?.self) { geometry in
+            RAWPreviewSizing.fitDimension(viewport: geometry.size, displayScale: displayScale)
+        } action: { dimension in
+            if let dimension {
+                session.rawFitPreviewDimension = dimension
+            }
+        }
+        .onChange(of: session.rawPreviewMaximumDimension) { _, _ in
+            if session.sourceSelection.selected == .developedRAW {
+                reload(preservingImage: true)
+            }
         }
         .focusable()
         .focused($isImageFocused)
@@ -259,8 +274,11 @@ struct ZoomOverlayView: View {
         session.applyLaunchContext(context, hasFocusTarget: focusTarget != nil)
     }
 
-    private func reload() {
+    private func reload(preservingImage: Bool = false) {
         guard let file = viewModel.selectedFile else { return }
+        // Finish the current image before following a resize; avoid cancelling every window pixel.
+        guard let loadID = session.beginPreviewLoad(preservingImage: preservingImage) else { return }
+        let dimension = session.rawPreviewMaximumDimension
         viewModel.zoomExtractionTask?.cancel()
         viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
@@ -268,6 +286,17 @@ struct ZoomOverlayView: View {
             viewModel: viewModel,
             evaluateExposure: session.evaluateRAWExposure,
             exposureEV: session.committedRAWExposureEV,
+            maximumDimension: dimension,
+            preservingImage: preservingImage,
+            onFinished: {
+                guard session.finishPreviewLoad(loadID) else { return }
+                if !Task.isCancelled, viewModel.zoomOverlayVisible,
+                   session.sourceSelection.selected == .developedRAW,
+                   dimension != session.rawPreviewMaximumDimension
+                {
+                    reload(preservingImage: true)
+                }
+            },
             onDevelopedRAWFailure: {
                 session.sourceSelection.markDevelopedRAWUnavailable()
                 showRAWFailureMessage()

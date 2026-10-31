@@ -11,9 +11,7 @@ import SwiftUI
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
-    enum DevelopedRAWError: Error {
-        case decodingFailed
-    }
+    enum DevelopedRAWError: Error { case decodingFailed }
 
     private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
         SharedMemoryCache.shared.fullSizeJPGDiskCache
@@ -27,14 +25,28 @@ enum ZoomPreviewHandler {
         viewModel: RawCullViewModel,
         evaluateExposure: Bool = false,
         exposureEV: Double = 0,
+        maximumDimension: Int? = nil,
+        preservingImage: Bool = false,
+        renderRAW: @escaping @MainActor (URL, Int?, Double?) async throws -> RAWPreviewRenderer.Preview = { url, dimension, exposure in
+            try await loadOverlayRAWPreview(url: url, maximumDimension: dimension, inspectionExposureEV: exposure)
+        },
+        loadAnalysis: @escaping @MainActor (FileItem, Int) async -> CGImage? = { file, size in
+            await loadThumbnailPreview(for: file, thumbnailSizePreview: size)
+        },
+        onFinished: @escaping @MainActor () -> Void = {},
         onDevelopedRAWFailure: @escaping @MainActor () -> Void = {},
     ) -> Task<Void, Never> {
         if source == .thumbnail {
             Task {
+                defer { onFinished() }
+                guard !Task.isCancelled else { return }
                 let settings = await SettingsViewModel.shared.asyncgetsettings()
+                guard !Task.isCancelled else { return }
 
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
                     viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayNativeSize = nil
                     viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
                 }
@@ -74,17 +86,24 @@ enum ZoomPreviewHandler {
             }
         } else {
             Task {
+                defer { onFinished() }
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    viewModel.zoomOverlayNSImage = nil
-                    viewModel.zoomOverlayCGImage = nil
-                    viewModel.zoomOverlayAnalysisCGImage = nil
+                    guard !Task.isCancelled else { return }
+                    if !preservingImage {
+                        viewModel.zoomOverlayNSImage = nil
+                        viewModel.zoomOverlayCGImage = nil
+                        viewModel.zoomOverlayNativeSize = nil
+                        viewModel.zoomOverlayAnalysisCGImage = nil
+                    }
                     viewModel.zoomOverlayVisible = true
                 }
 
                 guard !Task.isCancelled else { return }
 
-                async let analysisImage = loadThumbnailPreview(for: file, thumbnailSizePreview: thumbnailSizePreview)
+                async let analysisImage = loadAnalysis(file, thumbnailSizePreview)
                 let image: CGImage?
+                var nativeSize: CGSize?
                 switch source {
                 case .thumbnail:
                     image = nil
@@ -98,13 +117,11 @@ enum ZoomPreviewHandler {
 
                 case .developedRAW:
                     do {
-                        if evaluateExposure {
-                            image = try await RAWExposurePreviewRenderer.shared.render(
-                                url: file.url, exposureEV: exposureEV,
-                            )
-                        } else {
-                            image = try await loadDevelopedRAWPreview(for: file.url)
-                        }
+                        let access = await RawCullCatalogAccess.shared.retainAccess(for: [file.url])
+                        defer { withExtendedLifetime(access) {} }
+                        let preview = try await renderRAW(file.url, maximumDimension, evaluateExposure ? exposureEV : nil)
+                        image = preview.image
+                        nativeSize = preview.nativeSize
                     } catch is CancellationError {
                         return
                     } catch {
@@ -114,16 +131,50 @@ enum ZoomPreviewHandler {
                     }
                 }
 
-                let resolvedAnalysisImage = await analysisImage
                 if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlayAnalysisCGImage = resolvedAnalysisImage ?? image
+                        viewModel.zoomOverlayNativeSize = nativeSize
                         viewModel.zoomOverlayCGImage = image
                     }
                 }
+                let resolvedAnalysisImage = await analysisImage
+                guard !Task.isCancelled else { return }
+                viewModel.zoomOverlayAnalysisCGImage = resolvedAnalysisImage ?? image
             }
         }
+    }
+
+    /// Keep the established native-resolution JPEG/disk-cache policy: real-file
+    /// measurements did not justify replacing it with direct native rendering.
+    @concurrent
+    static func loadOverlayRAWPreview(
+        url: URL,
+        maximumDimension: Int?,
+        inspectionExposureEV: Double?,
+        renderer: RAWPreviewRenderer = .shared,
+        diskCache: FullSizeJPGDiskCache? = nil
+    ) async throws -> RAWPreviewRenderer.Preview {
+        if maximumDimension != nil, inspectionExposureEV == nil {
+            let key = try RAWPreviewCache.Key(url: url, maximumDimension: maximumDimension, inspectionExposureEV: nil)
+            if let preview = try await renderer.cachedPreview(for: key) { return preview }
+            // Preserve fast opens for photos developed in an earlier session. The existing
+            // full-size JPEG is already suitable for fit view; no new RAW decode is needed.
+            if let image = await (diskCache ?? fullSizeCache).load(for: url, variant: .developedRAW) {
+                try Task.checkCancellation()
+                return RAWPreviewRenderer.Preview(image: image, nativeSize: CGSize(width: image.width, height: image.height))
+            }
+        }
+        if maximumDimension != nil || inspectionExposureEV != nil {
+            return try await renderer.render(
+                url: url, maximumDimension: maximumDimension, inspectionExposureEV: inspectionExposureEV
+            )
+        }
+        // Release the inspection/fit RAW graph before developing a full-size JPEG.
+        await renderer.releaseSource()
+        let image = try await loadDevelopedRAWPreview(for: url)
+        try Task.checkCancellation()
+        return RAWPreviewRenderer.Preview(image: image, nativeSize: CGSize(width: image.width, height: image.height))
     }
 
     static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
@@ -138,6 +189,7 @@ enum ZoomPreviewHandler {
         )
     }
 
+    /// Loupe and burst previews keep their existing full-size persistent-JPEG policy.
     @concurrent
     static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {
         if let cached = await fullSizeCache.load(for: rawURL, variant: .developedRAW) {
@@ -156,52 +208,5 @@ enum ZoomPreviewHandler {
         await fullSizeCache.save(jpegData, for: rawURL, variant: .developedRAW)
         try Task.checkCancellation()
         return image
-    }
-}
-
-/// Serializes expensive inspection renders. Adjusted previews never enter the export/JPEG cache.
-private actor RAWExposurePreviewRenderer {
-    static let shared = RAWExposurePreviewRenderer()
-    /// Initialize on this actor's executor, not in the initializer called by the UI.
-    private var context: CIContext?
-
-    func render(url: URL, exposureEV: Double) async throws -> CGImage {
-        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
-        defer { withExtendedLifetime(access) {} }
-        try Task.checkCancellation()
-        return try autoreleasepool {
-            dispatchPrecondition(condition: .notOnQueue(.main))
-            let context = self.context ?? CIContext(options: [.workingFormat: CIFormat.RGBAh])
-            self.context = context
-            guard let raw = CIRAWFilter(imageURL: url) else {
-                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
-            }
-            if let version = RAW9Support.preferredVersion(in: raw.supportedDecoderVersions) {
-                raw.decoderVersion = version
-            }
-            raw.exposure = Float(exposureEV)
-            raw.boostShadowAmount = 2
-            if #available(macOS 26.0, *), raw.isHighlightRecoverySupported {
-                raw.isHighlightRecoveryEnabled = true
-            }
-            guard let developed = raw.outputImage else {
-                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
-            }
-            // Compress highlights for inspection before the final display conversion.
-            let inspected = developed.applyingFilter("CIHighlightShadowAdjust", parameters: [
-                "inputHighlightAmount": 0.25,
-                "inputShadowAmount": 0.0
-            ])
-            try Task.checkCancellation()
-            guard let image = context.createCGImage(
-                inspected, from: inspected.extent, format: .RGBA8,
-                colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-                deferred: false,
-            ) else {
-                throw ZoomPreviewHandler.DevelopedRAWError.decodingFailed
-            }
-            try Task.checkCancellation()
-            return image
-        }
     }
 }

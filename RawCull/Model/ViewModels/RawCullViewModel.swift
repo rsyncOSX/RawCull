@@ -165,6 +165,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     var zoomOverlayLaunchContext: ZoomOverlayLaunchContext = .default
+    var zoomOverlayNativeSize: CGSize?
     var zoomOverlayCGImage: CGImage?
     var zoomOverlayAnalysisCGImage: CGImage?
     var zoomOverlayNSImage: NSImage?
@@ -361,6 +362,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         zoomOverlayNavigationContext = nil
         zoomOverlayLaunchContext = .default
         zoomOverlayCGImage = nil
+        zoomOverlayNativeSize = nil
         zoomOverlayAnalysisCGImage = nil
         zoomOverlayNSImage = nil
     }

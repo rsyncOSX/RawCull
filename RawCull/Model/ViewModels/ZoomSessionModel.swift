@@ -5,6 +5,28 @@ import RawCullCore
 @MainActor
 @Observable
 final class ZoomSessionModel {
+    private var rawLoadID = UUID()
+    private(set) var isLoadingRAWPreview = false
+
+    func beginPreviewLoad(preservingImage: Bool) -> UUID? {
+        guard !preservingImage || !isLoadingRAWPreview else { return nil }
+        rawLoadID = UUID()
+        isLoadingRAWPreview = sourceSelection.selected == .developedRAW
+        return rawLoadID
+    }
+
+    func finishPreviewLoad(_ id: UUID) -> Bool {
+        guard id == rawLoadID else { return false }
+        isLoadingRAWPreview = false
+        return true
+    }
+
+    var rawFitPreviewDimension = 2560
+    var rawPreviewMaximumDimension: Int? {
+        // Clipping/exposure inspection uses native samples, even while fitted to the window.
+        evaluateRAWExposure || viewport.scale > 1 || pendingInitialZoomMode == .actualPixels ? nil : rawFitPreviewDimension
+    }
+
     var focusMask: CGImage?
     var subjectOutline: CGImage?
     var viewport = ComparisonViewportInteractionState()
@@ -126,6 +148,10 @@ final class ZoomSessionModel {
     }
 
     func cancel() {
+        // Keep bounded completed previews for revisits, but release the active RAW graph on close.
+        Task { @concurrent in
+            await RAWPreviewRenderer.shared.releaseSource()
+        }
         maskTask?.cancel()
         maskTask = nil
         rawMessageTask?.cancel()

@@ -4,6 +4,7 @@ import SwiftUI
 struct ZoomImageCanvas: View {
     let cgImage: CGImage?
     let nsImage: NSImage?
+    let nativeImageSize: CGSize?
     let focusMask: CGImage?
     let subjectOutline: CGImage?
     let clippingOverlay: CGImage?
@@ -66,8 +67,8 @@ struct ZoomImageCanvas: View {
                     .scaleEffect(viewport.scale)
                     .offset(viewport.offset)
                     .gesture(zoomPanGesture)
-                    .onAppear { imageReady(imageSize, geometry.size) }
-                    .onChange(of: imageIdentity) { _, _ in imageReady(imageSize, geometry.size) }
+                    .onAppear { imageReady(nativeImageSize ?? imageSize, geometry.size) }
+                    .onChange(of: imageIdentity) { _, _ in imageReady(nativeImageSize ?? imageSize, geometry.size) }
                     .onTapGesture(count: 2) {
                         withAnimation(.spring()) { viewport.scale > 1 ? resetToFit() : zoomToTarget() }
                     }
