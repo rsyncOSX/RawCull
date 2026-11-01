@@ -74,7 +74,7 @@ actor RAWPreviewRenderer {
             let displayNativeSize = sameOrientation ? sensorSize : CGSize(width: sensorSize.height, height: sensorSize.width)
             if inspectionExposureEV != nil {
                 output = output.applyingFilter("CIHighlightShadowAdjust", parameters: [
-                    "inputHighlightAmount": 0.25, "inputShadowAmount": 0.0,
+                    "inputHighlightAmount": 0.25, "inputShadowAmount": 0.0
                 ])
             }
             try Task.checkCancellation()
@@ -178,8 +178,7 @@ nonisolated struct RAWPreviewCache {
             let old = entries[index].key
             if old.fileSize != key.fileSize || old.modificationDate != key.modificationDate
                 || (old.maximumDimension == key.maximumDimension
-                    && (old.inspectionExposureEV != nil) == (key.inspectionExposureEV != nil))
-            {
+                    && (old.inspectionExposureEV != nil) == (key.inspectionExposureEV != nil)) {
                 byteCount -= entries.remove(at: index).cost
             }
         }

@@ -112,11 +112,10 @@ struct ZoomMetadataPanel: View {
     }
 
     private var previewDescription: String {
-        let source: String
-        switch previewSource {
-        case .thumbnail: source = String(localized: "Generated preview")
-        case .embeddedJPG: source = String(localized: "Embedded JPEG preview")
-        case .developedRAW: source = String(localized: "Developed RAW preview")
+        let source = switch previewSource {
+        case .thumbnail: String(localized: "Generated preview")
+        case .embeddedJPG: String(localized: "Embedded JPEG preview")
+        case .developedRAW: String(localized: "Developed RAW preview")
         }
         guard let representation = image?.representations.first(where: {
             $0.pixelsWide > 0 && $0.pixelsHigh > 0

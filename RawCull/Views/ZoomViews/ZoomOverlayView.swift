@@ -292,8 +292,7 @@ struct ZoomOverlayView: View {
                 guard session.finishPreviewLoad(loadID) else { return }
                 if !Task.isCancelled, viewModel.zoomOverlayVisible,
                    session.sourceSelection.selected == .developedRAW,
-                   dimension != session.rawPreviewMaximumDimension
-                {
+                   dimension != session.rawPreviewMaximumDimension {
                     reload(preservingImage: true)
                 }
             },

@@ -1,9 +1,9 @@
 // Compiled together with the production RAWPreviewRenderer.swift by RunRAW9PreviewBenchmark.py.
 import CoreImage
+import Darwin
 import Foundation
 import ImageIO
 import RawParserKit
-import Darwin
 
 @main struct RAW9PreviewBenchmark {
     static func main() async throws {
@@ -12,19 +12,23 @@ import Darwin
         let limit = Int(CommandLine.arguments[3])!
         let passes = Int(CommandLine.arguments[4])!
         let scratch = URL(fileURLWithPath: CommandLine.arguments[5])
-        let files = Array(try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+        let files = try Array(FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension.lowercased() == "arw" }.sorted { $0.path < $1.path }.prefix(limit))
         guard !files.isEmpty else { throw CocoaError(.fileReadNoSuchFile) }
         let renderer = RAWPreviewRenderer(cacheByteLimit: 256 * 1024 * 1024)
         let context = CIContext(options: [.workingFormat: CIFormat.RGBAh])
-        for pass in 0..<passes {
+        for pass in 0 ..< passes {
             for url in files {
                 let supported = autoreleasepool {
                     CIRAWFilter(imageURL: url)?.supportedDecoderVersions.contains(.version9) == true
                 }
                 guard supported else { throw BenchmarkError.unsupportedRAW9(url.lastPathComponent) }
-                if mode != "revisit" { await renderer.clearCache() }
-                if mode == "revisit" { _ = try await renderer.render(url: url, maximumDimension: 3072) }
+                if mode != "revisit" {
+                    await renderer.clearCache()
+                }
+                if mode == "revisit" {
+                    _ = try await renderer.render(url: url, maximumDimension: 3072)
+                }
                 let start = ContinuousClock.now
                 var stages: [String: Any] = [:]
                 let image: CGImage
@@ -49,8 +53,8 @@ import Darwin
                 }
                 // Force ImageIO's possibly lazy JPEG pixels too. This is separate from delivery.
                 let materialized = try autoreleasepool { try requireImage(context.createCGImage(CIImage(cgImage: image),
-                    from: CGRect(x: 0, y: 0, width: image.width, height: image.height), format: .RGBA8,
-                    colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, deferred: false)) }
+                                                                                                from: CGRect(x: 0, y: 0, width: image.width, height: image.height), format: .RGBA8,
+                                                                                                colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, deferred: false)) }
                 stages["materialized_ms"] = ms(start.duration(to: .now))
                 if mode == "validate-fit" {
                     let jpeg = try await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1, useRAW9: true)
@@ -82,8 +86,8 @@ import Darwin
                     guard error < 3 else { throw BenchmarkError.colorChanged(error) }
                     if url == files.first {
                         try context.writePNGRepresentation(of: CIImage(cgImage: image),
-                            to: scratch.appendingPathComponent("direct-fit.png"), format: .RGBA8,
-                            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+                                                           to: scratch.appendingPathComponent("direct-fit.png"), format: .RGBA8,
+                                                           colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
                     }
                 }
                 if mode == "validate" {
@@ -94,7 +98,7 @@ import Darwin
                     stages["jpeg_reference_mean_absolute_rgb_error"] = difference
                     guard difference < 3 else { throw BenchmarkError.colorChanged(difference) }
                     let inspectionRenderer = RAWPreviewRenderer()
-                    for exposure in (url == files.first ? [0.0, -1.0, 1.0] : []) {
+                    for exposure in url == files.first ? [0.0, -1.0, 1.0] : [] {
                         let actual = try await inspectionRenderer.render(url: url, inspectionExposureEV: exposure).image
                         let expected = try legacyInspection(url: url, exposure: exposure, context: context)
                         let error = pixelDifference(expected, actual, context: context)
@@ -113,15 +117,15 @@ import Darwin
                     if pass == 0, url == files.first {
                         let output = scratch.appendingPathComponent("direct-native.png")
                         try context.writePNGRepresentation(of: CIImage(cgImage: normal), to: output,
-                            format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+                                                           format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
                         try jpeg.write(to: scratch.appendingPathComponent("legacy-native.jpg"))
                     }
                 }
                 var usage = rusage()
                 getrusage(RUSAGE_SELF, &usage)
                 stages.merge(["file": url.lastPathComponent, "mode": mode, "pass": pass,
-                    "width": materialized.width, "height": materialized.height,
-                    "raw9": true, "process_peak_rss_bytes": usage.ru_maxrss]) { _, new in new }
+                              "width": materialized.width, "height": materialized.height,
+                              "raw9": true, "process_peak_rss_bytes": usage.ru_maxrss]) { _, new in new }
                 let row = try JSONSerialization.data(withJSONObject: stages, options: [.sortedKeys])
                 FileHandle.standardOutput.write(row + Data([10]))
             }
@@ -131,42 +135,50 @@ import Darwin
     static func ms(_ d: Duration) -> Double {
         Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
     }
-    // Keep failure handling explicit without depending on a test runner.
+
+    /// Keep failure handling explicit without depending on a test runner.
     static func requireImage(_ image: CGImage?) throws -> CGImage {
         guard let image else { throw BenchmarkError.noImage }
         return image
     }
+
     static func legacyInspection(url: URL, exposure: Double, context: CIContext) throws -> CGImage {
         try autoreleasepool {
             guard let raw = CIRAWFilter(imageURL: url) else { throw BenchmarkError.noImage }
             raw.decoderVersion = .version9
             raw.exposure = Float(exposure)
             raw.boostShadowAmount = 2
-            if #available(macOS 26.0, *), raw.isHighlightRecoverySupported { raw.isHighlightRecoveryEnabled = true }
+            if #available(macOS 26.0, *), raw.isHighlightRecoverySupported {
+                raw.isHighlightRecoveryEnabled = true
+            }
             guard let developed = raw.outputImage else { throw BenchmarkError.noImage }
             let inspected = developed.applyingFilter("CIHighlightShadowAdjust", parameters: [
                 "inputHighlightAmount": 0.25, "inputShadowAmount": 0.0
             ])
             return try requireImage(context.createCGImage(inspected, from: inspected.extent, format: .RGBA8,
-                colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, deferred: false))
+                                                          colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, deferred: false))
         }
     }
+
     static func pixelDifference(_ a: CGImage, _ b: CGImage, context: CIContext) -> Double {
         func pixels(_ image: CGImage) -> [UInt8] {
             var bytes = [UInt8](repeating: 0, count: 256 * 256 * 4)
             let output = CIImage(cgImage: image).transformed(by: CGAffineTransform(scaleX: 256 / CGFloat(image.width), y: 256 / CGFloat(image.height)))
             bytes.withUnsafeMutableBytes {
                 context.render(output, toBitmap: $0.baseAddress!, rowBytes: 256 * 4,
-                    bounds: CGRect(x: 0, y: 0, width: 256, height: 256), format: .RGBA8,
-                    colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+                               bounds: CGRect(x: 0, y: 0, width: 256, height: 256), format: .RGBA8,
+                               colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
             }
             return bytes
         }
         let lhs = pixels(a), rhs = pixels(b)
         var total = 0
-        for index in lhs.indices where index % 4 != 3 { total += abs(Int(lhs[index]) - Int(rhs[index])) }
+        for index in lhs.indices where index % 4 != 3 {
+            total += abs(Int(lhs[index]) - Int(rhs[index]))
+        }
         return Double(total) / Double(256 * 256 * 3)
     }
+
     enum BenchmarkError: Error {
         case unsupportedRAW9(String), noImage, geometryChanged, colorChanged(Double), inspectionLeaked
     }

@@ -153,11 +153,13 @@ enum ZoomPreviewHandler {
         maximumDimension: Int?,
         inspectionExposureEV: Double?,
         renderer: RAWPreviewRenderer = .shared,
-        diskCache: FullSizeJPGDiskCache? = nil
+        diskCache: FullSizeJPGDiskCache? = nil,
     ) async throws -> RAWPreviewRenderer.Preview {
         if maximumDimension != nil, inspectionExposureEV == nil {
             let key = try RAWPreviewCache.Key(url: url, maximumDimension: maximumDimension, inspectionExposureEV: nil)
-            if let preview = try await renderer.cachedPreview(for: key) { return preview }
+            if let preview = try await renderer.cachedPreview(for: key) {
+                return preview
+            }
             // Preserve fast opens for photos developed in an earlier session. The existing
             // full-size JPEG is already suitable for fit view; no new RAW decode is needed.
             if let image = await (diskCache ?? fullSizeCache).load(for: url, variant: .developedRAW) {
@@ -167,7 +169,7 @@ enum ZoomPreviewHandler {
         }
         if maximumDimension != nil || inspectionExposureEV != nil {
             return try await renderer.render(
-                url: url, maximumDimension: maximumDimension, inspectionExposureEV: inspectionExposureEV
+                url: url, maximumDimension: maximumDimension, inspectionExposureEV: inspectionExposureEV,
             )
         }
         // Release the inspection/fit RAW graph before developing a full-size JPEG.

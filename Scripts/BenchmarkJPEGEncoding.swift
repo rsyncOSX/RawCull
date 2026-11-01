@@ -60,12 +60,12 @@ func run() throws {
     }
     var trials: [[String: Double]] = []
     let repetitions = 6
-    for trial in 0..<12 {
+    for trial in 0 ..< 12 {
         var result: [String: Double] = [:]
         // Alternate order to reduce systematic warm-up/thermal bias.
         for mode in trial.isMultiple(of: 2) ? ["fresh", "shared"] : ["shared", "fresh"] {
             let start = ProcessInfo.processInfo.systemUptime
-            for _ in 0..<repetitions {
+            for _ in 0 ..< repetitions {
                 for image in images {
                     let data = autoreleasepool { encode(image, options: mode == "fresh" ? nil : shared) }
                     guard data != nil else { throw NSError(domain: "JPEGExperiment", code: 5) }
@@ -79,7 +79,7 @@ func run() throws {
     var conversion = 0.0
     for image in images {
         let start = ProcessInfo.processInfo.systemUptime
-        for _ in 0..<1000 {
+        for _ in 0 ..< 1000 {
             let wrapper = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
             guard wrapper.cgImage(forProposedRect: nil, context: nil, hints: nil) != nil else {
                 throw NSError(domain: "JPEGExperiment", code: 6)
@@ -95,7 +95,7 @@ func run() throws {
         "fresh_median_ms": fresh, "shared_median_ms": reused,
         "shared_change_percent": (reused / fresh - 1) * 100,
         "nsimage_roundtrip_mean_ms": conversion / Double(1000 * images.count),
-        "limits": "Sequential diagnostic on 12 decoded persisted thumbnails; not production RAW materialization, orientation/color visual QA, concurrency, or a full-catalog before/after comparison.",
+        "limits": "Sequential diagnostic on 12 decoded persisted thumbnails; not production RAW materialization, orientation/color visual QA, concurrency, or a full-catalog before/after comparison."
     ]
     let data = try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
     print(String(decoding: data, as: UTF8.self))
