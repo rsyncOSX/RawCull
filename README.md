@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.3.5**.
+Current project version: **3.3.6**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -53,6 +53,17 @@ Saved reviews remain available outside the current input selection. Review setti
 
 Findings retain their evidence limits and conflicts. If synthesis fails, available observations are labeled as observations only. Missing retained images do not erase the report or measurements.
 
+## RAW previews
+
+Fit-to-window RAW viewing uses viewport-sized development when a cached developed
+JPEG is unavailable. Native zoom and exposure/clipping inspection use full
+resolution. Completed previews share a 256 MiB memory cache, and compatible
+persisted developed JPEGs can be reused across launches. The current image stays
+visible while a higher-resolution preview loads.
+
+See [RAW preview measurements and limits](Docs/RAW9PreviewPerformance.md) for the
+rendering policy, standalone benchmark, and validation results.
+
 ## Workflow
 
 ```text
@@ -99,7 +110,7 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 | `photoaikit` | `1.0.0` |
 | `photoanalysiskit` | `1.3.1` |
 | `rawcullcore` | `1.1.2` |
-| `rawparserkit` | `1.3.2` |
+| `rawparserkit` | `1.3.3` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.3` |
@@ -137,9 +148,28 @@ xcodebuild \
 make test-smoke        # Fast integration and critical-path coverage
 make test-full         # Full suite with Thread Sanitizer
 make test-performance  # Performance and extreme-concurrency coverage
+make test-scripts      # Python script checks; no models or photographs required
 ```
 
 The Swift Testing suites cover RAW parsing, focus and sharpness metrics, similarity and semantic search, Deep Review, Qwen responses, downloads, caches, persistence, cancellation, concurrency, and copy workflows.
+
+## Performance tools and scripts
+
+Run the opt-in Release benchmark against your own ARW catalog:
+
+```bash
+make catalog-performance CATALOG="/path/to/ARW catalog" \
+  PERF_ARGS='--output /tmp/rawcull-performance-before'
+```
+
+Use a new output directory outside the repository and source catalog. The runner
+records logs, JSON measurements, and a Markdown report; it supports comparison
+with a compatible baseline. These component timings measure image readiness,
+not the first painted frame.
+
+See the [catalog benchmark guide](Docs/CatalogPerformance.md),
+[Instruments workflow](Docs/MeasurePerformance.md), and
+[scripts guide](Scripts/README.md) for commands, diagnostics, AI runners, and checks.
 
 ## Release
 
@@ -157,7 +187,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.5.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.6.dmg
 ```
 
 ### App Store Connect and TestFlight uploads
