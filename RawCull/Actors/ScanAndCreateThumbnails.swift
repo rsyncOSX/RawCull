@@ -19,6 +19,7 @@ actor ScanAndCreateThumbnails {
     }
 
     private let measure: (@Sendable (Measurement) async -> Void)?
+
     // MARK: - Isolated State
 
     private var successCount = 0

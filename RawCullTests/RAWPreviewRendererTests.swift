@@ -147,13 +147,13 @@ struct RAWPreviewRendererTests {
         await disk.save(jpeg, for: source, variant: .developedRAW)
         let renderer = RAWPreviewRenderer()
         let loaded = try await ZoomPreviewHandler.loadOverlayRAWPreview(
-            url: source, maximumDimension: 2560, inspectionExposureEV: nil, renderer: renderer, diskCache: disk
+            url: source, maximumDimension: 2560, inspectionExposureEV: nil, renderer: renderer, diskCache: disk,
         )
         #expect(loaded.image.width == 4)
         #expect(loaded.nativeSize == CGSize(width: 4, height: 4))
         await #expect(throws: RAWPreviewRenderer.RenderError.self) {
             try await ZoomPreviewHandler.loadOverlayRAWPreview(
-                url: source, maximumDimension: nil, inspectionExposureEV: 0, renderer: renderer, diskCache: disk
+                url: source, maximumDimension: nil, inspectionExposureEV: 0, renderer: renderer, diskCache: disk,
             )
         }
     }

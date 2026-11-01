@@ -91,7 +91,6 @@ struct CatalogPerformanceTests {
         let disk: DiskCacheManager
         let preloader: ScanAndCreateThumbnails
     }
-
 }
 
 extension CatalogPerformanceTests {

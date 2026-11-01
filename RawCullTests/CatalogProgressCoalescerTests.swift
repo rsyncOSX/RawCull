@@ -26,7 +26,9 @@ struct CatalogProgressCoalescerTests {
         var values: [Int] = []
         let publisher = CatalogProgressCoalescer(initial: 0, schedule: clock.schedule) { values.append($0) }
         publisher.update(immediately: true) { $0 = 0 }
-        for count in 1...809 { publisher.update { $0 = count } }
+        for count in 1 ... 809 {
+            publisher.update { $0 = count }
+        }
         #expect(values == [0])
         #expect(clock.callbacks.count == 1)
         clock.fire()
