@@ -9,6 +9,7 @@ actor RAWPreviewRenderer {
     nonisolated struct Preview: Sendable {
         let image: CGImage
         let nativeSize: CGSize
+        var isReducedResolution: Bool = false
     }
 
     private var context: CIContext?
@@ -88,7 +89,7 @@ actor RAWPreviewRenderer {
                   )
             else { throw RenderError.decodingFailed }
             try Task.checkCancellation()
-            let preview = Preview(image: image, nativeSize: displayNativeSize)
+            let preview = Preview(image: image, nativeSize: displayNativeSize, isReducedResolution: scale < 1)
             cache.insert(preview, for: key)
             return preview
         }

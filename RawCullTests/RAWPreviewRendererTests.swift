@@ -110,6 +110,34 @@ struct RAWPreviewRendererTests {
     }
 
     @Test(.timeLimit(.minutes(1))) @MainActor
+    func `badge follows displayed decode while full RAW replaces fast preview`() async throws {
+        let model = makeRawCullViewModel()
+        let gate = RAWPreviewTestGate()
+        let pixels = try preview()
+        // Pixel dimensions deliberately differ from native geometry in both modes.
+        let fast = RAWPreviewRenderer.Preview(image: pixels.image, nativeSize: pixels.nativeSize,
+                                             isReducedResolution: true)
+        let file = makeCullingTestFile("badge.ARW")
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+                                               renderRAW: { _, _, _ in fast }, loadAnalysis: { _, _ in nil }).value
+        #expect(model.zoomOverlayRAWIsReduced == true)
+        let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+                                                   preservingImage: true, renderRAW: { _, _, _ in
+                                                       await gate.wait()
+                                                       return pixels
+                                                   }, loadAnalysis: { _, _ in nil })
+        await gate.waitUntilEntered()
+        #expect(model.zoomOverlayRAWIsReduced == true)
+        await gate.release()
+        await full.value
+        #expect(model.zoomOverlayRAWIsReduced == false)
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+                                               renderRAW: { _, _, _ in throw RAWPreviewRenderer.RenderError.decodingFailed },
+                                               loadAnalysis: { _, _ in nil }).value
+        #expect(model.zoomOverlayRAWIsReduced == nil)
+    }
+
+    @Test(.timeLimit(.minutes(1))) @MainActor
     func `display is published while analysis thumbnail is still waiting`() async throws {
         let model = makeRawCullViewModel()
         let gate = RAWPreviewTestGate()
