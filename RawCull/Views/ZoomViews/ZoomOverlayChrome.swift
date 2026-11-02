@@ -3,6 +3,7 @@ import SwiftUI
 struct ZoomOverlayChrome: View {
     let dimensions: CGSize?
     let rating: RatingDisplay?
+    var isReducedRAWPreview: Bool? = nil
     let navigationAxis: ZoomOverlayNavigationAxis
     let isInspectingExposure: Bool
     let canNavigatePrevious: Bool
@@ -18,6 +19,9 @@ struct ZoomOverlayChrome: View {
                         ImagePixelDimensionsBadgeView(width: Int(dimensions.width), height: Int(dimensions.height))
                     }
                     CurrentRatingBadgeView(rating: rating)
+                    if let isReducedRAWPreview {
+                        RAWDecodeBadgeView(isReducedPreview: isReducedRAWPreview)
+                    }
                 }
                 .padding()
             }
@@ -100,5 +104,29 @@ struct ZoomOverlayChrome: View {
         .shadow(color: .black.opacity(isDisabled ? 0 : 0.4), radius: 8, x: 0, y: 2)
         .padding(.vertical)
         .padding(.trailing, 2)
+    }
+}
+
+private struct RAWDecodeBadgeView: View {
+    let isReducedPreview: Bool
+
+    private var title: LocalizedStringKey {
+        isReducedPreview ? "Fast RAW" : "Full RAW"
+    }
+
+    var body: some View {
+        Label(
+            title,
+            systemImage: isReducedPreview ? "bolt.fill" : "viewfinder"
+        )
+        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(Color.secondary.opacity(0.85), in: Capsule())
+        .fixedSize()
+        .help(isReducedPreview
+            ? Text("Reduced-resolution RAW preview for a faster fit-to-window display. Zoom in for full detail.")
+            : Text("Full-resolution RAW image. Decoding at full resolution can take longer."))
     }
 }
