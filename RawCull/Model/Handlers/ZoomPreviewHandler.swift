@@ -47,6 +47,7 @@ enum ZoomPreviewHandler {
                     guard !Task.isCancelled else { return }
                     viewModel.zoomOverlayCGImage = nil
                     viewModel.zoomOverlayNativeSize = nil
+                    viewModel.zoomOverlayRAWIsReduced = nil
                     viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
                 }
@@ -94,6 +95,7 @@ enum ZoomPreviewHandler {
                         viewModel.zoomOverlayNSImage = nil
                         viewModel.zoomOverlayCGImage = nil
                         viewModel.zoomOverlayNativeSize = nil
+                        viewModel.zoomOverlayRAWIsReduced = nil
                         viewModel.zoomOverlayAnalysisCGImage = nil
                     }
                     viewModel.zoomOverlayVisible = true
@@ -104,6 +106,7 @@ enum ZoomPreviewHandler {
                 async let analysisImage = loadAnalysis(file, thumbnailSizePreview)
                 let image: CGImage?
                 var nativeSize: CGSize?
+                var isReducedRAW: Bool?
                 switch source {
                 case .thumbnail:
                     image = nil
@@ -122,6 +125,7 @@ enum ZoomPreviewHandler {
                         let preview = try await renderRAW(file.url, maximumDimension, evaluateExposure ? exposureEV : nil)
                         image = preview.image
                         nativeSize = preview.nativeSize
+                        isReducedRAW = preview.isReducedResolution
                     } catch is CancellationError {
                         return
                     } catch {
@@ -135,6 +139,7 @@ enum ZoomPreviewHandler {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
                         viewModel.zoomOverlayNativeSize = nativeSize
+                        viewModel.zoomOverlayRAWIsReduced = isReducedRAW
                         viewModel.zoomOverlayCGImage = image
                     }
                 }
