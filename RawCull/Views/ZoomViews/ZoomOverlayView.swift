@@ -18,6 +18,16 @@ struct ZoomOverlayView: View {
     @State private var session = ZoomSessionModel()
     @State private var rawClippingOverlay: CGImage?
 
+    // Native geometry is present only for a developed RAW image. Compare the
+    // displayed pixels rather than the requested size, including cached images
+    // and the previous preview retained while a replacement is rendering.
+    private var displayedRAWIsReduced: Bool? {
+        guard let nativeSize = viewModel.zoomOverlayNativeSize,
+              let image = viewModel.zoomOverlayCGImage else { return nil }
+        return CGFloat(image.width) < nativeSize.width - 1
+            || CGFloat(image.height) < nativeSize.height - 1
+    }
+
     private struct ClippingTaskID: Equatable {
         let imageID: ObjectIdentifier?
         let enabled: Bool
@@ -120,6 +130,7 @@ struct ZoomOverlayView: View {
                         ?? viewModel.zoomOverlayCGImage.map { CGSize(width: $0.width, height: $0.height) }
                         ?? viewModel.zoomOverlayNSImage?.size,
                     rating: viewModel.selectedFile.map(ratingDisplay(for:)),
+                    isReducedRAWPreview: displayedRAWIsReduced,
                     navigationAxis: viewModel.zoomOverlayNavigationAxis,
                     isInspectingExposure: session.evaluateRAWExposure,
                     canNavigatePrevious: navigation.canNavigatePrevious, canNavigateNext: navigation.canNavigateNext,
