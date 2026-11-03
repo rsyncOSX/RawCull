@@ -4,6 +4,9 @@ struct ZoomOverlayChrome: View {
     let dimensions: CGSize?
     let rating: RatingDisplay?
     var isReducedRAWPreview: Bool? = nil
+    var rawRenderSeconds: Double? = nil
+    var isPreparingRAW = false
+    var isPreparingRAWPreview = true
     let navigationAxis: ZoomOverlayNavigationAxis
     let isInspectingExposure: Bool
     let canNavigatePrevious: Bool
@@ -19,8 +22,13 @@ struct ZoomOverlayChrome: View {
                         ImagePixelDimensionsBadgeView(width: Int(dimensions.width), height: Int(dimensions.height))
                     }
                     CurrentRatingBadgeView(rating: rating)
-                    if let isReducedRAWPreview {
-                        RAWDecodeBadgeView(isReducedPreview: isReducedRAWPreview)
+                    if isReducedRAWPreview != nil || isPreparingRAW {
+                        RAWDecodeBadgeView(
+                            isReduced: isReducedRAWPreview ?? true,
+                            renderSeconds: rawRenderSeconds,
+                            isPreparing: isPreparingRAW,
+                            isPreparingPreview: isPreparingRAWPreview
+                        )
                     }
                 }
                 .padding()
@@ -108,25 +116,42 @@ struct ZoomOverlayChrome: View {
 }
 
 private struct RAWDecodeBadgeView: View {
-    let isReducedPreview: Bool
+    let isReduced: Bool
 
-    private var title: LocalizedStringKey {
-        isReducedPreview ? "Fast RAW" : "Full RAW"
+    let renderSeconds: Double?
+    let isPreparing: Bool
+    let isPreparingPreview: Bool
+
+    private var title: Text {
+        if isPreparing {
+            isPreparingPreview ? Text("Preparing RAW preview…") : Text("Preparing full-detail RAW…")
+        } else if let renderSeconds {
+            isReduced
+                ? Text("RAW Preview · \(renderSeconds, format: .number.precision(.fractionLength(1))) s")
+                : Text("RAW Full detail · \(renderSeconds, format: .number.precision(.fractionLength(1))) s")
+        } else {
+            isReduced ? Text("RAW Preview") : Text("RAW Full detail")
+        }
     }
 
     var body: some View {
-        Label(
-            title,
-            systemImage: isReducedPreview ? "bolt.fill" : "viewfinder"
-        )
-        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-        .foregroundStyle(.white)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Color.secondary.opacity(0.85), in: Capsule())
-        .fixedSize()
-        .help(isReducedPreview
-            ? Text("Reduced-resolution RAW preview for a faster fit-to-window display. Zoom in for full detail.")
-            : Text("Full-resolution RAW image. Decoding at full resolution can take longer."))
+        Label {
+            title
+        } icon: {
+            if isPreparing {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: isReduced ? "photo" : "viewfinder")
+            }
+        }
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.secondary.opacity(0.85), in: Capsule())
+            .fixedSize()
+            .help(isReduced
+                ? Text("Processed at a resolution suited to this view to reduce processing time. Zoom in to load full detail. Time measures the latest render request, including cache retrieval.")
+                : Text("Processed at native resolution for full detail. Time measures the latest render request, including cache retrieval."))
     }
 }

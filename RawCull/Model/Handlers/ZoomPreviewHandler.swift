@@ -48,6 +48,7 @@ enum ZoomPreviewHandler {
                     viewModel.zoomOverlayCGImage = nil
                     viewModel.zoomOverlayNativeSize = nil
                     viewModel.zoomOverlayRAWIsReduced = nil
+                    viewModel.zoomOverlayRAWRenderSeconds = nil
                     viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
                 }
@@ -96,6 +97,7 @@ enum ZoomPreviewHandler {
                         viewModel.zoomOverlayCGImage = nil
                         viewModel.zoomOverlayNativeSize = nil
                         viewModel.zoomOverlayRAWIsReduced = nil
+                        viewModel.zoomOverlayRAWRenderSeconds = nil
                         viewModel.zoomOverlayAnalysisCGImage = nil
                     }
                     viewModel.zoomOverlayVisible = true
@@ -107,6 +109,7 @@ enum ZoomPreviewHandler {
                 let image: CGImage?
                 var nativeSize: CGSize?
                 var isReducedRAW: Bool?
+                var renderSeconds: Double?
                 switch source {
                 case .thumbnail:
                     image = nil
@@ -122,7 +125,10 @@ enum ZoomPreviewHandler {
                     do {
                         let access = await RawCullCatalogAccess.shared.retainAccess(for: [file.url])
                         defer { withExtendedLifetime(access) {} }
+                        let started = ContinuousClock.now
                         let preview = try await renderRAW(file.url, maximumDimension, evaluateExposure ? exposureEV : nil)
+                        let duration = started.duration(to: .now)
+                        renderSeconds = Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
                         image = preview.image
                         nativeSize = preview.nativeSize
                         isReducedRAW = preview.isReducedResolution
@@ -140,6 +146,7 @@ enum ZoomPreviewHandler {
                         guard !Task.isCancelled else { return }
                         viewModel.zoomOverlayNativeSize = nativeSize
                         viewModel.zoomOverlayRAWIsReduced = isReducedRAW
+                        viewModel.zoomOverlayRAWRenderSeconds = renderSeconds
                         viewModel.zoomOverlayCGImage = image
                     }
                 }
