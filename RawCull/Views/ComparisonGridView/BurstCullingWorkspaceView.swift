@@ -1,7 +1,7 @@
 import OSLog
+import PhotoEvidenceUI
 import RawCullCore
 import SwiftUI
-import PhotoEvidenceUI
 
 struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
@@ -141,7 +141,8 @@ struct BurstCullingWorkspaceView: View {
                             activate: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
                                 viewModel.selectedFileID = file.id
-                            }, onClose: { showCloseUps = false })
+                            }, onClose: { showCloseUps = false },
+                        )
                     }
                 }
                 Divider()
@@ -153,7 +154,9 @@ struct BurstCullingWorkspaceView: View {
                     showsCloseUpSelection: showCloseUps && groupID != -1,
                     closeUpSelection: closeUpSelection,
                     toggleCloseUp: { url in
-                        if !closeUpSelection.insert(url).inserted { closeUpSelection.remove(url) }
+                        if !closeUpSelection.insert(url).inserted {
+                            closeUpSelection.remove(url)
+                        }
                     },
                 )
                 .id(sortByAFPoint)

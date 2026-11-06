@@ -1,21 +1,26 @@
 import CoreImage
 import CryptoKit
-import SwiftUI
 import PhotoEvidenceContracts
 import PhotoEvidenceEngine
 import PhotoEvidenceUI
+import SwiftUI
 
 /// Inspection choices are preferences, separate from ratings and burst decisions.
 @MainActor final class BurstCloseUpRegionStore: CloseUpRegionStoring {
     private let defaults: UserDefaults
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
     func load(for frame: CloseUpFrame) throws -> CloseUpRegionRecord? {
         guard let data = defaults.data(forKey: key(frame.id)) else { return nil }
         return try JSONDecoder().decode(CloseUpRegionRecord.self, from: data)
     }
+
     func save(_ record: CloseUpRegionRecord) throws {
-        defaults.set(try JSONEncoder().encode(record), forKey: key(record.sourceID))
+        try defaults.set(JSONEncoder().encode(record), forKey: key(record.sourceID))
     }
+
     private func key(_ url: URL) -> String {
         "PhotoEvidenceKit.ManualRegion.v1." + SHA256.hash(data: Data(url.standardizedFileURL.absoluteString.utf8))
             .map { String(format: "%02x", $0) }.joined()
@@ -30,10 +35,11 @@ nonisolated enum BurstCloseUpIdentity {
         let inode = (attributes?[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0
         return "\(url.standardizedFileURL.absoluteString)|\(size)|\(modified)|\(inode)"
     }
+
     static func source(_ url: URL, raw: Bool) -> CloseUpRenderSource {
         CloseUpRenderSource(kind: raw ? .developedRAW : .embeddedPreview,
-            backendID: raw ? "RawCull.RAW9.fullSizeJPEG" : "RawCull.fullSizePreview",
-            revision: raw ? "raw9-default-jpeg-v1" : revision(FullSizePreviewLoader.sidecarJPEGURL(for: url)))
+                            backendID: raw ? "RawCull.RAW9.fullSizeJPEG" : "RawCull.fullSizePreview",
+                            revision: raw ? "raw9-default-jpeg-v1" : revision(FullSizePreviewLoader.sidecarJPEGURL(for: url)))
     }
 }
 
@@ -51,16 +57,22 @@ actor BurstCloseUpRenderer: CloseUpRendering {
         }
         tail = task
         tailID = id
-        defer { if tailID == id { tail = nil; tailID = nil } }
+        defer {
+            if tailID == id {
+                tail = nil; tailID = nil
+            }
+        }
         return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
     }
+
     @concurrent private static func makeRender(_ request: CloseUpRequest) async throws -> CloseUpRender {
         let url = request.frame.id
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
         let raw = request.renderSource.kind == .developedRAW
         guard BurstCloseUpIdentity.revision(url) == request.frame.revision,
-              BurstCloseUpIdentity.source(url, raw: raw) == request.renderSource else {
+              BurstCloseUpIdentity.source(url, raw: raw) == request.renderSource
+        else {
             throw CloseUpRenderError.sourceChanged
         }
         let image: CGImage
@@ -80,7 +92,8 @@ actor BurstCloseUpRenderer: CloseUpRendering {
         }
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == request.frame.revision,
-              BurstCloseUpIdentity.source(url, raw: raw) == request.renderSource else {
+              BurstCloseUpIdentity.source(url, raw: raw) == request.renderSource
+        else {
             throw CloseUpRenderError.sourceChanged
         }
         return try CloseUpRasterizer.render(image, request: request, sourceLabel: label)
@@ -103,29 +116,32 @@ struct BurstCloseUpsView: View {
         let reference: URL?
         let raw: Bool
     }
+
     var body: some View {
         CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
-            renderer: renderer, renderSources: sources,
-            onActivate: { frame in
-                guard urls.contains(frame.id) else { return }
-                activate(frame.id)
-            }, onClose: onClose)
-        .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
-            let selected = urls
-            var all = selected
-            if let reference = model.reference, !all.contains(reference.id) { all.append(reference.id) }
-            let requestedURLs = all
-            let result = await Task { @concurrent in
-                let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
-                defer { withExtendedLifetime(access) {} }
-                return requestedURLs.map { CloseUpFrame(id: $0, name: $0.lastPathComponent, revision: BurstCloseUpIdentity.revision($0)) }
-            }.value
-            guard !Task.isCancelled else { return }
-            sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
-            frames = result.filter { selected.contains($0.id) }
-            if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
-                model.updateReference(updated)
+                     renderer: renderer, renderSources: sources,
+                     onActivate: { frame in
+                         guard urls.contains(frame.id) else { return }
+                         activate(frame.id)
+                     }, onClose: onClose)
+            .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
+                let selected = urls
+                var all = selected
+                if let reference = model.reference, !all.contains(reference.id) {
+                    all.append(reference.id)
+                }
+                let requestedURLs = all
+                let result = await Task { @concurrent in
+                    let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
+                    defer { withExtendedLifetime(access) {} }
+                    return requestedURLs.map { CloseUpFrame(id: $0, name: $0.lastPathComponent, revision: BurstCloseUpIdentity.revision($0)) }
+                }.value
+                guard !Task.isCancelled else { return }
+                sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
+                frames = result.filter { selected.contains($0.id) }
+                if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
+                    model.updateReference(updated)
+                }
             }
-        }
     }
 }

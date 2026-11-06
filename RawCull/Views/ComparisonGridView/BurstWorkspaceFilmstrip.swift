@@ -36,22 +36,23 @@ struct BurstWorkspaceFilmstrip: View {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
                                 VStack(spacing: 4) {
-                                BurstFilmstripThumbnail(
-                                    file: file,
-                                    isSelected: file.id == viewModel.selectedFileID,
-                                    isSuggested: analysis?.recommendedFileID == file.id,
-                                    isDeferred: analysis?.reviewState == .deferred,
-                                ) {
-                                    viewModel.selectedFileID = file.id
-                                }
-                                if showsCloseUpSelection {
-                                    Toggle("Close-up", isOn: Binding(
-                                        get: { closeUpSelection.contains(file.url) },
-                                        set: { _ in toggleCloseUp(file.url) }))
+                                    BurstFilmstripThumbnail(
+                                        file: file,
+                                        isSelected: file.id == viewModel.selectedFileID,
+                                        isSuggested: analysis?.recommendedFileID == file.id,
+                                        isDeferred: analysis?.reviewState == .deferred,
+                                    ) {
+                                        viewModel.selectedFileID = file.id
+                                    }
+                                    if showsCloseUpSelection {
+                                        Toggle("Close-up", isOn: Binding(
+                                            get: { closeUpSelection.contains(file.url) },
+                                            set: { _ in toggleCloseUp(file.url) },
+                                        ))
                                         .toggleStyle(.checkbox)
                                         .font(.caption)
                                         .accessibilityLabel("Close-up for \(file.name)")
-                                }
+                                    }
                                 }
                             }
                         }

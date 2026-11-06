@@ -1,12 +1,12 @@
 import Foundation
-import Testing
 import PhotoEvidenceContracts
 import PhotoEvidenceUI
 @testable import RawCull
+import Testing
 
 @Suite("Burst Close-ups integration") @MainActor
 struct BurstCloseUpTests {
-    @Test func regionsSurviveNewSessionAndRejectReplacedFile() throws {
+    @Test func `regions survive new session and reject replaced file`() throws {
         let suite = "BurstCloseUps." + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -22,7 +22,7 @@ struct BurstCloseUpTests {
         #expect(reopened.region(for: frame.id) == CloseUpRegion())
     }
 
-    @Test func sidecarChangeInvalidatesPreviewWithoutErasingFileIdentity() throws {
+    @Test func `sidecar change invalidates preview without erasing file identity`() throws {
         let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
