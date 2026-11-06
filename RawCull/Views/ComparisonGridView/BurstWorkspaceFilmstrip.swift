@@ -12,6 +12,11 @@ struct BurstWorkspaceFilmstrip: View {
     let canNavigateNext: Bool
     let navigate: (Int) -> Void
 
+    var showsCloseUpSelection = false
+    var closeUpSelection: Set<URL> = []
+    var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
+    var toggleCloseUp: (URL) -> Void = { _ in }
+
     private var selectedIndex: Int {
         files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
     }
@@ -31,13 +36,29 @@ struct BurstWorkspaceFilmstrip: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
-                                BurstFilmstripThumbnail(
-                                    file: file,
-                                    isSelected: file.id == viewModel.selectedFileID,
-                                    isSuggested: analysis?.recommendedFileID == file.id,
-                                    isDeferred: analysis?.reviewState == .deferred,
-                                ) {
-                                    viewModel.selectedFileID = file.id
+                                VStack(spacing: 4) {
+                                    BurstFilmstripThumbnail(
+                                        file: file,
+                                        isSelected: file.id == viewModel.selectedFileID,
+                                        isSuggested: analysis?.recommendedFileID == file.id,
+                                        isDeferred: analysis?.reviewState == .deferred,
+                                        isIncludedInCloseUps: showsCloseUpSelection && closeUpSelection.contains(file.url),
+                                    ) {
+                                        if showsCloseUpSelection {
+                                            selectCloseUp(file.url, NSEvent.modifierFlags)
+                                        }
+                                        viewModel.selectedFileID = file.id
+                                    }
+                                    .help(showsCloseUpSelection ? "Command-click to select multiple close-ups; Shift-click to select a range." : file.name)
+                                    if showsCloseUpSelection {
+                                        Toggle("Close-up", isOn: Binding(
+                                            get: { closeUpSelection.contains(file.url) },
+                                            set: { _ in toggleCloseUp(file.url) },
+                                        ))
+                                        .toggleStyle(.checkbox)
+                                        .font(.caption)
+                                        .accessibilityLabel("Close-up for \(file.name)")
+                                    }
                                 }
                             }
                         }
@@ -74,7 +95,7 @@ struct BurstWorkspaceFilmstrip: View {
             }
         }
         .padding(16)
-        .frame(height: 144)
+        .frame(height: showsCloseUpSelection ? 166 : 144)
         .background(.quaternary.opacity(0.28))
     }
 

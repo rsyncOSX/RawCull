@@ -3,8 +3,8 @@ import SwiftUI
 struct ZoomOverlayChrome: View {
     let dimensions: CGSize?
     let rating: RatingDisplay?
-    var isReducedRAWPreview: Bool? = nil
-    var rawRenderSeconds: Double? = nil
+    var isReducedRAWPreview: Bool?
+    var rawRenderSeconds: Double?
     var isPreparingRAW = false
     var isPreparingRAWPreview = true
     let navigationAxis: ZoomOverlayNavigationAxis
@@ -27,7 +27,7 @@ struct ZoomOverlayChrome: View {
                             isReduced: isReducedRAWPreview ?? true,
                             renderSeconds: rawRenderSeconds,
                             isPreparing: isPreparingRAW,
-                            isPreparingPreview: isPreparingRAWPreview
+                            isPreparingPreview: isPreparingRAWPreview,
                         )
                     }
                 }
@@ -144,14 +144,14 @@ private struct RAWDecodeBadgeView: View {
                 Image(systemName: isReduced ? "photo" : "viewfinder")
             }
         }
-            .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(Color.secondary.opacity(0.85), in: Capsule())
-            .fixedSize()
-            .help(isReduced
-                ? Text("Processed at a resolution suited to this view to reduce processing time. Zoom in to load full detail. Time measures the latest render request, including cache retrieval.")
-                : Text("Processed at native resolution for full detail. Time measures the latest render request, including cache retrieval."))
+        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(Color.secondary.opacity(0.85), in: Capsule())
+        .fixedSize()
+        .help(isReduced
+            ? Text("Processed at a resolution suited to this view to reduce processing time. Zoom in to load full detail. Time measures the latest render request, including cache retrieval.")
+            : Text("Processed at native resolution for full detail. Time measures the latest render request, including cache retrieval."))
     }
 }

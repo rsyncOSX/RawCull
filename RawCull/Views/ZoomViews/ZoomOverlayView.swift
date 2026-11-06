@@ -147,7 +147,7 @@ struct ZoomOverlayView: View {
                 .opacity(0)
                 .frame(width: 0, height: 0)
         }
-        .onGeometryChange(for: Int?.self) { geometry in
+        .onGeometryChange(for: Int?.self) { [displayScale] geometry in
             RAWPreviewSizing.fitDimension(viewport: geometry.size, displayScale: displayScale)
         } action: { dimension in
             if let dimension {

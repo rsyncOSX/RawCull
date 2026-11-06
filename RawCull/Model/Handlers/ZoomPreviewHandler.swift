@@ -123,7 +123,7 @@ enum ZoomPreviewHandler {
 
                 case .developedRAW:
                     do {
-                        let access = await RawCullCatalogAccess.shared.retainAccess(for: [file.url])
+                        let access = RawCullCatalogAccess.shared.retainAccess(for: [file.url])
                         defer { withExtendedLifetime(access) {} }
                         let started = ContinuousClock.now
                         let preview = try await renderRAW(file.url, maximumDimension, evaluateExposure ? exposureEV : nil)

@@ -116,16 +116,16 @@ struct RAWPreviewRendererTests {
         let pixels = try preview()
         // Pixel dimensions deliberately differ from native geometry in both modes.
         let fast = RAWPreviewRenderer.Preview(image: pixels.image, nativeSize: pixels.nativeSize,
-                                             isReducedResolution: true)
+                                              isReducedResolution: true)
         let file = makeCullingTestFile("badge.ARW")
         await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
                                                renderRAW: { _, _, _ in fast }, loadAnalysis: { _, _ in nil }).value
         #expect(model.zoomOverlayRAWIsReduced == true)
         let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
-                                                   preservingImage: true, renderRAW: { _, _, _ in
-                                                       await gate.wait()
-                                                       return pixels
-                                                   }, loadAnalysis: { _, _ in nil })
+                                                    preservingImage: true, renderRAW: { _, _, _ in
+                                                        await gate.wait()
+                                                        return pixels
+                                                    }, loadAnalysis: { _, _ in nil })
         await gate.waitUntilEntered()
         #expect(model.zoomOverlayRAWIsReduced == true)
         await gate.release()
