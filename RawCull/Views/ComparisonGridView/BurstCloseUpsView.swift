@@ -121,7 +121,7 @@ struct BurstCloseUpsView: View {
         CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
                      renderer: renderer, renderSources: sources,
                      onActivate: { frame in
-                         guard urls.contains(frame.id) else { return }
+                         guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
                          activate(frame.id)
                      }, onClose: onClose)
             .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {

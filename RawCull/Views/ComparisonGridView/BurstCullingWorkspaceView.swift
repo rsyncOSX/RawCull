@@ -141,6 +141,10 @@ struct BurstCullingWorkspaceView: View {
                             activate: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
                                 viewModel.selectedFileID = file.id
+                                viewModel.openZoomOverlay(
+                                    navigationIDs: files.map(\.id),
+                                    initialSource: sourceSelection.selected,
+                                )
                             }, onClose: { showCloseUps = false },
                         )
                     }
