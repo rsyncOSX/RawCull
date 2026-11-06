@@ -152,8 +152,15 @@ struct BurstCullingWorkspaceView: View {
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
                     showsCloseUpSelection: showCloseUps && groupID != -1,
-                    closeUpSelection: closeUpSelection,
+                    closeUpSelection: Set(closeUpFiles.map(\.url)),
+                    selectCloseUp: { url, modifiers in
+                        closeUpSelection = BurstCloseUpSelection.select(
+                            url, in: files.map(\.url), current: selectedFile?.url,
+                            selection: Set(closeUpFiles.map(\.url)), modifiers: modifiers
+                        )
+                    },
                     toggleCloseUp: { url in
+                        closeUpSelection = Set(closeUpFiles.map(\.url))
                         if !closeUpSelection.insert(url).inserted {
                             closeUpSelection.remove(url)
                         }

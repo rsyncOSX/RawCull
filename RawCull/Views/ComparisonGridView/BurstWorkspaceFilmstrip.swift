@@ -14,6 +14,7 @@ struct BurstWorkspaceFilmstrip: View {
 
     var showsCloseUpSelection = false
     var closeUpSelection: Set<URL> = []
+    var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
     var toggleCloseUp: (URL) -> Void = { _ in }
 
     private var selectedIndex: Int {
@@ -41,9 +42,14 @@ struct BurstWorkspaceFilmstrip: View {
                                         isSelected: file.id == viewModel.selectedFileID,
                                         isSuggested: analysis?.recommendedFileID == file.id,
                                         isDeferred: analysis?.reviewState == .deferred,
+                                        isIncludedInCloseUps: showsCloseUpSelection && closeUpSelection.contains(file.url),
                                     ) {
+                                        if showsCloseUpSelection {
+                                            selectCloseUp(file.url, NSEvent.modifierFlags)
+                                        }
                                         viewModel.selectedFileID = file.id
                                     }
+                                    .help(showsCloseUpSelection ? "Command-click to select multiple close-ups; Shift-click to select a range." : file.name)
                                     if showsCloseUpSelection {
                                         Toggle("Close-up", isOn: Binding(
                                             get: { closeUpSelection.contains(file.url) },

@@ -7,6 +7,7 @@ struct BurstFilmstripThumbnail: View {
     let isSelected: Bool
     let isSuggested: Bool
     let isDeferred: Bool
+    var isIncludedInCloseUps = false
     let action: () -> Void
 
     var body: some View {
@@ -44,8 +45,8 @@ struct BurstFilmstripThumbnail: View {
         .overlay {
             RoundedRectangle(cornerRadius: 9)
                 .stroke(
-                    isSelected ? Color.accentColor : Color(nsColor: .separatorColor),
-                    lineWidth: isSelected ? 3 : 1,
+                    isSelected || isIncludedInCloseUps ? Color.accentColor : Color(nsColor: .separatorColor),
+                    lineWidth: isSelected ? 3 : (isIncludedInCloseUps ? 2 : 1),
                 )
         }
     }

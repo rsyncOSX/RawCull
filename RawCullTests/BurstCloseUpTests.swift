@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PhotoEvidenceContracts
 import PhotoEvidenceUI
@@ -6,6 +7,30 @@ import Testing
 
 @Suite("Burst Close-ups integration") @MainActor
 struct BurstCloseUpTests {
+    @Test func `command click keeps current frame and toggles additional frames`() {
+        let urls = (0..<4).map { URL(filePath: "/fixture/\($0).arw") }
+        let selected = BurstCloseUpSelection.select(
+            urls[2], in: urls, current: urls[0], selection: [urls[0]], modifiers: .command
+        )
+        #expect(selected == [urls[0], urls[2]])
+        #expect(BurstCloseUpSelection.select(
+            urls[2], in: urls, current: urls[2], selection: selected, modifiers: .command
+        ) == [urls[0]])
+        #expect(BurstCloseUpSelection.select(
+            urls[1], in: urls, current: urls[2], selection: selected, modifiers: []
+        ) == [urls[1]])
+    }
+
+    @Test func `shift click selects ranges in displayed order`() {
+        let urls = (0..<5).map { URL(filePath: "/fixture/\($0).arw") }
+        #expect(BurstCloseUpSelection.select(
+            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: .shift
+        ) == Set(urls[1...3]))
+        #expect(BurstCloseUpSelection.select(
+            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: [.command, .shift]
+        ) == Set(urls[1...4]))
+    }
+
     @Test func `regions survive new session and reject replaced file`() throws {
         let suite = "BurstCloseUps." + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))

@@ -145,3 +145,24 @@ struct BurstCloseUpsView: View {
             }
     }
 }
+
+/// Keeps close-up comparison selection separate from the active review frame.
+enum BurstCloseUpSelection {
+    static func select(
+        _ url: URL, in urls: [URL], current: URL?, selection: Set<URL>,
+        modifiers: NSEvent.ModifierFlags
+    ) -> Set<URL> {
+        guard urls.contains(url) else { return selection }
+        if modifiers.contains(.shift), let current,
+           let anchor = urls.firstIndex(of: current), let target = urls.firstIndex(of: url) {
+            let range = Set(urls[min(anchor, target)...max(anchor, target)])
+            return modifiers.contains(.command) ? selection.union(range) : range
+        }
+        if modifiers.contains(.command) {
+            var result = selection
+            if !result.insert(url).inserted { result.remove(url) }
+            return result
+        }
+        return [url]
+    }
+}
