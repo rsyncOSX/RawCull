@@ -96,8 +96,22 @@ struct BurstCullingWorkspaceView: View {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
                 if groupID != -1 {
+                    if showCloseUps {
+                        Picker("Close-up source", selection: Binding(
+                            get: { sourceSelection.selected == .developedRAW ? ImagePreviewSource.developedRAW : .embeddedJPG },
+                            set: { sourceSelection.select($0) },
+                        )) {
+                            Text("JPG").tag(ImagePreviewSource.embeddedJPG)
+                            Text("RAW").tag(ImagePreviewSource.developedRAW)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 120)
+                        .help("Image source for the burst image and all close-ups")
+                        .padding(.trailing, 12)
+                    }
                     Button { showCloseUps.toggle() } label: {
-                        Label("Close-ups", systemImage: "viewfinder")
+                        Label("Close-ups (\(closeUpFiles.count))", systemImage: "viewfinder")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)

@@ -26,6 +26,10 @@ struct BurstWorkspaceFilmstrip: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(isSingleImages ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
                 Text("\(selectedIndex + 1) / \(files.count)")
+                if !isSingleImages {
+                    Text("⌘/⇧ select")
+                        .font(.caption)
+                }
             }
             .font(.callout.monospaced())
             .foregroundStyle(.secondary)
@@ -42,14 +46,14 @@ struct BurstWorkspaceFilmstrip: View {
                                         isSelected: file.id == viewModel.selectedFileID,
                                         isSuggested: analysis?.recommendedFileID == file.id,
                                         isDeferred: analysis?.reviewState == .deferred,
-                                        isIncludedInCloseUps: showsCloseUpSelection && closeUpSelection.contains(file.url),
+                                        isIncludedInCloseUps: !isSingleImages && closeUpSelection.contains(file.url),
                                     ) {
-                                        if showsCloseUpSelection {
+                                        if !isSingleImages {
                                             selectCloseUp(file.url, NSEvent.modifierFlags)
                                         }
                                         viewModel.selectedFileID = file.id
                                     }
-                                    .help(showsCloseUpSelection ? "Command-click to select multiple close-ups; Shift-click to select a range." : file.name)
+                                    .help(!isSingleImages ? "Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups." : file.name)
                                     if showsCloseUpSelection {
                                         Toggle("Close-up", isOn: Binding(
                                             get: { closeUpSelection.contains(file.url) },
