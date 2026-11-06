@@ -1,6 +1,7 @@
 import OSLog
 import RawCullCore
 import SwiftUI
+import PhotoEvidenceUI
 
 struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
@@ -10,6 +11,11 @@ struct BurstCullingWorkspaceView: View {
     @State private var session = BurstWorkspaceSessionModel()
     @State private var sortByAFPoint = false
     @State private var isLoadingAFPointScores = false
+
+    @State private var showCloseUps = false
+    @State private var closeUpSelection: Set<URL> = []
+    @State private var closeUps = CloseUpModel(storage: BurstCloseUpRegionStore())
+    @State private var closeUpRenderer = BurstCloseUpRenderer()
 
     @FocusState private var isFocused: Bool
 
@@ -87,7 +93,18 @@ struct BurstCullingWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
+            HStack(spacing: 0) {
+                BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
+                if groupID != -1 {
+                    Button { showCloseUps.toggle() } label: {
+                        Label("Close-ups", systemImage: "viewfinder")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityValue(showCloseUps ? "Shown" : "Hidden")
+                    .padding(.trailing, 16)
+                }
+            }
             if isLoadingAFPointScores {
                 ProgressView("Measuring AF-point sharpness…")
                     .controlSize(.small)
@@ -96,30 +113,48 @@ struct BurstCullingWorkspaceView: View {
             Divider()
 
             VStack(spacing: 0) {
-                BurstImageStage(
-                    selectedFile: selectedFile, imageState: imageState,
-                    focusPoints: selectedFile.flatMap(focusPoints(for:)),
-                    viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
-                    useThumbnailSource: thumbnailSourceBinding,
-                    rating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
-                    ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
-                    metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
-                    sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
-                    showSubjectOutline: showSubjectOutline, subjectOutlineFileID: subjectOutlineFileID,
-                    subjectOutline: subjectOutline,
-                    isSuggested: selectedFile.map { analysis?.recommendedFileID == $0.id } ?? false,
-                    subjectLabel: selectedFile.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
-                    canNavigatePrevious: navigationDestination(by: -1) != nil,
-                    canNavigateNext: navigationDestination(by: 1) != nil,
-                    navigate: navigate(by:), applyRating: applyRating,
-                    sourceChanged: { sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG) },
-                )
+                HStack(spacing: 0) {
+                    BurstImageStage(
+                        selectedFile: selectedFile, imageState: imageState,
+                        focusPoints: selectedFile.flatMap(focusPoints(for:)),
+                        viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
+                        useThumbnailSource: thumbnailSourceBinding,
+                        rating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
+                        ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+                        metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
+                        sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
+                        showSubjectOutline: showSubjectOutline, subjectOutlineFileID: subjectOutlineFileID,
+                        subjectOutline: subjectOutline,
+                        isSuggested: selectedFile.map { analysis?.recommendedFileID == $0.id } ?? false,
+                        subjectLabel: selectedFile.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
+                        canNavigatePrevious: navigationDestination(by: -1) != nil,
+                        canNavigateNext: navigationDestination(by: 1) != nil,
+                        navigate: navigate(by:), applyRating: applyRating,
+                        sourceChanged: { sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG) },
+                    )
+                    if showCloseUps, groupID != -1 {
+                        Divider()
+                        BurstCloseUpsView(
+                            urls: closeUpFiles.map(\.url), currentURL: selectedFile?.url,
+                            raw: sourceSelection.selected == .developedRAW,
+                            model: closeUps, renderer: closeUpRenderer,
+                            activate: { url in
+                                guard let file = files.first(where: { $0.url == url }) else { return }
+                                viewModel.selectedFileID = file.id
+                            }, onClose: { showCloseUps = false })
+                    }
+                }
                 Divider()
                 BurstWorkspaceFilmstrip(
                     viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
+                    showsCloseUpSelection: showCloseUps && groupID != -1,
+                    closeUpSelection: closeUpSelection,
+                    toggleCloseUp: { url in
+                        if !closeUpSelection.insert(url).inserted { closeUpSelection.remove(url) }
+                    },
                 )
                 .id(sortByAFPoint)
             }
@@ -136,19 +171,23 @@ struct BurstCullingWorkspaceView: View {
         }
         .onDisappear { session.cancel() }
         .onKeyPress(.leftArrow) {
+            guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
             navigate(by: -1)
             return .handled
         }
         .onKeyPress(.rightArrow) {
+            guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
             navigate(by: 1)
             return .handled
         }
         .onKeyPress(.escape) {
+            guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
             viewModel.returnToActiveBurstGroupView()
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpPnNgG012345tT")) { press in
-            keyboardController.handle(press.characters)
+            guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
+            return keyboardController.handle(press.characters)
         }
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
@@ -177,6 +216,8 @@ struct BurstCullingWorkspaceView: View {
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
             session.resetForGroupChange()
+            closeUpSelection = []
+            closeUps = CloseUpModel(storage: BurstCloseUpRegionStore())
             selectFirstFileIfNeeded()
         }
     }
@@ -192,6 +233,11 @@ struct BurstCullingWorkspaceView: View {
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
         let rankedFiles = rankedIDs.compactMap { filesByID[$0] }
         return sortByAFPoint ? viewModel.sharpnessModel.sortedByAFPointSharpness(rankedFiles) : rankedFiles
+    }
+
+    private var closeUpFiles: [FileItem] {
+        let chosen = files.filter { closeUpSelection.contains($0.url) }
+        return chosen.isEmpty ? selectedFile.map { [$0] } ?? [] : chosen
     }
 
     private var analysis: BurstAnalysisResult? {

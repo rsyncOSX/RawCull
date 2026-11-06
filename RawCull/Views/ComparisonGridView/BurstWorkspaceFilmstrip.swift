@@ -12,6 +12,10 @@ struct BurstWorkspaceFilmstrip: View {
     let canNavigateNext: Bool
     let navigate: (Int) -> Void
 
+    var showsCloseUpSelection = false
+    var closeUpSelection: Set<URL> = []
+    var toggleCloseUp: (URL) -> Void = { _ in }
+
     private var selectedIndex: Int {
         files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
     }
@@ -31,6 +35,7 @@ struct BurstWorkspaceFilmstrip: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
+                                VStack(spacing: 4) {
                                 BurstFilmstripThumbnail(
                                     file: file,
                                     isSelected: file.id == viewModel.selectedFileID,
@@ -38,6 +43,15 @@ struct BurstWorkspaceFilmstrip: View {
                                     isDeferred: analysis?.reviewState == .deferred,
                                 ) {
                                     viewModel.selectedFileID = file.id
+                                }
+                                if showsCloseUpSelection {
+                                    Toggle("Close-up", isOn: Binding(
+                                        get: { closeUpSelection.contains(file.url) },
+                                        set: { _ in toggleCloseUp(file.url) }))
+                                        .toggleStyle(.checkbox)
+                                        .font(.caption)
+                                        .accessibilityLabel("Close-up for \(file.name)")
+                                }
                                 }
                             }
                         }
@@ -74,7 +88,7 @@ struct BurstWorkspaceFilmstrip: View {
             }
         }
         .padding(16)
-        .frame(height: 144)
+        .frame(height: showsCloseUpSelection ? 166 : 144)
         .background(.quaternary.opacity(0.28))
     }
 
