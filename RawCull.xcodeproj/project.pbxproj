@@ -44,6 +44,10 @@
 		E3288D906042585C957216A8 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
 		E90F071897685772A8A72EF5 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */; };
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
+		E940A504309E40170094F573 /* PhotoEvidenceContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E940A503309E40170094F573 /* PhotoEvidenceContracts */; };
+		E940A506309E40170094F573 /* PhotoEvidenceEngine in Frameworks */ = {isa = PBXBuildFile; productRef = E940A505309E40170094F573 /* PhotoEvidenceEngine */; };
+		E940A508309E40170094F573 /* PhotoEvidenceUI in Frameworks */ = {isa = PBXBuildFile; productRef = E940A507309E40170094F573 /* PhotoEvidenceUI */; };
+		E940A50A309E40170094F573 /* PhotoEvidenceDemo in Frameworks */ = {isa = PBXBuildFile; productRef = E940A509309E40170094F573 /* PhotoEvidenceDemo */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
 		E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
 		E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
@@ -62,12 +66,6 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		CA1200000000000000000000 /* PhotoEvidenceContracts in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000000 /* PhotoEvidenceContracts */; };
-		CA1200000000000000000001 /* PhotoEvidenceEngine in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000001 /* PhotoEvidenceEngine */; };
-		CA1200000000000000000002 /* PhotoEvidenceUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000002 /* PhotoEvidenceUI */; };
-		CA1400000000000000000000 /* PhotoEvidenceContracts in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000000 /* PhotoEvidenceContracts */; };
-		CA1400000000000000000001 /* PhotoEvidenceEngine in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000001 /* PhotoEvidenceEngine */; };
-		CA1400000000000000000002 /* PhotoEvidenceUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA1100000000000000000002 /* PhotoEvidenceUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,18 +202,19 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CA1200000000000000000002 /* PhotoEvidenceUI in Frameworks */,
-				CA1200000000000000000001 /* PhotoEvidenceEngine in Frameworks */,
-				CA1200000000000000000000 /* PhotoEvidenceContracts in Frameworks */,
 				E9B1426D305826C5000D8EBA /* CoreAIQwenBackend in Frameworks */,
 				E9B14261305826C5000D8EBA /* CoreAIEfficientSAMBackend in Frameworks */,
 				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E9B14263305826C5000D8EBA /* CoreAISAM3Backend in Frameworks */,
+				E940A504309E40170094F573 /* PhotoEvidenceContracts in Frameworks */,
 				E9B14267305826C5000D8EBA /* PhotoAIStorage in Frameworks */,
 				E9B1426B305826C5000D8EBA /* VisionFeaturePrintBackend in Frameworks */,
+				E940A506309E40170094F573 /* PhotoEvidenceEngine in Frameworks */,
+				E940A508309E40170094F573 /* PhotoEvidenceUI in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
 				E9825226305081A400231F61 /* PhotoAnalysisKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
+				E940A50A309E40170094F573 /* PhotoEvidenceDemo in Frameworks */,
 				E9B1425F305826C5000D8EBA /* CoreAICLIPBackend in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
@@ -229,9 +228,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CA1400000000000000000002 /* PhotoEvidenceUI in Frameworks */,
-				CA1400000000000000000001 /* PhotoEvidenceEngine in Frameworks */,
-				CA1400000000000000000000 /* PhotoEvidenceContracts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,9 +385,6 @@
 			);
 			name = RawCull;
 			packageProductDependencies = (
-				CA1100000000000000000002 /* PhotoEvidenceUI */,
-				CA1100000000000000000001 /* PhotoEvidenceEngine */,
-				CA1100000000000000000000 /* PhotoEvidenceContracts */,
 				E9B609842F28FA3600704081 /* DecodeEncodeGeneric */,
 				E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */,
 				E92712B22F2CF57E00A681D0 /* RsyncArguments */,
@@ -407,6 +400,10 @@
 				E9B14268305826C5000D8EBA /* PhotoAIWorkflows */,
 				E9B1426A305826C5000D8EBA /* VisionFeaturePrintBackend */,
 				E9B1426C305826C5000D8EBA /* CoreAIQwenBackend */,
+				E940A503309E40170094F573 /* PhotoEvidenceContracts */,
+				E940A505309E40170094F573 /* PhotoEvidenceEngine */,
+				E940A507309E40170094F573 /* PhotoEvidenceUI */,
+				E940A509309E40170094F573 /* PhotoEvidenceDemo */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -430,9 +427,6 @@
 			);
 			name = RawCullTests;
 			packageProductDependencies = (
-				CA1100000000000000000000 /* PhotoEvidenceContracts */,
-				CA1100000000000000000001 /* PhotoEvidenceEngine */,
-				CA1100000000000000000002 /* PhotoEvidenceUI */,
 			);
 			productName = RawCullTests;
 			productReference = E95355DD2F33B70A006C2851 /* RawCullTests.xctest */;
@@ -493,7 +487,6 @@
 			mainGroup = E90B07992F1E58EA00A95D4A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				CA1300000000000000000000 /* PhotoEvidenceKit */,
 				E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */,
 				E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */,
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
@@ -502,6 +495,7 @@
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 				E9825224305081A400231F61 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
 				E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
+				E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -1343,10 +1337,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-        CA1300000000000000000000 /* PhotoEvidenceKit */ = {isa = XCLocalSwiftPackageReference; relativePath = ../PhotoEvidenceKit; };
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1354,6 +1344,14 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.0;
+			};
+		};
+		E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "git@github.com:rsyncOSX/PhotoEvidenceKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.4;
 			};
 		};
 		E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */ = {
@@ -1419,6 +1417,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */;
 			productName = RsyncArguments;
+		};
+		E940A503309E40170094F573 /* PhotoEvidenceContracts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			productName = PhotoEvidenceContracts;
+		};
+		E940A505309E40170094F573 /* PhotoEvidenceEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			productName = PhotoEvidenceEngine;
+		};
+		E940A507309E40170094F573 /* PhotoEvidenceUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			productName = PhotoEvidenceUI;
+		};
+		E940A509309E40170094F573 /* PhotoEvidenceDemo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			productName = PhotoEvidenceDemo;
 		};
 		E952AA612F2E37170081987F /* ParseRsyncOutput */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1490,9 +1508,6 @@
 			package = E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */;
 			productName = RsyncProcessStreaming;
 		};
-		CA1100000000000000000000 /* PhotoEvidenceContracts */ = {isa = XCSwiftPackageProductDependency; package = CA1300000000000000000000 /* PhotoEvidenceKit */; productName = PhotoEvidenceContracts; };
-		CA1100000000000000000001 /* PhotoEvidenceEngine */ = {isa = XCSwiftPackageProductDependency; package = CA1300000000000000000000 /* PhotoEvidenceKit */; productName = PhotoEvidenceEngine; };
-		CA1100000000000000000002 /* PhotoEvidenceUI */ = {isa = XCSwiftPackageProductDependency; package = CA1300000000000000000000 /* PhotoEvidenceKit */; productName = PhotoEvidenceUI; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E90B079A2F1E58EA00A95D4A /* Project object */;
