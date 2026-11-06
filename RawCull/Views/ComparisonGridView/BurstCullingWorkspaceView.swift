@@ -97,17 +97,10 @@ struct BurstCullingWorkspaceView: View {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
                 if groupID != -1 {
                     if showCloseUps {
-                        Picker("Close-up source", selection: Binding(
-                            get: { sourceSelection.selected == .developedRAW ? ImagePreviewSource.developedRAW : .embeddedJPG },
-                            set: { sourceSelection.select($0) },
-                        )) {
-                            Text("JPG").tag(ImagePreviewSource.embeddedJPG)
-                            Text("RAW").tag(ImagePreviewSource.developedRAW)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 120)
-                        .help("Image source for the burst image and all close-ups")
+                        BurstCloseUpSourcePicker(
+                            selection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
+                            urls: closeUpSourceURLs,
+                        )
                         .padding(.trailing, 12)
                     }
                     Button { showCloseUps.toggle() } label: {
@@ -266,6 +259,17 @@ struct BurstCullingWorkspaceView: View {
     private var closeUpFiles: [FileItem] {
         let chosen = files.filter { closeUpSelection.contains($0.url) }
         return chosen.isEmpty ? selectedFile.map { [$0] } ?? [] : chosen
+    }
+
+    private var closeUpSourceURLs: [URL] {
+        var urls = closeUpFiles.map(\.url)
+        if let current = selectedFile?.url, !urls.contains(current) {
+            urls.append(current)
+        }
+        if let reference = closeUps.reference?.id, !urls.contains(reference) {
+            urls.append(reference)
+        }
+        return urls
     }
 
     private var analysis: BurstAnalysisResult? {

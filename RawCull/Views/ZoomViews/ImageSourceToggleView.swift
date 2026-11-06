@@ -1,5 +1,42 @@
 import SwiftUI
 
+struct BurstCloseUpSourcePicker: View {
+    @Binding var selection: ImageSourceSelectionState
+    let urls: [URL]
+    @State private var raw9SupportedURLs: Set<URL> = []
+
+    private var supportsRAW9: Bool {
+        !urls.isEmpty && Set(urls).isSubset(of: raw9SupportedURLs)
+    }
+
+    var body: some View {
+        Picker("Close-up source", selection: Binding(
+            get: { selection.selected == .developedRAW ? ImagePreviewSource.developedRAW : .embeddedJPG },
+            set: { selection.select($0) },
+        )) {
+            Text("JPG").tag(ImagePreviewSource.embeddedJPG)
+            Text(supportsRAW9 ? "RAW 9" : "RAW").tag(ImagePreviewSource.developedRAW)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 140)
+        .help(supportsRAW9
+            ? "Image source for the burst image and all close-ups. RAW uses the RAW 9 decoder."
+            : "Image source for the burst image and all close-ups. RAW uses RAW 9 where supported, otherwise the system decoder. Each crop shows its decoder.")
+        .task(id: urls) {
+            raw9SupportedURLs = []
+            var supported: Set<URL> = []
+            for url in Set(urls) {
+                if await RAW9Support.isSupported(for: url) {
+                    supported.insert(url)
+                }
+                guard !Task.isCancelled else { return }
+            }
+            raw9SupportedURLs = supported
+        }
+    }
+}
+
 struct ImageSourceToggleView: View {
     @Binding var useThumbnailSource: Bool
     var density: ImageOverlayControlDensity = .regular
