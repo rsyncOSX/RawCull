@@ -109,6 +109,7 @@ struct BurstCloseUpsView: View {
     let model: CloseUpModel
     let renderer: BurstCloseUpRenderer
     let activate: (URL) -> Void
+    let onUseAFPoint: (URL) -> Void
     let onClose: () -> Void
     @State private var frames: [CloseUpFrame] = []
     @State private var sources: [URL: CloseUpRenderSource] = [:]
@@ -136,6 +137,8 @@ struct BurstCloseUpsView: View {
                      onActivate: { frame in
                          guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
                          activate(frame.id)
+                     }, onUseAFPoint: { frame in
+                         onUseAFPoint(frame.id)
                      }, onClose: onClose)
             .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
                 let selected = urls
