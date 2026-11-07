@@ -1,5 +1,6 @@
 import CoreImage
 import CryptoKit
+import ImageIO
 import PhotoEvidenceContracts
 import PhotoEvidenceEngine
 import PhotoEvidenceUI
@@ -102,6 +103,7 @@ actor BurstCloseUpRenderer: CloseUpRendering {
 
 struct BurstCloseUpsView: View {
     let urls: [URL]
+    let recordedAFPoints: [URL: CGPoint]
     let currentURL: URL?
     let raw: Bool
     let model: CloseUpModel
@@ -111,6 +113,17 @@ struct BurstCloseUpsView: View {
     @State private var frames: [CloseUpFrame] = []
     @State private var sources: [URL: CloseUpRenderSource] = [:]
 
+    @State private var orientations: [URL: UInt32] = [:]
+
+    private var afPoints: [URL: CloseUpAFPointAvailability] {
+        var all = frames
+        if let reference = model.reference, !all.contains(where: { $0.id == reference.id }) { all.append(reference) }
+        return Dictionary(uniqueKeysWithValues: all.map { frame in
+            (frame.id, BurstCloseUpAFPoint.availability(frame: frame, point: recordedAFPoints[frame.id],
+                                                       orientation: orientations[frame.id]))
+        })
+    }
+
     private struct Inputs: Hashable {
         let urls: [URL]
         let reference: URL?
@@ -119,7 +132,7 @@ struct BurstCloseUpsView: View {
 
     var body: some View {
         CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
-                     renderer: renderer, renderSources: sources,
+                     renderer: renderer, renderSources: sources, afPoints: afPoints,
                      onActivate: { frame in
                          guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
                          activate(frame.id)
@@ -131,12 +144,19 @@ struct BurstCloseUpsView: View {
                     all.append(reference.id)
                 }
                 let requestedURLs = all
-                let result = await Task { @concurrent in
+                let loaded = await Task { @concurrent in
                     let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
                     defer { withExtendedLifetime(access) {} }
-                    return requestedURLs.map { CloseUpFrame(id: $0, name: $0.lastPathComponent, revision: BurstCloseUpIdentity.revision($0)) }
+                    return requestedURLs.map { url in
+                        let frame = CloseUpFrame(id: url, name: url.lastPathComponent, revision: BurstCloseUpIdentity.revision(url))
+                        return (frame, BurstCloseUpAFPoint.orientation(for: url))
+                    }
                 }.value
                 guard !Task.isCancelled else { return }
+                orientations = Dictionary(uniqueKeysWithValues: loaded.compactMap { frame, orientation in
+                    orientation.map { (frame.id, $0) }
+                })
+                let result = loaded.map { $0.0 }
                 sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
                 frames = result.filter { selected.contains($0.id) }
                 if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
@@ -164,5 +184,43 @@ enum BurstCloseUpSelection {
             return result
         }
         return [url]
+    }
+}
+
+/// Camera AF metadata uses sensor coordinates; crop regions use oriented coordinates.
+nonisolated enum BurstCloseUpAFPoint {
+    static func orientation(for url: URL) -> UInt32? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+        return (properties[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value
+            ?? (tiff?[kCGImagePropertyTIFFOrientation] as? NSNumber)?.uint32Value ?? 1
+    }
+
+    static func availability(frame: CloseUpFrame, point: CGPoint?, orientation: UInt32?) -> CloseUpAFPointAvailability {
+        guard let point else { return .unavailable(reason: "No usable recorded AF point is available.") }
+        guard point.x.isFinite, point.y.isFinite, (0...1).contains(point.x), (0...1).contains(point.y) else {
+            return .unavailable(reason: "Recorded AF coordinates are invalid.")
+        }
+        guard let orientation, (1...8).contains(orientation) else {
+            return .unavailable(reason: "Image orientation is unavailable for AF placement.")
+        }
+        let x = point.x, y = point.y
+        let center: CGPoint
+        switch orientation {
+        case 2: center = CGPoint(x: 1 - x, y: y)
+        case 3: center = CGPoint(x: 1 - x, y: 1 - y)
+        case 4: center = CGPoint(x: x, y: 1 - y)
+        case 5: center = CGPoint(x: y, y: x)
+        case 6: center = CGPoint(x: 1 - y, y: x)
+        case 7: center = CGPoint(x: 1 - y, y: 1 - x)
+        case 8: center = CGPoint(x: y, y: 1 - x)
+        default: center = point
+        }
+        guard let target = CloseUpAFPoint(frame: frame, center: center) else {
+            return .unavailable(reason: "Recorded AF coordinates are invalid.")
+        }
+        return .available(target)
     }
 }
