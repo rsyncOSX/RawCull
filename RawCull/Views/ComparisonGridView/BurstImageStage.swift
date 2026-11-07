@@ -48,7 +48,6 @@ struct BurstImageStage: View {
                     onRate: applyRating,
                     onSourceChange: sourceChanged,
                     showsChrome: false,
-                    allowsDoubleClickZoom: false,
                     subjectOutline: showSubjectOutline && subjectOutlineFileID == selectedFile.id
                         ? subjectOutline : nil,
                 )
