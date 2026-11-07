@@ -142,7 +142,10 @@ struct BurstCullingWorkspaceView: View {
                     if showCloseUps, groupID != -1 {
                         Divider()
                         BurstCloseUpsView(
-                            urls: closeUpFiles.map(\.url), currentURL: selectedFile?.url,
+                            urls: closeUpFiles.map(\.url),
+                            recordedAFPoints: Dictionary(uniqueKeysWithValues: files.compactMap { file in
+                                file.afFocusNormalized.map { (file.url, $0) }
+                            }), currentURL: selectedFile?.url,
                             raw: sourceSelection.selected == .developedRAW,
                             model: closeUps, renderer: closeUpRenderer,
                             activate: { url in

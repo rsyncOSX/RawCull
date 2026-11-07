@@ -1351,7 +1351,7 @@
 			repositoryURL = "git@github.com:rsyncOSX/PhotoEvidenceKit.git";
 			requirement = {
 				kind = exactVersion;
-				version = 1.0.4;
+				version = 1.0.5;
 			};
 		};
 		E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */ = {
