@@ -154,8 +154,10 @@ struct BurstCullingWorkspaceView: View {
                                     initialSource: sourceSelection.selected,
                                 )
                             }, onUseAFPoint: { url in
-                                guard selectedFile?.url == url else { return }
-                                viewportState.showFocusPoints = true
+                                guard let file = files.first(where: { $0.url == url }) else { return }
+                                let shouldShowFocusPoints = selectedFile?.id != file.id || !viewportState.showFocusPoints
+                                viewModel.selectedFileID = file.id
+                                viewportState.showFocusPoints = shouldShowFocusPoints
                             }, onClose: { showCloseUps = false },
                         )
                     }
