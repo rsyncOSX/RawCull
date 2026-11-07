@@ -95,22 +95,20 @@ struct BurstCullingWorkspaceView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
-                if groupID != -1 {
-                    if showCloseUps {
-                        BurstCloseUpSourcePicker(
-                            selection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
-                            urls: closeUpSourceURLs,
-                        )
-                        .padding(.trailing, 12)
-                    }
-                    Button { showCloseUps.toggle() } label: {
-                        Label("Close-ups (\(closeUpFiles.count))", systemImage: "viewfinder")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityValue(showCloseUps ? "Shown" : "Hidden")
-                    .padding(.trailing, 16)
+                if showCloseUps {
+                    BurstCloseUpSourcePicker(
+                        selection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
+                        urls: closeUpSourceURLs,
+                    )
+                    .padding(.trailing, 12)
                 }
+                Button { showCloseUps.toggle() } label: {
+                    Label("Close-ups (\(closeUpFiles.count))", systemImage: "viewfinder")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityValue(showCloseUps ? "Shown" : "Hidden")
+                .padding(.trailing, 16)
             }
             if isLoadingAFPointScores {
                 ProgressView("Measuring AF-point sharpness…")
@@ -139,7 +137,7 @@ struct BurstCullingWorkspaceView: View {
                         navigate: navigate(by:), applyRating: applyRating,
                         sourceChanged: { sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG) },
                     )
-                    if showCloseUps, groupID != -1 {
+                    if showCloseUps {
                         Divider()
                         BurstCloseUpsView(
                             urls: closeUpFiles.map(\.url),
@@ -168,7 +166,7 @@ struct BurstCullingWorkspaceView: View {
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
-                    showsCloseUpSelection: showCloseUps && groupID != -1,
+                    showsCloseUpSelection: showCloseUps,
                     closeUpSelection: Set(closeUpFiles.map(\.url)),
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
