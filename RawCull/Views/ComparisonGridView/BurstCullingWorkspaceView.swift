@@ -155,6 +155,9 @@ struct BurstCullingWorkspaceView: View {
                                     navigationIDs: files.map(\.id),
                                     initialSource: sourceSelection.selected,
                                 )
+                            }, onUseAFPoint: { url in
+                                guard selectedFile?.url == url else { return }
+                                viewportState.showFocusPoints = true
                             }, onClose: { showCloseUps = false },
                         )
                     }
