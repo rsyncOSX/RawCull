@@ -66,7 +66,9 @@ final class BurstWorkspaceSessionModel {
         subjectOutline = nil
         subjectOutlineFileID = nil
         imageCache = [:]
+        let showFocusPoints = viewportState.showFocusPoints
         viewportState = ComparisonViewportInteractionState()
+        viewportState.showFocusPoints = showFocusPoints
         sourceSelection.resetForNewImage()
     }
 

@@ -155,9 +155,8 @@ struct BurstCullingWorkspaceView: View {
                                 )
                             }, onUseAFPoint: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
-                                let shouldShowFocusPoints = selectedFile?.id != file.id || !viewportState.showFocusPoints
                                 viewModel.selectedFileID = file.id
-                                viewportState.showFocusPoints = shouldShowFocusPoints
+                                viewportState.showFocusPoints = true
                             }, onClose: { showCloseUps = false },
                         )
                     }
@@ -240,11 +239,19 @@ struct BurstCullingWorkspaceView: View {
         .onChange(of: sortByAFPoint) { _, _ in
             viewModel.selectedFileID = files.first?.id
         }
+        .onChange(of: viewportState.showFocusPoints, initial: true) { _, enabled in
+            if closeUps.usesAFPoint != enabled { closeUps.usesAFPoint = enabled }
+        }
+        .onChange(of: closeUps.usesAFPoint) { _, enabled in
+            if viewportState.showFocusPoints != enabled { viewportState.showFocusPoints = enabled }
+        }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
             session.resetForGroupChange()
             closeUpSelection = []
-            closeUps = CloseUpModel(storage: BurstCloseUpRegionStore())
+            let newCloseUps = CloseUpModel(storage: BurstCloseUpRegionStore())
+            newCloseUps.usesAFPoint = viewportState.showFocusPoints
+            closeUps = newCloseUps
             selectFirstFileIfNeeded()
         }
     }

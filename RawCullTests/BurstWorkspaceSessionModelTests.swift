@@ -18,12 +18,14 @@ struct BurstWorkspaceSessionModelTests {
         let model = BurstWorkspaceSessionModel()
         model.showSubjectOutline = true
         model.viewportState.scale = 3
+        model.viewportState.showFocusPoints = true
         model.sourceSelection.select(.developedRAW)
 
         model.resetForGroupChange()
 
         #expect(!model.showSubjectOutline)
         #expect(model.viewportState.scale == 1)
+        #expect(model.viewportState.showFocusPoints)
         #expect(model.imageCache.isEmpty)
     }
 }
