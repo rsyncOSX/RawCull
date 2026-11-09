@@ -315,11 +315,11 @@ extension RawCullViewModel {
         markDecisionApplied(groupID: groupID)
     }
 
-    func compareBurstGroup(_ groupFiles: [FileItem]) {
+    func compareBurstGroup(_ groupFiles: [FileItem], startingAt fileID: FileItem.ID? = nil) {
         Logger.process.debugMessageOnly("RawCullViewModel.compareBurstGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = burstReviewQueueFilter == .singleImages ? -1 : groupID(for: groupFiles)
-        activateBurstGroup(groupID: groupID, groupFiles: groupFiles)
+        activateBurstGroup(groupID: groupID, groupFiles: groupFiles, startingAt: fileID)
     }
 
     @discardableResult
@@ -356,7 +356,7 @@ extension RawCullViewModel {
         return true
     }
 
-    private func activateBurstGroup(groupID: Int, groupFiles: [FileItem]) {
+    private func activateBurstGroup(groupID: Int, groupFiles: [FileItem], startingAt fileID: FileItem.ID? = nil) {
         Logger.process.debugMessageOnly("RawCullViewModel.activateBurstGroup()")
         activeBurstComparisonGroupID = groupID
         let groupFileIDs = Set(groupFiles.map(\.id))
@@ -367,7 +367,7 @@ extension RawCullViewModel {
             groupFiles.map(\.id)
         }
         comparisonFileIDs = Array(rankedIDs.prefix(4))
-        selectedFileID = comparisonFileIDs.first
+        selectedFileID = fileID.flatMap { groupFileIDs.contains($0) ? $0 : nil } ?? comparisonFileIDs.first
         selectMainViewMode(.comparisonGrid)
     }
 

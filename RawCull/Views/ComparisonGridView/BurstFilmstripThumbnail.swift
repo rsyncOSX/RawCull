@@ -3,6 +3,7 @@ import RawCullCore
 import SwiftUI
 
 struct BurstFilmstripThumbnail: View {
+    static let width: CGFloat = 132
     let file: FileItem
     let isSelected: Bool
     let isSuggested: Bool
@@ -19,7 +20,7 @@ struct BurstFilmstripThumbnail: View {
                     style: .grid,
                     showsShimmer: true,
                 )
-                .frame(width: 132, height: 82)
+                .frame(width: Self.width, height: 82)
                 .clipped()
                 .overlay(alignment: .topTrailing) {
                     if isSuggested || isDeferred {
@@ -36,7 +37,7 @@ struct BurstFilmstripThumbnail: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 5)
             }
-            .frame(width: 132)
+            .frame(width: Self.width)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

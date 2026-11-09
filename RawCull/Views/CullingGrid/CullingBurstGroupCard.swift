@@ -34,7 +34,7 @@ struct CullingBurstGroupCard: View {
                         CullingGridThumbnail(
                             viewModel: viewModel, file: file, doubleSelectActionName: "Open burst",
                             onSelect: { select(file) },
-                            onDoubleSelect: { viewModel.compareBurstGroup(group.files) },
+                            onDoubleSelect: { viewModel.compareBurstGroup(group.files, startingAt: file.id) },
                         )
                         .id(file.id)
                     }

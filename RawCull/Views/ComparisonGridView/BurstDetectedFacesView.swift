@@ -12,6 +12,9 @@ private nonisolated struct BurstDetectedFace: Identifiable, Sendable {
 private actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
+    private let cache = FaceEvidenceCache()
+    private let previewMaximumDimension = 1600
+    private let previewPipelineVersion = 1
 
     func load(_ url: URL) async throws -> [BurstDetectedFace] {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
@@ -19,15 +22,32 @@ private actor BurstDetectedFaceLoader {
         try Task.checkCancellation()
         let revision = BurstCloseUpIdentity.revision(url)
         let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
-                                          policy: .appearance, embeddedPreviewMaximumDimension: 1600)
+                                          policy: .appearance, embeddedPreviewMaximumDimension: previewMaximumDimension)
         guard let preview = try ReviewEmbeddedPreviewLoader().load(request)?.image else {
             throw CloseUpRenderError.unavailable
         }
 
-        let result = try await analyzer.analyze(preview)
+        let signature = FaceEvidenceCache.Signature(
+            sourceRevision: revision,
+            previewMaximumDimension: previewMaximumDimension,
+            previewPipelineVersion: previewPipelineVersion,
+            algorithmVersion: FaceEvidenceAnalyzer.algorithmVersion,
+            detectorRevision: FaceEvidenceAnalyzer.detectorRevision,
+            operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString
+        )
+        let cached = cache.load(for: url, signature: signature, width: preview.width, height: preview.height)
+        let result: FaceEvidenceResult
+        if let cached {
+            result = cached
+        } else {
+            result = try await analyzer.analyze(preview)
+        }
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
             throw CloseUpRenderError.sourceChanged
+        }
+        if cached == nil {
+            try? cache.save(result, for: url, signature: signature)
         }
         return result.faces.compactMap { face in
             let target = DetectedFaceCloseUp(id: face.id, normalizedBounds: face.normalizedBounds,
