@@ -4,7 +4,7 @@ Evaluation and implementation proposal — 8 November 2026.
 
 **Status, 9 November 2026:** Automatic face close-ups and per-file face evidence caching are implemented in the local RawCull build. Human face TestFlight validation is pending. The architecture and later phases below remain proposals.
 
-**Next work:** Run the [wildlife head and eye close-up pilot](#wildlife-head-and-eye-close-up-pilot) as a separate Phase 0 feasibility test before starting Phase 4 ranking. Start with birds and other representative wildlife RAW bursts. Record whether built-in Vision produces usable crops by species and whether a wildlife Core ML model is needed. Human face TestFlight validation can run alongside the pilot.
+**Next work:** Validate human face close-ups and face sharpness in TestFlight before Phase 4. Evaluate eye-state warnings separately. Wildlife close-ups remain experimental and outside the People ranking roadmap.
 
 | Phase | Current status |
 |---|---|
@@ -24,11 +24,11 @@ Use Apple's Vision face detection and landmarks as the first candidate backend. 
 
 The most useful first release is **honest evidence with quick access to the right crop**, even if eye assessment sometimes says “uncertain.” A confident but wrong blink warning is worse than a missing warning. Face and eye evidence can enter ranking in a later, separately validated phase.
 
-Retain **Best frame** and **AF-point sharpness** as two sort modes. Best frame should eventually consume compatible people evidence automatically. Do not rename Best frame. The separate Suggest Best Frame button should not become the mandatory entrance to this feature. Decide its removal or repurposing after the new analysis lifecycle is defined; a cosmetic rename alone does not solve its current redundancy.
+Retain **Best frame** and **AF-point sharpness** as two sort modes. The first People ranking release applies a revised order only on explicit request in Burst Review.
 
 ### Decisions this plan makes
 
-- Human faces are the first release. Wildlife head and eye close-ups are a separate feasibility track, starting with birds and the wildlife represented in the photographer’s RAW bursts.
+- People assessment enhancements apply only to verified human faces. Wildlife head and eye close-ups are a separate inspection feature.
 - All photographic analysis stays local. No cloud inference and no per-photo AI service credits.
 - Detection, eye openness, local detail, capture quality, and recommendation confidence remain distinct concepts.
 - Unknown, not yet analyzed, failed, and no face detected are different states.
@@ -46,7 +46,7 @@ The following findings were checked against the repository, rather than inferred
 | Select Best frame | Uses `analysis.candidates`, falling back to group membership order. The sort-change handler selects the first frame. | It restores an existing order; it does not run new analysis. |
 | Select AF-point sharpness | Calls `loadMissingAFPointScores`, then sorts by measured AF-center scores and selects the first frame. | This mode can do additional computation when measurements are missing. Switching modes is not entirely computation-free. |
 | Suggest Best Frame | Calls `BurstRankingEngine.rankGroup` using existing scores, metadata, boundaries, and optionally existing subject classifications. | It recomputes the ranking, not the evidence. Identical inputs normally produce the same output. It preserves current selection, ratings, and manual winners. |
-| Find Burst Groups | Coordinator loads compatible cache or prepares sharpness, similarity, groups, and rankings. | This is the natural integration point for scheduled people assessment, but its cache-hit path needs special attention. |
+| Find Burst Groups | Coordinator loads compatible cache or prepares sharpness, similarity, groups, and rankings. | People assessment is scheduled only from Burst Review. |
 | Combined Review | Separate, explicitly run deeper analysis. | It need not be involved in the new lightweight path. |
 
 Relevant application files:
@@ -229,15 +229,17 @@ Separate raw evidence invalidation from derived ranking invalidation:
 
 Use atomic per-file commits and checkpoint progress. Stable no-face results should be cached. Transient I/O/backend failures need bounded retries/backoff, not permanent “no face” artifacts or an endless loop on every redraw. Cancellation should leave completed artifacts reusable and unfinished sources pending. Purging derived caches must preserve ratings, manual winners and manual close-up choices.
 
-Important integration trap: `BurstAnalysisCoordinator.run` returns early on a compatible existing burst snapshot. Adding people assessment only after the existing cache-miss preparation steps would skip old catalogs indefinitely. Hydrate/schedule missing people evidence independently on cache hits as well as misses. Extend ranking compatibility so old rankings can be distinguished from rankings using new evidence without invalidating unrelated similarity work.
+Start People assessment when a burst opens in Burst Review, regardless of whether burst preparation restored a cached snapshot or created a fresh one. Version derived People rankings independently of similarity artifacts.
 
 ## 10. Scheduling and resource limits
+
+People assessment starts only for the open burst in Burst Review. Catalog scanning, similarity grouping, focus scoring, and initial Best frame ranking must schedule no People work and incur no additional People preview decodes or inference.
 
 Proposed sequence:
 
 1. Load existing catalog and burst artifacts; publish usable existing rankings immediately.
 2. Hydrate people artifacts without decoding photos on the UI actor.
-3. Prioritize the open burst, then nearby queued bursts, then remaining catalog work if enabled.
+3. Give the selected frame priority, then queue the remaining frames in the open burst. Pause while similarity indexing runs and cancel pending work when the photographer leaves or switches bursts.
 4. Detect and assess missing sources in bounded workers, checkpoint artifacts, and publish batched progress.
 5. Build a complete, comparable burst evidence snapshot before proposing a ranking revision.
 6. Preserve current selection and manual decisions when the new snapshot is published.
@@ -248,7 +250,7 @@ Keep requests/images within isolated workers and return immutable value results.
 
 Respond to memory pressure by releasing decode/crop buffers and pausing background work. Under serious thermal pressure or Low Power Mode, reduce or pause background scans; foreground assessment should remain explicit and bounded. Resume from checkpoints. A pause is not a failure or a completed no-face result.
 
-The user should see useful progress: “Checking people: 18 of 64,” “Paused,” “No faces detected,” “Some faces too small,” or “Assessment unavailable.” Do not make opening every burst wait for completion. Offer an Off setting and a pause control. Suggested product default after validation: automatic visible-burst priority during burst preparation, with background completion while idle. Keep catalog-wide opt-in/default behavior reviewable after measurements; do not secretly scan every catalog on application launch.
+Show assessment progress within Burst Review. Opening a burst shows the existing ranking immediately, with compatible cached evidence reused before scheduling missing work. Offer an Off setting and a pause control.
 
 ## 11. How the evidence should affect Best frame
 
@@ -258,7 +260,8 @@ Initially publish badges and face crops while running the new ranking in an inte
 
 For the first ranking-enabled release:
 
-- Use only a reliably associated primary human face, or an explicitly chosen important face.
+- Require a confident detection from the human face pipeline and consistent human facial landmarks. Associate eye evidence with that verified face. Keep detector provenance with each crop so animal detections and unverified eye crops are eligible only for inspection.
+- Require a reliable match for the same human subject across competing frames. When evidence is missing or ambiguous, retain the baseline order.
 - Keep existing ranking exactly when the burst lacks comparable adequate people evidence.
 - Prefer stronger face-local detail when the difference exceeds measurement uncertainty.
 - Use a conservative closed-eye disadvantage only when the photographer enabled the open-eye preference and a comparably sharp alternative has confidently open eyes.
@@ -289,9 +292,9 @@ New ranking confidence must be calibrated separately from raw score margin. Duri
 | Close-ups | Offer detected face/eye targets alongside existing manual and AF inspection. |
 | Combined Review | Remains a separate, explicitly started deeper review. |
 
-Recommend removing Suggest Best Frame once ordinary ranking updates automatically and it has no distinct purpose. If a deliberate action is needed, make it concrete: **Assess people in this burst** for missing analysis, or **Recheck people** in a menu for explicitly invalidating/rerunning this evidence. Do not make a sort toggle secretly invoke Combined Review. Settings affecting only interpretation should not require a separate analysis button.
+Provide an explicit action in Burst Review to apply the validated People ranking. A sort change selects the available order.
 
-Opening a burst should preserve a valid selected frame, show current evidence, and schedule missing foreground evidence if enabled. When results arrive, preserve the selected photo and viewport. To avoid moving targets, defer changing the current filmstrip order until the user leaves/reopens the burst or accepts “Updated ranking available.” Offscreen bursts may adopt complete new orders automatically. Define the pending-order snapshot separately from the displayed order so badges and ranks remain internally consistent.
+Opening a burst preserves a valid selected frame and shows the existing order. Evidence can update as it arrives. Keep the displayed order and viewport stable until the photographer explicitly applies a revised ranking. Track the pending and displayed orders separately so badges and ranks remain consistent.
 
 Use concise labels such as “Face detail: good,” “Eyes appear closed,” “Eye state uncertain,” and “2 of 3 relevant faces assessed.” Color must be accompanied by text or symbols and accessibility labels. Do not display “all eyes open” when some are unknown, and do not make a low capture-quality score a red “out of focus” badge.
 
@@ -362,7 +365,7 @@ Add independent versioned values and a decoded-image analysis API in PhotoAnalys
 
 ### Phase 2 — Persistence and scheduling
 
-Add app adapters and per-source artifact storage. Integrate source/sidecar signatures and atomic writes. Add priority scheduling, bounded decoding, cancellation, retry/backoff and progress. Cover cache-hit and cache-miss burst paths. Verify catalog switching and partial resume before broad background scanning.
+Add app adapters and per-source artifact storage. Integrate source and sidecar signatures, atomic writes, bounded decoding, cancellation, retry and progress. Verify cache hits and misses when opening bursts, catalog switching, and resuming partially assessed bursts.
 
 **Exit:** reopening compatible evidence runs no inference; changed sources invalidate only affected artifacts; no stale catalog publication or review-state loss. Estimated effort: 4–6 days.
 
@@ -380,7 +383,7 @@ Add compact people summaries and a new ranking descriptor in RawCullCore. Implem
 
 ### Phase 5 — Enable validated ranking and polish controls
 
-Publish people-aware rankings only for validated cases. Implement pending/displayed ranking snapshots, setting changes without new inference, cache compatibility, explanatory messages, and rollback to baseline. Remove Suggest Best Frame if redundant; replace it only with a clearly distinct assessment/recheck action if justified.
+Publish People rankings only for validated cases and on explicit request in Burst Review. Implement pending and displayed ranking snapshots, setting changes without new inference, cache compatibility, explanations, and rollback to baseline.
 
 **Exit:** opening and sorting behavior is documented, predictable, and tested; existing burst decisions survive upgrades. Estimated effort: 2–4 days.
 
@@ -396,7 +399,7 @@ Run correctness, migration, real-image accuracy and sustained hardware tests. Co
 
 **Exit:** no unsupported accuracy/performance claims, reproducible reports, and a clear rollback path. Estimated effort: 3–5 days plus device availability. Overall baseline effort is roughly 4–7 engineering weeks for one developer, highly dependent on data and the eye-state gate; this is a planning estimate, not a commitment.
 
-### Wildlife head and eye close-up pilot
+### Deferred wildlife head and eye close-up pilot
 
 Close Up now runs Vision animal body pose on the same upright embedded preview used for human faces. It displays a head crop when enough landmarks establish its size and an eye crop for each eye landmark that passes the confidence threshold. Animal crops are for visual inspection. Species coverage, crop placement, and latency still need real-image validation.
 
@@ -404,9 +407,12 @@ Use a small set of representative RAW bursts with manually marked heads and visi
 
 Apple documents eye, nose, and ear landmarks for cats and dogs in [Vision animal body pose](https://developer.apple.com/videos/play/wwdc2023/10045/). Run the built-in request as a baseline and report coverage and crop placement separately by species. If it cannot localize wildlife eyes reliably, evaluate a wildlife head and eye model that runs locally through [Vision and Core ML](https://developer.apple.com/documentation/vision/vncoremlmodel). Confirm the model’s distribution rights before adopting it.
 
-Start with automatic head and visible-eye close-ups for comparing frames. Measure missed eyes, false crops, crop jitter across a burst, and latency. Fall back to a head crop when only the head is reliable, and keep manual close-ups available. Validate eye sharpness separately against photographer comparisons of the same subject within a burst before using it in ranking.
+If wildlife work resumes, measure missed eyes, false crops, crop jitter across a burst, and latency. Fall back to a head crop when only the head is reliable, and keep manual close-ups available. Wildlife crops are inspection only. Wildlife bursts use the existing Best frame ranking and AF-point sharpness.
 
 ## 16. Required verification before shipping
+
+- Verify catalog scans and initial burst preparation schedule no People work, including preview decoding and inference. Verify selected-frame priority, indexing pauses, and cancellation on leaving Burst Review.
+- Verify a wildlife-only burst retains the baseline order even when a frame produces a false human face detection. If face and landmark checks admit such cases, evaluate a separate human verification step before enabling People ranking.
 
 - Geometry: all EXIF orientations, mirroring, crop edges, non-square frames, normalized/source/crop round trips, anatomical-side conventions.
 - Evidence: tiny/hidden eyes, nil quality, invalid values, no faces, false detections, extreme pose, one visible eye, conflicting backends, ambiguous face matches.
