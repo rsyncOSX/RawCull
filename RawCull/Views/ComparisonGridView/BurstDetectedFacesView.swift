@@ -86,7 +86,6 @@ struct BurstDetectedFacesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Detected faces and animal landmarks · embedded preview").font(.caption.weight(.semibold))
             switch state {
             case .loading:
                 ProgressView().controlSize(.small).accessibilityLabel("Detecting faces and animal landmarks")
@@ -120,8 +119,6 @@ struct BurstDetectedFacesView: View {
                 }
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: retry) {
             state = .loading
             do {

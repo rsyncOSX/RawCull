@@ -136,7 +136,7 @@ struct BurstCloseUpsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let currentURL {
+            if !urls.isEmpty {
                 if isIndexing {
                     Text("Detected close-ups resume after indexing")
                         .font(.caption)
@@ -144,8 +144,7 @@ struct BurstCloseUpsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
                 } else {
-                    BurstDetectedFacesView(url: currentURL)
-                        .id(currentURL)
+                    BurstDetectedFacesSection(urls: urls)
                 }
                 Divider()
             }
@@ -185,6 +184,38 @@ struct BurstCloseUpsView: View {
                 model.updateReference(updated)
             }
         }
+    }
+}
+
+private struct BurstDetectedFacesSection: View {
+    let urls: [URL]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Detected faces and animal landmarks · embedded preview")
+                .font(.caption.weight(.semibold))
+            if urls.count > 1 {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(urls, id: \.self) { url in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(url.lastPathComponent)
+                                    .font(.caption.weight(.medium))
+                                    .lineLimit(1)
+                                    .help(url.lastPathComponent)
+                                BurstDetectedFacesView(url: url)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 260)
+            } else if let url = urls.first {
+                BurstDetectedFacesView(url: url)
+                    .id(url)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
