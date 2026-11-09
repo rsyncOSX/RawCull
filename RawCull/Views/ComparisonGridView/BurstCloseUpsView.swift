@@ -119,10 +119,12 @@ struct BurstCloseUpsView: View {
 
     private var afPoints: [URL: CloseUpAFPointAvailability] {
         var all = frames
-        if let reference = model.reference, !all.contains(where: { $0.id == reference.id }) { all.append(reference) }
+        if let reference = model.reference, !all.contains(where: { $0.id == reference.id }) {
+            all.append(reference)
+        }
         return Dictionary(uniqueKeysWithValues: all.map { frame in
             (frame.id, BurstCloseUpAFPoint.availability(frame: frame, point: recordedAFPoints[frame.id],
-                                                       orientation: orientations[frame.id]))
+                                                        orientation: orientations[frame.id]))
         })
     }
 
@@ -190,17 +192,19 @@ struct BurstCloseUpsView: View {
 enum BurstCloseUpSelection {
     static func select(
         _ url: URL, in urls: [URL], current: URL?, selection: Set<URL>,
-        modifiers: NSEvent.ModifierFlags
+        modifiers: NSEvent.ModifierFlags,
     ) -> Set<URL> {
         guard urls.contains(url) else { return selection }
         if modifiers.contains(.shift), let current,
            let anchor = urls.firstIndex(of: current), let target = urls.firstIndex(of: url) {
-            let range = Set(urls[min(anchor, target)...max(anchor, target)])
+            let range = Set(urls[min(anchor, target) ... max(anchor, target)])
             return modifiers.contains(.command) ? selection.union(range) : range
         }
         if modifiers.contains(.command) {
             var result = selection
-            if !result.insert(url).inserted { result.remove(url) }
+            if !result.insert(url).inserted {
+                result.remove(url)
+            }
             return result
         }
         return [url]
@@ -220,23 +224,22 @@ nonisolated enum BurstCloseUpAFPoint {
 
     static func availability(frame: CloseUpFrame, point: CGPoint?, orientation: UInt32?) -> CloseUpAFPointAvailability {
         guard let point else { return .unavailable(reason: "No usable recorded AF point is available.") }
-        guard point.x.isFinite, point.y.isFinite, (0...1).contains(point.x), (0...1).contains(point.y) else {
+        guard point.x.isFinite, point.y.isFinite, (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else {
             return .unavailable(reason: "Recorded AF coordinates are invalid.")
         }
-        guard let orientation, (1...8).contains(orientation) else {
+        guard let orientation, (1 ... 8).contains(orientation) else {
             return .unavailable(reason: "Image orientation is unavailable for AF placement.")
         }
         let x = point.x, y = point.y
-        let center: CGPoint
-        switch orientation {
-        case 2: center = CGPoint(x: 1 - x, y: y)
-        case 3: center = CGPoint(x: 1 - x, y: 1 - y)
-        case 4: center = CGPoint(x: x, y: 1 - y)
-        case 5: center = CGPoint(x: y, y: x)
-        case 6: center = CGPoint(x: 1 - y, y: x)
-        case 7: center = CGPoint(x: 1 - y, y: 1 - x)
-        case 8: center = CGPoint(x: y, y: 1 - x)
-        default: center = point
+        let center: CGPoint = switch orientation {
+        case 2: CGPoint(x: 1 - x, y: y)
+        case 3: CGPoint(x: 1 - x, y: 1 - y)
+        case 4: CGPoint(x: x, y: 1 - y)
+        case 5: CGPoint(x: y, y: x)
+        case 6: CGPoint(x: 1 - y, y: x)
+        case 7: CGPoint(x: 1 - y, y: 1 - x)
+        case 8: CGPoint(x: y, y: 1 - x)
+        default: point
         }
         guard let target = CloseUpAFPoint(frame: frame, center: center) else {
             return .unavailable(reason: "Recorded AF coordinates are invalid.")

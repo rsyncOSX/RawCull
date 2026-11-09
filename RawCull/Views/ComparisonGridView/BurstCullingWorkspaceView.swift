@@ -175,7 +175,7 @@ struct BurstCullingWorkspaceView: View {
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
                             url, in: files.map(\.url), current: selectedFile?.url,
-                            selection: Set(closeUpFiles.map(\.url)), modifiers: modifiers
+                            selection: Set(closeUpFiles.map(\.url)), modifiers: modifiers,
                         )
                     },
                     toggleCloseUp: { url in
@@ -243,10 +243,14 @@ struct BurstCullingWorkspaceView: View {
             viewModel.selectedFileID = files.first?.id
         }
         .onChange(of: viewportState.showFocusPoints, initial: true) { _, enabled in
-            if closeUps.usesAFPoint != enabled { closeUps.usesAFPoint = enabled }
+            if closeUps.usesAFPoint != enabled {
+                closeUps.usesAFPoint = enabled
+            }
         }
         .onChange(of: closeUps.usesAFPoint) { _, enabled in
-            if viewportState.showFocusPoints != enabled { viewportState.showFocusPoints = enabled }
+            if viewportState.showFocusPoints != enabled {
+                viewportState.showFocusPoints = enabled
+            }
         }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
@@ -339,12 +343,15 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func navigate(by delta: Int) {
-        _ = session.navigate(
+        let followsActiveFrame = closeUpFiles.count <= 1
+        if session.navigate(
             by: delta,
             from: selectedIndex,
             in: files,
             using: viewModel,
-        )
+        ), followsActiveFrame {
+            closeUpSelection = []
+        }
     }
 
     private func applyRating(_ rating: Int) {

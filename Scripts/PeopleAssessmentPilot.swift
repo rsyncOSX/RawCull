@@ -1,10 +1,10 @@
+import CoreImage
 import Foundation
 import ImageIO
-import CoreImage
 import Vision
 
-// The most distant contour points define the long axis. Measure the
-// perpendicular extent in image pixels so face aspect ratio and roll are respected.
+/// The most distant contour points define the long axis. Measure the
+/// perpendicular extent in image pixels so face aspect ratio and roll are respected.
 func eyeGeometry(_ region: VNFaceLandmarkRegion2D, in face: CGRect) -> (width: Double, aperture: Double?)? {
     let points = region.normalizedPoints.map {
         CGPoint(x: $0.x * face.width, y: $0.y * face.height)
@@ -41,11 +41,13 @@ func overlaps(_ first: CGRect, _ second: CGRect) -> Bool {
     return total > 0 && shared / total >= 0.5
 }
 
-guard (3...4).contains(CommandLine.arguments.count),
-      let size = Int(CommandLine.arguments[2]), size > 0 else {
+guard (3 ... 4).contains(CommandLine.arguments.count),
+      let size = Int(CommandLine.arguments[2]), size > 0
+else {
     FileHandle.standardError.write(Data("Usage: people-assessment-pilot RAW_FOLDER MAX_PIXELS [LABEL_MANIFEST.json]\n".utf8))
     exit(2)
 }
+
 let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 let rawExtensions: Set<String> = ["arw", "cr2", "cr3", "crw", "dng", "nef", "raf", "orf", "rw2"]
 let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
@@ -54,11 +56,12 @@ let files = try FileManager.default.contentsOfDirectory(at: root, includingPrope
 guard let detector = CIDetector(
     ofType: CIDetectorTypeFace,
     context: nil,
-    options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]
+    options: [CIDetectorAccuracy: CIDetectorAccuracyHigh],
 ) else {
     FileHandle.standardError.write(Data("Core Image face detector unavailable\n".utf8))
     exit(1)
 }
+
 print("file_index,format,decode_ms,vision_ms,core_image_ms,vision_faces,vision_eyes,vision_quality_scores,core_image_faces,core_image_closed_flags,status")
 var manifest: [[String: Any]] = []
 for (index, file) in files.enumerated() {
@@ -67,11 +70,12 @@ for (index, file) in files.enumerated() {
         let start = clock.now
         guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: size,
-                kCGImageSourceShouldCacheImmediately: true
-              ] as CFDictionary) else {
+                  kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: size,
+                  kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary)
+        else {
             print("\(index),\(file.pathExtension),,,,,,,,embedded_preview_unavailable")
             return
         }
@@ -113,14 +117,13 @@ for (index, file) in files.enumerated() {
                     let visionEyes = eyeRegions.compactMap { $0 }
                         .filter { $0.pointCount > 0 }
                         .sorted { centerX($0) < centerX($1) }
-                    let imageOrderedFlags: [Bool]
-                    if let match, match.hasLeftEyePosition, match.hasRightEyePosition,
-                       match.leftEyePosition.x != match.rightEyePosition.x {
-                        imageOrderedFlags = match.leftEyePosition.x < match.rightEyePosition.x
+                    let imageOrderedFlags: [Bool] = if let match, match.hasLeftEyePosition, match.hasRightEyePosition,
+                                                       match.leftEyePosition.x != match.rightEyePosition.x {
+                        match.leftEyePosition.x < match.rightEyePosition.x
                             ? [match.leftEyeClosed, match.rightEyeClosed]
                             : [match.rightEyeClosed, match.leftEyeClosed]
                     } else {
-                        imageOrderedFlags = []
+                        []
                     }
                     guard visionEyes.count == 2 else { continue }
                     for (eyeIndex, eye) in visionEyes.enumerated() {
@@ -157,6 +160,7 @@ for (index, file) in files.enumerated() {
         }
     }
 }
+
 if CommandLine.arguments.count == 4 {
     let data = try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
     try data.write(to: URL(fileURLWithPath: CommandLine.arguments[3]), options: .atomic)

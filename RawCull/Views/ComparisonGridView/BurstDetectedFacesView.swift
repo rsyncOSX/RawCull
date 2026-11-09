@@ -6,7 +6,9 @@ import SwiftUI
 private nonisolated struct BurstDetectedFace: Identifiable, Sendable {
     let evidence: DetectedFaceCloseUp
     let crop: CGImage
-    var id: Int { evidence.id }
+    var id: Int {
+        evidence.id
+    }
 }
 
 private actor BurstDetectedFaceLoader {
@@ -33,14 +35,13 @@ private actor BurstDetectedFaceLoader {
             previewPipelineVersion: previewPipelineVersion,
             algorithmVersion: FaceEvidenceAnalyzer.algorithmVersion,
             detectorRevision: FaceEvidenceAnalyzer.detectorRevision,
-            operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString
+            operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
         )
         let cached = cache.load(for: url, signature: signature, width: preview.width, height: preview.height)
-        let result: FaceEvidenceResult
-        if let cached {
-            result = cached
+        let result: FaceEvidenceResult = if let cached {
+            cached
         } else {
-            result = try await analyzer.analyze(preview)
+            try await analyzer.analyze(preview)
         }
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
@@ -76,9 +77,11 @@ struct BurstDetectedFacesView: View {
             switch state {
             case .loading:
                 ProgressView().controlSize(.small).accessibilityLabel("Detecting faces")
-            case .loaded(let faces) where faces.isEmpty:
+
+            case let .loaded(faces) where faces.isEmpty:
                 Text("No faces detected").font(.caption).foregroundStyle(.secondary)
-            case .loaded(let faces):
+
+            case let .loaded(faces):
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(faces) { face in
@@ -86,6 +89,7 @@ struct BurstDetectedFacesView: View {
                         }
                     }
                 }
+
             case .unavailable:
                 HStack {
                     Text("Face close-ups unavailable").font(.caption).foregroundStyle(.secondary)

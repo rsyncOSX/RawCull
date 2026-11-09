@@ -4,7 +4,7 @@ import PhotoAnalysisKit
 import Testing
 
 struct FaceEvidenceCacheTests {
-    @Test func reopensEvidenceAndInvalidatesOnlyTheChangedSource() throws {
+    @Test func `reopens evidence and invalidates only the changed source`() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let first = directory.appendingPathComponent("first.CR2")

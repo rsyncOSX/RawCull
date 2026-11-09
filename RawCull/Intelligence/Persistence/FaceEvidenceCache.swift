@@ -43,7 +43,8 @@ nonisolated struct FaceEvidenceCache: Sendable {
               record.evidence.algorithmVersion == signature.algorithmVersion,
               record.evidence.detectorRevision == signature.detectorRevision,
               record.evidence.previewWidth == width,
-              record.evidence.previewHeight == height else {
+              record.evidence.previewHeight == height
+        else {
             Logger.process.debugMessageOnly("FaceEvidenceCache: MISS \(name) (incompatible record)")
             return nil
         }

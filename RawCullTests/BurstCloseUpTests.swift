@@ -7,7 +7,7 @@ import Testing
 
 @Suite("Burst Close-ups integration") @MainActor
 struct BurstCloseUpTests {
-    @Test(arguments: Array(UInt32(1)...UInt32(8)))
+    @Test(arguments: Array(UInt32(1) ... UInt32(8)))
     func `AF placement maps sensor coordinates to oriented images`(orientation: UInt32) throws {
         let frame = CloseUpFrame(id: URL(filePath: "/fixture/a.arw"), name: "a", revision: "1")
         let expected = [CGPoint(x: 0.2, y: 0.3), CGPoint(x: 0.8, y: 0.3),
@@ -23,8 +23,8 @@ struct BurstCloseUpTests {
     @Test func `AF placement explains unavailable metadata`() {
         let frame = CloseUpFrame(id: URL(filePath: "/fixture/a.arw"), name: "a", revision: "1")
         for (point, orientation): (CGPoint?, UInt32?) in [(nil, 1), (.zero, nil), (.zero, 9),
-                                                        (CGPoint(x: Double.nan, y: 0), 1),
-                                                        (CGPoint(x: 2, y: 0), 1)] {
+                                                          (CGPoint(x: Double.nan, y: 0), 1),
+                                                          (CGPoint(x: 2, y: 0), 1)] {
             let availability = BurstCloseUpAFPoint.availability(frame: frame, point: point, orientation: orientation)
             #expect(availability.target(for: frame) == nil)
             #expect(!availability.explanation(for: frame).isEmpty)
@@ -32,27 +32,27 @@ struct BurstCloseUpTests {
     }
 
     @Test func `command click keeps current frame and toggles additional frames`() {
-        let urls = (0..<4).map { URL(filePath: "/fixture/\($0).arw") }
+        let urls = (0 ..< 4).map { URL(filePath: "/fixture/\($0).arw") }
         let selected = BurstCloseUpSelection.select(
-            urls[2], in: urls, current: urls[0], selection: [urls[0]], modifiers: .command
+            urls[2], in: urls, current: urls[0], selection: [urls[0]], modifiers: .command,
         )
         #expect(selected == [urls[0], urls[2]])
         #expect(BurstCloseUpSelection.select(
-            urls[2], in: urls, current: urls[2], selection: selected, modifiers: .command
+            urls[2], in: urls, current: urls[2], selection: selected, modifiers: .command,
         ) == [urls[0]])
         #expect(BurstCloseUpSelection.select(
-            urls[1], in: urls, current: urls[2], selection: selected, modifiers: []
+            urls[1], in: urls, current: urls[2], selection: selected, modifiers: [],
         ) == [urls[1]])
     }
 
     @Test func `shift click selects ranges in displayed order`() {
-        let urls = (0..<5).map { URL(filePath: "/fixture/\($0).arw") }
+        let urls = (0 ..< 5).map { URL(filePath: "/fixture/\($0).arw") }
         #expect(BurstCloseUpSelection.select(
-            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: .shift
-        ) == Set(urls[1...3]))
+            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: .shift,
+        ) == Set(urls[1 ... 3]))
         #expect(BurstCloseUpSelection.select(
-            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: [.command, .shift]
-        ) == Set(urls[1...4]))
+            urls[1], in: urls, current: urls[3], selection: [urls[4]], modifiers: [.command, .shift],
+        ) == Set(urls[1 ... 4]))
     }
 
     @Test func `regions survive new session and reject replaced file`() throws {
