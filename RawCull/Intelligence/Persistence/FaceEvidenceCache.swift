@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import OSLog
 import PhotoAnalysisKit
 
 /// The face loader owns this disposable cache. Records contain evidence only.
@@ -26,13 +27,27 @@ nonisolated struct FaceEvidenceCache: Sendable {
     }
 
     func load(for url: URL, signature: Signature, width: Int, height: Int) -> FaceEvidenceResult? {
-        guard let data = try? Data(contentsOf: recordURL(for: url)),
-              let record = try? JSONDecoder().decode(Record.self, from: data),
-              record.signature == signature,
+        let name = url.lastPathComponent
+        let record: Record
+        do {
+            let data = try Data(contentsOf: recordURL(for: url))
+            record = try JSONDecoder().decode(Record.self, from: data)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            Logger.process.debugMessageOnly("FaceEvidenceCache: MISS \(name) (no saved record)")
+            return nil
+        } catch {
+            Logger.process.debugMessageOnly("FaceEvidenceCache: READ FAILED \(name) (record unreadable or invalid)")
+            return nil
+        }
+        guard record.signature == signature,
               record.evidence.algorithmVersion == signature.algorithmVersion,
               record.evidence.detectorRevision == signature.detectorRevision,
               record.evidence.previewWidth == width,
-              record.evidence.previewHeight == height else { return nil }
+              record.evidence.previewHeight == height else {
+            Logger.process.debugMessageOnly("FaceEvidenceCache: MISS \(name) (incompatible record)")
+            return nil
+        }
+        Logger.process.debugMessageOnly("FaceEvidenceCache: HIT \(name) (\(record.evidence.faces.count) faces)")
         return record.evidence
     }
 
