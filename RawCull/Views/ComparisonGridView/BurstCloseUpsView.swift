@@ -138,7 +138,7 @@ struct BurstCloseUpsView: View {
         VStack(spacing: 0) {
             if let currentURL {
                 if isIndexing {
-                    Text("Face close-ups resume after indexing")
+                    Text("Detected close-ups resume after indexing")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -398,6 +398,8 @@ Run correctness, migration, real-image accuracy and sustained hardware tests. Co
 
 ### Wildlife head and eye close-up pilot
 
+Close Up now runs Vision animal body pose on the same upright embedded preview used for human faces. It displays a head crop when enough landmarks establish its size and an eye crop for each eye landmark that passes the confidence threshold. Animal crops are for visual inspection. Species coverage, crop placement, and latency still need real-image validation.
+
 Use a small set of representative RAW bursts with manually marked heads and visible eyes. Include profiles with one visible eye, distant subjects, partial occlusion, and multiple animals. Test upright embedded previews at the sizes RawCull can afford during burst review.
 
 Apple documents eye, nose, and ear landmarks for cats and dogs in [Vision animal body pose](https://developer.apple.com/videos/play/wwdc2023/10045/). Run the built-in request as a baseline and report coverage and crop placement separately by species. If it cannot localize wildlife eyes reliably, evaluate a wildlife head and eye model that runs locally through [Vision and Core ML](https://developer.apple.com/documentation/vision/vncoremlmodel). Confirm the model’s distribution rights before adopting it.
