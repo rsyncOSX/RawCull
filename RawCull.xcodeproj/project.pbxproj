@@ -491,7 +491,7 @@
 				E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */,
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
-				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
+				E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 				E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */,
 				E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
@@ -1346,6 +1346,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../PhotoAnalysisKit;
 		};
+		E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RawCullCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1371,14 +1375,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.3.3;
-			};
-		};
-		E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.1.2;
 			};
 		};
 		E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
@@ -1445,7 +1441,7 @@
 		};
 		E9634D6B2FD1D1A0009E567D /* RawCullCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */;
+			package = E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */;
 			productName = RawCullCore;
 		};
 		E9825225305081A400231F61 /* PhotoAnalysisKit */ = {

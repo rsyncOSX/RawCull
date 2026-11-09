@@ -47,15 +47,6 @@
       }
     },
     {
-      "identity" : "rawcullcore",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawCullCore.git",
-      "state" : {
-        "revision" : "d25a51e65ad32a82bf82f86fa0ec07d6e14498e9",
-        "version" : "1.1.2"
-      }
-    },
-    {
       "identity" : "rawparserkit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit",
