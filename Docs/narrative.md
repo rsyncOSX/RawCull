@@ -2,7 +2,9 @@
 
 Evaluation and implementation proposal — 8 November 2026.
 
-**Status, 9 November 2026:** Automatic face close-ups and per-file face evidence caching are implemented in the local RawCull build. The next milestone is face-only TestFlight validation. The architecture and later phases below remain proposals.
+**Status, 9 November 2026:** Automatic face close-ups and per-file face evidence caching are implemented in the local RawCull build. Human face TestFlight validation is pending. The architecture and later phases below remain proposals.
+
+**Next work:** Run the [wildlife head and eye close-up pilot](#wildlife-head-and-eye-close-up-pilot) as a separate Phase 0 feasibility test before starting Phase 4 ranking. Start with birds and other representative wildlife RAW bursts. Record whether built-in Vision produces usable crops by species and whether a wildlife Core ML model is needed. Human face TestFlight validation can run alongside the pilot.
 
 | Phase | Current status |
 |---|---|
@@ -26,7 +28,7 @@ Retain **Best frame** and **AF-point sharpness** as two sort modes. Best frame s
 
 ### Decisions this plan makes
 
-- Human faces first. Wildlife eyes are a separate future investigation; human models must not be advertised as animal-eye detectors.
+- Human faces are the first release. Wildlife head and eye close-ups are a separate feasibility track, starting with birds and the wildlife represented in the photographer’s RAW bursts.
 - All photographic analysis stays local. No cloud inference and no per-photo AI service credits.
 - Detection, eye openness, local detail, capture quality, and recommendation confidence remain distinct concepts.
 - Unknown, not yet analyzed, failed, and no face detected are different states.
@@ -393,6 +395,14 @@ Treat these as two independent optional projects. Group ranking needs validated 
 Run correctness, migration, real-image accuracy and sustained hardware tests. Compare results to the declared gates and document actual supported limits. Release behind a reversible feature preference first, with face-informed automatic culling eligibility withheld until separately justified. Publish package versions in dependency order, update app pins and release notes, and retain baseline fallback.
 
 **Exit:** no unsupported accuracy/performance claims, reproducible reports, and a clear rollback path. Estimated effort: 3–5 days plus device availability. Overall baseline effort is roughly 4–7 engineering weeks for one developer, highly dependent on data and the eye-state gate; this is a planning estimate, not a commitment.
+
+### Wildlife head and eye close-up pilot
+
+Use a small set of representative RAW bursts with manually marked heads and visible eyes. Include profiles with one visible eye, distant subjects, partial occlusion, and multiple animals. Test upright embedded previews at the sizes RawCull can afford during burst review.
+
+Apple documents eye, nose, and ear landmarks for cats and dogs in [Vision animal body pose](https://developer.apple.com/videos/play/wwdc2023/10045/). Run the built-in request as a baseline and report coverage and crop placement separately by species. If it cannot localize wildlife eyes reliably, evaluate a wildlife head and eye model that runs locally through [Vision and Core ML](https://developer.apple.com/documentation/vision/vncoremlmodel). Confirm the model’s distribution rights before adopting it.
+
+Start with automatic head and visible-eye close-ups for comparing frames. Measure missed eyes, false crops, crop jitter across a burst, and latency. Fall back to a head crop when only the head is reliable, and keep manual close-ups available. Validate eye sharpness separately against photographer comparisons of the same subject within a burst before using it in ranking.
 
 ## 16. Required verification before shipping
 
