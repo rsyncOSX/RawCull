@@ -136,6 +136,8 @@ struct BurstCullingWorkspaceView: View {
                         canNavigateNext: navigationDestination(by: 1) != nil,
                         navigate: navigate(by:), applyRating: applyRating,
                         sourceChanged: { sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG) },
+                        onTryRAW: sourceSelection.selected == .embeddedJPG
+                            ? { sourceSelection.select(.developedRAW) } : nil,
                     )
                     if showCloseUps {
                         Divider()
@@ -144,6 +146,7 @@ struct BurstCullingWorkspaceView: View {
                             recordedAFPoints: Dictionary(uniqueKeysWithValues: files.compactMap { file in
                                 file.afFocusNormalized.map { (file.url, $0) }
                             }), currentURL: selectedFile?.url,
+                            isIndexing: viewModel.similarityModel.isIndexing,
                             raw: sourceSelection.selected == .developedRAW,
                             model: closeUps, renderer: closeUpRenderer,
                             activate: { url in

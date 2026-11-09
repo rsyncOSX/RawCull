@@ -105,6 +105,7 @@ struct BurstCloseUpsView: View {
     let urls: [URL]
     let recordedAFPoints: [URL: CGPoint]
     let currentURL: URL?
+    let isIndexing: Bool
     let raw: Bool
     let model: CloseUpModel
     let renderer: BurstCloseUpRenderer
@@ -132,40 +133,56 @@ struct BurstCloseUpsView: View {
     }
 
     var body: some View {
-        CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
-                     renderer: renderer, renderSources: sources, afPoints: afPoints,
-                     onActivate: { frame in
-                         guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
-                         activate(frame.id)
-                     }, onUseAFPoint: { frame in
-                         onUseAFPoint(frame.id)
-                     }, onClose: onClose)
-            .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
-                let selected = urls
-                var all = selected
-                if let reference = model.reference, !all.contains(reference.id) {
-                    all.append(reference.id)
+        VStack(spacing: 0) {
+            if let currentURL {
+                if isIndexing {
+                    Text("Face close-ups resume after indexing")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                } else {
+                    BurstDetectedFacesView(url: currentURL)
+                        .id(currentURL)
                 }
-                let requestedURLs = all
-                let loaded = await Task { @concurrent in
-                    let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
-                    defer { withExtendedLifetime(access) {} }
-                    return requestedURLs.map { url in
-                        let frame = CloseUpFrame(id: url, name: url.lastPathComponent, revision: BurstCloseUpIdentity.revision(url))
-                        return (frame, BurstCloseUpAFPoint.orientation(for: url))
-                    }
-                }.value
-                guard !Task.isCancelled else { return }
-                orientations = Dictionary(uniqueKeysWithValues: loaded.compactMap { frame, orientation in
-                    orientation.map { (frame.id, $0) }
-                })
-                let result = loaded.map { $0.0 }
-                sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
-                frames = result.filter { selected.contains($0.id) }
-                if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
-                    model.updateReference(updated)
-                }
+                Divider()
             }
+            CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
+                         renderer: renderer, renderSources: sources, afPoints: afPoints,
+                         onActivate: { frame in
+                             guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
+                             activate(frame.id)
+                         }, onUseAFPoint: { frame in
+                             onUseAFPoint(frame.id)
+                         }, onClose: onClose)
+        }
+        .frame(width: 304)
+        .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
+            let selected = urls
+            var all = selected
+            if let reference = model.reference, !all.contains(reference.id) {
+                all.append(reference.id)
+            }
+            let requestedURLs = all
+            let loaded = await Task { @concurrent in
+                let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
+                defer { withExtendedLifetime(access) {} }
+                return requestedURLs.map { url in
+                    let frame = CloseUpFrame(id: url, name: url.lastPathComponent, revision: BurstCloseUpIdentity.revision(url))
+                    return (frame, BurstCloseUpAFPoint.orientation(for: url))
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+            orientations = Dictionary(uniqueKeysWithValues: loaded.compactMap { frame, orientation in
+                orientation.map { (frame.id, $0) }
+            })
+            let result = loaded.map { $0.0 }
+            sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
+            frames = result.filter { selected.contains($0.id) }
+            if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
+                model.updateReference(updated)
+            }
+        }
     }
 }
 

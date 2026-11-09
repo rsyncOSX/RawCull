@@ -1,5 +1,5 @@
 {
-  "originHash" : "e60f4ba19d59d8397673b7b1622047a48666b516e05bb6e79d105998a127f458",
+  "originHash" : "7a28126f607b17af9d6b82677e1415f79bfd58892d65b23fd3a647d9deb9dbd7",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -44,24 +44,6 @@
       "state" : {
         "revision" : "4b85056e6c2603b5e382987710ca2f16f4c5c155",
         "version" : "1.0.0"
-      }
-    },
-    {
-      "identity" : "photoanalysiskit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/PhotoAnalysisKit.git",
-      "state" : {
-        "revision" : "2a1466e04d821fa2628d6985296643e0d0c7e465",
-        "version" : "1.3.1"
-      }
-    },
-    {
-      "identity" : "photoevidencekit",
-      "kind" : "remoteSourceControl",
-      "location" : "git@github.com:rsyncOSX/PhotoEvidenceKit.git",
-      "state" : {
-        "revision" : "7614fd1528bb7cf2549799fb937678ea39d90228",
-        "version" : "1.0.7"
       }
     },
     {

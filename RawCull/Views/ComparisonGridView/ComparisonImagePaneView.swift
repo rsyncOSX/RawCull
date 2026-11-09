@@ -21,6 +21,7 @@ struct ComparisonImagePaneView: View {
     var showsChrome = true
     var allowsDoubleClickZoom = true
     var subjectOutline: CGImage?
+    var onTryRAW: (() -> Void)?
 
     @State private var isHovered = false
 
@@ -292,9 +293,13 @@ struct ComparisonImagePaneView: View {
                     Image(systemName: "photo")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
-                    Text("No preview available")
+                    Text(onTryRAW == nil ? "No preview available" : "No JPG preview available")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let onTryRAW {
+                        Button("Try RAW", action: onTryRAW)
+                            .controlSize(.small)
+                    }
                 }
             }
         }

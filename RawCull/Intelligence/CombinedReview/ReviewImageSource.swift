@@ -19,6 +19,7 @@ nonisolated struct ReviewSourceRequest: Sendable {
     let preference: ReviewSourcePreference
     let policy: ReviewRenderPolicy
     var overviewMaximumDimension = 2048
+    var embeddedPreviewMaximumDimension: Int?
     /// Conservative allocation guard, not a measured decoder peak guarantee.
     /// Larger sources require an explicitly raised limit after memory qualification.
     var maximumSourcePixels = 24_000_000

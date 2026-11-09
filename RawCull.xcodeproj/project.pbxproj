@@ -493,9 +493,9 @@
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E9825224305081A400231F61 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */,
 				E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
-				E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */,
+				E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -1337,6 +1337,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PhotoAnalysisKit;
+		};
+		E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PhotoEvidenceKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1344,14 +1355,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.0;
-			};
-		};
-		E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@github.com:rsyncOSX/PhotoEvidenceKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.0.7;
 			};
 		};
 		E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */ = {
@@ -1376,14 +1379,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.1.2;
-			};
-		};
-		E9825224305081A400231F61 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.3.1;
 			};
 		};
 		E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
@@ -1420,22 +1415,22 @@
 		};
 		E940A503309E40170094F573 /* PhotoEvidenceContracts */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
 			productName = PhotoEvidenceContracts;
 		};
 		E940A505309E40170094F573 /* PhotoEvidenceEngine */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
 			productName = PhotoEvidenceEngine;
 		};
 		E940A507309E40170094F573 /* PhotoEvidenceUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
 			productName = PhotoEvidenceUI;
 		};
 		E940A509309E40170094F573 /* PhotoEvidenceDemo */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
+			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
 			productName = PhotoEvidenceDemo;
 		};
 		E952AA612F2E37170081987F /* ParseRsyncOutput */ = {
@@ -1455,7 +1450,7 @@
 		};
 		E9825225305081A400231F61 /* PhotoAnalysisKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9825224305081A400231F61 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
+			package = E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */;
 			productName = PhotoAnalysisKit;
 		};
 		E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */ = {
