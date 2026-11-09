@@ -2,7 +2,17 @@
 
 Evaluation and implementation proposal — 8 November 2026.
 
-**Status:** document exercise complete; implementation and empirical validation have not started. No application, package, test, or project configuration code was changed for this exercise. This document is a proposal, not a performance report or an assertion of feature parity with Narrative.
+**Status, 9 November 2026:** Automatic face close-ups and per-file face evidence caching are implemented in the local RawCull build. The next milestone is face-only TestFlight validation. The architecture and later phases below remain proposals.
+
+| Phase | Current status |
+|---|---|
+| 0 · Feasibility | Ran the built-in face and eye pilot on 85 RAWs. The results support Vision face detection for close-ups. Eye-state warnings remain in evaluation. |
+| 1 · Contracts and engine | PhotoAnalysisKit returns versioned face geometry and experimental face-local detail from upright previews. A controlled blur check lowered the score on all 96 measurable face crops. Real burst comparisons remain open. |
+| 2 · Persistence and scheduling | RawCull caches evidence per file, skips Vision on compatible hits, and pauses face work during similarity indexing. Broader background scheduling remains open. |
+| 3 · Evidence and close-up UI | Automatic face crops and detail scores appear in burst Close-ups, separately from manual regions. The unsigned Release build passed. The signed App Store archive and TestFlight validation are pending. |
+| 4–6 · Ranking and optional additions | Pending. TestFlight will gather evidence about crop placement, cache reuse, and agreement on sharper versus softer faces before any ranking change. |
+
+The [pilot report and TestFlight checklist](PeopleAssessmentPilot.md) record measurements, limitations, and test cases.
 
 ## 1. Recommendation
 
@@ -413,7 +423,9 @@ Tests should target these behaviors and failure modes rather than merely mirror 
 | Model additions defeat the ordinary-Mac objective | Require baseline hardware gates and a built-in useful fallback. |
 | Scope expands into animal eyes, expression grading or identity | Keep those outside baseline; write separate requirements and evaluation if requested. |
 
-## 18. Remaining uncertainties and handover
+## 18. Original proposal handover
+
+This section records the state at the end of the 8 November documentation exercise. See the status at the top and the pilot report for implementation and measurements completed since then.
 
 I am satisfied that this document defines an implementable, staged direction and the important failure boundaries. **It cannot be 100% certain about accuracy, speed, or the best eye backend without implementing and benchmarking the candidates.** More speculative reading cannot replace those experiments. The evaluation therefore ends at a concrete decision-and-validation plan rather than inventing measurements.
 

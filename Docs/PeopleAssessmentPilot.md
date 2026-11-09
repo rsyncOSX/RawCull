@@ -78,3 +78,19 @@ The reviewer labeled 12 previously unreviewed face crops with suggestions hidden
 | 6 px | 20 | 2 | 0 | 2 |
 
 Lowering the gate recovered three correctly identified open eyes, but both closed eyes in one frame were reported open. The 8 px gate withheld both. Keep 8 px as the conservative pilot setting. This batch contained only two closed eyes, both on the same face. It does not support a production eye-state decision. A face-close-up and local-detail milestone can proceed separately from eye-state warnings.
+
+## Face-only TestFlight scope
+
+Phase 1 delivered face geometry and an experimental face-local detail metric. Phase 2 delivered on-demand per-file persistence, with indexing priority and cancellation when navigating away. Phase 3 delivered automatic face close-ups alongside manual inspection. The face-only TestFlight build can exercise that subset. The proposal's broader scheduling and per-eye evidence remain separate work.
+
+A controlled blur check used the current detector on 85 RAWs and ImageIO embedded previews capped at 1600 pixels. It found 110 faces and measured detail on 96. Applying Gaussian blur (sigma 2) lowered the detail score in all 96 measurable crops using the same face boxes. The other 14 faces had no detail score. This checks the direction of the metric under controlled blur. It does not measure keeper agreement across real burst frames.
+
+TestFlight checks for the face-only build:
+
+- Open Close-ups on portraits, group shots, and `_MG_2088.CR2`. Check crop placement and confirm that the two visible faces in that regression case each have a crop.
+- Switch quickly between frames, close the panel during detection, and reopen a catalog. Check that no previous frame's crops appear on the newly selected image.
+- Compare faces of the same person across real burst frames with compatible preview scale. Record the sharper frame or a tie before comparing scores.
+- Check that manual regions, ratings, and burst order stay stable during face detection. Exercise both Best frame and AF-point sharpness sorting.
+- Exercise missing JPG previews, including `CRW_6750.CRW`, and use Try RAW to open the alternate source.
+
+Phase 4 starts with measuring agreement on real frame pairs and, if the evidence warrants it, evaluating a people-aware rank in shadow mode. TestFlight feedback on close-ups and local detail does not require any ranking changes.
