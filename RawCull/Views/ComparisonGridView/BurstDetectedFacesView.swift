@@ -108,7 +108,7 @@ struct BurstDetectedFacesView: View {
 
             case let .loaded(faces, animals):
                 if faces.isEmpty && animals?.isEmpty == true {
-                    Text("No faces or animal landmarks detected").font(.caption).foregroundStyle(.secondary)
+                    Text("No human faces or cat or dog landmarks detected").font(.caption).foregroundStyle(.secondary)
                 } else if !faces.isEmpty || animals?.isEmpty == false {
                     ScrollView(.horizontal) {
                         HStack(alignment: .top, spacing: 8) {
