@@ -88,3 +88,21 @@ struct BurstCloseUpTests {
         #expect(fileRevision != BurstCloseUpIdentity.revision(url))
     }
 }
+
+@Suite("People preview ranking")
+struct PeopleRankingPreviewTests {
+    @Test func `face scale checks the full range in both dimensions`() {
+        let first = CGSize(width: 0.2, height: 0.25)
+        let similar = CGSize(width: 0.24, height: 0.3)
+        #expect(PeopleRankingPreview.comparableFaceSizes([first, similar]))
+        #expect(!PeopleRankingPreview.comparableFaceSizes([similar, first, CGSize(width: 0.26, height: 0.3)]))
+        #expect(!PeopleRankingPreview.comparableFaceSizes([first, CGSize(width: 0.2, height: 0.35)]))
+        #expect(!PeopleRankingPreview.comparableFaceSizes([first, .zero]))
+    }
+
+    @Test func `only the second baseline frame can take first place`() {
+        #expect(PeopleRankingPreview.rankedIndices(details: [0.1, 1, 0.5]) == [1, 0, 2])
+        #expect(PeopleRankingPreview.rankedIndices(details: [0.1, 0.6, 1]) == [0, 1, 2])
+        #expect(PeopleRankingPreview.rankedIndices(details: [1, 1, 1]) == [0, 1, 2])
+    }
+}
