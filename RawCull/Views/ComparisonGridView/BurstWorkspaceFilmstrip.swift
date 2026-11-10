@@ -14,6 +14,7 @@ struct BurstWorkspaceFilmstrip: View {
 
     var closeUpSelection: Set<URL> = []
     var mostFaceDetail: URL?
+    var faceSizesVary = false
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
 
     private var selectedIndex: Int {
@@ -25,13 +26,18 @@ struct BurstWorkspaceFilmstrip: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(isSingleImages ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
                 Text("\(selectedIndex + 1) / \(files.count)")
+                if faceSizesVary {
+                    Text("Face detail unavailable · face sizes vary")
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text("⌘/⇧ click for close-ups")
                     .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout.monospaced())
             .foregroundStyle(.secondary)
-            .frame(width: isSingleImages ? 110 : 76, alignment: .leading)
+            .frame(width: faceSizesVary || isSingleImages ? 110 : 76, alignment: .leading)
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in

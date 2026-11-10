@@ -23,6 +23,7 @@ struct BurstCullingWorkspaceView: View {
     @State private var peopleCheckID = UUID()
     @State private var peopleCandidate: [URL]?
     @State private var mostFaceDetail: URL?
+    @State private var faceSizesVary = false
 
     private var currentPeopleRequest: PeopleRankingRequest {
         PeopleRankingRequest(groupID: groupID, urls: bestFrameFiles.map(\.url))
@@ -192,6 +193,7 @@ struct BurstCullingWorkspaceView: View {
                     navigate: navigate,
                     closeUpSelection: Set(closeUpFiles.map(\.url)),
                     mostFaceDetail: mostFaceDetail,
+                    faceSizesVary: faceSizesVary,
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
                             url, in: files.map(\.url), current: selectedFile?.url,
@@ -263,6 +265,9 @@ struct BurstCullingWorkspaceView: View {
             } catch {
                 guard !Task.isCancelled, request == currentPeopleRequest else { return }
                 peopleRequest = nil
+                if case .faceSizesDiffer? = error as? PeopleRankingPreview.Failure {
+                    faceSizesVary = true
+                }
                 peopleFailure = error.localizedDescription
             }
             peopleProgress = 0
@@ -280,6 +285,7 @@ struct BurstCullingWorkspaceView: View {
             peopleRequest = nil
             peopleCandidate = nil
             mostFaceDetail = nil
+            faceSizesVary = false
             peopleProgress = 0
             peopleFailure = nil
         }
@@ -317,6 +323,7 @@ struct BurstCullingWorkspaceView: View {
                 peopleRequest = nil
             } else {
                 mostFaceDetail = nil
+                faceSizesVary = false
                 peopleRequest = currentPeopleRequest
                 peopleProgress = 1
                 peopleCheckID = UUID()
