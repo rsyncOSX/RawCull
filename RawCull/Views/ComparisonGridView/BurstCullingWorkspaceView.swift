@@ -338,7 +338,7 @@ struct BurstCullingWorkspaceView: View {
                 peopleCheckID = UUID()
             }
         } message: {
-            Text("Confirm the same single human subject is visible at a comparable scale in every frame. Check each frame’s Close-ups to populate the cache first.")
+            Text("Confirm the same single human subject is visible at a comparable scale in every frame. Check each frame’s Close-ups to populate the cache first. Only the first two frames in Best frame order can become the proposed winner.")
         }
     }
 
