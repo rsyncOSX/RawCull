@@ -1,34 +1,86 @@
 import Foundation
+import PhotoAnalysisKit
 
 /// Experimental counterpart of policy 1 in Scripts/EvaluatePeopleRanking.py.
 /// The caller must verify that every frame shows the same primary human face.
 nonisolated enum PeopleRankingPreview {
+    enum Failure: LocalizedError {
+        case tooFewFrames
+        case previewUnavailable(String)
+        case noFace(String)
+        case multipleFaces(String)
+        case detailUnavailable(String)
+        case previewSizesDiffer
+        case faceSizesDiffer
+
+        var errorDescription: String? {
+            switch self {
+            case .tooFewFrames: String(localized: "Choose a burst with two or more images.")
+            case let .previewUnavailable(name): String(localized: "Could not check the face in \(name).")
+            case let .noFace(name): String(localized: "No face detected in \(name).")
+            case let .multipleFaces(name): String(localized: "Multiple faces detected in \(name).")
+            case let .detailUnavailable(name): String(localized: "Face detail unavailable in \(name).")
+            case .previewSizesDiffer: String(localized: "Embedded preview sizes differ across this burst.")
+            case .faceSizesDiffer: String(localized: "Face sizes vary too much across this burst.")
+            }
+        }
+    }
+
     @concurrent
     static func candidateOrder(for urls: [URL], cache: FaceEvidenceCache = FaceEvidenceCache()) async -> [URL]? {
-        guard urls.count >= 2, Set(urls).count == urls.count else { return nil }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: urls)
         defer { withExtendedLifetime(access) {} }
+        return try? await rank(urls) { url in
+            let revision = BurstCloseUpIdentity.revision(url)
+            guard let evidence = cache.load(for: url, signature: FaceEvidenceCache.signature(sourceRevision: revision)),
+                  BurstCloseUpIdentity.revision(url) == revision
+            else { throw Failure.previewUnavailable(url.lastPathComponent) }
+            return evidence
+        }
+    }
+
+    @concurrent
+    static func analyzeAndRank(_ urls: [URL], progress: @MainActor @Sendable (Int) -> Void) async throws -> [URL] {
+        try await rank(urls, progress: progress) { url in
+            try await BurstDetectedFaceLoader.shared.evidence(for: url)
+        }
+    }
+
+    private static func rank(
+        _ urls: [URL],
+        progress: @MainActor @Sendable (Int) -> Void = { _ in },
+        evidence load: (URL) async throws -> FaceEvidenceResult,
+    ) async throws -> [URL] {
+        guard urls.count >= 2, Set(urls).count == urls.count else { throw Failure.tooFewFrames }
         var previewSize: CGSize?
         var details: [Double] = []
         var faceSizes: [CGSize] = []
 
-        for url in urls {
-            guard !Task.isCancelled else { return nil }
-            let revision = BurstCloseUpIdentity.revision(url)
-            guard let evidence = cache.load(for: url, signature: FaceEvidenceCache.signature(sourceRevision: revision)),
-                  evidence.faces.count == 1,
-                  let face = evidence.faces.first,
-                  let detail = face.localDetail, detail.isFinite, detail > 0,
-                  BurstCloseUpIdentity.revision(url) == revision
-            else { return nil }
+        for (index, url) in urls.enumerated() {
+            try Task.checkCancellation()
+            await progress(index + 1)
+            let name = url.lastPathComponent
+            let evidence: FaceEvidenceResult
+            do {
+                evidence = try await load(url)
+            } catch {
+                try Task.checkCancellation()
+                throw Failure.previewUnavailable(name)
+            }
+            guard let face = evidence.faces.first else { throw Failure.noFace(name) }
+            guard evidence.faces.count == 1 else { throw Failure.multipleFaces(name) }
+            guard let detail = face.localDetail, detail.isFinite, detail > 0 else {
+                throw Failure.detailUnavailable(name)
+            }
             let size = CGSize(width: evidence.previewWidth, height: evidence.previewHeight)
-            guard previewSize == nil || previewSize == size else { return nil }
+            guard previewSize == nil || previewSize == size else { throw Failure.previewSizesDiffer }
             previewSize = size
             details.append(detail)
             faceSizes.append(face.normalizedBounds.size)
         }
 
-        guard comparableFaceSizes(faceSizes) else { return nil }
+        try Task.checkCancellation()
+        guard comparableFaceSizes(faceSizes) else { throw Failure.faceSizesDiffer }
         return rankedIndices(details: details).map { urls[$0] }
     }
 

@@ -20,7 +20,7 @@ private nonisolated enum BurstFaceStatus: Sendable {
     case detailUnavailable
 }
 
-private actor BurstDetectedFaceLoader {
+actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
     private let cache = FaceEvidenceCache()
@@ -40,16 +40,25 @@ private actor BurstDetectedFaceLoader {
         return cache
     }()
 
-    func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?, status: BurstFaceStatus) {
+    func evidence(for url: URL) async throws -> FaceEvidenceResult {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
+        try Task.checkCancellation()
+        let revision = BurstCloseUpIdentity.revision(url)
+        if let cached = cache.load(for: url, signature: FaceEvidenceCache.signature(sourceRevision: revision)),
+           BurstCloseUpIdentity.revision(url) == revision {
+            return cached
+        }
+        return try await loadEvidence(url, revision: revision).result
+    }
+
+    private func loadEvidence(_ url: URL, revision: String) async throws -> (preview: CGImage, result: FaceEvidenceResult) {
         try Task.checkCancellation()
         let now = Date.now
         if now >= nextFaceCachePrune {
             cache.pruneExpiredRecords(now: now)
             nextFaceCachePrune = now.addingTimeInterval(24 * 60 * 60)
         }
-        let revision = BurstCloseUpIdentity.revision(url)
         let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
                                           policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
         guard let preview = try ReviewEmbeddedPreviewLoader().load(request)?.image else {
@@ -74,6 +83,14 @@ private actor BurstDetectedFaceLoader {
                 Logger.process.debugMessageOnly("FaceEvidenceCache: WRITE FAILED")
             }
         }
+        return (preview, result)
+    }
+
+    fileprivate func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?, status: BurstFaceStatus) {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        defer { withExtendedLifetime(access) {} }
+        let revision = BurstCloseUpIdentity.revision(url)
+        let (preview, result) = try await loadEvidence(url, revision: revision)
         let animalKey = "\(revision)|\(preview.width)x\(preview.height)" as NSString
         let cachedAnimals = animalCache.object(forKey: animalKey)
         let animalRegions = cachedAnimals?.values ?? (try? AnimalCloseUpDetector.regions(in: preview))
