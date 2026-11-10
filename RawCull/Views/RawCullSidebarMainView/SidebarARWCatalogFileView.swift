@@ -24,26 +24,22 @@ struct SidebarARWCatalogFileView: View {
                 Label {
                     Text("No Catalog Selected")
                 } icon: {
-                    Button {
-                        viewModel.isShowingPicker = true
-                    } label: {
-                        Image(systemName: "folder.badge.plus")
-                    }
-                    .buttonStyle(.plain)
-                    .help("Add Catalog…")
-                    .accessibilityLabel("Add Catalog")
-                    .accessibilityHint("Opens the folder picker to select a catalog.")
+                    addCatalogIcon
                 }
             } description: {
-                Text("Choose File > Add Catalog… to start culling your photos.")
+                Text("Select a folder to start culling your photos.")
             }
         } else if scanning {
             ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
-        } else if viewModel.files.isEmpty, !scanning {
+        } else if viewModel.files.isEmpty {
             ContentUnavailableView {
-                Label("No Files Found", systemImage: "folder.badge.plus")
+                Label {
+                    Text("No Files Found")
+                } icon: {
+                    addCatalogIcon
+                }
             } description: {
-                Text("This folder has no RAW images. Choose File > Add Catalog… to try a different folder.")
+                Text("This folder has no RAW images. Try a different folder.")
             }
         } else if files.isEmpty {
             ContentUnavailableView {
@@ -106,6 +102,21 @@ struct SidebarARWCatalogFileView: View {
                 }
             }
         }
+    }
+
+    private var addCatalogIcon: some View {
+        Button {
+            viewModel.isShowingPicker = true
+        } label: {
+            Image(systemName: "folder.badge.plus")
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(Color.accentColor)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Add Catalog…")
+        .accessibilityLabel("Add Catalog")
+        .accessibilityHint("Opens the folder picker to select a catalog.")
     }
 
     var files: [FileItem] {
