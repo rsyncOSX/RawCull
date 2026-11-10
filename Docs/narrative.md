@@ -413,6 +413,20 @@ Publish People rankings only for validated cases and on explicit request in Burs
 
 ### Phase 6 — Group ranking and optional model fallback
 
+An offline group experiment is available via
+`python3 Scripts/EvaluatePeopleRanking.py --group manifest.json`. Keep the same
+baseline order, keeper labels, and evidence descriptors as in Phase 4. Set
+`verified_group_human_cohort` after verifying the associations and comparable
+face scales across the burst. List at least two manually chosen relevant people
+in `relevant_human_face_ids`. For each frame, provide a `face_details` object
+mapping exactly those IDs to positive cached detail scores. Use labels that
+remain consistent across the burst. Detector IDs are local to each frame.
+
+The experiment normalizes sharpness within each person, then uses the lowest
+relative value among relevant faces. Incomplete cohorts and incompatible
+descriptors retain the baseline order. This policy stays offline while group
+association, relevance, and keeper outcomes are evaluated.
+
 Treat these as two independent optional projects. Group ranking needs validated associations and relevance policy. A compact eye classifier needs licensed artifacts, representative calibration, Core ML deployment checks and performance evidence. Neither should block shipping useful built-in face inspection.
 
 **Exit:** each addition independently passes its own gates. Effort cannot be responsibly fixed before Phase 0 and the group corpus; allow at least an additional development/evaluation iteration, potentially several weeks if training is required.
