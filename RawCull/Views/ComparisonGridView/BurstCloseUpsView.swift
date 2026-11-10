@@ -195,20 +195,32 @@ private struct BurstDetectedFacesSection: View {
             Text("Detected faces and animal landmarks · embedded preview")
                 .font(.caption.weight(.semibold))
             if urls.count > 1 {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                ScrollViewReader { proxy in
+                    Menu("Jump to image (\(urls.count))") {
                         ForEach(urls, id: \.self) { url in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(url.lastPathComponent)
-                                    .font(.caption.weight(.medium))
-                                    .lineLimit(1)
-                                    .help(url.lastPathComponent)
-                                BurstDetectedFacesView(url: url)
+                            Button(url.lastPathComponent) {
+                                proxy.scrollTo(url, anchor: .top)
                             }
                         }
                     }
+                    .controlSize(.small)
+
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(urls, id: \.self) { url in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(url.lastPathComponent)
+                                        .font(.caption.weight(.medium))
+                                        .lineLimit(1)
+                                        .help(url.lastPathComponent)
+                                    BurstDetectedFacesView(url: url)
+                                }
+                                .id(url)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 260)
                 }
-                .frame(maxHeight: 260)
             } else if let url = urls.first {
                 BurstDetectedFacesView(url: url)
                     .id(url)
