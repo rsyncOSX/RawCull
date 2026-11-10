@@ -12,7 +12,7 @@ Evaluation and implementation proposal — 8 November 2026.
 | 1 · Contracts and engine | PhotoAnalysisKit returns versioned face geometry and experimental face-local detail from upright previews. A controlled blur check lowered the score on all 96 measurable face crops. Real burst comparisons remain open. |
 | 2 · Persistence and scheduling | RawCull caches evidence per file, skips Vision on compatible hits, and pauses face work during similarity indexing. Broader background scheduling remains open. |
 | 3 · Evidence and close-up UI | Automatic face crops and detail scores appear in burst Close-ups, separately from manual regions. The unsigned Release build passed. Human face close-ups passed TestFlight validation. |
-| 4–6 · Ranking and optional additions | Phase 4 has an offline evaluator. Labeled burst evaluation and app integration remain pending. |
+| 4–6 · Ranking and optional additions | Phase 4 has an offline evaluator. Phase 5 has an opt-in preview in Burst Review for TestFlight testing. Labeled burst evaluation remains pending. |
 
 The [pilot report and TestFlight checklist](PeopleAssessmentPilot.md) record measurements, limitations, and test cases.
 
@@ -397,6 +397,15 @@ Add compact people summaries and a new ranking descriptor in RawCullCore. Implem
 **Exit:** measured ranking improvement with documented uncertainty and no unacceptable regressions. If the evidence only helps inspection, ship that benefit without forcing ranking changes. Estimated effort: 4–6 days including initial calibration, more if the corpus needs expansion.
 
 ### Phase 5 — Enable validated ranking and polish controls
+
+To test the preview, open Close-ups on each candidate frame to populate the face
+cache. Under Best frame in Burst Review, use **People preview → Check cached face
+evidence** and confirm that every frame shows the same single human subject at a
+comparable scale. Once the cache check succeeds, **Apply People ranking** changes
+the workspace order. **Restore Best frame order** returns to the baseline.
+The preview uses policy 1 and requires compatible cache records, one measurable
+face per frame, and matching preview dimensions. It reads cached evidence without
+running inference. The preview is available in both Debug and Release builds for testing.
 
 Publish People rankings only for validated cases and on explicit request in Burst Review. Implement pending and displayed ranking snapshots, setting changes without new inference, cache compatibility, explanations, and rollback to baseline.
 

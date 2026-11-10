@@ -12,6 +12,23 @@ struct BurstCullingWorkspaceView: View {
     @State private var sortByAFPoint = false
     @State private var isLoadingAFPointScores = false
 
+    private struct PeopleRankingRequest: Equatable {
+        let groupID: Int
+        let urls: [URL]
+    }
+
+    @State private var confirmPeopleCohort = false
+    @State private var peopleEvidenceUnavailable = false
+    @State private var peopleNeedsMoreFrames = false
+    @State private var peopleRequest: PeopleRankingRequest?
+    @State private var peopleCheckID = UUID()
+    @State private var peopleCandidate: [URL]?
+    @State private var applyPeopleCandidate = false
+
+    private var currentPeopleRequest: PeopleRankingRequest {
+        PeopleRankingRequest(groupID: groupID, urls: bestFrameFiles.map(\.url))
+    }
+
     @State private var showCloseUps = false
     @State private var closeUpSelection: Set<URL> = []
     @State private var closeUps = CloseUpModel(storage: BurstCloseUpRegionStore())
@@ -95,6 +112,10 @@ struct BurstCullingWorkspaceView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
+                if groupID != -1 && !sortByAFPoint {
+                    peopleRankingMenu
+                        .padding(.trailing, 12)
+                }
                 if showCloseUps {
                     BurstCloseUpSourcePicker(
                         selection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
@@ -236,6 +257,32 @@ struct BurstCullingWorkspaceView: View {
             guard viewportState.showFocusMask, let selectedFile else { return }
             await imageCoordinator.analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
         }
+        .task(id: peopleCheckID) {
+            guard let request = peopleRequest else { return }
+            let candidate = await PeopleRankingPreview.candidateOrder(for: request.urls)
+            guard !Task.isCancelled, request == peopleRequest, request == currentPeopleRequest else { return }
+            peopleCandidate = candidate
+            if candidate == nil {
+                peopleRequest = nil
+                peopleEvidenceUnavailable = true
+            }
+        }
+        .alert("Choose a burst with two or more images", isPresented: $peopleNeedsMoreFrames) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Use Burst list to open a burst with at least two images of the same person, then try People preview again.")
+        }
+        .alert("Check Close-ups for every frame", isPresented: $peopleEvidenceUnavailable) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Open Close-ups and step through every image in the burst. Wait for a face close-up to appear on each image, then choose Check cached face evidence again. If the check still fails, try a burst with one face at a similar size in every frame.")
+        }
+        .onChange(of: currentPeopleRequest) {
+            peopleCheckID = UUID()
+            peopleRequest = nil
+            peopleCandidate = nil
+            applyPeopleCandidate = false
+        }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
         }
@@ -263,7 +310,52 @@ struct BurstCullingWorkspaceView: View {
         }
     }
 
+    private var peopleRankingMenu: some View {
+        Menu(applyPeopleCandidate ? "People ranking applied" : "People preview") {
+            if applyPeopleCandidate {
+                Button("Restore Best frame order") { applyPeopleCandidate = false }
+            } else {
+                Button("Check cached face evidence") {
+                    if currentPeopleRequest.urls.count < 2 {
+                        peopleNeedsMoreFrames = true
+                    } else {
+                        confirmPeopleCohort = true
+                    }
+                }
+                    .disabled(peopleRequest != nil && peopleCandidate == nil)
+                if peopleRequest == currentPeopleRequest, peopleCandidate != nil {
+                    Button("Apply People ranking") { applyPeopleCandidate = true }
+                }
+            }
+        }
+        .controlSize(.small)
+        .fixedSize()
+        .confirmationDialog("Verify primary human face", isPresented: $confirmPeopleCohort) {
+            Button("Same human face in every frame") {
+                applyPeopleCandidate = false
+                peopleCandidate = nil
+                peopleRequest = currentPeopleRequest
+                peopleCheckID = UUID()
+            }
+        } message: {
+            Text("Confirm the same single human subject is visible at a comparable scale in every frame. Check each frame’s Close-ups to populate the cache first.")
+        }
+    }
+
     private var files: [FileItem] {
+        let baseline = bestFrameFiles
+        if groupID != -1 && sortByAFPoint {
+            return viewModel.sharpnessModel.sortedByAFPointSharpness(baseline)
+        }
+        if applyPeopleCandidate, peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
+           let peopleCandidate {
+            let byURL = Dictionary(uniqueKeysWithValues: baseline.map { ($0.url, $0) })
+            return peopleCandidate.compactMap { byURL[$0] }
+        }
+        return baseline
+    }
+
+    private var bestFrameFiles: [FileItem] {
         if groupID == -1 {
             return viewModel.singleImageReviewFiles
         }
@@ -272,8 +364,7 @@ struct BurstCullingWorkspaceView: View {
             uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
         )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
-        let rankedFiles = rankedIDs.compactMap { filesByID[$0] }
-        return sortByAFPoint ? viewModel.sharpnessModel.sortedByAFPointSharpness(rankedFiles) : rankedFiles
+        return rankedIDs.compactMap { filesByID[$0] }
     }
 
     private var closeUpFiles: [FileItem] {

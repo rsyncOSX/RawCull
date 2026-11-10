@@ -21,12 +21,25 @@ nonisolated struct FaceEvidenceCache: Sendable {
         let operatingSystem: String
     }
 
+    static let previewMaximumDimension = 1600
+
+    static func signature(sourceRevision: String) -> Signature {
+        Signature(
+            sourceRevision: sourceRevision,
+            previewMaximumDimension: previewMaximumDimension,
+            previewPipelineVersion: 1,
+            algorithmVersion: FaceEvidenceAnalyzer.algorithmVersion,
+            detectorRevision: FaceEvidenceAnalyzer.detectorRevision,
+            operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
+        )
+    }
+
     private struct Record: Codable {
         let signature: Signature
         let evidence: FaceEvidenceResult
     }
 
-    func load(for url: URL, signature: Signature, width: Int, height: Int) -> FaceEvidenceResult? {
+    func load(for url: URL, signature: Signature, width: Int? = nil, height: Int? = nil) -> FaceEvidenceResult? {
         let name = url.lastPathComponent
         let record: Record
         do {
@@ -42,8 +55,10 @@ nonisolated struct FaceEvidenceCache: Sendable {
         guard record.signature == signature,
               record.evidence.algorithmVersion == signature.algorithmVersion,
               record.evidence.detectorRevision == signature.detectorRevision,
-              record.evidence.previewWidth == width,
-              record.evidence.previewHeight == height
+              record.evidence.previewWidth > 0,
+              record.evidence.previewHeight > 0,
+              width.map({ record.evidence.previewWidth == $0 }) ?? true,
+              height.map({ record.evidence.previewHeight == $0 }) ?? true
         else {
             Logger.process.debugMessageOnly("FaceEvidenceCache: MISS \(name) (incompatible record)")
             return nil

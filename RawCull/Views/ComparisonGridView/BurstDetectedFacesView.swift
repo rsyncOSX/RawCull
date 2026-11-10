@@ -2,7 +2,6 @@ import PhotoAnalysisKit
 import PhotoEvidenceContracts
 import PhotoEvidenceEngine
 import SwiftUI
-import Vision
 
 private nonisolated struct BurstDetectedCrop: Identifiable, Sendable {
     let evidence: DetectedFaceCloseUp
@@ -17,8 +16,6 @@ private actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
     private let cache = FaceEvidenceCache()
-    private let previewMaximumDimension = 1600
-    private let previewPipelineVersion = 1
 
     func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?) {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
@@ -26,20 +23,12 @@ private actor BurstDetectedFaceLoader {
         try Task.checkCancellation()
         let revision = BurstCloseUpIdentity.revision(url)
         let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
-                                          policy: .appearance, embeddedPreviewMaximumDimension: previewMaximumDimension)
+                                          policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
         guard let preview = try ReviewEmbeddedPreviewLoader().load(request)?.image else {
             throw CloseUpRenderError.unavailable
         }
 
-        let signature = FaceEvidenceCache.Signature(
-            sourceRevision: revision,
-            previewMaximumDimension: previewMaximumDimension,
-            previewPipelineVersion: previewPipelineVersion,
-            // Match the analyzer in the local PhotoAnalysisKit checkout.
-            algorithmVersion: 2,
-            detectorRevision: VNDetectFaceRectanglesRequest().revision,
-            operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
-        )
+        let signature = FaceEvidenceCache.signature(sourceRevision: revision)
         let cached = cache.load(for: url, signature: signature, width: preview.width, height: preview.height)
         let result: FaceEvidenceResult = if let cached {
             cached
