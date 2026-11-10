@@ -18,6 +18,20 @@ private actor BurstDetectedFaceLoader {
     private let analyzer = FaceEvidenceAnalyzer()
     private let cache = FaceEvidenceCache()
 
+    private final class AnimalRegions {
+        let values: [AnimalCloseUpDetector.Region]
+
+        init(_ values: [AnimalCloseUpDetector.Region]) {
+            self.values = values
+        }
+    }
+
+    private let animalCache: NSCache<NSString, AnimalRegions> = {
+        let cache = NSCache<NSString, AnimalRegions>()
+        cache.countLimit = 64
+        return cache
+    }()
+
     func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?) {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
@@ -47,10 +61,15 @@ private actor BurstDetectedFaceLoader {
                 Logger.process.debugMessageOnly("FaceEvidenceCache: WRITE FAILED")
             }
         }
-        let animalRegions = try? AnimalCloseUpDetector.regions(in: preview)
+        let animalKey = "\(revision)|\(preview.width)x\(preview.height)" as NSString
+        let cachedAnimals = animalCache.object(forKey: animalKey)
+        let animalRegions = cachedAnimals?.values ?? (try? AnimalCloseUpDetector.regions(in: preview))
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
             throw CloseUpRenderError.sourceChanged
+        }
+        if cachedAnimals == nil, let animalRegions {
+            animalCache.setObject(AnimalRegions(animalRegions), forKey: animalKey)
         }
         let faces: [BurstDetectedCrop] = result.faces.compactMap { face in
             let target = DetectedFaceCloseUp(id: face.id, normalizedBounds: face.normalizedBounds,
