@@ -2,17 +2,17 @@
 
 Evaluation and implementation proposal — 8 November 2026.
 
-**Status, 9 November 2026:** Automatic face close-ups and per-file face evidence caching are implemented in the local RawCull build. Human face TestFlight validation is pending. The architecture and later phases below remain proposals.
+**Status, 10 November 2026:** TestFlight verified human face close-ups. Automatic face close-ups and per-file face evidence caching are implemented. Face sharpness agreement with human keeper choices remains open.
 
-**Next work:** Validate human face close-ups and face sharpness in TestFlight before Phase 4. Evaluate eye-state warnings separately. Wildlife close-ups remain experimental and outside the People ranking roadmap.
+**Next work:** Evaluate face sharpness against labeled keeper choices in Phase 4 shadow mode. Evaluate eye-state warnings separately. Wildlife close-ups remain experimental and outside the People ranking roadmap.
 
 | Phase | Current status |
 |---|---|
 | 0 · Feasibility | Ran the built-in face and eye pilot on 85 RAWs. The results support Vision face detection for close-ups. Eye-state warnings remain in evaluation. |
 | 1 · Contracts and engine | PhotoAnalysisKit returns versioned face geometry and experimental face-local detail from upright previews. A controlled blur check lowered the score on all 96 measurable face crops. Real burst comparisons remain open. |
 | 2 · Persistence and scheduling | RawCull caches evidence per file, skips Vision on compatible hits, and pauses face work during similarity indexing. Broader background scheduling remains open. |
-| 3 · Evidence and close-up UI | Automatic face crops and detail scores appear in burst Close-ups, separately from manual regions. The unsigned Release build passed. The signed App Store archive and TestFlight validation are pending. |
-| 4–6 · Ranking and optional additions | Pending. TestFlight will gather evidence about crop placement, cache reuse, and agreement on sharper versus softer faces before any ranking change. |
+| 3 · Evidence and close-up UI | Automatic face crops and detail scores appear in burst Close-ups, separately from manual regions. The unsigned Release build passed. Human face close-ups passed TestFlight validation. |
+| 4–6 · Ranking and optional additions | Phase 4 has an offline evaluator. Labeled burst evaluation and app integration remain pending. |
 
 The [pilot report and TestFlight checklist](PeopleAssessmentPilot.md) record measurements, limitations, and test cases.
 
@@ -376,6 +376,21 @@ Show per-face/eye evidence, unknown reasons and coverage. Extend PhotoEvidenceKi
 **Exit:** useful portrait and group inspection without a large model, usable keyboard/accessibility behavior, no inference triggered by ordinary sorting. Estimated effort: 3–5 days.
 
 ### Phase 4 — Primary-face ranking in shadow mode
+
+Start with the [offline evaluator](../Scripts/EvaluatePeopleRanking.py). Run
+`python3 Scripts/EvaluatePeopleRanking.py manifest.json` with a JSON array of bursts.
+Each burst has an `id`, an `acceptable_keepers` array of frame IDs, a
+`verified_primary_human_cohort` boolean, and a `frames` array in current Best frame
+order. Each frame has an `id`, `local_detail` from face evidence, and an
+`evidence_descriptor` identifying the compatible algorithm, preview pipeline and
+scale. Set the cohort flag only after verifying the same primary human face at
+comparable scales in every candidate frame. Keep wildlife, ambiguous matches,
+and group portraits in the fallback cases.
+
+The evaluator applies a provisional adjustment of up to 1.5 baseline rank
+positions and preserves baseline ties. Its report lists each winner change and
+counts improvements and regressions against keeper labels. Calibrate on separate
+bursts and report held-out results before integrating the policy into RawCullCore.
 
 Add compact people summaries and a new ranking descriptor in RawCullCore. Implement shared-cohort eligibility, fallback, stable ties, bounded adjustments and explicit reasons. Preserve manual winners and saved ratings. Separate recommendation confidence from existing one-click eligibility. Evaluate against human labels and the old ranking.
 
