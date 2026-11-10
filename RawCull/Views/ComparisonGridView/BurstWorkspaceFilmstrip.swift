@@ -12,10 +12,8 @@ struct BurstWorkspaceFilmstrip: View {
     let canNavigateNext: Bool
     let navigate: (Int) -> Void
 
-    var showsCloseUpSelection = false
     var closeUpSelection: Set<URL> = []
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
-    var toggleCloseUp: (URL) -> Void = { _ in }
 
     private var selectedIndex: Int {
         files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -26,8 +24,9 @@ struct BurstWorkspaceFilmstrip: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(isSingleImages ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
                 Text("\(selectedIndex + 1) / \(files.count)")
-                Text("⌘/⇧ select")
+                Text("⌘/⇧ click for close-ups")
                     .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout.monospaced())
             .foregroundStyle(.secondary)
@@ -38,29 +37,17 @@ struct BurstWorkspaceFilmstrip: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
-                                VStack(spacing: 4) {
-                                    BurstFilmstripThumbnail(
-                                        file: file,
-                                        isSelected: file.id == viewModel.selectedFileID,
-                                        isSuggested: analysis?.recommendedFileID == file.id,
-                                        isDeferred: analysis?.reviewState == .deferred,
-                                        isIncludedInCloseUps: closeUpSelection.contains(file.url),
-                                    ) {
-                                        selectCloseUp(file.url, NSEvent.modifierFlags)
-                                        viewModel.selectedFileID = file.id
-                                    }
-                                    .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
-                                    if showsCloseUpSelection {
-                                        Toggle("Close-up", isOn: Binding(
-                                            get: { closeUpSelection.contains(file.url) },
-                                            set: { _ in toggleCloseUp(file.url) },
-                                        ))
-                                        .toggleStyle(.checkbox)
-                                        .font(.caption)
-                                        .accessibilityLabel("Close-up for \(file.name)")
-                                    }
+                                BurstFilmstripThumbnail(
+                                    file: file,
+                                    isSelected: file.id == viewModel.selectedFileID,
+                                    isSuggested: analysis?.recommendedFileID == file.id,
+                                    isDeferred: analysis?.reviewState == .deferred,
+                                    isIncludedInCloseUps: closeUpSelection.contains(file.url),
+                                ) {
+                                    selectCloseUp(file.url, NSEvent.modifierFlags)
+                                    viewModel.selectedFileID = file.id
                                 }
-                                .frame(width: BurstFilmstripThumbnail.width)
+                                .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
                                 .id(file.id)
                             }
                         }
@@ -96,7 +83,7 @@ struct BurstWorkspaceFilmstrip: View {
             }
         }
         .padding(16)
-        .frame(height: showsCloseUpSelection ? 166 : 144)
+        .frame(height: 144)
         .background(.quaternary.opacity(0.28))
     }
 
