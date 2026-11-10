@@ -73,6 +73,23 @@ nonisolated struct FaceEvidenceCache: Sendable {
         try data.write(to: recordURL(for: url), options: .atomic)
     }
 
+    /// Expire old evidence by write time. Records can be recreated from their sources.
+    func pruneExpiredRecords(now: Date = .now) {
+        let cutoff = now.addingTimeInterval(-30 * 24 * 60 * 60)
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
+        guard let records = try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: Array(keys), options: .skipsHiddenFiles
+        ) else { return }
+
+        for record in records where record.pathExtension == "json" {
+            guard let values = try? record.resourceValues(forKeys: keys),
+                  values.isRegularFile == true,
+                  let modified = values.contentModificationDate, modified < cutoff
+            else { continue }
+            try? FileManager.default.removeItem(at: record)
+        }
+    }
+
     private func recordURL(for url: URL) -> URL {
         let path = url.standardizedFileURL.absoluteString
         let key = SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined()

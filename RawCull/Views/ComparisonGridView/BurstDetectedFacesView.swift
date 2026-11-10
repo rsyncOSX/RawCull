@@ -1,3 +1,4 @@
+import OSLog
 import PhotoAnalysisKit
 import PhotoEvidenceContracts
 import PhotoEvidenceEngine
@@ -16,11 +17,31 @@ private actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
     private let cache = FaceEvidenceCache()
+    private var nextFaceCachePrune = Date.distantPast
+
+    private final class AnimalRegions {
+        let values: [AnimalCloseUpDetector.Region]
+
+        init(_ values: [AnimalCloseUpDetector.Region]) {
+            self.values = values
+        }
+    }
+
+    private let animalCache: NSCache<NSString, AnimalRegions> = {
+        let cache = NSCache<NSString, AnimalRegions>()
+        cache.countLimit = 64
+        return cache
+    }()
 
     func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?) {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
         try Task.checkCancellation()
+        let now = Date.now
+        if now >= nextFaceCachePrune {
+            cache.pruneExpiredRecords(now: now)
+            nextFaceCachePrune = now.addingTimeInterval(24 * 60 * 60)
+        }
         let revision = BurstCloseUpIdentity.revision(url)
         let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
                                           policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
@@ -36,13 +57,25 @@ private actor BurstDetectedFaceLoader {
             try await analyzer.analyze(preview)
         }
         try Task.checkCancellation()
-        let animalRegions = try? AnimalCloseUpDetector.regions(in: preview)
-        try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
             throw CloseUpRenderError.sourceChanged
         }
         if cached == nil {
-            try? cache.save(result, for: url, signature: signature)
+            do {
+                try cache.save(result, for: url, signature: signature)
+            } catch {
+                Logger.process.debugMessageOnly("FaceEvidenceCache: WRITE FAILED")
+            }
+        }
+        let animalKey = "\(revision)|\(preview.width)x\(preview.height)" as NSString
+        let cachedAnimals = animalCache.object(forKey: animalKey)
+        let animalRegions = cachedAnimals?.values ?? (try? AnimalCloseUpDetector.regions(in: preview))
+        try Task.checkCancellation()
+        guard BurstCloseUpIdentity.revision(url) == revision else {
+            throw CloseUpRenderError.sourceChanged
+        }
+        if cachedAnimals == nil, let animalRegions {
+            animalCache.setObject(AnimalRegions(animalRegions), forKey: animalKey)
         }
         let faces: [BurstDetectedCrop] = result.faces.compactMap { face in
             let target = DetectedFaceCloseUp(id: face.id, normalizedBounds: face.normalizedBounds,
@@ -81,7 +114,7 @@ struct BurstDetectedFacesView: View {
 
             case let .loaded(faces, animals):
                 if faces.isEmpty && animals?.isEmpty == true {
-                    Text("No faces or animal landmarks detected").font(.caption).foregroundStyle(.secondary)
+                    Text("No human faces or cat or dog landmarks detected").font(.caption).foregroundStyle(.secondary)
                 } else if !faces.isEmpty || animals?.isEmpty == false {
                     ScrollView(.horizontal) {
                         HStack(alignment: .top, spacing: 8) {
