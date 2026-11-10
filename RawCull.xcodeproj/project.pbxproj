@@ -491,11 +491,11 @@
 				E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */,
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
-				E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */,
+				E9FF6C1A30A3021A00DEF266 /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */,
+				E9FF6C1C30A3029300DEF266 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
 				E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
-				E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */,
+				E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -1337,21 +1337,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../PhotoEvidenceKit;
-		};
-		E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RawCullCore;
-		};
-		E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../PhotoAnalysisKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1401,6 +1386,30 @@
 				version = 1.0.0;
 			};
 		};
+		E9FF6C1A30A3021A00DEF266 /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.1.5;
+			};
+		};
+		E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "git@github.com:rsyncOSX/PhotoEvidenceKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.1.0;
+			};
+		};
+		E9FF6C1C30A3029300DEF266 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.3.5;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1411,22 +1420,22 @@
 		};
 		E940A503309E40170094F573 /* PhotoEvidenceContracts */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
+			package = E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
 			productName = PhotoEvidenceContracts;
 		};
 		E940A505309E40170094F573 /* PhotoEvidenceEngine */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
+			package = E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
 			productName = PhotoEvidenceEngine;
 		};
 		E940A507309E40170094F573 /* PhotoEvidenceUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
+			package = E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
 			productName = PhotoEvidenceUI;
 		};
 		E940A509309E40170094F573 /* PhotoEvidenceDemo */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E940A502309E40170094F573 /* XCLocalSwiftPackageReference "../PhotoEvidenceKit" */;
+			package = E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */;
 			productName = PhotoEvidenceDemo;
 		};
 		E952AA612F2E37170081987F /* ParseRsyncOutput */ = {
@@ -1441,12 +1450,12 @@
 		};
 		E9634D6B2FD1D1A0009E567D /* RawCullCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */;
+			package = E9FF6C1A30A3021A00DEF266 /* XCRemoteSwiftPackageReference "RawCullCore" */;
 			productName = RawCullCore;
 		};
 		E9825225305081A400231F61 /* PhotoAnalysisKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9825224305081A400231F61 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */;
+			package = E9FF6C1C30A3029300DEF266 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
 			productName = PhotoAnalysisKit;
 		};
 		E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */ = {
