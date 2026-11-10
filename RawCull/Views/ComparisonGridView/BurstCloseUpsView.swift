@@ -192,8 +192,6 @@ private struct BurstDetectedFacesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Detected faces and animal landmarks · embedded preview")
-                .font(.caption.weight(.semibold))
             if urls.count > 1 {
                 ScrollViewReader { proxy in
                     Menu("Jump to image (\(urls.count))") {

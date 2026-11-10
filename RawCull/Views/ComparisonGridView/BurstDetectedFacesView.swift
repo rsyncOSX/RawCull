@@ -13,6 +13,13 @@ private nonisolated struct BurstDetectedCrop: Identifiable, Sendable {
     }
 }
 
+private nonisolated enum BurstFaceStatus: Sendable {
+    case ready
+    case noFace
+    case multipleFaces
+    case detailUnavailable
+}
+
 private actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
@@ -33,7 +40,7 @@ private actor BurstDetectedFaceLoader {
         return cache
     }()
 
-    func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?) {
+    func load(_ url: URL) async throws -> (faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?, status: BurstFaceStatus) {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
         try Task.checkCancellation()
@@ -90,7 +97,20 @@ private actor BurstDetectedFaceLoader {
                 return BurstDetectedCrop(evidence: target, animalKind: region.kind, crop: crop)
             }
         }
-        return (faces, animals)
+        let status: BurstFaceStatus
+        switch result.faces.count {
+        case 0:
+            status = .noFace
+        case 1:
+            if let detail = result.faces.first?.localDetail, detail.isFinite, detail > 0 {
+                status = .ready
+            } else {
+                status = .detailUnavailable
+            }
+        default:
+            status = .multipleFaces
+        }
+        return (faces, animals, status)
     }
 }
 
@@ -99,7 +119,7 @@ struct BurstDetectedFacesView: View {
 
     private enum State {
         case loading
-        case loaded(faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?)
+        case loaded(faces: [BurstDetectedCrop], animals: [BurstDetectedCrop]?, status: BurstFaceStatus)
         case unavailable
     }
 
@@ -110,12 +130,12 @@ struct BurstDetectedFacesView: View {
         VStack(alignment: .leading, spacing: 6) {
             switch state {
             case .loading:
-                ProgressView().controlSize(.small).accessibilityLabel("Detecting faces and animal landmarks")
+                Label("Checking…", systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
 
-            case let .loaded(faces, animals):
-                if faces.isEmpty && animals?.isEmpty == true {
-                    Text("No human faces or cat or dog landmarks detected").font(.caption).foregroundStyle(.secondary)
-                } else if !faces.isEmpty || animals?.isEmpty == false {
+            case let .loaded(faces, animals, status):
+                if !faces.isEmpty || animals?.isEmpty == false {
                     ScrollView(.horizontal) {
                         HStack(alignment: .top, spacing: 8) {
                             ForEach(faces) { face in
@@ -127,6 +147,7 @@ struct BurstDetectedFacesView: View {
                         }
                     }
                 }
+                faceStatusLabel(status)
                 if animals == nil {
                     HStack {
                         Text("Animal close-ups unavailable").font(.caption).foregroundStyle(.secondary)
@@ -136,7 +157,9 @@ struct BurstDetectedFacesView: View {
 
             case .unavailable:
                 HStack {
-                    Text("Detected close-ups unavailable").font(.caption).foregroundStyle(.secondary)
+                    Label("Face check unavailable", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
                     Button("Retry") { retry += 1 }.controlSize(.small)
                 }
             }
@@ -147,12 +170,25 @@ struct BurstDetectedFacesView: View {
                 try await Task.sleep(for: .milliseconds(150))
                 let detections = try await BurstDetectedFaceLoader.shared.load(url)
                 try Task.checkCancellation()
-                state = .loaded(faces: detections.faces, animals: detections.animals)
+                state = .loaded(faces: detections.faces, animals: detections.animals, status: detections.status)
             } catch {
                 guard !Task.isCancelled else { return }
                 state = .unavailable
             }
         }
+    }
+
+    private func faceStatusLabel(_ status: BurstFaceStatus) -> some View {
+        let title: LocalizedStringKey = switch status {
+        case .ready: "Face ready"
+        case .noFace: "No face detected"
+        case .multipleFaces: "Multiple faces detected"
+        case .detailUnavailable: "Face detail unavailable"
+        }
+        return Label(title, systemImage: status == .ready ? "checkmark.circle" : "exclamationmark.triangle")
+            .font(.caption)
+            .foregroundStyle(status == .ready ? Color.green : Color.red)
+            .help("Face evidence for this frame, measured from the embedded preview.")
     }
 
     private func cropTile(_ face: BurstDetectedCrop) -> some View {
@@ -170,11 +206,6 @@ struct BurstDetectedFacesView: View {
                 .accessibilityLabel(Text(label))
             if face.animalKind != nil {
                 Text(label)
-            } else if let detail = face.evidence.localDetail {
-                Text("Detail: \(detail.formatted(.number.precision(.significantDigits(3))))")
-                    .help("Preview detail measurement for comparing similar captures of the same face.")
-            } else {
-                Text("Detail unavailable")
             }
         }
         .font(.caption2)
