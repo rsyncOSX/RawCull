@@ -4,6 +4,11 @@ import PhotoAnalysisKit
 /// Experimental counterpart of policy 1 in Scripts/EvaluatePeopleRanking.py.
 /// The caller must verify that every frame shows the same primary human face.
 nonisolated enum PeopleRankingPreview {
+    struct Result: Sendable {
+        let order: [URL]
+        let mostFaceDetail: URL
+    }
+
     enum Failure: LocalizedError {
         case tooFewFrames
         case previewUnavailable(String)
@@ -30,17 +35,17 @@ nonisolated enum PeopleRankingPreview {
     static func candidateOrder(for urls: [URL], cache: FaceEvidenceCache = FaceEvidenceCache()) async -> [URL]? {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: urls)
         defer { withExtendedLifetime(access) {} }
-        return try? await rank(urls) { url in
+        return try? await rank(urls, evidence: { url in
             let revision = BurstCloseUpIdentity.revision(url)
             guard let evidence = cache.load(for: url, signature: FaceEvidenceCache.signature(sourceRevision: revision)),
                   BurstCloseUpIdentity.revision(url) == revision
             else { throw Failure.previewUnavailable(url.lastPathComponent) }
             return evidence
-        }
+        }).order
     }
 
     @concurrent
-    static func analyzeAndRank(_ urls: [URL], progress: @MainActor @Sendable (Int) -> Void) async throws -> [URL] {
+    static func analyzeAndRank(_ urls: [URL], progress: @MainActor @Sendable (Int) -> Void) async throws -> Result {
         try await rank(urls, progress: progress) { url in
             try await BurstDetectedFaceLoader.shared.evidence(for: url)
         }
@@ -50,7 +55,7 @@ nonisolated enum PeopleRankingPreview {
         _ urls: [URL],
         progress: @MainActor @Sendable (Int) -> Void = { _ in },
         evidence load: (URL) async throws -> FaceEvidenceResult,
-    ) async throws -> [URL] {
+    ) async throws -> Result {
         guard urls.count >= 2, Set(urls).count == urls.count else { throw Failure.tooFewFrames }
         var previewSize: CGSize?
         var details: [Double] = []
@@ -81,7 +86,11 @@ nonisolated enum PeopleRankingPreview {
 
         try Task.checkCancellation()
         guard comparableFaceSizes(faceSizes) else { throw Failure.faceSizesDiffer }
-        return rankedIndices(details: details).map { urls[$0] }
+        let strongest = details.indices.reduce(0) { best, index in
+            details[index] > details[best] ? index : best
+        }
+        return Result(order: rankedIndices(details: details).map { urls[$0] },
+                      mostFaceDetail: urls[strongest])
     }
 
     /// Compare the full range so a gradual change across a burst is also rejected.

@@ -13,6 +13,7 @@ struct BurstWorkspaceFilmstrip: View {
     let navigate: (Int) -> Void
 
     var closeUpSelection: Set<URL> = []
+    var mostFaceDetail: URL?
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
 
     private var selectedIndex: Int {
@@ -37,17 +38,28 @@ struct BurstWorkspaceFilmstrip: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
-                                BurstFilmstripThumbnail(
-                                    file: file,
-                                    isSelected: file.id == viewModel.selectedFileID,
-                                    isSuggested: analysis?.recommendedFileID == file.id,
-                                    isDeferred: analysis?.reviewState == .deferred,
-                                    isIncludedInCloseUps: closeUpSelection.contains(file.url),
-                                ) {
-                                    selectCloseUp(file.url, NSEvent.modifierFlags)
-                                    viewModel.selectedFileID = file.id
+                                VStack(spacing: 4) {
+                                    BurstFilmstripThumbnail(
+                                        file: file,
+                                        isSelected: file.id == viewModel.selectedFileID,
+                                        isSuggested: analysis?.recommendedFileID == file.id,
+                                        isDeferred: analysis?.reviewState == .deferred,
+                                        isIncludedInCloseUps: closeUpSelection.contains(file.url),
+                                    ) {
+                                        selectCloseUp(file.url, NSEvent.modifierFlags)
+                                        viewModel.selectedFileID = file.id
+                                    }
+                                    .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
+                                    if mostFaceDetail != nil {
+                                        Text("Most face detail")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                            .opacity(file.url == mostFaceDetail ? 1 : 0)
+                                            .accessibilityHidden(file.url != mostFaceDetail)
+                                            .help("Highest measured face detail in this burst’s embedded previews.")
+                                    }
                                 }
-                                .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
+                                .frame(width: BurstFilmstripThumbnail.width)
                                 .id(file.id)
                             }
                         }
@@ -83,7 +95,7 @@ struct BurstWorkspaceFilmstrip: View {
             }
         }
         .padding(16)
-        .frame(height: 144)
+        .frame(height: mostFaceDetail == nil ? 144 : 164)
         .background(.quaternary.opacity(0.28))
     }
 
