@@ -4,11 +4,10 @@ import Foundation
 /// The caller must verify that every frame shows the same primary human face.
 nonisolated enum PeopleRankingPreview {
     @concurrent
-    static func candidateOrder(for urls: [URL]) async -> [URL]? {
+    static func candidateOrder(for urls: [URL], cache: FaceEvidenceCache = FaceEvidenceCache()) async -> [URL]? {
         guard urls.count >= 2, Set(urls).count == urls.count else { return nil }
         let access = await RawCullCatalogAccess.shared.retainAccess(for: urls)
         defer { withExtendedLifetime(access) {} }
-        let cache = FaceEvidenceCache()
         var previewSize: CGSize?
         var details: [Double] = []
         var faceSizes: [CGSize] = []

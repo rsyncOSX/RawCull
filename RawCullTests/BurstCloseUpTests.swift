@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import PhotoAnalysisKit
 import PhotoEvidenceContracts
 import PhotoEvidenceUI
 @testable import RawCull
@@ -91,6 +92,50 @@ struct BurstCloseUpTests {
 
 @Suite("People preview ranking")
 struct PeopleRankingPreviewTests {
+    @Test func `candidate order falls back until all frames have compatible evidence`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let cache = FaceEvidenceCache(directory: directory.appending(path: "evidence"))
+        let urls = [directory.appending(path: "first.raw"), directory.appending(path: "second.raw")]
+        for url in urls {
+            try Data().write(to: url)
+        }
+
+        func save(_ url: URL, width: CGFloat, detail: Double) throws {
+            struct FaceFixture: Encodable {
+                let id = 0
+                let normalizedBounds: CGRect
+                let localDetail: Double
+            }
+
+            struct EvidenceFixture: Encodable {
+                let algorithmVersion: Int
+                let detectorRevision: Int
+                let previewWidth = 1600
+                let previewHeight = 1200
+                let faces: [FaceFixture]
+            }
+
+            let signature = FaceEvidenceCache.signature(sourceRevision: BurstCloseUpIdentity.revision(url))
+            let fixture = EvidenceFixture(
+                algorithmVersion: signature.algorithmVersion,
+                detectorRevision: signature.detectorRevision,
+                faces: [FaceFixture(normalizedBounds: CGRect(x: 0.3, y: 0.3, width: width, height: 0.25),
+                                    localDetail: detail)]
+            )
+            let evidence = try JSONDecoder().decode(FaceEvidenceResult.self, from: JSONEncoder().encode(fixture))
+            try cache.save(evidence, for: url, signature: signature)
+        }
+
+        try save(urls[0], width: 0.2, detail: 0.1)
+        #expect(await PeopleRankingPreview.candidateOrder(for: urls, cache: cache) == nil)
+        try save(urls[1], width: 0.4, detail: 1)
+        #expect(await PeopleRankingPreview.candidateOrder(for: urls, cache: cache) == nil)
+        try save(urls[1], width: 0.2, detail: 1)
+        #expect(await PeopleRankingPreview.candidateOrder(for: urls, cache: cache) == Array(urls.reversed()))
+    }
+
     @Test func `face scale checks the full range in both dimensions`() {
         let first = CGSize(width: 0.2, height: 0.25)
         let similar = CGSize(width: 0.24, height: 0.3)
