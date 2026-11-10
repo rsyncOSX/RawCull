@@ -12,18 +12,18 @@ struct BurstCullingWorkspaceView: View {
     @State private var sortByAFPoint = false
     @State private var isLoadingAFPointScores = false
 
-    private struct PeopleRankingRequest: Equatable {
+    private struct PeopleRankingRequest: Equatable, Sendable {
         let groupID: Int
         let urls: [URL]
     }
 
-    @State private var confirmPeopleCohort = false
-    @State private var peopleEvidenceUnavailable = false
-    @State private var peopleNeedsMoreFrames = false
+    @State private var peopleFailure: String?
+    @State private var peopleProgress = 0
     @State private var peopleRequest: PeopleRankingRequest?
     @State private var peopleCheckID = UUID()
     @State private var peopleCandidate: [URL]?
-    @State private var applyPeopleCandidate = false
+    @State private var mostFaceDetail: URL?
+    @State private var faceSizesVary = false
 
     private var currentPeopleRequest: PeopleRankingRequest {
         PeopleRankingRequest(groupID: groupID, urls: bestFrameFiles.map(\.url))
@@ -113,7 +113,7 @@ struct BurstCullingWorkspaceView: View {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
                 if groupID != -1 && !sortByAFPoint {
-                    peopleRankingMenu
+                    peopleRankingButton
                         .padding(.trailing, 12)
                 }
                 if showCloseUps {
@@ -191,19 +191,14 @@ struct BurstCullingWorkspaceView: View {
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
-                    showsCloseUpSelection: showCloseUps,
                     closeUpSelection: Set(closeUpFiles.map(\.url)),
+                    mostFaceDetail: mostFaceDetail,
+                    faceSizesVary: faceSizesVary,
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
                             url, in: files.map(\.url), current: selectedFile?.url,
                             selection: Set(closeUpFiles.map(\.url)), modifiers: modifiers,
                         )
-                    },
-                    toggleCloseUp: { url in
-                        closeUpSelection = Set(closeUpFiles.map(\.url))
-                        if !closeUpSelection.insert(url).inserted {
-                            closeUpSelection.remove(url)
-                        }
                     },
                 )
                 .id(sortByAFPoint)
@@ -258,30 +253,41 @@ struct BurstCullingWorkspaceView: View {
             await imageCoordinator.analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
         }
         .task(id: peopleCheckID) {
-            guard let request = peopleRequest else { return }
-            let candidate = await PeopleRankingPreview.candidateOrder(for: request.urls)
-            guard !Task.isCancelled, request == peopleRequest, request == currentPeopleRequest else { return }
-            peopleCandidate = candidate
-            if candidate == nil {
+            guard let request = peopleRequest, peopleProgress > 0 else { return }
+            do {
+                let candidate = try await PeopleRankingPreview.analyzeAndRank(request.urls) { frame in
+                    guard !Task.isCancelled, request == currentPeopleRequest else { return }
+                    peopleProgress = frame
+                }
+                guard !Task.isCancelled, request == currentPeopleRequest else { return }
+                peopleCandidate = candidate.order
+                mostFaceDetail = candidate.mostFaceDetail
+            } catch {
+                guard !Task.isCancelled, request == currentPeopleRequest else { return }
                 peopleRequest = nil
-                peopleEvidenceUnavailable = true
+                if case .faceSizesDiffer? = error as? PeopleRankingPreview.Failure {
+                    faceSizesVary = true
+                }
+                peopleFailure = error.localizedDescription
             }
+            peopleProgress = 0
         }
-        .alert("Choose a burst with two or more images", isPresented: $peopleNeedsMoreFrames) {
+        .alert("People ranking unavailable", isPresented: Binding(
+            get: { peopleFailure != nil },
+            set: { if !$0 { peopleFailure = nil } },
+        )) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Use Burst list to open a burst with at least two images of the same person, then try People preview again.")
-        }
-        .alert("Check Close-ups for every frame", isPresented: $peopleEvidenceUnavailable) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Open Close-ups and step through every image in the burst. Wait for a face close-up to appear on each image, then choose Check cached face evidence again. If the check still fails, try a burst with one face at a similar size in every frame.")
+            Text(peopleFailure ?? "")
         }
         .onChange(of: currentPeopleRequest) {
             peopleCheckID = UUID()
             peopleRequest = nil
             peopleCandidate = nil
-            applyPeopleCandidate = false
+            mostFaceDetail = nil
+            faceSizesVary = false
+            peopleProgress = 0
+            peopleFailure = nil
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
@@ -310,36 +316,33 @@ struct BurstCullingWorkspaceView: View {
         }
     }
 
-    private var peopleRankingMenu: some View {
-        Menu(applyPeopleCandidate ? "People ranking applied" : "People preview") {
-            if applyPeopleCandidate {
-                Button("Restore Best frame order") { applyPeopleCandidate = false }
-            } else {
-                Button("Check cached face evidence") {
-                    if currentPeopleRequest.urls.count < 2 {
-                        peopleNeedsMoreFrames = true
-                    } else {
-                        confirmPeopleCohort = true
-                    }
-                }
-                    .disabled(peopleRequest != nil && peopleCandidate == nil)
-                if peopleRequest == currentPeopleRequest, peopleCandidate != nil {
-                    Button("Apply People ranking") { applyPeopleCandidate = true }
-                }
-            }
-        }
-        .controlSize(.small)
-        .fixedSize()
-        .confirmationDialog("Verify primary human face", isPresented: $confirmPeopleCohort) {
-            Button("Same human face in every frame") {
-                applyPeopleCandidate = false
+    private var peopleRankingButton: some View {
+        Button {
+            if peopleCandidate != nil {
                 peopleCandidate = nil
+                peopleRequest = nil
+            } else {
+                mostFaceDetail = nil
+                faceSizesVary = false
                 peopleRequest = currentPeopleRequest
+                peopleProgress = 1
                 peopleCheckID = UUID()
             }
-        } message: {
-            Text("Confirm the same single human subject is visible at a comparable scale in every frame. Check each frame’s Close-ups to populate the cache first. Only the first two frames in Best frame order can become the proposed winner.")
+        } label: {
+            if peopleProgress > 0 {
+                Text("Checking faces \(peopleProgress) of \(peopleRequest?.urls.count ?? 0)…")
+            } else if peopleCandidate != nil {
+                Text("Restore Best Frame Order")
+            } else {
+                Text("Apply People Ranking")
+            }
         }
+        .disabled(peopleProgress > 0 || currentPeopleRequest.urls.count < 2)
+        .help(peopleCandidate == nil
+              ? "Use for bursts with the same person in every frame."
+              : "Return to the original Best Frame order.")
+        .controlSize(.small)
+        .fixedSize()
     }
 
     private var files: [FileItem] {
@@ -347,7 +350,7 @@ struct BurstCullingWorkspaceView: View {
         if groupID != -1 && sortByAFPoint {
             return viewModel.sharpnessModel.sortedByAFPointSharpness(baseline)
         }
-        if applyPeopleCandidate, peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
+        if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
            let peopleCandidate {
             let byURL = Dictionary(uniqueKeysWithValues: baseline.map { ($0.url, $0) })
             return peopleCandidate.compactMap { byURL[$0] }

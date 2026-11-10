@@ -12,10 +12,10 @@ struct BurstWorkspaceFilmstrip: View {
     let canNavigateNext: Bool
     let navigate: (Int) -> Void
 
-    var showsCloseUpSelection = false
     var closeUpSelection: Set<URL> = []
+    var mostFaceDetail: URL?
+    var faceSizesVary = false
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
-    var toggleCloseUp: (URL) -> Void = { _ in }
 
     private var selectedIndex: Int {
         files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -26,12 +26,18 @@ struct BurstWorkspaceFilmstrip: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(isSingleImages ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")
                 Text("\(selectedIndex + 1) / \(files.count)")
-                Text("⌘/⇧ select")
+                if faceSizesVary {
+                    Text("Face detail unavailable · face sizes vary")
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("⌘/⇧ click for close-ups")
                     .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.callout.monospaced())
             .foregroundStyle(.secondary)
-            .frame(width: isSingleImages ? 110 : 76, alignment: .leading)
+            .frame(width: faceSizesVary || isSingleImages ? 110 : 76, alignment: .leading)
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in
@@ -50,14 +56,13 @@ struct BurstWorkspaceFilmstrip: View {
                                         viewModel.selectedFileID = file.id
                                     }
                                     .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
-                                    if showsCloseUpSelection {
-                                        Toggle("Close-up", isOn: Binding(
-                                            get: { closeUpSelection.contains(file.url) },
-                                            set: { _ in toggleCloseUp(file.url) },
-                                        ))
-                                        .toggleStyle(.checkbox)
-                                        .font(.caption)
-                                        .accessibilityLabel("Close-up for \(file.name)")
+                                    if mostFaceDetail != nil {
+                                        Text("Most face detail")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                            .opacity(file.url == mostFaceDetail ? 1 : 0)
+                                            .accessibilityHidden(file.url != mostFaceDetail)
+                                            .help("Highest measured face detail in this burst’s embedded previews.")
                                     }
                                 }
                                 .frame(width: BurstFilmstripThumbnail.width)
@@ -96,7 +101,7 @@ struct BurstWorkspaceFilmstrip: View {
             }
         }
         .padding(16)
-        .frame(height: showsCloseUpSelection ? 166 : 144)
+        .frame(height: mostFaceDetail == nil ? 144 : 164)
         .background(.quaternary.opacity(0.28))
     }
 
