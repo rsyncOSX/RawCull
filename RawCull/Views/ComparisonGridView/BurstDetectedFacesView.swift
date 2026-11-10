@@ -17,6 +17,7 @@ private actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
     private let analyzer = FaceEvidenceAnalyzer()
     private let cache = FaceEvidenceCache()
+    private var nextFaceCachePrune = Date.distantPast
 
     private final class AnimalRegions {
         let values: [AnimalCloseUpDetector.Region]
@@ -36,6 +37,11 @@ private actor BurstDetectedFaceLoader {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         defer { withExtendedLifetime(access) {} }
         try Task.checkCancellation()
+        let now = Date.now
+        if now >= nextFaceCachePrune {
+            cache.pruneExpiredRecords(now: now)
+            nextFaceCachePrune = now.addingTimeInterval(24 * 60 * 60)
+        }
         let revision = BurstCloseUpIdentity.revision(url)
         let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
                                           policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
