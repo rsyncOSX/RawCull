@@ -1,3 +1,4 @@
+import OSLog
 import PhotoAnalysisKit
 import PhotoEvidenceContracts
 import PhotoEvidenceEngine
@@ -36,13 +37,20 @@ private actor BurstDetectedFaceLoader {
             try await analyzer.analyze(preview)
         }
         try Task.checkCancellation()
-        let animalRegions = try? AnimalCloseUpDetector.regions(in: preview)
-        try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
             throw CloseUpRenderError.sourceChanged
         }
         if cached == nil {
-            try? cache.save(result, for: url, signature: signature)
+            do {
+                try cache.save(result, for: url, signature: signature)
+            } catch {
+                Logger.process.debugMessageOnly("FaceEvidenceCache: WRITE FAILED")
+            }
+        }
+        let animalRegions = try? AnimalCloseUpDetector.regions(in: preview)
+        try Task.checkCancellation()
+        guard BurstCloseUpIdentity.revision(url) == revision else {
+            throw CloseUpRenderError.sourceChanged
         }
         let faces: [BurstDetectedCrop] = result.faces.compactMap { face in
             let target = DetectedFaceCloseUp(id: face.id, normalizedBounds: face.normalizedBounds,
