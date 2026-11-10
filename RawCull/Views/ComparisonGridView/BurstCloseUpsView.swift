@@ -105,6 +105,7 @@ struct BurstCloseUpsView: View {
     let urls: [URL]
     let recordedAFPoints: [URL: CGPoint]
     let currentURL: URL?
+    let isIndexing: Bool
     let raw: Bool
     let model: CloseUpModel
     let renderer: BurstCloseUpRenderer
@@ -118,10 +119,12 @@ struct BurstCloseUpsView: View {
 
     private var afPoints: [URL: CloseUpAFPointAvailability] {
         var all = frames
-        if let reference = model.reference, !all.contains(where: { $0.id == reference.id }) { all.append(reference) }
+        if let reference = model.reference, !all.contains(where: { $0.id == reference.id }) {
+            all.append(reference)
+        }
         return Dictionary(uniqueKeysWithValues: all.map { frame in
             (frame.id, BurstCloseUpAFPoint.availability(frame: frame, point: recordedAFPoints[frame.id],
-                                                       orientation: orientations[frame.id]))
+                                                        orientation: orientations[frame.id]))
         })
     }
 
@@ -132,40 +135,99 @@ struct BurstCloseUpsView: View {
     }
 
     var body: some View {
-        CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
-                     renderer: renderer, renderSources: sources, afPoints: afPoints,
-                     onActivate: { frame in
-                         guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
-                         activate(frame.id)
-                     }, onUseAFPoint: { frame in
-                         onUseAFPoint(frame.id)
-                     }, onClose: onClose)
-            .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
-                let selected = urls
-                var all = selected
-                if let reference = model.reference, !all.contains(reference.id) {
-                    all.append(reference.id)
+        VStack(spacing: 0) {
+            if !urls.isEmpty {
+                if isIndexing {
+                    Text("Detected close-ups resume after indexing")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                } else {
+                    BurstDetectedFacesSection(urls: urls)
                 }
-                let requestedURLs = all
-                let loaded = await Task { @concurrent in
-                    let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
-                    defer { withExtendedLifetime(access) {} }
-                    return requestedURLs.map { url in
-                        let frame = CloseUpFrame(id: url, name: url.lastPathComponent, revision: BurstCloseUpIdentity.revision(url))
-                        return (frame, BurstCloseUpAFPoint.orientation(for: url))
-                    }
-                }.value
-                guard !Task.isCancelled else { return }
-                orientations = Dictionary(uniqueKeysWithValues: loaded.compactMap { frame, orientation in
-                    orientation.map { (frame.id, $0) }
-                })
-                let result = loaded.map { $0.0 }
-                sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
-                frames = result.filter { selected.contains($0.id) }
-                if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
-                    model.updateReference(updated)
-                }
+                Divider()
             }
+            CloseUpPanel(frames: frames, currentFrameID: currentURL, model: model,
+                         renderer: renderer, renderSources: sources, afPoints: afPoints,
+                         onActivate: { frame in
+                             guard urls.contains(frame.id) || model.reference?.id == frame.id else { return }
+                             activate(frame.id)
+                         }, onUseAFPoint: { frame in
+                             onUseAFPoint(frame.id)
+                         }, onClose: onClose)
+        }
+        .frame(width: 304)
+        .task(id: Inputs(urls: urls, reference: model.reference?.id, raw: raw)) {
+            let selected = urls
+            var all = selected
+            if let reference = model.reference, !all.contains(reference.id) {
+                all.append(reference.id)
+            }
+            let requestedURLs = all
+            let loaded = await Task { @concurrent in
+                let access = await RawCullCatalogAccess.shared.retainAccess(for: requestedURLs)
+                defer { withExtendedLifetime(access) {} }
+                return requestedURLs.map { url in
+                    let frame = CloseUpFrame(id: url, name: url.lastPathComponent, revision: BurstCloseUpIdentity.revision(url))
+                    return (frame, BurstCloseUpAFPoint.orientation(for: url))
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+            orientations = Dictionary(uniqueKeysWithValues: loaded.compactMap { frame, orientation in
+                orientation.map { (frame.id, $0) }
+            })
+            let result = loaded.map { $0.0 }
+            sources = Dictionary(uniqueKeysWithValues: result.map { ($0.id, BurstCloseUpIdentity.source($0.id, raw: raw)) })
+            frames = result.filter { selected.contains($0.id) }
+            if let reference = model.reference, let updated = result.first(where: { $0.id == reference.id }) {
+                model.updateReference(updated)
+            }
+        }
+    }
+}
+
+private struct BurstDetectedFacesSection: View {
+    let urls: [URL]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Detected faces and animal landmarks · embedded preview")
+                .font(.caption.weight(.semibold))
+            if urls.count > 1 {
+                ScrollViewReader { proxy in
+                    Menu("Jump to image (\(urls.count))") {
+                        ForEach(urls, id: \.self) { url in
+                            Button(url.lastPathComponent) {
+                                proxy.scrollTo(url, anchor: .top)
+                            }
+                        }
+                    }
+                    .controlSize(.small)
+
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(urls, id: \.self) { url in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(url.lastPathComponent)
+                                        .font(.caption.weight(.medium))
+                                        .lineLimit(1)
+                                        .help(url.lastPathComponent)
+                                    BurstDetectedFacesView(url: url)
+                                }
+                                .id(url)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 260)
+                }
+            } else if let url = urls.first {
+                BurstDetectedFacesView(url: url)
+                    .id(url)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -173,17 +235,19 @@ struct BurstCloseUpsView: View {
 enum BurstCloseUpSelection {
     static func select(
         _ url: URL, in urls: [URL], current: URL?, selection: Set<URL>,
-        modifiers: NSEvent.ModifierFlags
+        modifiers: NSEvent.ModifierFlags,
     ) -> Set<URL> {
         guard urls.contains(url) else { return selection }
         if modifiers.contains(.shift), let current,
            let anchor = urls.firstIndex(of: current), let target = urls.firstIndex(of: url) {
-            let range = Set(urls[min(anchor, target)...max(anchor, target)])
+            let range = Set(urls[min(anchor, target) ... max(anchor, target)])
             return modifiers.contains(.command) ? selection.union(range) : range
         }
         if modifiers.contains(.command) {
             var result = selection
-            if !result.insert(url).inserted { result.remove(url) }
+            if !result.insert(url).inserted {
+                result.remove(url)
+            }
             return result
         }
         return [url]
@@ -203,23 +267,22 @@ nonisolated enum BurstCloseUpAFPoint {
 
     static func availability(frame: CloseUpFrame, point: CGPoint?, orientation: UInt32?) -> CloseUpAFPointAvailability {
         guard let point else { return .unavailable(reason: "No usable recorded AF point is available.") }
-        guard point.x.isFinite, point.y.isFinite, (0...1).contains(point.x), (0...1).contains(point.y) else {
+        guard point.x.isFinite, point.y.isFinite, (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else {
             return .unavailable(reason: "Recorded AF coordinates are invalid.")
         }
-        guard let orientation, (1...8).contains(orientation) else {
+        guard let orientation, (1 ... 8).contains(orientation) else {
             return .unavailable(reason: "Image orientation is unavailable for AF placement.")
         }
         let x = point.x, y = point.y
-        let center: CGPoint
-        switch orientation {
-        case 2: center = CGPoint(x: 1 - x, y: y)
-        case 3: center = CGPoint(x: 1 - x, y: 1 - y)
-        case 4: center = CGPoint(x: x, y: 1 - y)
-        case 5: center = CGPoint(x: y, y: x)
-        case 6: center = CGPoint(x: 1 - y, y: x)
-        case 7: center = CGPoint(x: 1 - y, y: 1 - x)
-        case 8: center = CGPoint(x: y, y: 1 - x)
-        default: center = point
+        let center: CGPoint = switch orientation {
+        case 2: CGPoint(x: 1 - x, y: y)
+        case 3: CGPoint(x: 1 - x, y: 1 - y)
+        case 4: CGPoint(x: x, y: 1 - y)
+        case 5: CGPoint(x: y, y: x)
+        case 6: CGPoint(x: 1 - y, y: x)
+        case 7: CGPoint(x: 1 - y, y: 1 - x)
+        case 8: CGPoint(x: y, y: 1 - x)
+        default: point
         }
         guard let target = CloseUpAFPoint(frame: frame, center: center) else {
             return .unavailable(reason: "Recorded AF coordinates are invalid.")

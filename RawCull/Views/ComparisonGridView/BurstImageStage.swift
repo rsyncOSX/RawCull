@@ -24,6 +24,7 @@ struct BurstImageStage: View {
     let navigate: (Int) -> Void
     let applyRating: (Int) -> Void
     let sourceChanged: () -> Void
+    let onTryRAW: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -50,6 +51,7 @@ struct BurstImageStage: View {
                     showsChrome: false,
                     subjectOutline: showSubjectOutline && subjectOutlineFileID == selectedFile.id
                         ? subjectOutline : nil,
+                    onTryRAW: onTryRAW,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 82)

@@ -75,7 +75,8 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
     /// Decode without orientation first so RAW metadata can supply missing JPEG orientation.
     static func decode(_ source: CGImageSource, width: Int, height: Int, orientation: UInt32,
                        request: ReviewSourceRequest, embeddedOnly: Bool) throws -> ReviewEmbeddedPreview? {
-        let maximumDimension = try ReviewImageSourceService.previewMaximumDimension(width: width, height: height, request: request)
+        let admittedDimension = try ReviewImageSourceService.previewMaximumDimension(width: width, height: height, request: request)
+        let maximumDimension = min(admittedDimension, max(1, request.embeddedPreviewMaximumDimension ?? admittedDimension))
         try Task.checkCancellation()
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: !embeddedOnly,

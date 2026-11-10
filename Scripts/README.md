@@ -39,11 +39,7 @@ time. Parser round trips include scheduling, waits, I/O, and decoding. Standalon
 JPEG diagnostics and preview delivery timings do not establish app first paint
 or UI hitch rates.
 
-Detailed workflows:
-
-- [Catalog benchmark, baseline comparisons, and limits](../Docs/CatalogPerformance.md)
-- [Instruments recording, trace export, and signpost validation](../Docs/MeasurePerformance.md)
-- [RAW preview benchmark, rendering policy, and validation](../Docs/RAW9PreviewPerformance.md)
+See the [development summary](../Docs/summary.md) for recorded benchmark and validation results.
 
 ## Local AI and review evidence
 

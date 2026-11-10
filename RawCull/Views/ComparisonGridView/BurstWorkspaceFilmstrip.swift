@@ -60,19 +60,20 @@ struct BurstWorkspaceFilmstrip: View {
                                         .accessibilityLabel("Close-up for \(file.name)")
                                     }
                                 }
+                                .frame(width: BurstFilmstripThumbnail.width)
+                                .id(file.id)
                             }
                         }
+                        .padding(.horizontal, max(0, (geo.size.width - BurstFilmstripThumbnail.width) / 2))
                         .padding(.vertical, 2)
                     }
                     .scrollIndicators(.hidden)
                     .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
                     .onAppear(perform: {
-                        // Defer one run loop so LazyVStack IDs are registered in scroll geometry
+                        // Let the horizontal stack establish its scroll geometry first.
                         DispatchQueue.main.async {
-                            if let newID = viewModel.selectedFile?.id {
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
-                                }
+                            if let newID = viewModel.selectedFileID {
+                                proxy.scrollTo(newID, anchor: .center)
                             }
                         }
                     })

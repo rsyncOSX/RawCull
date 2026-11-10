@@ -61,8 +61,7 @@ resolution. Completed previews share a 256 MiB memory cache, and compatible
 persisted developed JPEGs can be reused across launches. The current image stays
 visible while a higher-resolution preview loads.
 
-See [RAW preview measurements and limits](Docs/RAW9PreviewPerformance.md) for the
-rendering policy, standalone benchmark, and validation results.
+See the [development summary](Docs/summary.md#raw-9-zoom-previews) for benchmark and validation results.
 
 ## Workflow
 
@@ -167,9 +166,8 @@ records logs, JSON measurements, and a Markdown report; it supports comparison
 with a compatible baseline. These component timings measure image readiness,
 not the first painted frame.
 
-See the [catalog benchmark guide](Docs/CatalogPerformance.md),
-[Instruments workflow](Docs/MeasurePerformance.md), and
-[scripts guide](Scripts/README.md) for commands, diagnostics, AI runners, and checks.
+See the [development summary](Docs/summary.md#catalog-performance) for measured results and the
+[scripts guide](Scripts/README.md) for tool entry points.
 
 ## Release
 
