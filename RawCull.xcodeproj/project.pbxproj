@@ -1340,7 +1340,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
 			requirement = {
 				kind = exactVersion;
-				version = 1.3.6;
+				version = 1.3.7;
 			};
 		};
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
