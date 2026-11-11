@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.3.6**.
+Current project version **3.4.5** (build **440**).
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -104,22 +104,23 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 |---|---|
 | `coreai-models` | `1.0.0` |
 | `decodeencodegeneric` | `1.0.0` |
-| `eventsource` | `1.5.1` |
+| `eventsource` | `1.6.0` |
 | `parsersyncoutput` | `1.0.0` |
 | `photoaikit` | `1.0.0` |
-| `photoanalysiskit` | `1.3.1` |
-| `rawcullcore` | `1.1.2` |
+| `photoanalysiskit` | `1.3.7` |
+| `photoevidencekit` | `1.1.0` |
+| `rawcullcore` | `1.1.5` |
 | `rawparserkit` | `1.3.3` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
-| `swift-asn1` | `1.7.3` |
-| `swift-collections` | `1.7.3` |
+| `swift-asn1` | `1.7.4` |
+| `swift-collections` | `1.7.5` |
 | `swift-crypto` | `4.5.2` |
 | `swift-huggingface` | `1.0.0` |
-| `swift-jinja` | `2.5.1` |
-| `swift-transformers` | `1.3.5` |
+| `swift-jinja` | `3.0.0` |
+| `swift-transformers` | `1.4.0` |
 | `xgrammar` | `0.2.2` |
-| `yyjson` | `0.12.0` |
+| `yyjson` | `0.13.0` |
 
 Model manifests, licence notices, and provenance records live in [`ModelAssets`](ModelAssets/README.md).
 
@@ -168,6 +169,11 @@ not the first painted frame.
 
 See the [development summary](Docs/summary.md#catalog-performance) for measured results and the
 [scripts guide](Scripts/README.md) for tool entry points.
+
+A standalone PhotoAnalysisKit comparison on 227 RAW files measured **30% less
+time for serial batch analysis** (25.09 s to 17.48 s) and **49% less median time
+for combined analysis and focus mask generation** (194.12 ms to 99.38 ms).
+The comparison used one run per revision. [Benchmark details](Docs/summary.md#photoanalysiskit-performance)
 
 ## Release
 

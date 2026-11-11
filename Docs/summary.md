@@ -13,6 +13,12 @@
 - The historical 809-ARW benchmark measured empty-thumbnail-cache preload at 8.206 s before and 8.415 s in the final reference. Warm preload was 3.553 s and 3.647 s respectively. The harness fingerprints differed, so these are descriptive comparisons. Source-load wrapper times and resource use varied across runs.
 - JPEG option reuse showed no repeatable gain. Direct ImageIO grid downsampling was about 3% slower in diagnostic trials. Source-load instrumentation located long waits within the parser round trip. The interactive trace recorded 31 hitches and no detected hangs over 250 ms. Its worst hitch was predominantly native picker waiting. The retained production changes were limited to progress handling.
 
+## PhotoAnalysisKit performance
+
+- The before-and-after catalog evaluation compared PhotoAnalysisKit `886931e` and `d717c52` on the same 227 RAW files using the same runner and arm64 Mac. Each revision ran once with the Automatic preset, Fast quality, and a 1024-pixel preview limit.
+- Serial batch analysis, including decode, fell from **25.09 s to 17.48 s (30% less time)**. Median combined analysis and focus mask time fell from **194.12 ms to 99.38 ms (49% less time)**. The 95th percentile fell from 436.33 ms to 193.02 ms (56% less time). Combined analysis was faster on all 227 files, and median decode time stayed near 9.9 ms.
+- These timings cover the standalone package runner. App responsiveness and accuracy on labeled bursts remain unmeasured in this benchmark. [Evaluation procedure](../Scripts/README.md#photoanalysiskit-before-and-after-catalog-evaluation)
+
 ## RAW 9 zoom previews
 
 - Fit-to-window uses a bounded direct RAW preview when a developed JPEG is unavailable. Native zoom retains the developed JPEG path. Exposure and clipping inspection uses native resolution, and completed previews share a 256 MiB memory cache.
