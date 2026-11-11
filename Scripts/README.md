@@ -118,3 +118,77 @@ a Python environment with both `cv2` and `numpy`, then run
 
 Swift diagnostics, real-catalog/model runners, and `release.sh` are not executed
 by `test-scripts`.
+
+## PhotoAnalysisKit before-and-after catalog evaluation
+
+From the RawCull checkout, run:
+
+```sh
+python3 Scripts/RunPhotoAnalysisCatalog.py
+```
+
+Use macOS 26 or later, Python 3.9 or later, Xcode with Swift 6.2 or later, and
+a local PhotoAnalysisKit clone. The script expects that clone next to RawCull
+by default. Pass `--kit-repo` if it is elsewhere.
+
+1. Choose **before** and enter the folder containing your images and a separate
+   results folder. Use the pinned PhotoAnalysisKit revision offered by the
+   script, or enter a commit or tag available in your local clone.
+2. Update the kit in RawCull. Run the same script again, choose **after**, and
+   enter the same catalog and results folders. Accept the new pin or enter a
+   different local revision. The script checks both the filenames and SHA-256
+   hashes and reuses the saved labels and settings.
+3. Open `after/review.html` for a side-by-side preview and focus overlay, with
+   changed burst winners at the top. Use `after/comparison.csv` for individual
+   score and failure changes, and `after/comparison.json` for grouped results,
+   outcome counts, calibration, and indicative timings. The `before` and
+   `after` folders each contain the full diagnostics and exported masks.
+   Existing results are preserved. Use another results folder to start over.
+
+### Label a mixed catalog
+
+Put people, animals, and birds in the same catalog. Group comparable shots into
+bursts and label the frames you would keep before viewing the scores:
+
+```sh
+python3 Scripts/RunPhotoAnalysisCatalog.py --catalog "/path/to/photos" --make-labels labels.csv
+```
+
+- Use a category such as `people`, `animal`, or `bird`. Give each burst a unique
+  ID and use the same category for every image in that burst.
+- Set `preferred` to `yes` for your preferred frame or frames, and `no` for the
+  remaining frames in that burst. A burst contributes to agreement only when
+  all frames have labels and there is at least one `yes` and one `no`.
+- Optionally mark a calibration subset with `calibration=yes`. With no
+  calibration labels the runner samples up to 20 images spread across the
+  catalog. Calibration is reported separately from the paired mask comparison.
+- Optional `iso` and `aperture` override EXIF. Supply both `af_x` and `af_y`
+  in the range 0 to 1 from the visual top-left of the upright preview to
+  exercise AF-anchored scoring and masks. Omitted AF coordinates stay absent.
+
+Supply the completed CSV at the **before** prompt or via `--labels labels.csv`.
+Unlabeled runs still report scores, outcome counts, and visual differences.
+They cannot determine whether a ranking agrees with your judgment.
+
+### What the runner exercises
+
+The Python driver builds the selected kit revision in a temporary Swift package.
+The Swift runner uses ImageIO upright thumbnails, scalar and batch analysis,
+combined analysis and mask rendering, mask generation with supplied and fresh
+evidence, global and raw-energy masks, calibration, face evidence, animal crops,
+and Vision feature prints. Feature distances use the first successful frame of
+a labeled burst as the reference. Standalone photos use a self-distance check.
+Results include missing outputs and decode errors. An outcome requires a
+suitable photo and metadata to occur in the catalog. The summary includes zero
+counts for unobserved focus-failure and region variants.
+
+The default comparison uses a 1024-pixel preview, the automatic preset,
+fast quality, and the same configured threshold of 0.46 for both revisions.
+A revision can apply its own threshold policy. Use `--maximum-pixels`,
+`--preset`, `--quality`, or `--threshold` on the before run to select different
+settings. Run another before/after pair to compare another configuration.
+
+This measures the kit with an identical decoder on both revisions. RawCull's
+app-specific RAW preview selection and maker-specific AF extraction are
+outside this runner. Timings are descriptive, and mask byte differences
+should be inspected visually. Previews and results are written locally.
