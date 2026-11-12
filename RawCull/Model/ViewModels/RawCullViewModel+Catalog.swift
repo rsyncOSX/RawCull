@@ -24,6 +24,13 @@ extension RawCullViewModel {
             latestCaptureDate: captureDates.max()?.formatted(.iso8601),
             cameraCounts: cameras,
             snapshotAt: Date().formatted(.iso8601),
+            photos: files.map { file in
+                CatalogPhoto(
+                    name: file.url.lastPathComponent,
+                    captureDate: file.captureDate?.formatted(.iso8601),
+                    camera: file.exifData?.camera,
+                )
+            },
         )
     }
 

@@ -12,6 +12,13 @@ struct CatalogSummary: Codable {
     let latestCaptureDate: String?
     let cameraCounts: [String: Int]
     let snapshotAt: String
+    let photos: [CatalogPhoto]?
+}
+
+struct CatalogPhoto: Codable {
+    let name: String
+    let captureDate: String?
+    let camera: String?
 }
 
 struct CatalogGrantStore: Sendable {
