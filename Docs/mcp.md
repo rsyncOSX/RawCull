@@ -1,6 +1,6 @@
 # RawCull MCP implementation plan
 
-Status: proposal for discussion. The first milestone is a local prototype. The first public release is a small, read-only catalog integration, subject to proving that the signed helper works when launched by an external AI client.
+**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The next release checks are a clean-account test and distribution through TestFlight. Phase 2 burst preparation is planned.
 
 ## What the user should be able to do
 
@@ -22,17 +22,17 @@ sequenceDiagram
     participant Helper as rawcull-mcp
     Codex->>Helper: Launch executable and initialize over stdio
     Codex->>Helper: tools/list
-    Helper-->>Codex: rawcull_status and its input schema
+    Helper-->>Codex: Available tools and their input schemas
     You->>Codex: Tell me the RawCull helper version
     Codex->>Helper: tools/call rawcull_status with empty arguments
-    Helper-->>Codex: Version 0.1.0, transport stdio, available capability
+    Helper-->>Codex: Version 0.4.0, transport stdio, available capabilities
     Codex-->>You: Reports the result in the chat
 ```
 
 1. **Codex starts the helper.** The MCP configuration gives Codex the absolute path to `rawcull-mcp`. Codex launches that executable and connects two pipes to it. `stdio` means that the client sends messages through the helper's standard input and reads replies from its standard output. There is no local web address or port to configure. When the client closes the input pipe, the helper exits.
-2. **Codex discovers the tools.** After the MCP handshake, Codex sends `tools/list`. The helper returns the name `rawcull_status`, a description, and a JSON schema that says this tool takes no arguments. That information tells the model what operation it can use and how to call it.
+2. **Codex discovers the tools.** After the MCP handshake, Codex sends `tools/list`. The helper returns each tool’s name, description, and JSON input schema. The `rawcull_status` tool takes no arguments. That information tells the model what operation it can use and how to call it.
 3. **The model interprets your prompt.** When you ask for the helper version, the model in Codex chooses `rawcull_status`. Codex turns that choice into a structured MCP request. The helper receives the tool name and arguments. Codex retains the natural-language prompt and conversation.
-4. **The helper runs Swift code.** The MCP Swift SDK decodes the request and hands it to the `CallTool` handler. The handler validates the tool name and arguments, then returns version `0.1.0`, transport `stdio`, and the available capability. The implementation lives in [the helper's main.swift](../Tools/RawCullMCP/Sources/RawCullMCP/main.swift).
+4. **The helper runs Swift code.** The MCP Swift SDK decodes the request and hands it to the `CallTool` handler. The handler validates the tool name and arguments, then returns the helper version, transport, and available capabilities. The implementation lives in [the helper's main.swift](../Tools/RawCullMCP/Sources/RawCullMCP/main.swift).
 5. **Codex shows the result.** The helper returns a human-readable line and structured JSON. Codex can use that response to answer you or decide what to call next. The terminal line `Called rawcull.rawcull_status` identifies the server and tool that actually ran.
 
 For example, the request in step 3 looks like this on the wire. The numeric ID lets Codex match the reply to the request.
@@ -43,16 +43,16 @@ For example, the request in step 3 looks like this on the wire. The numeric ID l
 
 An eventual burst review would work the same way with more tools. Codex would interpret “pick one keeper per burst,” start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull's analysis code would do the scanning, scoring, and grouping. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. These tools are planned for later phases.
 
-The helper runs locally on the Mac. Where the model interprets your prompt depends on the client and model you use. A cloud model may receive data that a tool returns. Today the helper returns only its status. The later preview-sharing setting will determine whether the helper can return image previews for the selected catalog. [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk), [MCP stdio transport](https://ruby.sdk.modelcontextprotocol.io/server/transports/)
+The helper runs locally on the Mac. Where the model interprets your prompt depends on the client and model you use. A cloud model may receive data that a tool returns. The Phase 1 helper returns status and authorized catalog metadata, including filenames and capture metadata. The later preview-sharing setting will determine whether the helper can return image previews for the selected catalog. [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk), [MCP stdio transport](https://ruby.sdk.modelcontextprotocol.io/server/transports/)
 
 ## What RawCull can reuse
 
 | Existing code | Role in the integration |
 | --- | --- |
 | [ScanFiles](../RawCull/Actors/ScanFiles.swift) and RawParserKit | Reuse supported RAW formats and catalog discovery rules. Check which scan and metadata operations can run without UI state or GUI-owned caches. |
-| [CatalogLifecycleCoordinator](../RawCull/Model/ViewModels/CatalogLifecycleCoordinator.swift) | Shows how RawCull holds security-scoped access during work. The helper needs its own verified access for each scan or job. |
-| [BurstAnalysisCoordinator](../RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) and RawCullCore | The coordinator already orchestrates sharpness, similarity, grouping, and ranking, but takes app callbacks and publishes through app state. Extract only the analysis operations the helper needs. Keep the existing app entry point and use its results to check parity. |
-| [RawCullIntelligenceRuntime](../RawCull/Intelligence/Composition/RawCullIntelligenceRuntime.swift) | Starting point for understanding model discovery and initialization. Verify model access and memory use in the helper before promising headless analysis. |
+| [CatalogLifecycleCoordinator](../RawCull/Model/ViewModels/CatalogLifecycleCoordinator.swift) | Shows how RawCull holds security-scoped access during work. Reuse the app’s existing access for Phase 2 jobs. |
+| [BurstAnalysisCoordinator](../RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) and RawCullCore | The coordinator already orchestrates sharpness, similarity, grouping, and ranking, but takes app callbacks and publishes through app state. Run the existing app pipeline when the helper submits a job. |
+| [RawCullIntelligenceRuntime](../RawCull/Intelligence/Composition/RawCullIntelligenceRuntime.swift) | Starting point for understanding model discovery and initialization. Use the running app’s model setup and availability for Phase 2. |
 | [CullingModel](../RawCull/Model/ViewModels/CullingModel.swift) | Existing APIs for ratings and burst winner overrides. The app uses these when the user applies a draft. The helper writes proposals to a separate draft store. |
 
 ## Phase 0 — Prove the launch and sandbox
@@ -71,7 +71,7 @@ Point a desktop MCP client's local stdio server configuration at the absolute pa
 codex mcp add rawcull -- "$PWD/Tools/RawCullMCP/.build/release/rawcull-mcp"
 ```
 
-Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” Expect version `0.1.0`, transport `stdio`, and the single capability `rawcull_status`. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
+Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.4.0`, transport `stdio`, and the four Phase 1 capabilities. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
 
 ### Test the bundled helper with TestFlight
 
@@ -85,43 +85,69 @@ codesign --verify --strict --verbose=2 "$helper"
 codex mcp add rawcull-testflight -- "$helper"
 ```
 
-Start a fresh Codex CLI session and check `/mcp` for `rawcull-testflight: connected (1 tool)`. Ask “Call `rawcull_status` on the `rawcull-testflight` MCP server and tell me the helper version and available capabilities.” Confirm that Codex shows a tool call to `rawcull-testflight.rawcull_status` and reports `0.1.0` over `stdio`. The distinct server name lets you keep the standalone prototype registered during the test.
+Start a fresh Codex CLI session. The original 0.1.0 TestFlight build exposed one tool. If `/mcp` labels the server `unknown`, invoke the tool to verify the connection. Ask “Call `rawcull_status` on the `rawcull-testflight` MCP server and tell me the helper version and available capabilities.” Confirm that Codex shows a tool call to `rawcull-testflight.rawcull_status` and reports the installed helper version over `stdio`. The distinct server name lets you keep the standalone prototype registered during the test.
 
 ### Implementation sequence
 
 1. Build a small Swift executable using the [official MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk). Pin a tested revision. Use the SDK's stdio transport and one tool, `rawcull_status`, that reports the helper version and supported capabilities. Keep protocol messages on stdout and diagnostics on stderr or in unified logging.
 2. Run it from an MCP test client, then from one desktop AI client that supports launching a local stdio server. Verify discovery, invocation, and exit on client disconnect. Record the tested client version and configuration.
 3. Embed and sign the helper in a Release build. Repeat the test from an installed copy with the RawCull UI closed. Test the external client itself as the launcher, since Apple's sandbox inheritance example describes a tool launched by its containing app. Validate the archive's nested signing and entitlements. A working executable launched from Xcode or Terminal does not prove this path. [Apple's embedded tool guidance](https://developer.apple.com/documentation/xcode/embedding-a-helper-tool-in-a-sandboxed-app)
-4. Prove one catalog grant end to end. Select a folder in RawCull, persist the minimum grant information, quit RawCull, and have the externally launched helper resolve access and read a supported file. Verify the actual behavior with the intended sandbox, signing, storage, and client configuration. Treat shared storage, bookmark resolution, and access to the RAW folder as distinct checks. An application group can share data between eligible processes, while file access depends on the sandbox and bookmark mechanism. Test after relaunch and after revocation. [Apple's sandbox file access guidance](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox)
-
-**Decision gate.** Proceed with the closed-app release if the signed path works without weakening the sandbox or requiring broad disk access. If it fails, identify whether launch, grant resolution, or shared storage is the blocker. An app-mediated integration can still validate the MCP workflow with RawCull open. Investigate a user-enabled bundled service separately if independent background operation remains a requirement. [Apple's background process guidance](https://developer.apple.com/documentation/appkit/managing-ongoing-background-processes-in-your-mac)
+4. Verify that the signed helper can read the shared authorization and saved metadata after RawCull quits. The installed Phase 1 helper passed this check, including revocation. Any future direct access to source files from the helper needs its own signed-build test. [Apple’s sandbox file access guidance](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox)
 
 ## Phase 1 — Ship one read-only workflow
 
-To test `list_catalogs`, select a catalog in RawCull, then choose **Settings → MCP → Authorize Selected Catalog**. Quit RawCull and call `list_catalogs` from Codex. Expect the catalog's opaque UUID (`id`) and `displayName`. Reopen RawCull, choose **Revoke Access**, and repeat the call with RawCull closed. Expect an empty catalog list. RawCull and the helper share a single `catalog-grant.json` manifest in the dedicated `93M47F4H9T.no.blogspot.RawCull.mcp` app group. The manifest currently grants catalog discovery. File access for scanning still needs its own signed-build verification.
+### Test a signed local build
 
-1. Add a small settings surface to enable the integration, authorize a single catalog for the pilot, revoke it, and show setup instructions for the tested client. Use an opaque catalog ID. Tool calls accept that ID and never accept arbitrary filesystem paths. Grant resolution stays inside the helper.
-2. Add the tools below. Define typed schemas, bound page sizes, and return structured results. For the pilot, return file names and selected capture metadata such as capture time and camera model. Omit absolute paths, location metadata, and image bytes. Define whether discovery includes subfolders using the existing catalog semantics.
-3. Use one catalog snapshot per scan for consistent pagination. Put an upper bound on work per call. If representative catalogs exceed the client's deadline, return a job ID and offer status polling before shipping. Report permission failures, unavailable folders, and incomplete scans explicitly so the assistant cannot mistake them for an empty catalog.
-4. Run a signed end-to-end smoke test on a clean user account and through the planned beta distribution path. Quit RawCull, start a fresh client session, enumerate the authorized catalog, and compare counts and a sample of metadata with RawCull. Exercise a large catalog, a moved or disconnected folder, revoked access, invalid IDs, pagination, and an upgrade from the prior RawCull version. Verify that the helper exits when its client disconnects and that a disabled integration returns no catalog data.
-5. Distribute a small beta through Mac TestFlight if available for the release workflow. Give testers a setup guide and one example prompt. Ask where setup failed, whether the client reported the right catalog, and how long the first useful answer took. Track support issues without collecting photo contents.
-6. Submit the bundled helper with an update under RawCull's existing Mac App Store listing. In review notes, describe how to enable it, reproduce the read-only demo with a sample catalog, and verify behavior with the app closed. Include the helper's launch and exit behavior and the catalog access model. A separate Store listing is unnecessary for a helper shipped inside the app bundle. App Review applies to the complete submission. [Mac App Store review guidelines, section 2.4.5](https://developer.apple.com/app-store/review/guidelines/#hardware-compatibility)
+Create a local archive from the repository root.
+
+```sh
+xcodebuild -project RawCull.xcodeproj -scheme RawCull \
+  -configuration AppStore -destination 'generic/platform=macOS' \
+  -archivePath /tmp/RawCull-MCP-Test.xcarchive \
+  -allowProvisioningUpdates archive
+```
+
+In Finder, open `/tmp/RawCull-MCP-Test.xcarchive/Products/Applications/` and copy the archived app to `/Applications/RawCull-MCP-Test.app`. Verify the signed helper and register it once. Keep the same path when replacing the test app with a newer archive.
+
+```sh
+helper=/Applications/RawCull-MCP-Test.app/Contents/MacOS/rawcull-mcp
+codesign --verify --strict --verbose=2 "$helper" &&
+  codex mcp add rawcull-local -- "$helper"
+```
+
+Quit any running RawCull instance and open the test copy directly from Finder. Select a catalog, wait for the photos to load, choose **Settings → MCP → Authorize Selected Catalog**, and quit RawCull. In a fresh Codex CLI session, try this prompt. If the CLI reports that its background app server failed to start, use `codex --no-daemon`.
+
+> Call `list_catalogs` on `rawcull-local`. Use the returned catalog ID to call `catalog_summary` and `list_photos` with a limit of 5. Show the summary and both pages of photos, using `nextCursor` to fetch the second page.
+
+Reopen the test app, choose **Revoke Access**, quit, and call `list_catalogs` again. Expect an empty list.
+
+The local and distributed builds share their bundle ID and model-assets group. In local testing, both could use installed AI models, but downloading DataComp CLIP failed with both copies installed. Temporarily removing the local copy let the download succeed in the distributed build. The test workflow keeps the existing bundle IDs.
+
+### Snapshot behavior
+
+RawCull writes one `catalog-grant.json` manifest in the dedicated `93M47F4H9T.no.blogspot.RawCull.mcp` app group. The helper reads that snapshot with the app closed. It contains the authorized catalog’s name, ID, and selected metadata from the loaded scan. The shared file contains no absolute paths, location metadata, or image bytes. Direct access to source photos remains a separate check for workflows that need it.
 
 | Pilot tool | Result |
 | --- | --- |
-| `rawcull_status` | Helper and protocol-facing schema versions, integration status, and available capabilities. |
+| `rawcull_status` | Helper version, transport, and available capabilities. |
 | `list_catalogs` | Authorized catalog IDs and display names. At most one catalog in the pilot. |
 | `catalog_summary` | Scan status, supported photo count, capture date range, and available camera breakdown. |
-| `list_photos` | Bounded page of photo IDs, names, and selected metadata, plus a cursor tied to the scan snapshot. |
+| `list_photos` | Photo IDs, filenames, capture dates, and camera models. Defaults to 50 photos per page and accepts a limit of 1–100. Pass `nextCursor` as `cursor` until it is null. |
 
-`catalog_summary` reads the metadata snapshot saved when you authorize a loaded catalog in RawCull. Wait for the photos to load before authorizing, then call `list_catalogs` and pass its catalog ID as `catalogId`. Authorize again to refresh the snapshot or upgrade an older authorization, then fetch the new ID. A catalog with no loaded photos has no saved summary. Dates and camera counts cover the photos with that metadata.
+`catalog_summary` reads the metadata snapshot saved when you authorize a loaded catalog in RawCull. Wait for the photos to load before authorizing, then call `list_catalogs` and pass its catalog ID as `catalogId`. Authorize again to refresh the snapshot or add photo rows to an older authorization, then fetch the new ID. Photo IDs and cursors belong to the saved snapshot. A catalog with no loaded photos has no saved summary. Dates and camera counts cover the photos with that metadata.
+
+### Verification and release
+
+Local signed-build tests verified catalog authorization and revocation, a summary of 486 photos, and two distinct five-photo pages from a 1,198-photo snapshot. The second page used the first page’s cursor and returned a cursor for offset 10.
+
+Before release, repeat the workflow on a clean account and with the Phase 1 TestFlight build. Compare counts and sample metadata with RawCull. Exercise a large catalog, upgrade from an older authorization, invalid IDs and cursors, and revocation. Check how the app handles a moved or disconnected source when refreshing the snapshot. After the beta, submit the bundled helper as part of the RawCull update and include the closed-app test steps in the review notes. [Mac App Store review guidelines](https://developer.apple.com/app-store/review/guidelines/#hardware-compatibility)
 
 **Release gate.** A beta tester can install and configure the helper, get a correct catalog summary with RawCull closed, and revoke access using the documented workflow.
 
 ## Phase 2 — Add catalog analysis and burst recommendations
 
-1. Move the minimum reusable scan and burst orchestration into a module available to the GUI and helper. Start with sharpness, similarity, grouping, and the existing ranking engine. Compare the helper's output with RawCull for the same catalog, settings, and available models. Start with separate helper analysis artifacts where necessary. Share caches only after checking format compatibility and concurrent access.
-2. Add `start_catalog_analysis`, `get_analysis_status`, `cancel_analysis`, and paginated `list_bursts`. Return a job ID immediately. Report files scanned and analyzed, skipped files with reasons, current stage, and terminal state. Start with one active analysis per helper and bound parallelism. For a client-owned stdio process, client exit can interrupt work. Define cancellation and cleanup accordingly and make retry safe.
+1. Have the MCP helper launch RawCull when needed and submit a structured request to the running app. RawCull owns catalog access, scanning, indexing, sharpness, burst grouping, and ranking. Use the app’s current settings and model availability, including CLIP and Vision fallback when configured. The first milestone is a saved, ranked burst list ready to review in RawCull. An explicit request to rate each recommended frame two stars would use the app’s existing rating API.
+2. Add `start_catalog_analysis`, `get_analysis_status`, `cancel_analysis`, and paginated `list_bursts`. Return a job ID immediately. Report files scanned and analyzed, skipped files with reasons, current stage, and terminal state. Start with one active analysis in RawCull and bound parallelism. Define what happens when Codex disconnects or RawCull quits, and make retries safe.
 3. Return the top ranked frames, evidence available to RawCull, confidence or cautions, and alternates for each burst. Include singleton counts and unevaluated photos in the catalog summary so the assistant can explain coverage. Use IDs tied to a catalog snapshot and validate against that snapshot throughout the job.
 4. Measure completion time, memory, model availability, and agreement with the existing app on small and representative large catalogs. Check that running the app and helper together does not corrupt state or make normal review unusable. Use pilot feedback to decide which burst evidence or workflow to expose next.
 
