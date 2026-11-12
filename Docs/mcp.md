@@ -98,7 +98,7 @@ Start a fresh Codex CLI session and check `/mcp` for `rawcull-testflight: connec
 
 ## Phase 1 — Ship one read-only workflow
 
-The helper now has the first part of `list_catalogs`. It reads a single `catalog-grant.json` manifest from the dedicated `group.no.blogspot.RawCull.mcp` app group and returns the catalog's opaque UUID (`id`) and `displayName`. An absent manifest represents no authorized catalog. RawCull still needs to write and revoke the manifest from its settings, and the signed build needs to verify app group access before catalog scanning is added.
+The helper now has the first part of `list_catalogs`. It reads a single `catalog-grant.json` manifest from the dedicated `93M47F4H9T.no.blogspot.RawCull.mcp` app group and returns the catalog's opaque UUID (`id`) and `displayName`. An absent manifest represents no authorized catalog. RawCull still needs to write and revoke the manifest from its settings, and the signed build needs to verify app group access before catalog scanning is added.
 
 1. Add a small settings surface to enable the integration, authorize a single catalog for the pilot, revoke it, and show setup instructions for the tested client. Use an opaque catalog ID. Tool calls accept that ID and never accept arbitrary filesystem paths. Grant resolution stays inside the helper.
 2. Add the tools below. Define typed schemas, bound page sizes, and return structured results. For the pilot, return file names and selected capture metadata such as capture time and camera model. Omit absolute paths, location metadata, and image bytes. Define whether discovery includes subfolders using the existing catalog semantics.

@@ -6,7 +6,7 @@ struct CatalogGrant: Decodable {
 }
 
 struct CatalogGrantStore: Sendable {
-    static let applicationGroup = "group.no.blogspot.RawCull.mcp"
+    static let applicationGroup = "93M47F4H9T.no.blogspot.RawCull.mcp"
 
     let directory: URL?
 
