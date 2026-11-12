@@ -11,6 +11,40 @@ Status: proposal for discussion. The first milestone is a local prototype. The f
 
 The first release stops after step 2. A good demo is “How many photos are in this catalog, and what cameras and capture dates does it cover?” It proves client setup, catalog authorization, a useful tool call, and operation with the app closed before introducing models, image sharing, and catalog writes.
 
+## How a local MCP call works
+
+MCP stands for Model Context Protocol. It gives an AI client a standard way to discover tools, call them with arguments, and receive results. In this setup, Codex is the client and `rawcull-mcp` is the server. The RawCull window and the MCP helper are separate processes. A local server can be a small executable that starts on demand and waits for messages.
+
+```mermaid
+sequenceDiagram
+    participant You
+    participant Codex
+    participant Helper as rawcull-mcp
+    Codex->>Helper: Launch executable and initialize over stdio
+    Codex->>Helper: tools/list
+    Helper-->>Codex: rawcull_status and its input schema
+    You->>Codex: Tell me the RawCull helper version
+    Codex->>Helper: tools/call rawcull_status with empty arguments
+    Helper-->>Codex: Version 0.1.0, transport stdio, available capability
+    Codex-->>You: Reports the result in the chat
+```
+
+1. **Codex starts the helper.** The MCP configuration gives Codex the absolute path to `rawcull-mcp`. Codex launches that executable and connects two pipes to it. `stdio` means that the client sends messages through the helper's standard input and reads replies from its standard output. There is no local web address or port to configure. When the client closes the input pipe, the helper exits.
+2. **Codex discovers the tools.** After the MCP handshake, Codex sends `tools/list`. The helper returns the name `rawcull_status`, a description, and a JSON schema that says this tool takes no arguments. That information tells the model what operation it can use and how to call it.
+3. **The model interprets your prompt.** When you ask for the helper version, the model in Codex chooses `rawcull_status`. Codex turns that choice into a structured MCP request. The helper receives the tool name and arguments. Codex retains the natural-language prompt and conversation.
+4. **The helper runs Swift code.** The MCP Swift SDK decodes the request and hands it to the `CallTool` handler. The handler validates the tool name and arguments, then returns version `0.1.0`, transport `stdio`, and the available capability. The implementation lives in [the helper's main.swift](../Tools/RawCullMCP/Sources/RawCullMCP/main.swift).
+5. **Codex shows the result.** The helper returns a human-readable line and structured JSON. Codex can use that response to answer you or decide what to call next. The terminal line `Called rawcull.rawcull_status` identifies the server and tool that actually ran.
+
+For example, the request in step 3 looks like this on the wire. The numeric ID lets Codex match the reply to the request.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rawcull_status","arguments":{}}}
+```
+
+An eventual burst review would work the same way with more tools. Codex would interpret “pick one keeper per burst,” start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull's analysis code would do the scanning, scoring, and grouping. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. These tools are planned for later phases.
+
+The helper runs locally on the Mac. Where the model interprets your prompt depends on the client and model you use. A cloud model may receive data that a tool returns. Today the helper returns only its status. The later preview-sharing setting will determine whether the helper can return image previews for the selected catalog. [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk), [MCP stdio transport](https://ruby.sdk.modelcontextprotocol.io/server/transports/)
+
 ## What RawCull can reuse
 
 | Existing code | Role in the integration |
@@ -37,7 +71,21 @@ Point a desktop MCP client's local stdio server configuration at the absolute pa
 codex mcp add rawcull -- "$PWD/Tools/RawCullMCP/.build/release/rawcull-mcp"
 ```
 
-Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” Expect version `0.1.0`, transport `stdio`, and the single capability `rawcull_status`. RawCull itself can be closed. This milestone uses a standalone development build. Signed app bundling and access to an authorized catalog are the next milestones.
+Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” Expect version `0.1.0`, transport `stdio`, and the single capability `rawcull_status`. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
+
+### Test the bundled helper with TestFlight
+
+Xcode builds the helper as a separate target and copies it to `Contents/MacOS` inside `RawCull.app`. The helper has its own bundle identifier and App Sandbox entitlement because Codex launches it directly. Its identifier is also embedded in the executable's `Info.plist` so macOS can identify it when applying the sandbox. The status prototype requires only the two pipes from Codex. It has no catalog grants or network entitlements. [Apple's guidance on identifying a sandboxed command-line executable](https://developer.apple.com/forums/thread/802443)
+
+Upload an internal build with `./Scripts/release.sh internal` and install it from TestFlight after Apple processes it. Quit RawCull, then confirm the helper is present and signed. Adjust the path if RawCull is installed elsewhere.
+
+```sh
+helper=/Applications/RawCull.app/Contents/MacOS/rawcull-mcp
+codesign --verify --strict --verbose=2 "$helper"
+codex mcp add rawcull-testflight -- "$helper"
+```
+
+Start a fresh Codex CLI session and check `/mcp` for `rawcull-testflight: connected (1 tool)`. Ask “Call `rawcull_status` on the `rawcull-testflight` MCP server and tell me the helper version and available capabilities.” Confirm that Codex shows a tool call to `rawcull-testflight.rawcull_status` and reports `0.1.0` over `stdio`. The distinct server name lets you keep the standalone prototype registered during the test.
 
 ### Implementation sequence
 

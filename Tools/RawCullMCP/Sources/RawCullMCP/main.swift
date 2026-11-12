@@ -47,5 +47,5 @@ await server.withMethodHandler(CallTool.self) { params in
     )
 }
 
-try await server.start(transport: StdioTransport())
+try await server.start(transport: StatusStdioTransport())
 await server.waitUntilCompleted()

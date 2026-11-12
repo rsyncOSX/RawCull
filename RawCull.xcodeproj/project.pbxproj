@@ -65,6 +65,8 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E9AC00112F40000000000001 /* rawcull-mcp in Embed MCP Helper */ = {isa = PBXBuildFile; fileRef = E9AC00112F40000000000002 /* rawcull-mcp */; };
+		E9AC00112F40000000000003 /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = E9AC00112F40000000000004 /* MCP */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +84,13 @@
 			remoteGlobalIDString = E9D000092F34000000000009;
 			remoteInfo = RawCullModelDownloader;
 		};
+		E9AC00112F40000000000005 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E90B079A2F1E58EA00A95D4A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E9AC00112F40000000000006;
+			remoteInfo = RawCullMCP;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -94,6 +103,15 @@
 				E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */,
 			);
 			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E9AC00112F40000000000007 /* Embed MCP Helper */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (E9AC00112F40000000000001 /* rawcull-mcp in Embed MCP Helper */,);
+			name = "Embed MCP Helper";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -135,6 +153,8 @@
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
+		E9AC00112F40000000000002 /* rawcull-mcp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "rawcull-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9AC00112F40000000000011 /* RawCullMCP.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Tools/RawCullMCP/RawCullMCP.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -170,6 +190,12 @@
 			);
 			path = RawCullModelDownloader;
 			sourceTree = "<group>";
+		};
+		E9AC00112F40000000000008 /* RawCullMCP Sources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = "RawCullMCP Sources";
+			path = Tools/RawCullMCP/Sources/RawCullMCP;
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -237,6 +263,12 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E9AC00112F40000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (E9AC00112F40000000000003 /* MCP in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -286,6 +318,8 @@
 				1D47D4FAAC09560099E29D11 /* RawCullPerformanceTests */,
 				E9D000062F34000000000006 /* RawCullModelDownloader */,
 				E9D000072F34000000000007 /* Frameworks */,
+				E9AC00112F40000000000008 /* RawCullMCP Sources */,
+				E9AC00112F40000000000011 /* RawCullMCP.xcconfig */,
 				E90B07A32F1E58EA00A95D4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -298,6 +332,7 @@
 				E95355DD2F33B70A006C2851 /* RawCullTests.xctest */,
 				0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */,
 				E9D000042F34000000000004 /* RawCullModelDownloader.appex */,
+				E9AC00112F40000000000002 /* rawcull-mcp */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -371,11 +406,13 @@
 				E90B079F2F1E58EA00A95D4A /* Frameworks */,
 				E90B07A02F1E58EA00A95D4A /* Resources */,
 				E9D0000C2F3400000000000C /* Embed ExtensionKit Extensions */,
+				E9AC00112F40000000000007 /* Embed MCP Helper */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				E9D0000D2F3400000000000D /* PBXTargetDependency */,
+				E9AC00112F4000000000000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E90B07A42F1E58EA00A95D4A /* RawCull */,
@@ -451,6 +488,19 @@
 			productReference = E9D000042F34000000000004 /* RawCullModelDownloader.appex */;
 			productType = "com.apple.product-type.extensionkit-extension";
 		};
+		E9AC00112F40000000000006 /* RawCullMCP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E9AC00112F4000000000000B /* Build configuration list for PBXNativeTarget "RawCullMCP" */;
+			buildPhases = (E9AC00112F4000000000000A /* Sources */, E9AC00112F40000000000009 /* Frameworks */,);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (E9AC00112F40000000000008 /* RawCullMCP Sources */,);
+			name = RawCullMCP;
+			packageProductDependencies = (E9AC00112F40000000000004 /* MCP */,);
+			productName = "rawcull-mcp";
+			productReference = E9AC00112F40000000000002 /* rawcull-mcp */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -493,6 +543,7 @@
 				E9B1425D305826C5000D8EBA /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
 				E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */,
 				E91BF22630A3A243008B0C1B /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E9AC00112F40000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -504,6 +555,7 @@
 				E95355DC2F33B70A006C2851 /* RawCullTests */,
 				9FAB7C07ACB05E92962C9732 /* RawCullPerformanceTests */,
 				E9D000092F34000000000009 /* RawCullModelDownloader */,
+				E9AC00112F40000000000006 /* RawCullMCP */,
 			);
 		};
 /* End PBXProject section */
@@ -611,6 +663,12 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E9AC00112F4000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -623,6 +681,11 @@
 			isa = PBXTargetDependency;
 			target = E9D000092F34000000000009 /* RawCullModelDownloader */;
 			targetProxy = E9D000032F34000000000003 /* PBXContainerItemProxy */;
+		};
+		E9AC00112F4000000000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E9AC00112F40000000000006 /* RawCullMCP */;
+			targetProxy = E9AC00112F40000000000005 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1269,6 +1332,24 @@
 			};
 			name = Debug;
 		};
+		E9AC00112F4000000000000D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E9AC00112F40000000000011 /* RawCullMCP.xcconfig */;
+			buildSettings = {};
+			name = Debug;
+		};
+		E9AC00112F4000000000000E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E9AC00112F40000000000011 /* RawCullMCP.xcconfig */;
+			buildSettings = {};
+			name = Release;
+		};
+		E9AC00112F4000000000000F /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E9AC00112F40000000000011 /* RawCullMCP.xcconfig */;
+			buildSettings = {};
+			name = AppStore;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1329,6 +1410,12 @@
 				E9D0000F2F3400000000000F /* Release */,
 				E9A000032F36000000000003 /* AppStore */,
 			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E9AC00112F4000000000000B /* Build configuration list for PBXNativeTarget "RawCullMCP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (E9AC00112F4000000000000D /* Debug */, E9AC00112F4000000000000E /* Release */, E9AC00112F4000000000000F /* AppStore */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
@@ -1406,6 +1493,11 @@
 				kind = exactVersion;
 				version = 1.1.0;
 			};
+		};
+		E9AC00112F40000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/modelcontextprotocol/swift-sdk.git";
+			requirement = {kind = exactVersion; version = 0.12.1; };
 		};
 /* End XCRemoteSwiftPackageReference section */
 
@@ -1504,6 +1596,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */;
 			productName = RsyncProcessStreaming;
+		};
+		E9AC00112F40000000000004 /* MCP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9AC00112F40000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			productName = MCP;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
