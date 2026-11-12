@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MCPSettingsTab: View {
     let selectedCatalogName: String?
+    let makeSummary: () -> CatalogSummary?
 
     @State private var grant: CatalogGrant?
     @State private var storageError: LocalizedStringResource?
@@ -36,7 +37,7 @@ struct MCPSettingsTab: View {
             } header: {
                 Text("Catalog access")
             } footer: {
-                Text("An MCP client can list the authorized catalog’s name and ID while RawCull is closed. Authorizing a catalog replaces the previous authorization.")
+                Text("An MCP client can list the authorized catalog and read its saved scan summary while RawCull is closed. Authorizing again replaces the saved summary.")
             }
         }
         .formStyle(.grouped)
@@ -52,7 +53,7 @@ struct MCPSettingsTab: View {
 
     private func authorize(_ name: String) {
         do {
-            grant = try CatalogGrantStore.shared().authorize(displayName: name)
+            grant = try CatalogGrantStore.shared().authorize(displayName: name, summary: makeSummary())
             storageError = nil
         } catch {
             storageError = "The selected catalog could not be authorized."

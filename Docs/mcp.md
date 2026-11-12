@@ -114,6 +114,8 @@ To test `list_catalogs`, select a catalog in RawCull, then choose **Settings →
 | `catalog_summary` | Scan status, supported photo count, capture date range, and available camera breakdown. |
 | `list_photos` | Bounded page of photo IDs, names, and selected metadata, plus a cursor tied to the scan snapshot. |
 
+`catalog_summary` reads the metadata snapshot saved when you authorize a loaded catalog in RawCull. Wait for the photos to load before authorizing, then call `list_catalogs` and pass its catalog ID as `catalogId`. Authorize again to refresh the snapshot or upgrade an older authorization, then fetch the new ID. A catalog with no loaded photos has no saved summary. Dates and camera counts cover the photos with that metadata.
+
 **Release gate.** A beta tester can install and configure the helper, get a correct catalog summary with RawCull closed, and revoke access using the documented workflow.
 
 ## Phase 2 — Add catalog analysis and burst recommendations

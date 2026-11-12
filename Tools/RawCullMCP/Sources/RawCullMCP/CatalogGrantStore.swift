@@ -3,6 +3,15 @@ import Foundation
 struct CatalogGrant: Codable {
     let id: UUID
     let displayName: String
+    let summary: CatalogSummary?
+}
+
+struct CatalogSummary: Codable {
+    let photoCount: Int
+    let earliestCaptureDate: String?
+    let latestCaptureDate: String?
+    let cameraCounts: [String: Int]
+    let snapshotAt: String
 }
 
 struct CatalogGrantStore: Sendable {
@@ -34,9 +43,9 @@ struct CatalogGrantStore: Sendable {
         return try JSONDecoder().decode(CatalogGrant.self, from: data)
     }
 
-    func authorize(displayName: String) throws -> CatalogGrant {
+    func authorize(displayName: String, summary: CatalogSummary?) throws -> CatalogGrant {
         let manifest = try manifestURL()
-        let grant = CatalogGrant(id: UUID(), displayName: displayName)
+        let grant = CatalogGrant(id: UUID(), displayName: displayName, summary: summary)
         try JSONEncoder().encode(grant).write(to: manifest, options: .atomic)
         return grant
     }

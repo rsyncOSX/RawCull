@@ -40,7 +40,10 @@ struct SettingsView: View {
                     }
 
                     Tab("MCP", systemImage: "link") {
-                        MCPSettingsTab(selectedCatalogName: viewModel.selectedSource?.name)
+                        MCPSettingsTab(
+                            selectedCatalogName: viewModel.selectedSource?.name,
+                            makeSummary: viewModel.mcpCatalogSummary,
+                        )
                     }
                 }
             } else {

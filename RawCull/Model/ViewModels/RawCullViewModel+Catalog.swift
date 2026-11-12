@@ -3,9 +3,30 @@
 //  RawCull
 //
 
+import Foundation
 import OSLog
 
 extension RawCullViewModel {
+    func mcpCatalogSummary() -> CatalogSummary? {
+        guard let selectedSource, catalogLifecycle.currentSource == selectedSource,
+              !scanning, !files.isEmpty
+        else { return nil }
+
+        let captureDates = files.lazy.compactMap(\.captureDate)
+        let cameras = files.reduce(into: [String: Int]()) { counts, file in
+            if let camera = file.exifData?.camera, !camera.isEmpty {
+                counts[camera, default: 0] += 1
+            }
+        }
+        return CatalogSummary(
+            photoCount: files.count,
+            earliestCaptureDate: captureDates.min()?.formatted(.iso8601),
+            latestCaptureDate: captureDates.max()?.formatted(.iso8601),
+            cameraCounts: cameras,
+            snapshotAt: Date().formatted(.iso8601),
+        )
+    }
+
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
