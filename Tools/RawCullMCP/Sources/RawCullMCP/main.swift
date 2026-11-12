@@ -14,11 +14,19 @@ let statusTool = Tool(
 let server = Server(
     name: "rawcull-mcp",
     version: version,
-    capabilities: .init(tools: .init())
+    capabilities: .init(resources: .init(), tools: .init())
 )
 
 await server.withMethodHandler(ListTools.self) { _ in
     .init(tools: [statusTool])
+}
+
+await server.withMethodHandler(ListResources.self) { _ in
+    .init(resources: [])
+}
+
+await server.withMethodHandler(ListResourceTemplates.self) { _ in
+    .init(templates: [])
 }
 
 await server.withMethodHandler(CallTool.self) { params in
