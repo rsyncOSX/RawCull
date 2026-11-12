@@ -1,4 +1,3 @@
-import Foundation
 import MCP
 
 let version = "0.2.0"
@@ -18,11 +17,7 @@ let listCatalogsTool = Tool(
     inputSchema: emptyArguments
 )
 let availableTools = [statusTool, listCatalogsTool]
-let grantStore = CatalogGrantStore(
-    directory: FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: CatalogGrantStore.applicationGroup
-    )
-)
+let grantStore = CatalogGrantStore.shared()
 
 let server = Server(
     name: "rawcull-mcp",
