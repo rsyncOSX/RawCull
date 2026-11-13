@@ -7,15 +7,18 @@ let emptyArguments: Value = .object([
     "properties": .object([:]),
     "additionalProperties": .bool(false),
 ])
+let catalogReadAnnotations = Tool.Annotations(readOnlyHint: true, openWorldHint: false)
 let statusTool = Tool(
     name: "rawcull_status",
     description: "Report the RawCull MCP helper version and available capabilities.",
-    inputSchema: emptyArguments
+    inputSchema: emptyArguments,
+    annotations: catalogReadAnnotations
 )
 let listCatalogsTool = Tool(
     name: "list_catalogs",
     description: "List the catalog RawCull has authorized for MCP access.",
-    inputSchema: emptyArguments
+    inputSchema: emptyArguments,
+    annotations: catalogReadAnnotations
 )
 let catalogSummaryTool = Tool(
     name: "catalog_summary",
@@ -25,7 +28,8 @@ let catalogSummaryTool = Tool(
         "properties": .object(["catalogId": .object(["type": .string("string"), "format": .string("uuid")])]),
         "required": .array([.string("catalogId")]),
         "additionalProperties": .bool(false),
-    ])
+    ]),
+    annotations: catalogReadAnnotations
 )
 let photoPageSize = 50
 let maximumPhotoPageSize = 100
@@ -44,7 +48,8 @@ let listPhotosTool = Tool(
         ]),
         "required": .array([.string("catalogId")]),
         "additionalProperties": .bool(false),
-    ])
+    ]),
+    annotations: catalogReadAnnotations
 )
 let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
 let grantStore = CatalogGrantStore.shared()

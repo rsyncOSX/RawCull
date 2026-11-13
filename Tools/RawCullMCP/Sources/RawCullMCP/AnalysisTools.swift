@@ -7,22 +7,27 @@ enum AnalysisTools {
     private static let defaultLimit = 10
     private static let maximumLimit = 25
     private static let uuid: Value = .object(["type": .string("string"), "format": .string("uuid")])
+    private static let jobAnnotations = Tool.Annotations(
+        readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false
+    )
 
     private static func tool(
-        _ name: String, _ description: String, required: [String: Value], optional: [String: Value] = [:]
+        _ name: String, _ description: String, required: [String: Value], optional: [String: Value] = [:],
+        annotations: Tool.Annotations = jobAnnotations
     ) -> Tool {
         Tool(name: name, description: description, inputSchema: .object([
             "type": .string("object"),
             "properties": .object(required.merging(optional) { first, _ in first }),
             "required": .array(required.keys.sorted().map(Value.string)),
             "additionalProperties": .bool(false),
-        ]))
+        ]), annotations: annotations)
     }
 
     static let start = tool(
         "start_catalog_analysis",
         "Open RawCull and queue analysis of the authorized catalog. Generate a requestId UUID and reuse it if retrying this request.",
-        required: ["catalogId": uuid, "requestId": uuid]
+        required: ["catalogId": uuid, "requestId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
     )
     static let status = tool(
         "get_analysis_status", "Read the current analysis job's progress and coverage.",
@@ -30,7 +35,8 @@ enum AnalysisTools {
     )
     static let cancel = tool(
         "cancel_analysis", "Request cancellation of the current analysis job.",
-        required: ["catalogId": uuid, "jobId": uuid]
+        required: ["catalogId": uuid, "jobId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
     )
     static let bursts = tool(
         "list_bursts", "List ranked bursts from a completed analysis. Pass nextCursor for the next page.",
