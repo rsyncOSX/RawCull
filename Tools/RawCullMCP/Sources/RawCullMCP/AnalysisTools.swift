@@ -82,7 +82,7 @@ enum AnalysisTools {
             details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
-            return try reply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
+            return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
@@ -223,16 +223,12 @@ enum AnalysisTools {
             }
             return display
         }
-        return try reply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
+        return try structuredReply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
             "catalogId": .string(job.catalogId.uuidString),
             "jobId": .string(job.jobId.uuidString),
             "coverage": Value(coverage),
             "bursts": Value(page),
             "nextCursor": end < bursts.count ? .string("\(prefix)\(end)") : .null,
         ]))
-    }
-
-    private static func reply(_ message: String, value: Value) -> CallTool.Result {
-        .init(content: [.text(text: message, annotations: nil, _meta: nil)], structuredContent: Optional.some(value))
     }
 }
