@@ -39,10 +39,12 @@ actor WriteSavedFilesJSON {
         await shared.storedFileSize()
     }
 
+    private var backupPath: URL {
+        savePath.deletingLastPathComponent().appendingPathComponent("savedfiles.backup.json")
+    }
+
     private func storedFileSize() -> Int {
-        let urls = [savePath, savePath.deletingLastPathComponent()
-            .appendingPathComponent("savedfiles.backup.json")]
-        return urls.reduce(0) { total, url in
+        [savePath, backupPath].reduce(0) { total, url in
             total + ((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         }
     }
@@ -53,6 +55,21 @@ actor WriteSavedFilesJSON {
 
     private func performWrite(_ savedFiles: [SavedFiles]) async throws {
         Logger.process.debugThreadOnly("WriteSavedFilesJSON write")
+        if savedFiles.isEmpty {
+            // Remove the backup first so a failure leaves the active store available for retry.
+            for url in [backupPath, savePath] {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    let fileError = error as NSError
+                    guard fileError.domain == NSCocoaErrorDomain,
+                          fileError.code == CocoaError.fileNoSuchFile.rawValue
+                    else { throw error }
+                }
+            }
+            return
+        }
+
         let encodejsondata = EncodeGeneric()
         let encodedData = try encodejsondata.encode(savedFiles)
         let fileURL = savePath
@@ -62,10 +79,8 @@ actor WriteSavedFilesJSON {
             attributes: nil,
         )
         if FileManager.default.fileExists(atPath: fileURL.path) {
-            let backupURL = fileURL.deletingLastPathComponent()
-                .appendingPathComponent("savedfiles.backup.json")
             let existingData = try Data(contentsOf: fileURL)
-            try existingData.write(to: backupURL, options: .atomic)
+            try existingData.write(to: backupPath, options: .atomic)
         }
         try encodedData.write(to: fileURL, options: .atomic)
     }
