@@ -63,7 +63,7 @@ enum AnalysisTools {
         let store = AnalysisJobStore(directory: grantStore.directory)
         try requireAnalysisGrant(catalogId)
         do {
-            let current = try store.expireInterruptedJob()
+            let current = try params.name == cancel.name ? store.readRecovering() : store.expireInterruptedJob()
             let job: AnalysisJob
             if isStart {
                 job = try await submit(catalogId: catalogId, jobId: jobId, store: store)
@@ -78,13 +78,15 @@ enum AnalysisTools {
                 return try page(job, arguments: arguments)
             }
             var details = job
+            details.heartbeatUptime = nil
+            details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
-            return try reply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
+            return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
-            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation.")
+            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation. If the error persists, reauthorize the catalog in RawCull settings to clear the saved job.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
         }
@@ -181,14 +183,17 @@ enum AnalysisTools {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId else {
                 throw MCPError.invalidParams("That job has been replaced.")
             }
-            guard current.state.isActive, !current.cancellationRequested else { return nil }
-            if current.state == .running, current.heartbeatAt == nil {
+            guard current.state.isActive else { return nil }
+            if current.state == .queued || current.isExpired(at: .now) {
+                current.cancellationRequested = true
+                current.finish(.cancelled)
+                return current
+            }
+            guard !current.cancellationRequested else { return nil }
+            if current.heartbeatAt == nil {
                 current.heartbeatAt = current.updatedAt
             }
             current.cancellationRequested = true
-            if current.state == .queued {
-                current.finish(.cancelled)
-            }
             return current
         }
         return updated ?? job
@@ -218,16 +223,12 @@ enum AnalysisTools {
             }
             return display
         }
-        return try reply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
+        return try structuredReply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
             "catalogId": .string(job.catalogId.uuidString),
             "jobId": .string(job.jobId.uuidString),
             "coverage": Value(coverage),
             "bursts": Value(page),
             "nextCursor": end < bursts.count ? .string("\(prefix)\(end)") : .null,
         ]))
-    }
-
-    private static func reply(_ message: String, value: Value) -> CallTool.Result {
-        .init(content: [.text(text: message, annotations: nil, _meta: nil)], structuredContent: Optional.some(value))
     }
 }

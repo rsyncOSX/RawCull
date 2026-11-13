@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
             setPending: { viewModel.cullingModel.isTerminationPending = $0 },
             releaseAccess: {
-                self.mcpAnalysis.stopForQuit()
+                await self.mcpAnalysis.stopForQuit()
                 viewModel.stopActiveSecurityScopedAccess()
             },
             reply: { sender.reply(toApplicationShouldTerminate: $0) },
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         flush: @escaping @MainActor () async -> Bool,
         chooseRecovery: @escaping @MainActor () -> QuitRecoveryChoice,
         setPending: @escaping @MainActor (Bool) -> Void,
-        releaseAccess: @escaping @MainActor () -> Void,
+        releaseAccess: @escaping @MainActor () async -> Void,
         reply: @escaping @MainActor (Bool) -> Void,
     ) -> NSApplication.TerminateReply {
         Logger.process.debugMessageOnly("AppDelegate.beginTermination()")
@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             if shouldQuit {
-                releaseAccess()
+                await releaseAccess()
             }
             terminationTask = nil
             // Keep the normal persistence alert suppressed while exiting.

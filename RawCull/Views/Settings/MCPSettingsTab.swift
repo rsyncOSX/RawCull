@@ -64,6 +64,8 @@ struct MCPSettingsTab: View {
         do {
             grant = try authorizeCatalog(allowAnalysis)
             storageError = nil
+        } catch AnalysisJobStore.StoreError.busy {
+            storageError = "MCP job storage is busy. Try authorizing again."
         } catch {
             storageError = "The selected catalog could not be authorized."
         }
@@ -76,6 +78,8 @@ struct MCPSettingsTab: View {
             allowAnalysis = false
             grant = nil
             storageError = nil
+        } catch AnalysisJobStore.StoreError.busy {
+            storageError = "MCP job storage is busy. Try revoking access again."
         } catch {
             storageError = "MCP access could not be revoked."
         }

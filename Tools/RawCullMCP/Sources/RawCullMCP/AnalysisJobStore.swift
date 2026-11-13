@@ -1,4 +1,5 @@
 import Darwin
+import Dispatch
 import Foundation
 
 nonisolated struct AnalysisJob: Codable, Sendable {
@@ -15,6 +16,8 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     let createdAt: Date
     var updatedAt: Date
     var heartbeatAt: Date?
+    var heartbeatUptime: UInt64?
+    var heartbeatBootID: String?
     var state: State = .queued
     var cancellationRequested = false
     var stage = "queued"
@@ -65,14 +68,34 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         self.message = message
     }
 
+    private static let bootID: String? = {
+        var bytes = [UInt8](repeating: 0, count: 64)
+        var size = bytes.count
+        guard sysctlbyname("kern.bootsessionuuid", &bytes, &size, nil, 0) == 0 else { return nil }
+        return String(validating: bytes.prefix { $0 != 0 }, as: UTF8.self)
+    }()
+
+    mutating func recordHeartbeat() {
+        heartbeatAt = .now
+        heartbeatUptime = DispatchTime.now().uptimeNanoseconds
+        heartbeatBootID = Self.bootID
+    }
+
     func isExpired(at now: Date) -> Bool {
         switch state {
         case .queued:
-            now.timeIntervalSince(createdAt) > 120
+            return now.timeIntervalSince(createdAt) > 120
         case .running:
-            now.timeIntervalSince(heartbeatAt ?? updatedAt) > 45
+            // Dispatch uptime pauses during system sleep and is shared across processes.
+            let uptime = DispatchTime.now().uptimeNanoseconds
+            let wallAge = now.timeIntervalSince(heartbeatAt ?? updatedAt)
+            if let heartbeatUptime, let bootID = Self.bootID,
+               heartbeatBootID == bootID, uptime >= heartbeatUptime {
+                return uptime - heartbeatUptime > 45_000_000_000
+            }
+            return wallAge > 45
         default:
-            false
+            return false
         }
     }
 }
@@ -84,6 +107,26 @@ nonisolated struct AnalysisJobStore: Sendable {
 
     enum StoreError: Error {
         case unsupportedFormat
+        case busy
+    }
+
+    /// An atomic replacement changes the inode or its change time.
+    struct Revision: Equatable {
+        let inode: ino_t
+        let seconds: time_t
+        let nanoseconds: Int
+    }
+
+    func revision() -> Revision? {
+        guard let directory else { return nil }
+        var info = stat()
+        let path = directory.appendingPathComponent("analysis-job.json").path
+        guard lstat(path, &info) == 0 else { return nil }
+        return Revision(
+            inode: info.st_ino,
+            seconds: info.st_ctimespec.tv_sec,
+            nanoseconds: info.st_ctimespec.tv_nsec
+        )
     }
 
     private struct Format: Decodable {
@@ -115,9 +158,15 @@ nonisolated struct AnalysisJobStore: Sendable {
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         let lock = directory.appendingPathComponent("analysis-job.lock")
         let descriptor = open(lock.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else { throw POSIXError(.EIO) }
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         defer { close(descriptor) }
-        guard flock(descriptor, LOCK_EX) == 0 else { throw POSIXError(.EIO) }
+        // UI callers must never wait for a separate helper process to release the lock.
+        let flags = LOCK_EX | (Thread.isMainThread ? LOCK_NB : 0)
+        guard flock(descriptor, flags) == 0 else {
+            let code = errno
+            if code == EWOULDBLOCK { throw StoreError.busy }
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+        }
         defer { flock(descriptor, LOCK_UN) }
 
         return try operation()

@@ -124,9 +124,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
 
         let catalog = try requireCatalog(catalogID)
         guard let summary = catalog.summary, let photos = summary.photos else {
-            return .init(
-                content: [.text(text: "No saved photo list. Open the catalog in RawCull, wait for the photos to load, and authorize it again.", annotations: nil, _meta: nil)],
-                structuredContent: .object(["catalogId": .string(catalogID.uuidString), "scanStatus": .string("unavailable")])
+            return try structuredReply(
+                "No saved photo list. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
+                value: .object(["catalogId": .string(catalogID.uuidString), "scanStatus": .string("unavailable")])
             )
         }
 
@@ -150,9 +150,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
                 "camera": photo.camera.map { .string(catalogMetadataText($0)) } ?? .null,
             ])
         }
-        return .init(
-            content: [.text(text: "Returned \(page.count) of \(photos.count) photos from the saved scan for \(catalogMetadataText(catalog.displayName)).", annotations: nil, _meta: nil)],
-            structuredContent: .object([
+        return try structuredReply(
+            "Returned \(page.count) of \(photos.count) photos from the saved scan.",
+            value: .object([
                 "catalogId": .string(catalogID.uuidString),
                 "scanStatus": .string("saved_snapshot"),
                 "snapshotAt": .string(summary.snapshotAt),
@@ -169,9 +169,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
 
         let catalog = try requireCatalog(catalogID)
         guard let summary = catalog.summary else {
-            return .init(
-                content: [.text(text: "No saved scan summary. Open the catalog in RawCull, wait for the photos to load, and authorize it again.", annotations: nil, _meta: nil)],
-                structuredContent: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
+            return try structuredReply(
+                "No saved scan summary. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
+                value: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
             )
         }
         let cameraCounts = summary.cameraCounts.reduce(into: [String: Int]()) { counts, entry in
@@ -195,9 +195,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
                 throw MCPError.internalError("The analysis coverage could not be encoded.")
             }
         }
-        return .init(
-            content: [.text(text: "RawCull's saved scan for \(catalogMetadataText(catalog.displayName)) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
-            structuredContent: .object(details)
+        return try structuredReply(
+            "RawCull's saved scan contains \(summary.photoCount) photos as of \(summary.snapshotAt).",
+            value: .object(details)
         )
     }
 
@@ -211,13 +211,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
         let catalogs: [Value] = catalog.map {
             [.object(["id": .string($0.id.uuidString), "displayName": .string(catalogMetadataText($0.displayName)), "analysisEnabled": .bool($0.analysisEnabled == true)])]
         } ?? []
-        return .init(
-            content: [.text(
-                text: catalog.map { "Authorized catalog: \(catalogMetadataText($0.displayName))" } ?? "No catalog is authorized.",
-                annotations: nil,
-                _meta: nil
-            )],
-            structuredContent: .object(["catalogs": .array(catalogs)])
+        return try structuredReply(
+            catalog == nil ? "No catalog is authorized." : "RawCull has an authorized catalog.",
+            value: .object(["catalogs": .array(catalogs)])
         )
     case statusTool.name:
         break
@@ -226,17 +222,24 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
     }
 
     let capabilities = availableTools.map(\.name)
-    return .init(
-        content: [.text(
-            text: "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
-            annotations: nil,
-            _meta: nil
-        )],
-        structuredContent: .object([
+    return try structuredReply(
+        "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
+        value: .object([
             "version": .string(version),
             "capabilities": .array(capabilities.map(Value.string)),
             "transport": .string("stdio"),
         ])
+    )
+}
+
+func structuredReply(_ summary: String, value: Value) throws -> CallTool.Result {
+    let json = String(decoding: try JSONEncoder().encode(value), as: UTF8.self)
+    return .init(
+        content: [
+            .text(text: summary, annotations: nil, _meta: nil),
+            .text(text: json, annotations: nil, _meta: nil),
+        ],
+        structuredContent: Optional.some(value)
     )
 }
 

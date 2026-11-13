@@ -41,6 +41,8 @@ final class MCPAnalysisController {
     private var activeJob: AnalysisJob?
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
+    private var isQuitting = false
+    private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
         viewModel: RawCullViewModel,
@@ -52,6 +54,11 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                } catch AnalysisJobStore.StoreError.unsupportedFormat {
+                    Logger.process.error("MCP analysis job uses an unsupported format. Reauthorize the catalog to clear it.")
+                    analysis?.cancel()
+                } catch AnalysisJobStore.StoreError.busy {
+                    // The next poll retries a claim or heartbeat.
                 } catch {
                     Logger.process.error("Could not update the MCP analysis job.")
                     analysis?.cancel()
@@ -61,11 +68,12 @@ final class MCPAnalysisController {
         }
     }
 
-    func stopForQuit() {
+    func stopForQuit() async {
+        isQuitting = true
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
-        finish(.cancelled, message: "RawCull quit.")
+        if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
     }
 
     private func poll(
@@ -73,7 +81,17 @@ final class MCPAnalysisController {
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
-        guard let job = try jobs.readRecovering() else {
+        let revision = jobs.revision()
+        if let revision, revision == inactiveRevision { return }
+        inactiveRevision = nil
+        let storedJob: AnalysisJob?
+        do {
+            storedJob = try jobs.readRecovering()
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            inactiveRevision = revision
+            throw AnalysisJobStore.StoreError.unsupportedFormat
+        }
+        guard let job = storedJob else {
             analysis?.cancel()
             return
         }
@@ -87,7 +105,10 @@ final class MCPAnalysisController {
             try updateProgress(job, viewModel: viewModel)
             return
         }
-        guard job.state.isActive else { return }
+        guard job.state.isActive else {
+            inactiveRevision = revision
+            return
+        }
         if job.isExpired(at: .now) {
             _ = try jobs.expireInterruptedJob()
             return
@@ -99,7 +120,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .queued, !current.isExpired(at: .now) else { return nil }
             current.state = .running
-            current.heartbeatAt = .now
+            current.recordHeartbeat()
             current.stage = "openingCatalog"
             current.message = nil
             didClaim = true
@@ -119,17 +140,22 @@ final class MCPAnalysisController {
                 analysis = nil
             }
             guard let viewModel else {
-                finish(.cancelled)
+                if !isQuitting { await finish(claimed, as: .cancelled) }
                 return
             }
             do {
                 try await run(claimed, viewModel: viewModel, prepare: prepare, canStart: canStart)
             } catch is CancellationError {
-                finish(.cancelled)
+                if !isQuitting { await finish(claimed, as: .cancelled) }
             } catch let error as JobError {
-                finish(.failed, message: error.message)
+                if !isQuitting { await finish(claimed, as: .failed, message: error.message) }
             } catch {
-                finish(.failed, message: "RawCull could not open or analyze the authorized catalog. Check access and authorize it again.")
+                if !isQuitting {
+                    await finish(
+                        claimed, as: .failed,
+                        message: "RawCull could not open or analyze the authorized catalog. Check access and authorize it again."
+                    )
+                }
             }
         }
     }
@@ -167,9 +193,10 @@ final class MCPAnalysisController {
         if index == nil {
             viewModel.sources.append(target)
         }
+        let needsCatalogLoad = viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
+            || !viewModel.hasActiveSecurityScopedAccess(for: url)
         if viewModel.selectedSource != target { viewModel.selectedSource = target }
-        if viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
-            || !viewModel.hasActiveSecurityScopedAccess(for: url) {
+        if needsCatalogLoad {
             viewModel.startCatalogLoad(for: target, scopedURL: url)
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
@@ -201,7 +228,8 @@ final class MCPAnalysisController {
         }
 
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
-        try jobs.update { current in
+        try await updateWithRetry { current in
+            try Task.checkCancellation()
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running else { throw CancellationError() }
             guard !current.cancellationRequested, try isAuthorized(job) else { throw CancellationError() }
@@ -212,8 +240,10 @@ final class MCPAnalysisController {
             current.finish(.completed)
             return current
         }
-        viewModel.showsDetailedBurstComparison = false
-        viewModel.useExistingBurstGroupIndex()
+        if needsCatalogLoad {
+            viewModel.showsDetailedBurstComparison = false
+            viewModel.useExistingBurstGroupIndex()
+        }
     }
 
     private func requireAvailableWorkspace(
@@ -358,7 +388,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running, !current.cancellationRequested else { return nil }
             current.stage = progress.isRunning ? progress.step.rawValue : "openingCatalog"
-            current.heartbeatAt = .now
+            current.recordHeartbeat()
             current.filesScanned = current.stage == "openingCatalog" ? scanned : viewModel.files.count
             if progress.step == .grouping || progress.step == .ranking || progress.step == .savingCache {
                 current.filesAnalyzed = viewModel.similarityModel.embeddings.keys.lazy
@@ -374,13 +404,33 @@ final class MCPAnalysisController {
         }
     }
 
-    private func finish(_ state: AnalysisJob.State, message: String? = nil) {
-        guard let job = activeJob else { return }
+    private func updateWithRetry(
+        _ change: (AnalysisJob?) throws -> AnalysisJob?
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while true {
+            do {
+                try jobs.update(change)
+                return
+            } catch AnalysisJobStore.StoreError.busy where ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
+    private func finish(_ job: AnalysisJob, as state: AnalysisJob.State, message: String? = nil) async {
+        // A cancelled worker still needs to persist its final state.
+        await Task { await persistFinish(job, as: state, message: message) }.value
+    }
+
+    private func persistFinish(_ job: AnalysisJob, as state: AnalysisJob.State, message: String?) async {
         do {
-            try jobs.update { current in
+            try await updateWithRetry { current in
                 guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                       current.state == .running else { return nil }
-                if current.cancellationRequested && state != .cancelled {
+                if isQuitting {
+                    current.finish(.cancelled, message: "RawCull quit.")
+                } else if current.cancellationRequested && state != .cancelled {
                     current.finish(.cancelled)
                 } else {
                     current.finish(state, message: message)
