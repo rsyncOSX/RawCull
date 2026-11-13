@@ -79,7 +79,6 @@ final class CatalogLifecycleCoordinator {
 
     @discardableResult
     func startSecurityScopedAccess(for url: URL) -> Bool {
-        let url = url.standardizedFileURL
         if hasActiveSecurityScopedAccess(for: url) {
             return true
         }

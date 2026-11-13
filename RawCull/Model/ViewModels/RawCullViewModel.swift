@@ -75,6 +75,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
+    @ObservationIgnored var pendingCatalogTransitionSource: ARWSourceCatalog?
     var files: [FileItem] = [] {
         didSet {
             catalogContentRevision &+= 1

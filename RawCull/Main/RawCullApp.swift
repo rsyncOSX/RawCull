@@ -11,11 +11,23 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private weak var viewModel: RawCullViewModel?
+    private let mcpAnalysis = MCPAnalysisController()
     private var terminationTask: Task<Void, Never>?
 
-    func configure(viewModel: RawCullViewModel) {
+    func configure(viewModel: RawCullViewModel, runtime: RawCullIntelligenceRuntime) {
         Logger.process.debugMessageOnly("AppDelegate.configure()")
         self.viewModel = viewModel
+        mcpAnalysis.start(
+            viewModel: viewModel,
+            prepare: { [weak viewModel] in
+                await viewModel?.applyStoredScoringSettings()
+                await runtime.settingsModel.refresh()
+            },
+            canStart: {
+                !runtime.deepAIReviewController.isRunning && !runtime.qwenAnalysisFeature.isRunning
+                    && !runtime.objectAnalysisFeature.isRunning && !runtime.combinedReviewFeature.isRunning
+            }
+        )
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
@@ -30,7 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             flush: { await viewModel.cullingModel.flushPersistence() },
             chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
             setPending: { viewModel.cullingModel.isTerminationPending = $0 },
-            releaseAccess: { viewModel.stopActiveSecurityScopedAccess() },
+            releaseAccess: {
+                self.mcpAnalysis.stopForQuit()
+                viewModel.stopActiveSecurityScopedAccess()
+            },
             reply: { sender.reply(toApplicationShouldTerminate: $0) },
         )
     }
@@ -143,7 +158,7 @@ struct RawCullApp: App {
                 await intelligenceRuntime.settingsModel.refresh()
             }
             .onAppear {
-                appDelegate.configure(viewModel: viewModel)
+                appDelegate.configure(viewModel: viewModel, runtime: intelligenceRuntime)
             }
         }
         .windowToolbarStyle(.unified)

@@ -38,6 +38,14 @@ struct SettingsView: View {
                     Tab("Memory", systemImage: "rectangle.compress.vertical") {
                         MemoryTab()
                     }
+
+                    Tab("MCP", systemImage: "link") {
+                        MCPSettingsTab(
+                            selectedCatalogName: viewModel.selectedSource?.name,
+                            canAuthorizeAnalysis: !viewModel.scanning && !viewModel.files.isEmpty,
+                            authorizeCatalog: viewModel.authorizeMCPCatalog,
+                        )
+                    }
                 }
             } else {
                 ProgressView("Loading Settings...")

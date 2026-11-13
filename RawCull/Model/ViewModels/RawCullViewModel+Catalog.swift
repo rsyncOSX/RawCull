@@ -3,18 +3,83 @@
 //  RawCull
 //
 
+import Foundation
 import OSLog
 
 extension RawCullViewModel {
-    func startCatalogLoad(for source: ARWSourceCatalog?) {
+    private func mcpCatalogSummary() -> CatalogSummary? {
+        guard let selectedSource, catalogLifecycle.currentSource == selectedSource,
+              !scanning, !files.isEmpty
+        else { return nil }
+
+        let captureDates = files.lazy.compactMap(\.captureDate)
+        let cameras = files.reduce(into: [String: Int]()) { counts, file in
+            if let camera = file.exifData?.camera, !camera.isEmpty {
+                counts[camera, default: 0] += 1
+            }
+        }
+        return CatalogSummary(
+            photoCount: files.count,
+            earliestCaptureDate: captureDates.min()?.formatted(.iso8601),
+            latestCaptureDate: captureDates.max()?.formatted(.iso8601),
+            cameraCounts: cameras,
+            snapshotAt: Date().formatted(.iso8601),
+            photos: files.map { file in
+                CatalogPhoto(
+                    name: file.url.lastPathComponent,
+                    captureDate: file.captureDate?.formatted(.iso8601),
+                    camera: file.exifData?.camera,
+                )
+            },
+        )
+    }
+
+    func authorizeMCPCatalog(allowAnalysis: Bool) throws -> CatalogGrant {
+        guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
+        let summary = mcpCatalogSummary()
+        let grant = CatalogGrant(id: UUID(), displayName: source.name, summary: summary, analysisEnabled: allowAnalysis)
+        let previous = MCPAnalysisAuthorization.savedData
+        if allowAnalysis {
+            guard summary != nil, hasActiveSecurityScopedAccess(for: source.url) else {
+                throw CocoaError(.fileReadNoPermission)
+            }
+            let bookmark = try source.url.bookmarkData(
+                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            let authorization = MCPAnalysisAuthorization(
+                catalogId: grant.id,
+                bookmark: bookmark,
+                fingerprint: try MCPAnalysisAuthorization.fingerprint(for: files)
+            )
+            MCPAnalysisAuthorization.save(try JSONEncoder().encode(authorization))
+        }
+        do {
+            try CatalogGrantStore.shared().authorize(grant)
+        } catch {
+            MCPAnalysisAuthorization.save(previous)
+            throw error
+        }
+        if !allowAnalysis { MCPAnalysisAuthorization.save(nil) }
+        return grant
+    }
+
+    func startCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL? = nil) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
-        if let url = source?.url,
+        if scopedURL == nil, let url = source?.url,
            catalogLifecycle.currentSource == source,
            hasActiveSecurityScopedAccess(for: url) {
             return
         }
 
+        // A view observing the same selection must not replace a queued
+        // MCP reload with a transition that lacks its restored bookmark.
+        if scopedURL == nil, catalogLifecycle.transitionTask != nil,
+           pendingCatalogTransitionSource == source { return }
+
         let previousSource = catalogLifecycle.currentSource
+        pendingCatalogTransitionSource = source
         catalogLifecycle.startTransition(
             flushPersistence: { [weak self] in
                 guard let self else { return false }
@@ -22,11 +87,11 @@ extension RawCullViewModel {
             },
             isStillSelected: { [weak self] in self?.selectedSource == source },
             onFailure: { [weak self] in self?.selectedSource = previousSource },
-            onReady: { [weak self] in self?.beginCatalogLoad(for: source) },
+            onReady: { [weak self] in self?.beginCatalogLoad(for: source, scopedURL: scopedURL) },
         )
     }
 
-    private func beginCatalogLoad(for source: ARWSourceCatalog?) {
+    private func beginCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL?) {
         Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
         selectedFileID = nil
         selectedFileIDs = []
@@ -42,7 +107,7 @@ extension RawCullViewModel {
             return
         }
 
-        guard startSecurityScopedAccess(for: url) else {
+        guard startSecurityScopedAccess(for: scopedURL ?? url) else {
             scanning = false
             return
         }

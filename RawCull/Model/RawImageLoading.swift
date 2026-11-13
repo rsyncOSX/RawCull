@@ -288,14 +288,15 @@ nonisolated enum RAW9Support {
 @MainActor
 final class RawCullCatalogGrant {
     let url: URL
-    private let stopAccess: @MainActor (URL) -> Void
+    private let releaseAccess: @MainActor () -> Void
 
     init(url: URL, stopAccess: @escaping @MainActor (URL) -> Void) {
         self.url = url.standardizedFileURL
-        self.stopAccess = stopAccess
+        // The security scope belongs to the URL used to start access.
+        releaseAccess = { stopAccess(url) }
     }
 
-    isolated deinit { stopAccess(url) }
+    isolated deinit { releaseAccess() }
 }
 
 /// Weak registration lets decoders find a root without extending session lifetime.

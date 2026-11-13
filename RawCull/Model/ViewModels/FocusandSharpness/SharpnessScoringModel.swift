@@ -194,7 +194,11 @@ final class SharpnessScoringModel {
             return true
         }
         _calibrationTask = task
-        let shouldContinue = await task.value
+        let shouldContinue = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
         if activeCalibrationGeneration == generation {
             _calibrationTask = nil
             activeCalibrationGeneration = nil
@@ -328,7 +332,11 @@ final class SharpnessScoringModel {
         }
 
         _scoringTask = workTask
-        await workTask.value
+        await withTaskCancellationHandler {
+            await workTask.value
+        } onCancel: {
+            workTask.cancel()
+        }
     }
 
     /// Older burst caches contain blended scores only. Fill missing AF evidence

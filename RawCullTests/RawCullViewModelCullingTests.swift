@@ -692,7 +692,7 @@ struct RawCullViewModelCullingTests {
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(viewModel.burstAnalysisCoordinator.task == nil)
+        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
         #expect(viewModel.burstAnalysisResults.isEmpty)

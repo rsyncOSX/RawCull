@@ -77,6 +77,7 @@ nonisolated enum BurstAnalysisDiagnostic: Equatable, Sendable {
     case reusedSimilarityArtifacts
     case indexedMissingSimilarityArtifacts
     case cacheSaveRequested
+    case cacheSaveFailed
 }
 
 /// Pure output boundary produced by the existing view-model implementation.
