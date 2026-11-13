@@ -110,7 +110,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .queued, !current.isExpired(at: .now) else { return nil }
             current.state = .running
-            current.heartbeatAt = .now
+            current.recordHeartbeat()
             current.stage = "openingCatalog"
             current.message = nil
             didClaim = true
@@ -375,7 +375,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running, !current.cancellationRequested else { return nil }
             current.stage = progress.isRunning ? progress.step.rawValue : "openingCatalog"
-            current.heartbeatAt = .now
+            current.recordHeartbeat()
             current.filesScanned = current.stage == "openingCatalog" ? scanned : viewModel.files.count
             if progress.step == .grouping || progress.step == .ranking || progress.step == .savingCache {
                 current.filesAnalyzed = viewModel.similarityModel.embeddings.keys.lazy

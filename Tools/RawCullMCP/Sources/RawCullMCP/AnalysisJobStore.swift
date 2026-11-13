@@ -1,4 +1,5 @@
 import Darwin
+import Dispatch
 import Foundation
 
 nonisolated struct AnalysisJob: Codable, Sendable {
@@ -15,6 +16,8 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     let createdAt: Date
     var updatedAt: Date
     var heartbeatAt: Date?
+    var heartbeatUptime: UInt64?
+    var heartbeatBootID: String?
     var state: State = .queued
     var cancellationRequested = false
     var stage = "queued"
@@ -65,14 +68,34 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         self.message = message
     }
 
+    private static let bootID: String? = {
+        var bytes = [UInt8](repeating: 0, count: 64)
+        var size = bytes.count
+        guard sysctlbyname("kern.bootsessionuuid", &bytes, &size, nil, 0) == 0 else { return nil }
+        return String(validating: bytes.prefix { $0 != 0 }, as: UTF8.self)
+    }()
+
+    mutating func recordHeartbeat() {
+        heartbeatAt = .now
+        heartbeatUptime = DispatchTime.now().uptimeNanoseconds
+        heartbeatBootID = Self.bootID
+    }
+
     func isExpired(at now: Date) -> Bool {
         switch state {
         case .queued:
-            now.timeIntervalSince(createdAt) > 120
+            return now.timeIntervalSince(createdAt) > 120
         case .running:
-            now.timeIntervalSince(heartbeatAt ?? updatedAt) > 45
+            // Dispatch uptime pauses during system sleep and is shared across processes.
+            let uptime = DispatchTime.now().uptimeNanoseconds
+            let wallAge = now.timeIntervalSince(heartbeatAt ?? updatedAt)
+            if let heartbeatUptime, let bootID = Self.bootID,
+               heartbeatBootID == bootID, uptime >= heartbeatUptime {
+                return uptime - heartbeatUptime > 45_000_000_000
+            }
+            return wallAge > 45
         default:
-            false
+            return false
         }
     }
 }

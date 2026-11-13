@@ -63,7 +63,7 @@ enum AnalysisTools {
         let store = AnalysisJobStore(directory: grantStore.directory)
         try requireAnalysisGrant(catalogId)
         do {
-            let current = try store.expireInterruptedJob()
+            let current = try params.name == cancel.name ? store.readRecovering() : store.expireInterruptedJob()
             let job: AnalysisJob
             if isStart {
                 job = try await submit(catalogId: catalogId, jobId: jobId, store: store)
@@ -78,6 +78,8 @@ enum AnalysisTools {
                 return try page(job, arguments: arguments)
             }
             var details = job
+            details.heartbeatUptime = nil
+            details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
             return try reply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
@@ -181,14 +183,17 @@ enum AnalysisTools {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId else {
                 throw MCPError.invalidParams("That job has been replaced.")
             }
-            guard current.state.isActive, !current.cancellationRequested else { return nil }
-            if current.state == .running, current.heartbeatAt == nil {
+            guard current.state.isActive else { return nil }
+            if current.state == .queued || current.isExpired(at: .now) {
+                current.cancellationRequested = true
+                current.finish(.cancelled)
+                return current
+            }
+            guard !current.cancellationRequested else { return nil }
+            if current.heartbeatAt == nil {
                 current.heartbeatAt = current.updatedAt
             }
             current.cancellationRequested = true
-            if current.state == .queued {
-                current.finish(.cancelled)
-            }
             return current
         }
         return updated ?? job
