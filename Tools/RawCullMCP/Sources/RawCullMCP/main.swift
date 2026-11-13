@@ -1,7 +1,7 @@
 import Foundation
 import MCP
 
-let version = "0.5.0"
+let version = "0.6.0"
 let emptyArguments: Value = .object([
     "type": .string("object"),
     "properties": .object([:]),

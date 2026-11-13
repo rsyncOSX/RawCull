@@ -57,8 +57,7 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
-                    if setup == nil, analysis == nil, let request = try setupStore.pending(),
-                       try jobs.read()?.setupRequestId != request.requestId {
+                    if setup == nil, analysis == nil, let request = try setupStore.pending() {
                         setup = Task { [weak self, weak viewModel] in
                             guard let self else { return }
                             defer { setup = nil }
@@ -105,6 +104,7 @@ final class MCPAnalysisController {
             throw AnalysisJobStore.StoreError.unsupportedFormat
         }
         guard let job = storedJob else {
+            approvedSetup = nil
             analysis?.cancel()
             return
         }

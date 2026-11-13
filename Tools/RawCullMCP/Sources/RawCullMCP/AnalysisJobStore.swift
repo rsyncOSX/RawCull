@@ -272,7 +272,16 @@ nonisolated struct CatalogSetupStore: Sendable {
     }
 
     func request(_ id: UUID) throws -> CatalogSetupRequest? {
-        try read(CatalogSetupRequest.self, at: root().appendingPathComponent(id.uuidString))
+        guard var request = try read(CatalogSetupRequest.self, at: root().appendingPathComponent(id.uuidString)) else {
+            return nil
+        }
+        // Job publication precedes the request receipt. Recover the receipt if its write failed.
+        if request.state == .pendingApproval, let job = try? jobs.read(), job.setupRequestId == id {
+            request.state = .queued
+            request.catalogId = job.catalogId
+            request.jobId = job.jobId
+        }
+        return request
     }
 
     func pending() throws -> CatalogSetupRequest? {

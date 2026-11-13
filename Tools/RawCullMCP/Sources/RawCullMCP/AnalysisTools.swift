@@ -100,11 +100,6 @@ enum AnalysisTools {
             }
             request = existing
         }
-        if request.state == .pendingApproval, let job = try? store.jobs.read(), job.setupRequestId == id {
-            request.state = .queued
-            request.catalogId = job.catalogId
-            request.jobId = job.jobId
-        }
         if request.state == .pendingApproval, request.isExpired {
             request.state = .failed
             request.message = "The catalog setup request expired. Start a new request."

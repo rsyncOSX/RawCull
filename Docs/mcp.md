@@ -1,6 +1,6 @@
 # RawCull MCP implementation plan
 
-**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 starts with prompt-driven catalog setup and job approval.
+**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 (0.6.0) adds prompt-driven catalog setup and job approval. Signed TestFlight verification is pending.
 
 ## What the user should be able to do
 
@@ -72,7 +72,7 @@ Point a desktop MCP client's local stdio server configuration at the absolute pa
 codex mcp add rawcull -- "$PWD/Tools/RawCullMCP/.build/release/rawcull-mcp"
 ```
 
-Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.5.0`, transport `stdio`, and the Phase 1 and Phase 2 tools. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
+Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.6.0`, transport `stdio`, and the Phase 1 through Phase 3 tools. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
 
 ### Test the bundled helper with TestFlight
 
@@ -193,11 +193,10 @@ The TestFlight helper could also read the earlier local job. For a repeat test t
 
 Start with burst analysis as the first job supported by this workflow. The target prompt is “Add my Saturday shoot and find the best frame in each burst.”
 
-1. Add an MCP operation that takes a catalog hint, a supported job type, and a client-generated request ID. Open RawCull with a pending request and return its ID so the client can poll while the user responds. Reuse the request ID on retry.
-2. In RawCull, let the user choose the source folder with the existing catalog picker when access is needed. Treat the name in the prompt as a hint for the picker. Show the selected folder and requested job in RawCull before approving access.
-3. On approval, add or open the catalog and queue the requested job through the existing Phase 2 pipeline. Make approval apply to that job by default. Offer an explicit choice to remember access for future jobs. Keep source-folder access in RawCull and define how a one-job grant expires while still letting the requesting client read the job’s progress and results.
-4. Report pending approval, approval, denial, or failure to the client. Once analysis is queued, return the catalog ID and job ID so the client can use `get_analysis_status` and `list_bursts`. Use the request ID to prevent duplicate prompts or jobs when clients retry.
-5. Test on a signed TestFlight install with RawCull closed and no existing MCP grant. Exercise approval, picker cancellation, denial, retries, a disconnected source, and a previously authorized catalog. Verify that cancelling or denying leaves no new grant or analysis job and that a retry after approval returns the same job.
+1. Call `request_catalog_setup` with a `catalogHint`, `jobType: "burstAnalysis"`, and a new UUID as `requestId`. RawCull opens in the foreground. Poll `get_catalog_setup_status` with that UUID. Reuse the UUID if retrying the same request.
+2. In RawCull, choose a folder or use the current catalog. Check the folder path and requested job in the approval sheet. Choose **Approve This Job**, **Approve and Remember**, or **Deny**. Cancelling the picker also denies the request. A pending request expires after ten minutes.
+3. When the request reports `queued`, use its `catalogId` and `jobId` with `get_analysis_status` and `list_bursts`. One-job approval permits analysis while RawCull holds the approved folder access and permits reading that job until the shared job slot is replaced or cleared. Remembering access saves an MCP catalog grant after the folder loads. A restart before the approved job can use the folder requires a new setup request.
+4. On a signed TestFlight install, start with RawCull closed and no existing MCP grant. Exercise approval, picker cancellation, denial, retries, a disconnected source, and a previously authorized catalog. Verify that cancellation or denial leaves no new grant or job, the same request ID returns the same job, and a one-job result stays readable after RawCull quits. Repeat with **Approve and Remember** and verify that `list_catalogs` reports the saved catalog after it loads.
 
 **Release gate.** From a prompt, a tester can select a new source folder, approve the requested job in RawCull, and receive completed analysis results in chat without visiting **Settings → MCP**.
 
