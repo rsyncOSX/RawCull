@@ -4,6 +4,7 @@ struct CatalogGrant: Codable {
     let id: UUID
     let displayName: String
     let summary: CatalogSummary?
+    let analysisEnabled: Bool?
 }
 
 struct CatalogSummary: Codable {
@@ -50,11 +51,9 @@ struct CatalogGrantStore: Sendable {
         return try JSONDecoder().decode(CatalogGrant.self, from: data)
     }
 
-    func authorize(displayName: String, summary: CatalogSummary?) throws -> CatalogGrant {
+    func authorize(_ grant: CatalogGrant) throws {
         let manifest = try manifestURL()
-        let grant = CatalogGrant(id: UUID(), displayName: displayName, summary: summary)
         try JSONEncoder().encode(grant).write(to: manifest, options: .atomic)
-        return grant
     }
 
     func revoke() throws {

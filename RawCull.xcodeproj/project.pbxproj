@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		E9AC00122F40000000000012 /* CatalogGrantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00132F40000000000013 /* CatalogGrantStore.swift */; };
+		E9AC00222F40000000000022 /* AnalysisJobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00232F40000000000023 /* AnalysisJobStore.swift */; };
 		068827806CC45B0D9C34F205 /* CoreAIQwenBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1426C305826C5000D8EBA /* CoreAIQwenBackend */; };
 		0FE4BD8BD6185D1FA071B65D /* PhotoAIWorkflows in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14268305826C5000D8EBA /* PhotoAIWorkflows */; };
 		1D3345C59C355555A427EA0D /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */; };
@@ -119,6 +120,7 @@
 
 /* Begin PBXFileReference section */
 		E9AC00132F40000000000013 /* CatalogGrantStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift; sourceTree = SOURCE_ROOT; };
+		E9AC00232F40000000000023 /* AnalysisJobStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift; sourceTree = SOURCE_ROOT; };
 		01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputProbe.swift; sourceTree = SOURCE_ROOT; };
 		0A264D5CA582565E8B4B6D76 /* RawCullPerformanceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullPerformanceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Main/RawCullFileItem.swift; sourceTree = SOURCE_ROOT; };
@@ -323,6 +325,7 @@
 				E9AC00112F40000000000008 /* RawCullMCP Sources */,
 				E9AC00112F40000000000011 /* RawCullMCP.xcconfig */,
 				E9AC00132F40000000000013 /* CatalogGrantStore.swift */,
+				E9AC00232F40000000000023 /* AnalysisJobStore.swift */,
 				E90B07A32F1E58EA00A95D4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -616,6 +619,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E9AC00122F40000000000012 /* CatalogGrantStore.swift in Sources */,
+				E9AC00222F40000000000022 /* AnalysisJobStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

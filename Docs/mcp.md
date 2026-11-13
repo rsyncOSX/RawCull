@@ -1,6 +1,6 @@
 # RawCull MCP implementation plan
 
-**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The next release checks are a clean-account test and distribution through TestFlight. Phase 2 burst preparation is planned.
+**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The next release checks are a clean-account test and distribution through TestFlight. Phase 2 adds an opt-in catalog analysis workflow in helper version 0.5.0. Signed end-to-end testing and catalog benchmarks are pending.
 
 ## What the user should be able to do
 
@@ -71,7 +71,7 @@ Point a desktop MCP client's local stdio server configuration at the absolute pa
 codex mcp add rawcull -- "$PWD/Tools/RawCullMCP/.build/release/rawcull-mcp"
 ```
 
-Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.4.0`, transport `stdio`, and the four Phase 1 capabilities. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
+Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.5.0`, transport `stdio`, and the Phase 1 and Phase 2 tools. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
 
 ### Test the bundled helper with TestFlight
 
@@ -146,10 +146,26 @@ Before release, repeat the workflow on a clean account and with the Phase 1 Test
 
 ## Phase 2 — Add catalog analysis and burst recommendations
 
-1. Have the MCP helper launch RawCull when needed and submit a structured request to the running app. RawCull owns catalog access, scanning, indexing, sharpness, burst grouping, and ranking. Use the app’s current settings and model availability, including CLIP and Vision fallback when configured. The first milestone is a saved, ranked burst list ready to review in RawCull. An explicit request to rate each recommended frame two stars would use the app’s existing rating API.
-2. Add `start_catalog_analysis`, `get_analysis_status`, `cancel_analysis`, and paginated `list_bursts`. Return a job ID immediately. Report files scanned and analyzed, skipped files with reasons, current stage, and terminal state. Start with one active analysis in RawCull and bound parallelism. Define what happens when Codex disconnects or RawCull quits, and make retries safe.
-3. Return the top ranked frames, evidence available to RawCull, confidence or cautions, and alternates for each burst. Include singleton counts and unevaluated photos in the catalog summary so the assistant can explain coverage. Use IDs tied to a catalog snapshot and validate against that snapshot throughout the job.
-4. Measure completion time, memory, model availability, and agreement with the existing app on small and representative large catalogs. Check that running the app and helper together does not corrupt state or make normal review unusable. Use pilot feedback to decide which burst evidence or workflow to expose next.
+Select a catalog and let it finish loading. In **Settings → MCP**, turn on **Allow MCP to start burst analysis** and choose **Authorize Selected Catalog**. This creates a new catalog ID. Older authorizations still provide metadata access. RawCull keeps a read-only security-scoped bookmark in its own preferences and uses it to reopen the folder and check the scan against the authorized snapshot.
+
+| Tool | Arguments and result |
+| --- | --- |
+| `start_catalog_analysis` | Takes `catalogId` and a client-generated `requestId` UUID. Returns that UUID as `jobId` without waiting for analysis. Use the same request ID if retrying the call. |
+| `get_analysis_status` | Takes `catalogId` and `jobId`. Reports state, stage, scan and analysis counts, and coverage at completion. |
+| `cancel_analysis` | Takes `catalogId` and `jobId`. Requests cancellation. Poll until the job reaches a terminal state. |
+| `list_bursts` | Takes `catalogId` and `jobId` for a completed job. Defaults to 10 bursts per page and accepts a limit of 1–25. Pass `nextCursor` as `cursor`. Each burst includes the recommendation, alternate, confidence, and available evidence for up to five frames. Photo IDs match `list_photos`. |
+
+RawCull runs its existing full catalog pipeline with the selected scoring settings and available models. It saves the ranked list in its analysis cache and opens the burst workspace. Coverage reports singleton and unevaluated counts, reasons for missing analysis, and the actual similarity backends used. It is also available from `catalog_summary` after a job completes. Use RawCull's existing culling controls to apply ratings.
+
+RawCull runs one MCP job at a time. A new job replaces the previous result. Codex can disconnect and reconnect while the app continues the job. Quitting RawCull cancels a running job. An interrupted job with no heartbeat for 45 seconds is reported as failed. Revoking or replacing the catalog grant stops access to that grant's job and results.
+
+### Verify on a signed build
+
+1. Install a signed Phase 2 build and register its bundled helper as in Phase 1. Start with a small catalog containing known bursts and singletons, then authorize analysis and quit RawCull.
+2. In a fresh Codex session, ask Codex to call `list_catalogs`, start analysis with a new request ID, and poll for completion. Confirm that RawCull opens the authorized folder and shows the burst workspace. Compare the recommended frames, alternate IDs, and coverage with the app. Fetch a second page with `nextCursor`.
+3. Try two clients, duplicate request IDs, cancellation during a scan and during scoring, and disconnecting Codex while RawCull runs. Quit RawCull after a successful run and verify that the MCP results survive. Reopen the catalog and confirm the burst workspace can restore the saved ranking.
+4. Verify that revoking or replacing authorization hides previous jobs, and that a changed or disconnected source produces an actionable failure. Repeat on a representative large catalog and record duration, peak memory, coverage, and agreement with manual burst analysis under the same settings. Exercise CLIP and Vision configurations.
+
 
 ## Phase 3 — Add visual review and a draft the user can open
 

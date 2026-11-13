@@ -10,10 +10,11 @@ import RawCullCore
 extension RawCullViewModel {
     // MARK: - Intelligent burst analysis
 
-    private func startBurstAnalysis(
+    @discardableResult
+    func startBurstAnalysis(
         catalog: URL,
         files sorted: [FileItem],
-    ) async {
+    ) async -> BurstAnalysisPipelineResult? {
         Logger.process.debugMessageOnly("RawCullViewModel.startBurstAnalysis()")
         let generation = burstAnalysisCoordinator.beginGeneration()
         let request = makeBurstAnalysisPipelineRequest(
@@ -22,19 +23,15 @@ extension RawCullViewModel {
             generation: generation,
         )
         let task = Task { [weak self] in
-            guard let self else { return }
-            _ = await self.runBurstAnalysis(request)
+            await self?.runBurstAnalysis(request)
         }
         burstAnalysisCoordinator.register(task, generation: generation)
 
-        await withTaskCancellationHandler {
+        return await withTaskCancellationHandler {
             await task.value
         } onCancel: {
             task.cancel()
         }
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.startBurstAnalysis(): burst analysis task returned",
-        )
     }
 
     private func runBurstAnalysis(

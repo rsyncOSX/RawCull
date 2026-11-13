@@ -289,7 +289,7 @@ struct BurstAnalysisCoordinatorTests {
         harness.coordinator.updateProgress(BurstAnalysisProgress(step: .ranking))
 
         #expect(generation == 1)
-        #expect(harness.coordinator.task != nil)
+        #expect(harness.coordinator.hasActiveTask)
         #expect(harness.coordinator.progress.step == .ranking)
         #expect(harness.coordinator.isCurrent(generation: generation))
 
@@ -297,7 +297,7 @@ struct BurstAnalysisCoordinatorTests {
         await task.value
 
         #expect(harness.coordinator.generation == 2)
-        #expect(harness.coordinator.task == nil)
+        #expect(!harness.coordinator.hasActiveTask)
         #expect(!harness.coordinator.progress.isRunning)
         #expect(!harness.coordinator.isCurrent(generation: generation))
     }

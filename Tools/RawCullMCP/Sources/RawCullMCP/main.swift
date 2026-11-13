@@ -1,7 +1,7 @@
 import Foundation
 import MCP
 
-let version = "0.4.0"
+let version = "0.5.0"
 let emptyArguments: Value = .object([
     "type": .string("object"),
     "properties": .object([:]),
@@ -46,7 +46,7 @@ let listPhotosTool = Tool(
         "additionalProperties": .bool(false),
     ])
 )
-let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool]
+let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
 let grantStore = CatalogGrantStore.shared()
 
 func readCatalogGrant() throws -> CatalogGrant? {
@@ -83,6 +83,10 @@ await server.withMethodHandler(ListResourceTemplates.self) { _ in
 }
 
 await server.withMethodHandler(CallTool.self) { params in
+    if AnalysisTools.all.contains(where: { $0.name == params.name }) {
+        return try await AnalysisTools.call(params)
+    }
+
     if params.name == listPhotosTool.name {
         guard let arguments = params.arguments,
               Set(arguments.keys).isSubset(of: ["catalogId", "limit", "cursor"]),
@@ -145,17 +149,23 @@ await server.withMethodHandler(CallTool.self) { params in
                 structuredContent: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
             )
         }
+        var details: [String: Value] = [
+            "catalogId": .string(catalog.id.uuidString),
+            "scanStatus": .string("saved_snapshot"),
+            "snapshotAt": .string(summary.snapshotAt),
+            "photoCount": .int(summary.photoCount),
+            "earliestCaptureDate": summary.earliestCaptureDate.map(Value.string) ?? .null,
+            "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
+            "cameraCounts": .object(summary.cameraCounts.mapValues(Value.int)),
+        ]
+        if catalog.analysisEnabled == true,
+           let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
+           job.catalogId == catalog.id, job.state == .completed, let coverage = job.coverage {
+            details["analysisCoverage"] = try Value(coverage)
+        }
         return .init(
             content: [.text(text: "RawCull's saved scan for \(catalog.displayName) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
-            structuredContent: .object([
-                "catalogId": .string(catalog.id.uuidString),
-                "scanStatus": .string("saved_snapshot"),
-                "snapshotAt": .string(summary.snapshotAt),
-                "photoCount": .int(summary.photoCount),
-                "earliestCaptureDate": summary.earliestCaptureDate.map(Value.string) ?? .null,
-                "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
-                "cameraCounts": .object(summary.cameraCounts.mapValues(Value.int)),
-            ])
+            structuredContent: .object(details)
         )
     }
 
@@ -167,7 +177,7 @@ await server.withMethodHandler(CallTool.self) { params in
     case listCatalogsTool.name:
         let catalog = try readCatalogGrant()
         let catalogs: [Value] = catalog.map {
-            [.object(["id": .string($0.id.uuidString), "displayName": .string($0.displayName)])]
+            [.object(["id": .string($0.id.uuidString), "displayName": .string($0.displayName), "analysisEnabled": .bool($0.analysisEnabled == true)])]
         } ?? []
         return .init(
             content: [.text(

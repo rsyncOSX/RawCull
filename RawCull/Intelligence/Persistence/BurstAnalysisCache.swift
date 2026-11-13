@@ -196,7 +196,8 @@ actor BurstAnalysisCache {
         }
     }
 
-    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+    @discardableResult
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async -> Bool {
         Logger.process.debugMessageOnly(
             "BurstAnalysisCache.save(): saving snapshot with \(snapshot.files.count) files",
         )
@@ -204,21 +205,22 @@ actor BurstAnalysisCache {
             Logger.process.debugMessageOnly(
                 "BurstAnalysisCache.save(): cancelled before saving",
             )
-            return
+            return false
         }
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(snapshot)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return false }
             try data.write(to: cacheURL(for: catalog), options: [.atomic])
             Logger.process.debugMessageOnly(
                 "BurstAnalysisCache.save(): snapshot saved",
             )
+            return true
         } catch {
             Logger.process.debugMessageOnly(
                 "BurstAnalysisCache.save(): cache write failed: \(error)",
             )
-            return
+            return false
         }
     }
 

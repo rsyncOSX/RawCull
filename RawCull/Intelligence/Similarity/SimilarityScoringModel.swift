@@ -597,7 +597,11 @@ final class SimilarityScoringModel {
         }
 
         _indexingTask = workTask
-        let result = await workTask.value
+        let result = await withTaskCancellationHandler {
+            await workTask.value
+        } onCancel: {
+            workTask.cancel()
+        }
         guard _indexingGeneration == generation else { return }
         _indexingTask = nil
         _indexingStartedAt = nil
@@ -798,7 +802,11 @@ final class SimilarityScoringModel {
         }
         _groupingTask = work
 
-        let output = await work.value
+        let output = await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
 
         if _groupingTask == work {
             _groupingTask = nil

@@ -15,7 +15,7 @@ protocol BurstAnalysisCacheRepository: AnyObject {
     ) async -> BurstAnalysisCacheSnapshot?
 
     func loadMigrationCandidate(catalog: URL) async -> BurstAnalysisCacheSnapshot?
-    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async -> Bool
     func delete(catalog: URL) async
 }
 
@@ -47,7 +47,7 @@ final class LiveBurstAnalysisCacheRepository: BurstAnalysisCacheRepository {
         await cache.loadMigrationCandidate(catalog: catalog)
     }
 
-    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async -> Bool {
         await cache.save(snapshot, catalog: catalog)
     }
 

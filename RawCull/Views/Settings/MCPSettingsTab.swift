@@ -2,8 +2,10 @@ import SwiftUI
 
 struct MCPSettingsTab: View {
     let selectedCatalogName: String?
-    let makeSummary: () -> CatalogSummary?
+    let canAuthorizeAnalysis: Bool
+    let authorizeCatalog: (Bool) throws -> CatalogGrant
 
+    @State private var allowAnalysis = false
     @State private var grant: CatalogGrant?
     @State private var storageError: LocalizedStringResource?
 
@@ -12,14 +14,20 @@ struct MCPSettingsTab: View {
             Section {
                 if let grant {
                     LabeledContent("Authorized catalog", value: grant.displayName)
+                    if grant.analysisEnabled == true {
+                        Text("Catalog analysis is authorized.")
+                    }
                 } else if storageError == nil {
                     Text("No catalog is authorized.")
                 }
 
                 if let selectedCatalogName {
                     LabeledContent("Selected catalog", value: selectedCatalogName)
-                    Button("Authorize Selected Catalog") {
-                        authorize(selectedCatalogName)
+                    Toggle("Allow MCP to start burst analysis", isOn: $allowAnalysis)
+                    Button("Authorize Selected Catalog", action: authorize)
+                        .disabled(allowAnalysis && !canAuthorizeAnalysis)
+                    if allowAnalysis, !canAuthorizeAnalysis {
+                        Text("Wait for the catalog to finish loading before authorizing analysis.")
                     }
                 } else {
                     Text("Select a catalog in RawCull to authorize it.")
@@ -37,13 +45,14 @@ struct MCPSettingsTab: View {
             } header: {
                 Text("Catalog access")
             } footer: {
-                Text("An MCP client can list the authorized catalog and read its saved scan summary while RawCull is closed. Authorizing again replaces the saved summary.")
+                Text("An MCP client can read saved catalog metadata while RawCull is closed. If you allow analysis, it can also open RawCull to scan this catalog and read ranked bursts. Authorizing again replaces the saved snapshot.")
             }
         }
         .formStyle(.grouped)
         .task {
             do {
                 grant = try CatalogGrantStore.shared().authorizedCatalog()
+                allowAnalysis = grant?.analysisEnabled == true
                 storageError = nil
             } catch {
                 storageError = "The MCP catalog authorization could not be read."
@@ -51,9 +60,9 @@ struct MCPSettingsTab: View {
         }
     }
 
-    private func authorize(_ name: String) {
+    private func authorize() {
         do {
-            grant = try CatalogGrantStore.shared().authorize(displayName: name, summary: makeSummary())
+            grant = try authorizeCatalog(allowAnalysis)
             storageError = nil
         } catch {
             storageError = "The selected catalog could not be authorized."
@@ -63,6 +72,8 @@ struct MCPSettingsTab: View {
     private func revoke() {
         do {
             try CatalogGrantStore.shared().revoke()
+            MCPAnalysisAuthorization.save(nil)
+            allowAnalysis = false
             grant = nil
             storageError = nil
         } catch {

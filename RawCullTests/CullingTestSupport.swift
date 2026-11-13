@@ -498,8 +498,9 @@ final class TestBurstAnalysisCacheRepository: BurstAnalysisCacheRepository {
         await migrationLoadHandler(catalog)
     }
 
-    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async -> Bool {
         await saveHandler(snapshot, catalog)
+        return true
     }
 
     func delete(catalog: URL) async {

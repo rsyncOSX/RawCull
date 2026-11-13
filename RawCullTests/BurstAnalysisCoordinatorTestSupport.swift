@@ -32,8 +32,9 @@ final class CoordinatorCacheRepository: BurstAnalysisCacheRepository {
         return migrationCandidate
     }
 
-    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog _: URL) async {
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog _: URL) async -> Bool {
         savedSnapshots.append(snapshot)
+        return true
     }
 
     func delete(catalog _: URL) async {}
