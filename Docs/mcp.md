@@ -232,6 +232,12 @@ Start with RawCull closed and use a source folder without an MCP grant. Run each
 
 ### Visual review and drafts
 
+Helper `0.6.0` supports ranking retrieval through `list_bursts`. Preview sharing, contact sheets, and review drafts are planned capabilities that require a newer build.
+
+**Inspect low-confidence rankings with helper `0.6.0`.**
+
+> Use only `rawcull`. For `<catalog ID and completed job ID>`, page through `list_bursts` until you find up to five low-confidence bursts or reach the end. Report each burst ID, its first-ranked frame and alternate, their scores if available, and RawCull’s confidence reason. Report the number found if there are fewer than five.
+
 After prompt-driven setup and approval work end to end, continue with visual review and saved drafts.
 
 1. Add an explicit preview sharing setting for the authorized catalog. A local helper can return images to a client that uses a cloud model. Tell the user this before enabling previews. Verify that the chosen client passes MCP image content to its vision model. [MCP media documentation](https://py.sdk.modelcontextprotocol.io/servers/media/)
@@ -241,9 +247,9 @@ After prompt-driven setup and approval work end to end, continue with visual rev
 
 **Visual review release gate.** A tester can ask for a burst review with RawCull closed, see that the correct draft survived the helper exiting, open it in RawCull, and apply only the suggestions they choose.
 
-**Target prompt once preview and draft tools are available.**
+**Acceptance prompt for a future build that exposes `get_burst_previews` and `save_review_draft`.**
 
-> Use only `rawcull`. Review the first five low-confidence bursts from `<catalog ID and completed job ID>`. If preview sharing needs my approval, tell me where to enable it and wait. Use the contact sheets and RawCull’s ranking evidence to choose a frame and an alternate for each burst. Explain the visible differences that affected your choices and flag any close calls. Save the suggestions as a review draft and give me its ID so I can open it in RawCull and decide which suggestions to apply. Leave the catalog’s frame choices for me to apply.
+> Use only `rawcull`. Review up to five low-confidence bursts from `<catalog ID and completed job ID>`. If preview sharing needs my approval, tell me where to enable it and wait. Use the contact sheets and RawCull’s ranking evidence to choose a frame and an alternate for each burst. Explain the visible differences that affected your choices and flag any close calls. Save the suggestions as a review draft and give me its ID so I can open it in RawCull and decide which suggestions to apply. Leave the catalog’s frame choices for me to apply.
 
 ## What to consider after the pilot
 
