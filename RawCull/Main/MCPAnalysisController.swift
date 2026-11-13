@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Foundation
 import OSLog
@@ -42,6 +43,7 @@ final class MCPAnalysisController {
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
+    private var setup: Task<Void, Never>?
     private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
@@ -54,6 +56,14 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                    if setup == nil, analysis == nil, let request = try setupStore.pending() {
+                        setup = Task { [weak self, weak viewModel] in
+                            guard let self else { return }
+                            defer { setup = nil }
+                            guard let viewModel else { return }
+                            await respond(to: request, viewModel: viewModel, canStart: canStart)
+                        }
+                    }
                 } catch AnalysisJobStore.StoreError.unsupportedFormat {
                     Logger.process.error("MCP analysis job uses an unsupported format. Reauthorize the catalog to clear it.")
                     analysis?.cancel()
@@ -73,6 +83,7 @@ final class MCPAnalysisController {
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
+        setup?.cancel()
         if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
     }
 
@@ -113,7 +124,7 @@ final class MCPAnalysisController {
             _ = try jobs.expireInterruptedJob()
             return
         }
-        guard job.state == .queued else { return }
+        guard job.state == .queued, setup == nil else { return }
 
         var didClaim = false
         let claimed = try jobs.update { current in
@@ -157,6 +168,81 @@ final class MCPAnalysisController {
                     )
                 }
             }
+        }
+    }
+
+    private var setupStore: CatalogSetupStore { CatalogSetupStore(jobs: jobs) }
+
+    private func respond(
+        to request: CatalogSetupRequest, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+    ) async {
+        var response = request
+        do {
+            guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
+            guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) else {
+                throw JobError("Open RawCull's main window and start a new request.")
+            }
+
+            let chooser = NSAlert()
+            chooser.messageText = String(localized: "Choose a catalog for burst analysis")
+            chooser.informativeText = request.catalogHint
+            chooser.addButton(withTitle: String(localized: "Choose Folder…"))
+            let current = viewModel.selectedSource
+            if current != nil {
+                chooser.addButton(withTitle: String(localized: "Use Current Catalog"))
+            }
+            chooser.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
+            let choice = await chooser.beginSheetModal(for: window)
+            let url: URL
+            if choice == .alertFirstButtonReturn {
+                let picker = NSOpenPanel()
+                picker.canChooseDirectories = true
+                picker.canChooseFiles = false
+                picker.allowsMultipleSelection = false
+                if let current { picker.directoryURL = current.url.deletingLastPathComponent() }
+                guard await picker.beginSheetModal(for: window) == .OK, let picked = picker.url else {
+                    throw CancellationError()
+                }
+                url = picked
+            } else if choice == .alertSecondButtonReturn, let current {
+                url = current.url
+            } else {
+                throw CancellationError()
+            }
+
+            let confirmation = NSAlert()
+            confirmation.messageText = String(localized: "Approve burst analysis?")
+            confirmation.informativeText = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share its ranked bursts with the MCP client.")
+            confirmation.addButton(withTitle: String(localized: "Approve This Job"))
+            confirmation.addButton(withTitle: String(localized: "Approve and Remember"))
+            confirmation.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
+            let approval = await confirmation.beginSheetModal(for: window)
+            guard approval == .alertFirstButtonReturn || approval == .alertSecondButtonReturn else {
+                throw CancellationError()
+            }
+            try Task.checkCancellation()
+            try await queueSetup(
+                request, url: url, remember: approval == .alertSecondButtonReturn,
+                viewModel: viewModel, canStart: canStart
+            )
+            return
+        } catch is CancellationError {
+            response.state = .denied
+            response.message = "Catalog setup was cancelled or denied in RawCull."
+        } catch let error as JobError {
+            response.state = .failed
+            response.message = error.message
+        } catch {
+            response.state = .failed
+            response.message = "RawCull could not open the selected catalog or queue the analysis."
+        }
+        do {
+            try await withJobLockRetry {
+                guard try setupStore.pending()?.requestId == request.requestId else { return }
+                try setupStore.saveLocked(response)
+            }
+        } catch {
+            Logger.process.error("Could not save the MCP catalog setup response.")
         }
     }
 
@@ -407,10 +493,14 @@ final class MCPAnalysisController {
     private func updateWithRetry(
         _ change: (AnalysisJob?) throws -> AnalysisJob?
     ) async throws {
+        try await withJobLockRetry { try jobs.updateLocked(change) }
+    }
+
+    private func withJobLockRetry(_ operation: () throws -> Void) async throws {
         let deadline = ContinuousClock.now + .seconds(2)
         while true {
             do {
-                try jobs.update(change)
+                try jobs.withLock(operation)
                 return
             } catch AnalysisJobStore.StoreError.busy where ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(50))
