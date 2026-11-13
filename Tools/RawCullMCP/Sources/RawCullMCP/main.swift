@@ -7,15 +7,18 @@ let emptyArguments: Value = .object([
     "properties": .object([:]),
     "additionalProperties": .bool(false),
 ])
+let catalogReadAnnotations = Tool.Annotations(readOnlyHint: true, openWorldHint: false)
 let statusTool = Tool(
     name: "rawcull_status",
     description: "Report the RawCull MCP helper version and available capabilities.",
-    inputSchema: emptyArguments
+    inputSchema: emptyArguments,
+    annotations: catalogReadAnnotations
 )
 let listCatalogsTool = Tool(
     name: "list_catalogs",
     description: "List the catalog RawCull has authorized for MCP access.",
-    inputSchema: emptyArguments
+    inputSchema: emptyArguments,
+    annotations: catalogReadAnnotations
 )
 let catalogSummaryTool = Tool(
     name: "catalog_summary",
@@ -25,7 +28,8 @@ let catalogSummaryTool = Tool(
         "properties": .object(["catalogId": .object(["type": .string("string"), "format": .string("uuid")])]),
         "required": .array([.string("catalogId")]),
         "additionalProperties": .bool(false),
-    ])
+    ]),
+    annotations: catalogReadAnnotations
 )
 let photoPageSize = 50
 let maximumPhotoPageSize = 100
@@ -44,10 +48,17 @@ let listPhotosTool = Tool(
         ]),
         "required": .array([.string("catalogId")]),
         "additionalProperties": .bool(false),
-    ])
+    ]),
+    annotations: catalogReadAnnotations
 )
 let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
 let grantStore = CatalogGrantStore.shared()
+
+func catalogMetadataText(_ value: String) -> String {
+    String(String.UnicodeScalarView(value.unicodeScalars.prefix(512).map { scalar in
+        CharacterSet.controlCharacters.contains(scalar) ? " " : scalar
+    }))
+}
 
 func readCatalogGrant() throws -> CatalogGrant? {
     do {
@@ -83,6 +94,20 @@ await server.withMethodHandler(ListResourceTemplates.self) { _ in
 }
 
 await server.withMethodHandler(CallTool.self) { params in
+    guard availableTools.contains(where: { $0.name == params.name }) else {
+        throw MCPError.invalidParams("Unknown tool: \(params.name)")
+    }
+    do {
+        return try await callKnownTool(params)
+    } catch MCPError.invalidParams(let message) {
+        return .init(
+            content: [.text(text: message ?? "Invalid tool arguments.", annotations: nil, _meta: nil)],
+            isError: true
+        )
+    }
+}
+
+func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Result {
     if AnalysisTools.all.contains(where: { $0.name == params.name }) {
         return try await AnalysisTools.call(params)
     }
@@ -120,13 +145,13 @@ await server.withMethodHandler(CallTool.self) { params in
             let photo = photos[index]
             return .object([
                 "id": .string("\(cursorPrefix)\(index)"),
-                "name": .string(photo.name),
+                "name": .string(catalogMetadataText(photo.name)),
                 "captureDate": photo.captureDate.map(Value.string) ?? .null,
-                "camera": photo.camera.map(Value.string) ?? .null,
+                "camera": photo.camera.map { .string(catalogMetadataText($0)) } ?? .null,
             ])
         }
         return .init(
-            content: [.text(text: "Returned \(page.count) of \(photos.count) photos from the saved scan for \(catalog.displayName).", annotations: nil, _meta: nil)],
+            content: [.text(text: "Returned \(page.count) of \(photos.count) photos from the saved scan for \(catalogMetadataText(catalog.displayName)).", annotations: nil, _meta: nil)],
             structuredContent: .object([
                 "catalogId": .string(catalogID.uuidString),
                 "scanStatus": .string("saved_snapshot"),
@@ -149,6 +174,9 @@ await server.withMethodHandler(CallTool.self) { params in
                 structuredContent: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
             )
         }
+        let cameraCounts = summary.cameraCounts.reduce(into: [String: Int]()) { counts, entry in
+            counts[catalogMetadataText(entry.key), default: 0] += entry.value
+        }
         var details: [String: Value] = [
             "catalogId": .string(catalog.id.uuidString),
             "scanStatus": .string("saved_snapshot"),
@@ -156,15 +184,19 @@ await server.withMethodHandler(CallTool.self) { params in
             "photoCount": .int(summary.photoCount),
             "earliestCaptureDate": summary.earliestCaptureDate.map(Value.string) ?? .null,
             "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
-            "cameraCounts": .object(summary.cameraCounts.mapValues(Value.int)),
+            "cameraCounts": .object(cameraCounts.mapValues(Value.int)),
         ]
         if catalog.analysisEnabled == true,
            let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
            job.catalogId == catalog.id, job.state == .completed, let coverage = job.coverage {
-            details["analysisCoverage"] = try Value(coverage)
+            do {
+                details["analysisCoverage"] = try Value(coverage)
+            } catch {
+                throw MCPError.internalError("The analysis coverage could not be encoded.")
+            }
         }
         return .init(
-            content: [.text(text: "RawCull's saved scan for \(catalog.displayName) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
+            content: [.text(text: "RawCull's saved scan for \(catalogMetadataText(catalog.displayName)) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
             structuredContent: .object(details)
         )
     }
@@ -177,11 +209,11 @@ await server.withMethodHandler(CallTool.self) { params in
     case listCatalogsTool.name:
         let catalog = try readCatalogGrant()
         let catalogs: [Value] = catalog.map {
-            [.object(["id": .string($0.id.uuidString), "displayName": .string($0.displayName), "analysisEnabled": .bool($0.analysisEnabled == true)])]
+            [.object(["id": .string($0.id.uuidString), "displayName": .string(catalogMetadataText($0.displayName)), "analysisEnabled": .bool($0.analysisEnabled == true)])]
         } ?? []
         return .init(
             content: [.text(
-                text: catalog.map { "Authorized catalog: \($0.displayName)" } ?? "No catalog is authorized.",
+                text: catalog.map { "Authorized catalog: \(catalogMetadataText($0.displayName))" } ?? "No catalog is authorized.",
                 annotations: nil,
                 _meta: nil
             )],

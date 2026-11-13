@@ -73,7 +73,7 @@ final class MCPAnalysisController {
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
-        guard let job = try jobs.read() else {
+        guard let job = try jobs.readRecovering() else {
             analysis?.cancel()
             return
         }
@@ -88,7 +88,7 @@ final class MCPAnalysisController {
             return
         }
         guard job.state.isActive else { return }
-        if Date.now.timeIntervalSince(job.updatedAt) > AnalysisJobStore.heartbeatTimeout {
+        if job.isExpired(at: .now) {
             _ = try jobs.expireInterruptedJob()
             return
         }
@@ -97,8 +97,9 @@ final class MCPAnalysisController {
         var didClaim = false
         let claimed = try jobs.update { current in
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
-                  current.state == .queued else { return nil }
+                  current.state == .queued, !current.isExpired(at: .now) else { return nil }
             current.state = .running
+            current.heartbeatAt = .now
             current.stage = "openingCatalog"
             current.message = nil
             didClaim = true
@@ -109,7 +110,11 @@ final class MCPAnalysisController {
         activeJob = claimed
         analysis = Task { [weak self, weak viewModel] in
             guard let self else { return }
+            let activity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "RawCull MCP catalog analysis"
+            )
             defer {
+                ProcessInfo.processInfo.endActivity(activity)
                 activeJob = nil
                 analysis = nil
             }
@@ -142,14 +147,6 @@ final class MCPAnalysisController {
               authorization.catalogId == grant.id
         else { throw JobError("Authorize the loaded catalog for analysis in RawCull's MCP settings.") }
 
-        await prepare()
-        try checkCurrent(job)
-        guard canStart(), !viewModel.isDeepAIReviewBlockedByOtherWork, !viewModel.isPreparingBurstCatalog,
-              !viewModel.sharpnessModel.isCalibratingSharpnessScoring,
-              !viewModel.scanning, !viewModel.isCreatingThumbnails,
-              viewModel.catalogLifecycle.transitionTask == nil
-        else { throw JobError("RawCull is busy. Let the current operation finish, then start a new job.") }
-
         var stale = false
         let url = try URL(
             resolvingBookmarkData: authorization.bookmark,
@@ -158,14 +155,24 @@ final class MCPAnalysisController {
             bookmarkDataIsStale: &stale
         )
         guard !stale else { throw JobError("The authorized catalog moved or its bookmark expired. Authorize it again.") }
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart)
+        await prepare()
+        try checkCurrent(job)
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart)
+
         let index = viewModel.sources.firstIndex { $0.url.standardizedFileURL == url.standardizedFileURL }
-        let target = index.map { viewModel.sources[$0] } ?? ARWSourceCatalog(name: grant.displayName, url: url)
+        let target = viewModel.selectedSource
+            ?? index.map { viewModel.sources[$0] }
+            ?? ARWSourceCatalog(name: grant.displayName, url: url)
         if index == nil {
             viewModel.sources.append(target)
         }
-        viewModel.selectedSource = target
-        viewModel.startCatalogLoad(for: target, scopedURL: url)
-        try await waitForCatalog(job, target: target, viewModel: viewModel)
+        if viewModel.selectedSource != target { viewModel.selectedSource = target }
+        if viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
+            || !viewModel.hasActiveSecurityScopedAccess(for: url) {
+            viewModel.startCatalogLoad(for: target, scopedURL: url)
+            try await waitForCatalog(job, target: target, viewModel: viewModel)
+        }
         let photoIds = try snapshotPhotoIds(
             files: viewModel.files, photos: photos, authorization: authorization
         )
@@ -207,6 +214,24 @@ final class MCPAnalysisController {
         }
         viewModel.showsDetailedBurstComparison = false
         viewModel.useExistingBurstGroupIndex()
+    }
+
+    private func requireAvailableWorkspace(
+        for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+    ) throws {
+        guard canStart(), !viewModel.cullingModel.isTerminationPending,
+              !viewModel.isDeepAIReviewBlockedByOtherWork, !viewModel.isPreparingBurstCatalog,
+              !viewModel.sharpnessModel.isCalibratingSharpnessScoring,
+              !viewModel.scanning, !viewModel.isCreatingThumbnails,
+              viewModel.catalogLifecycle.transitionTask == nil, viewModel.catalogLifecycle.loadTask == nil
+        else { throw JobError("RawCull is busy. Let the current operation finish, then start a new job.") }
+
+        let requested = url.standardizedFileURL
+        let selected = viewModel.selectedSource?.url.standardizedFileURL
+        let loaded = viewModel.catalogLifecycle.currentSource?.url.standardizedFileURL
+        guard (selected == nil || selected == requested), (loaded == nil || loaded == requested) else {
+            throw JobError("RawCull has another catalog open. Select the authorized catalog in RawCull, then start a new job.")
+        }
     }
 
     private func waitForCatalog(
@@ -333,6 +358,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running, !current.cancellationRequested else { return nil }
             current.stage = progress.isRunning ? progress.step.rawValue : "openingCatalog"
+            current.heartbeatAt = .now
             current.filesScanned = current.stage == "openingCatalog" ? scanned : viewModel.files.count
             if progress.step == .grouping || progress.step == .ranking || progress.step == .savingCache {
                 current.filesAnalyzed = viewModel.similarityModel.embeddings.keys.lazy
@@ -354,8 +380,11 @@ final class MCPAnalysisController {
             try jobs.update { current in
                 guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                       current.state == .running else { return nil }
-                let cancelled = current.cancellationRequested || state == .cancelled
-                current.finish(cancelled ? .cancelled : state, message: cancelled ? nil : message)
+                if current.cancellationRequested && state != .cancelled {
+                    current.finish(.cancelled)
+                } else {
+                    current.finish(state, message: message)
+                }
                 return current
             }
         } catch {

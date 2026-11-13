@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import MCP
 
@@ -6,22 +7,27 @@ enum AnalysisTools {
     private static let defaultLimit = 10
     private static let maximumLimit = 25
     private static let uuid: Value = .object(["type": .string("string"), "format": .string("uuid")])
+    private static let jobAnnotations = Tool.Annotations(
+        readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false
+    )
 
     private static func tool(
-        _ name: String, _ description: String, required: [String: Value], optional: [String: Value] = [:]
+        _ name: String, _ description: String, required: [String: Value], optional: [String: Value] = [:],
+        annotations: Tool.Annotations = jobAnnotations
     ) -> Tool {
         Tool(name: name, description: description, inputSchema: .object([
             "type": .string("object"),
             "properties": .object(required.merging(optional) { first, _ in first }),
             "required": .array(required.keys.sorted().map(Value.string)),
             "additionalProperties": .bool(false),
-        ]))
+        ]), annotations: annotations)
     }
 
     static let start = tool(
         "start_catalog_analysis",
         "Open RawCull and queue analysis of the authorized catalog. Generate a requestId UUID and reuse it if retrying this request.",
-        required: ["catalogId": uuid, "requestId": uuid]
+        required: ["catalogId": uuid, "requestId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
     )
     static let status = tool(
         "get_analysis_status", "Read the current analysis job's progress and coverage.",
@@ -29,7 +35,8 @@ enum AnalysisTools {
     )
     static let cancel = tool(
         "cancel_analysis", "Request cancellation of the current analysis job.",
-        required: ["catalogId": uuid, "jobId": uuid]
+        required: ["catalogId": uuid, "jobId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
     )
     static let bursts = tool(
         "list_bursts", "List ranked bursts from a completed analysis. Pass nextCursor for the next page.",
@@ -54,10 +61,7 @@ enum AnalysisTools {
         else { throw MCPError.invalidParams("Provide catalogId and \(idKey) UUIDs.") }
 
         let store = AnalysisJobStore(directory: grantStore.directory)
-        let catalog = try requireCatalog(catalogId)
-        guard catalog.analysisEnabled == true else {
-            throw MCPError.invalidParams("Enable catalog analysis when authorizing this loaded catalog in RawCull's MCP settings.")
-        }
+        try requireAnalysisGrant(catalogId)
         do {
             let current = try store.expireInterruptedJob()
             let job: AnalysisJob
@@ -79,29 +83,40 @@ enum AnalysisTools {
             return try reply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
+        }
+    }
+
+    private static func requireAnalysisGrant(_ catalogId: UUID) throws {
+        guard try requireCatalog(catalogId).analysisEnabled == true else {
+            throw MCPError.invalidParams("Enable catalog analysis when authorizing this loaded catalog in RawCull's MCP settings.")
         }
     }
 
     private static func submit(
         catalogId: UUID, jobId: UUID, store: AnalysisJobStore
     ) async throws -> AnalysisJob {
-        let updated = try store.update { current in
-            if let current, current.catalogId == catalogId, current.jobId == jobId { return nil }
-            if current?.state.isActive == true {
-                throw MCPError.invalidParams("An analysis is already active. Wait for it to finish or cancel it.")
-            }
-            let now = Date.now
-            var next = AnalysisJob(jobId: jobId, catalogId: catalogId, createdAt: now, updatedAt: now)
-            if let current, current.catalogId == catalogId {
-                let previous = current.previousRequestIds ?? []
-                guard !previous.contains(jobId) else {
-                    throw MCPError.invalidParams("That request ID belongs to a replaced job. Use a new request ID.")
+        let updated = try store.withLock {
+            try requireAnalysisGrant(catalogId)
+            return try store.updateLocked { current in
+                if let current, current.catalogId == catalogId, current.jobId == jobId { return nil }
+                if current?.state.isActive == true {
+                    throw MCPError.invalidParams("An analysis is already active. Wait for it to finish or cancel it.")
                 }
-                next.previousRequestIds = previous + [current.jobId]
+                let now = Date.now
+                var next = AnalysisJob(jobId: jobId, catalogId: catalogId, createdAt: now, updatedAt: now)
+                if let current, current.catalogId == catalogId {
+                    let previous = current.previousRequestIds ?? []
+                    guard !previous.contains(jobId) else {
+                        throw MCPError.invalidParams("That request ID belongs to a replaced job. Use a new request ID.")
+                    }
+                    next.previousRequestIds = previous + [current.jobId]
+                }
+                return next
             }
-            return next
         }
         guard let job = updated else { throw MCPError.internalError("The job could not be queued.") }
 
@@ -126,7 +141,14 @@ enum AnalysisTools {
     private static func bundledRawCullURL() -> URL? {
         // The helper has its own executable metadata. Read the enclosing app's
         // Info.plist directly instead of asking Bundle.main for its identity.
-        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        var size: UInt32 = 0
+        _ = _NSGetExecutablePath(nil, &size)
+        guard size > 0 else { return nil }
+        var path = [CChar](repeating: 0, count: Int(size))
+        guard let executable = path.withUnsafeMutableBufferPointer({ buffer -> URL? in
+            guard let address = buffer.baseAddress, _NSGetExecutablePath(address, &size) == 0 else { return nil }
+            return URL(fileURLWithFileSystemRepresentation: address, isDirectory: false, relativeTo: nil)
+        })?.resolvingSymlinksInPath() else { return nil }
         let macOS = executable.deletingLastPathComponent()
         let contents = macOS.deletingLastPathComponent()
         let app = contents.deletingLastPathComponent()
@@ -160,6 +182,9 @@ enum AnalysisTools {
                 throw MCPError.invalidParams("That job has been replaced.")
             }
             guard current.state.isActive, !current.cancellationRequested else { return nil }
+            if current.state == .running, current.heartbeatAt == nil {
+                current.heartbeatAt = current.updatedAt
+            }
             current.cancellationRequested = true
             if current.state == .queued {
                 current.finish(.cancelled)
@@ -186,11 +211,18 @@ enum AnalysisTools {
             start = offset
         }
         let end = min(start + limit, bursts.count)
+        let page = bursts[start ..< end].map { burst in
+            var display = burst
+            for index in display.candidates.indices {
+                display.candidates[index].name = catalogMetadataText(display.candidates[index].name)
+            }
+            return display
+        }
         return try reply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
             "catalogId": .string(job.catalogId.uuidString),
             "jobId": .string(job.jobId.uuidString),
             "coverage": Value(coverage),
-            "bursts": Value(Array(bursts[start ..< end])),
+            "bursts": Value(page),
             "nextCursor": end < bursts.count ? .string("\(prefix)\(end)") : .null,
         ]))
     }

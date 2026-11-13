@@ -53,15 +53,24 @@ struct CatalogGrantStore: Sendable {
 
     func authorize(_ grant: CatalogGrant) throws {
         let manifest = try manifestURL()
-        try JSONEncoder().encode(grant).write(to: manifest, options: .atomic)
+        let data = try JSONEncoder().encode(grant)
+        let jobs = AnalysisJobStore(directory: directory)
+        try jobs.withLock {
+            try jobs.removeLocked()
+            try data.write(to: manifest, options: .atomic)
+        }
     }
 
     func revoke() throws {
         let manifest = try manifestURL()
-        do {
-            try FileManager.default.removeItem(at: manifest)
-        } catch let error as CocoaError where error.code == .fileNoSuchFile {
-            // An already absent manifest is revoked.
+        let jobs = AnalysisJobStore(directory: directory)
+        try jobs.withLock {
+            try jobs.removeLocked()
+            do {
+                try FileManager.default.removeItem(at: manifest)
+            } catch let error as CocoaError where error.code == .fileNoSuchFile {
+                // An already absent manifest is revoked.
+            }
         }
     }
 
