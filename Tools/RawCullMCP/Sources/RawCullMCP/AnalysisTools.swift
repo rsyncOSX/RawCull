@@ -211,11 +211,18 @@ enum AnalysisTools {
             start = offset
         }
         let end = min(start + limit, bursts.count)
+        let page = bursts[start ..< end].map { burst in
+            var display = burst
+            for index in display.candidates.indices {
+                display.candidates[index].name = catalogMetadataText(display.candidates[index].name)
+            }
+            return display
+        }
         return try reply("Returned \(end - start) of \(bursts.count) ranked bursts.", value: .object([
             "catalogId": .string(job.catalogId.uuidString),
             "jobId": .string(job.jobId.uuidString),
             "coverage": Value(coverage),
-            "bursts": Value(Array(bursts[start ..< end])),
+            "bursts": Value(page),
             "nextCursor": end < bursts.count ? .string("\(prefix)\(end)") : .null,
         ]))
     }

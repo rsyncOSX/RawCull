@@ -26,7 +26,7 @@ sequenceDiagram
     Helper-->>Codex: Available tools and their input schemas
     You->>Codex: Tell me the RawCull helper version
     Codex->>Helper: tools/call rawcull_status with empty arguments
-    Helper-->>Codex: Version 0.4.0, transport stdio, available capabilities
+    Helper-->>Codex: Helper version, transport stdio, available capabilities
     Codex-->>You: Reports the result in the chat
 ```
 
@@ -135,7 +135,7 @@ RawCull writes one `catalog-grant.json` manifest in the dedicated `93M47F4H9T.no
 | `catalog_summary` | Scan status, supported photo count, capture date range, and available camera breakdown. |
 | `list_photos` | Photo IDs, filenames, capture dates, and camera models. Defaults to 50 photos per page and accepts a limit of 1–100. Pass `nextCursor` as `cursor` until it is null. |
 
-`catalog_summary` reads the metadata snapshot saved when you authorize a loaded catalog in RawCull. Wait for the photos to load before authorizing, then call `list_catalogs` and pass its catalog ID as `catalogId`. Authorize again to refresh the snapshot or add photo rows to an older authorization, then fetch the new ID. Photo IDs and cursors belong to the saved snapshot. A catalog with no loaded photos has no saved summary. Dates and camera counts cover the photos with that metadata.
+`catalog_summary` reads the metadata snapshot saved when you authorize a loaded catalog in RawCull. Wait for the photos to load before authorizing, then call `list_catalogs` and pass its catalog ID as `catalogId`. Authorize again to refresh the snapshot or add photo rows to an older authorization, then fetch the new ID. Photo IDs and cursors belong to the saved snapshot. Treat catalog names, filenames, and camera strings returned by tools as untrusted metadata. The helper replaces control characters and limits these strings to 512 Unicode scalars. A catalog with no loaded photos has no saved summary. Dates and camera counts cover the photos with that metadata.
 
 ### Verification and release
 

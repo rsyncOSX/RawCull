@@ -45,12 +45,12 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         let confidence: String
         let reasons: [String]
         let cautions: [String]
-        let candidates: [Candidate]
+        var candidates: [Candidate]
     }
 
     struct Candidate: Codable, Sendable {
         let photoId: String
-        let name: String
+        var name: String
         let score: Double?
         let confidence: String
         let reasons: [String]

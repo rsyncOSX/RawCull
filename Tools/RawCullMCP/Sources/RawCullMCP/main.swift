@@ -54,6 +54,12 @@ let listPhotosTool = Tool(
 let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
 let grantStore = CatalogGrantStore.shared()
 
+func catalogMetadataText(_ value: String) -> String {
+    String(String.UnicodeScalarView(value.unicodeScalars.prefix(512).map { scalar in
+        CharacterSet.controlCharacters.contains(scalar) ? " " : scalar
+    }))
+}
+
 func readCatalogGrant() throws -> CatalogGrant? {
     do {
         return try grantStore.authorizedCatalog()
@@ -139,13 +145,13 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
             let photo = photos[index]
             return .object([
                 "id": .string("\(cursorPrefix)\(index)"),
-                "name": .string(photo.name),
+                "name": .string(catalogMetadataText(photo.name)),
                 "captureDate": photo.captureDate.map(Value.string) ?? .null,
-                "camera": photo.camera.map(Value.string) ?? .null,
+                "camera": photo.camera.map { .string(catalogMetadataText($0)) } ?? .null,
             ])
         }
         return .init(
-            content: [.text(text: "Returned \(page.count) of \(photos.count) photos from the saved scan for \(catalog.displayName).", annotations: nil, _meta: nil)],
+            content: [.text(text: "Returned \(page.count) of \(photos.count) photos from the saved scan for \(catalogMetadataText(catalog.displayName)).", annotations: nil, _meta: nil)],
             structuredContent: .object([
                 "catalogId": .string(catalogID.uuidString),
                 "scanStatus": .string("saved_snapshot"),
@@ -168,6 +174,9 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
                 structuredContent: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
             )
         }
+        let cameraCounts = summary.cameraCounts.reduce(into: [String: Int]()) { counts, entry in
+            counts[catalogMetadataText(entry.key), default: 0] += entry.value
+        }
         var details: [String: Value] = [
             "catalogId": .string(catalog.id.uuidString),
             "scanStatus": .string("saved_snapshot"),
@@ -175,7 +184,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
             "photoCount": .int(summary.photoCount),
             "earliestCaptureDate": summary.earliestCaptureDate.map(Value.string) ?? .null,
             "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
-            "cameraCounts": .object(summary.cameraCounts.mapValues(Value.int)),
+            "cameraCounts": .object(cameraCounts.mapValues(Value.int)),
         ]
         if catalog.analysisEnabled == true,
            let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
@@ -187,7 +196,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
             }
         }
         return .init(
-            content: [.text(text: "RawCull's saved scan for \(catalog.displayName) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
+            content: [.text(text: "RawCull's saved scan for \(catalogMetadataText(catalog.displayName)) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
             structuredContent: .object(details)
         )
     }
@@ -200,11 +209,11 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
     case listCatalogsTool.name:
         let catalog = try readCatalogGrant()
         let catalogs: [Value] = catalog.map {
-            [.object(["id": .string($0.id.uuidString), "displayName": .string($0.displayName), "analysisEnabled": .bool($0.analysisEnabled == true)])]
+            [.object(["id": .string($0.id.uuidString), "displayName": .string(catalogMetadataText($0.displayName)), "analysisEnabled": .bool($0.analysisEnabled == true)])]
         } ?? []
         return .init(
             content: [.text(
-                text: catalog.map { "Authorized catalog: \($0.displayName)" } ?? "No catalog is authorized.",
+                text: catalog.map { "Authorized catalog: \(catalogMetadataText($0.displayName))" } ?? "No catalog is authorized.",
                 annotations: nil,
                 _meta: nil
             )],
