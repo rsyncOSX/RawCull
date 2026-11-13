@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import MCP
 
@@ -134,7 +135,14 @@ enum AnalysisTools {
     private static func bundledRawCullURL() -> URL? {
         // The helper has its own executable metadata. Read the enclosing app's
         // Info.plist directly instead of asking Bundle.main for its identity.
-        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        var size: UInt32 = 0
+        _ = _NSGetExecutablePath(nil, &size)
+        guard size > 0 else { return nil }
+        var path = [CChar](repeating: 0, count: Int(size))
+        guard let executable = path.withUnsafeMutableBufferPointer({ buffer -> URL? in
+            guard let address = buffer.baseAddress, _NSGetExecutablePath(address, &size) == 0 else { return nil }
+            return URL(fileURLWithFileSystemRepresentation: address, isDirectory: false, relativeTo: nil)
+        })?.resolvingSymlinksInPath() else { return nil }
         let macOS = executable.deletingLastPathComponent()
         let contents = macOS.deletingLastPathComponent()
         let app = contents.deletingLastPathComponent()
