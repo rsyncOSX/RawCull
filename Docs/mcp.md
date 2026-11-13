@@ -78,15 +78,15 @@ Start a new client session and ask, “Use `rawcull_status` to tell me the RawCu
 
 Xcode builds the helper as a separate target and copies it to `Contents/MacOS` inside `RawCull.app`. The helper has its own bundle identifier and App Sandbox entitlement because Codex launches it directly. Its identifier is also embedded in the executable's `Info.plist` so macOS can identify it when applying the sandbox. The status prototype requires only the two pipes from Codex. It has no catalog grants or network entitlements. [Apple's guidance on identifying a sandboxed command-line executable](https://developer.apple.com/forums/thread/802443)
 
-Upload an internal build with `./Scripts/release.sh internal` and install it from TestFlight after Apple processes it. Quit RawCull, then confirm the helper is present and signed. Adjust the path if RawCull is installed elsewhere.
+Upload an internal build with `./Scripts/release.sh internal` and install it from TestFlight after Apple processes it. Quit RawCull, then confirm the helper is present and signed. Adjust the path if RawCull is installed elsewhere. If `rawcull` already points to another helper, run `codex mcp remove rawcull` before registering this one.
 
 ```sh
 helper=/Applications/RawCull.app/Contents/MacOS/rawcull-mcp
 codesign --verify --strict --verbose=2 "$helper"
-codex mcp add rawcull-testflight -- "$helper"
+codex mcp add rawcull -- "$helper"
 ```
 
-Start a fresh Codex CLI session. The original 0.1.0 TestFlight build exposed one tool. If `/mcp` labels the server `unknown`, invoke the tool to verify the connection. Ask “Call `rawcull_status` on the `rawcull-testflight` MCP server and tell me the helper version and available capabilities.” Confirm that Codex shows a tool call to `rawcull-testflight.rawcull_status` and reports the installed helper version over `stdio`. The distinct server name lets you keep the standalone prototype registered during the test.
+Start a fresh Codex CLI session. The original 0.1.0 TestFlight build exposed one tool. If `/mcp` labels the server `unknown`, invoke the tool to verify the connection. Ask “Call `rawcull_status` on the `rawcull` MCP server and tell me the helper version and available capabilities.” Confirm that Codex shows a tool call to `rawcull.rawcull_status` and reports the installed helper version over `stdio`.
 
 ### Implementation sequence
 
@@ -108,17 +108,17 @@ xcodebuild -project RawCull.xcodeproj -scheme RawCull \
   -allowProvisioningUpdates archive
 ```
 
-In Finder, open `/tmp/RawCull-MCP-Test.xcarchive/Products/Applications/` and copy the archived app to `/Applications/RawCull-MCP-Test.app`. Verify the signed helper and register it once. Keep the same path when replacing the test app with a newer archive.
+In Finder, open `/tmp/RawCull-MCP-Test.xcarchive/Products/Applications/` and copy the archived app to `/Applications/RawCull-MCP-Test.app`. Verify the signed helper and register it once. If `rawcull` already points to another helper, run `codex mcp remove rawcull` before registering this one. Keep the same path when replacing the test app with a newer archive.
 
 ```sh
 helper=/Applications/RawCull-MCP-Test.app/Contents/MacOS/rawcull-mcp
 codesign --verify --strict --verbose=2 "$helper" &&
-  codex mcp add rawcull-local -- "$helper"
+  codex mcp add rawcull -- "$helper"
 ```
 
 Quit any running RawCull instance and open the test copy directly from Finder. Select a catalog, wait for the photos to load, choose **Settings → MCP → Authorize Selected Catalog**, and quit RawCull. In a fresh Codex CLI session, try this prompt. If the CLI reports that its background app server failed to start, use `codex --no-daemon`.
 
-> Call `list_catalogs` on `rawcull-local`. Use the returned catalog ID to call `catalog_summary` and `list_photos` with a limit of 5. Show the summary and both pages of photos, using `nextCursor` to fetch the second page.
+> Call `list_catalogs` on `rawcull`. Use the returned catalog ID to call `catalog_summary` and `list_photos` with a limit of 5. Show the summary and both pages of photos, using `nextCursor` to fetch the second page.
 
 Reopen the test app, choose **Revoke Access**, quit, and call `list_catalogs` again. Expect an empty list.
 
@@ -172,7 +172,7 @@ For TestFlight, authorize a folder containing a known set of photos, run the pro
 
 ### TestFlight smoke test
 
-Codex discovered all eight tools on `rawcull-testflight` and reported helper version `0.5.0`. The helper found exactly one catalog, `CatalogFull`, with analysis enabled. A fresh analysis request returned a queued job, and polling reported completion. The coverage matched the earlier `rawcull-local` run.
+Codex discovered all eight tools in the installed TestFlight helper and reported helper version `0.5.0`. The helper found exactly one catalog, `CatalogFull`, with analysis enabled. A fresh analysis request returned a queued job, and polling reported completion. The coverage matched the earlier signed local run.
 
 | Field | Result |
 | --- | --- |
@@ -185,9 +185,9 @@ Codex discovered all eight tools on `rawcull-testflight` and reported helper ver
 | Unevaluated photos | 0 |
 | Similarity backend | CLIP for all 275 photos |
 
-To reproduce, register the installed helper under `rawcull-testflight`, authorize a loaded catalog for analysis as described above, and quit RawCull. In a fresh Codex session, use this prompt.
+To reproduce, register the installed helper under `rawcull`, authorize a loaded catalog for analysis as described above, and quit RawCull. In a fresh Codex session, use this prompt.
 
-> Use only the `rawcull-testflight` MCP server. List my authorized catalogs. If there’s exactly one, start analysis with a fresh request ID. If there are several, ask which to use. If there are none, report that. Report the catalog ID and job ID as soon as the start call returns. Poll until the job reaches a terminal state. Report the final state, photos analyzed, singleton and unevaluated counts, and similarity backends.
+> Use only the `rawcull` MCP server. List my authorized catalogs. If there’s exactly one, start analysis with a fresh request ID. If there are several, ask which to use. If there are none, report that. Report the catalog ID and job ID as soon as the start call returns. Poll until the job reaches a terminal state. Report the final state, photos analyzed, singleton and unevaluated counts, and similarity backends.
 
 The TestFlight helper could also read the earlier local job. For a repeat test that verifies which app opens and runs the job, quit both copies and temporarily remove the local test copy before submitting a fresh request.
 
@@ -210,6 +210,26 @@ Start with burst analysis as the first job supported by this workflow. The targe
 
 **Release gate.** From a prompt, a tester can select a new source folder, approve the requested job in RawCull, and receive completed analysis results in chat without visiting **Settings → MCP**.
 
+### TestFlight prompts
+
+Start with RawCull closed and use a source folder without an MCP grant. Run each prompt separately so you can respond to the picker or approval sheet in RawCull.
+
+**Approve once and retrieve results.**
+
+> Use only `rawcull`. Verify that `rawcull_status` reports helper version `0.6.0`. Request burst analysis for “Saturday shoot” with a fresh UUID. Report the request ID and poll while I choose the source folder and select Approve This Job in RawCull. When queued, report the catalog ID and job ID. Wait for completion and list the recommended frame in each of the first five bursts. After I quit RawCull, fetch those same results again. Replay the setup request with the original UUID and report whether it returns the same job ID.
+
+**Cancel or deny.** Run this twice with fresh UUIDs. Cancel the folder picker on the first run. On the second run, select the folder and choose **Deny**.
+
+> Use only `rawcull`. List the authorized catalogs, then request burst analysis for an unknown catalog hint with a fresh UUID. Poll until the setup request finishes. Report its terminal state, whether it returned a job ID, and whether the authorized catalog list changed.
+
+**Remember access and run again.** Use a readable catalog already known to RawCull without an MCP grant. Select **Approve and Remember** when prompted.
+
+> Use only `rawcull`. Request burst analysis for `<absolute catalog folder path>` with a fresh UUID. Poll while I approve the job in RawCull, then wait for analysis to finish. Confirm that `list_catalogs` includes the catalog. Submit another setup request for the same exact path with a fresh UUID. Report whether it queues and completes. I’ll check which RawCull dialogs appear on each run.
+
+**Ambiguous hint or disconnected source.** Run separately with a name shared by two known folders and with the exact path of a catalog on a disconnected volume. Cancel the picker if it appears.
+
+> Use only `rawcull`. Request burst analysis for `<catalog name or absolute path>` with a fresh UUID. Poll the setup request and report its state and any error or action RawCull requests. If it queues, poll the analysis job to its terminal state and report what happened.
+
 ### Visual review and drafts
 
 After prompt-driven setup and approval work end to end, continue with visual review and saved drafts.
@@ -220,6 +240,10 @@ After prompt-driven setup and approval work end to end, continue with visual rev
 4. Add a draft entry point in RawCull that opens the matching catalog and shows proposed versus current choices. Check that the referenced frames still match before applying. Surface moved, removed, or changed files and choices edited since the review. Apply accepted suggestions via the existing culling APIs and confirm persistence before showing success. Exercise two concurrent clients, an interrupted save, catalog changes, and manual edits while a draft is pending.
 
 **Visual review release gate.** A tester can ask for a burst review with RawCull closed, see that the correct draft survived the helper exiting, open it in RawCull, and apply only the suggestions they choose.
+
+**Target prompt once preview and draft tools are available.**
+
+> Use only `rawcull`. Review the first five low-confidence bursts from `<catalog ID and completed job ID>`. If preview sharing needs my approval, tell me where to enable it and wait. Use the contact sheets and RawCull’s ranking evidence to choose a frame and an alternate for each burst. Explain the visible differences that affected your choices and flag any close calls. Save the suggestions as a review draft and give me its ID so I can open it in RawCull and decide which suggestions to apply. Leave the catalog’s frame choices for me to apply.
 
 ## What to consider after the pilot
 
