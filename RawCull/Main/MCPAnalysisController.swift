@@ -73,7 +73,7 @@ final class MCPAnalysisController {
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
-        guard let job = try jobs.read() else {
+        guard let job = try jobs.readRecovering() else {
             analysis?.cancel()
             return
         }
