@@ -86,6 +86,25 @@ nonisolated struct AnalysisJobStore: Sendable {
         case unsupportedFormat
     }
 
+    /// An atomic replacement changes the inode or its change time.
+    struct Revision: Equatable {
+        let inode: ino_t
+        let seconds: time_t
+        let nanoseconds: Int
+    }
+
+    func revision() -> Revision? {
+        guard let directory else { return nil }
+        var info = stat()
+        let path = directory.appendingPathComponent("analysis-job.json").path
+        guard lstat(path, &info) == 0 else { return nil }
+        return Revision(
+            inode: info.st_ino,
+            seconds: info.st_ctimespec.tv_sec,
+            nanoseconds: info.st_ctimespec.tv_nsec
+        )
+    }
+
     private struct Format: Decodable {
         let formatVersion: Int?
     }

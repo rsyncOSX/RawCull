@@ -41,6 +41,7 @@ final class MCPAnalysisController {
     private var activeJob: AnalysisJob?
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
+    private var terminalRevision: AnalysisJobStore.Revision?
 
     func start(
         viewModel: RawCullViewModel,
@@ -73,6 +74,9 @@ final class MCPAnalysisController {
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
+        let revision = jobs.revision()
+        if analysis == nil, let revision, revision == terminalRevision { return }
+        terminalRevision = nil
         guard let job = try jobs.readRecovering() else {
             analysis?.cancel()
             return
@@ -87,7 +91,10 @@ final class MCPAnalysisController {
             try updateProgress(job, viewModel: viewModel)
             return
         }
-        guard job.state.isActive else { return }
+        guard job.state.isActive else {
+            terminalRevision = revision
+            return
+        }
         if job.isExpired(at: .now) {
             _ = try jobs.expireInterruptedJob()
             return
