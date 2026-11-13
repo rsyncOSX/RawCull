@@ -106,34 +106,52 @@ enum AnalysisTools {
         guard let job = updated else { throw MCPError.internalError("The job could not be queued.") }
 
         if job.state == .queued {
-            do {
-                try await openBundledRawCull()
-            } catch {
-                let latest = try store.update { current in
-                    guard var current, current.jobId == jobId, current.catalogId == catalogId,
-                          current.state == .queued else { return nil }
-                    current.finish(.failed, message: "Could not open the RawCull app that contains this helper.")
-                    return current
+            let url = bundledRawCullURL()
+            if let url, await openBundledRawCull(at: url) { return job }
+            let latest = try store.update { current in
+                guard var current, current.jobId == jobId, current.catalogId == catalogId,
+                      current.state == .queued else { return nil }
+                if url == nil {
+                    current.finish(.failed, message: "Configure the MCP client to use the helper inside RawCull.app.")
+                } else {
+                    current.message = "Open RawCull to start the queued analysis."
                 }
-                if let latest, latest.catalogId == catalogId, latest.jobId == jobId { return latest }
+                return current
             }
+            if let latest, latest.catalogId == catalogId, latest.jobId == jobId { return latest }
         }
         return job
     }
 
+    private static func bundledRawCullURL() -> URL? {
+        // The helper has its own executable metadata. Read the enclosing app's
+        // Info.plist directly instead of asking Bundle.main for its identity.
+        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        let macOS = executable.deletingLastPathComponent()
+        let contents = macOS.deletingLastPathComponent()
+        let app = contents.deletingLastPathComponent()
+        guard macOS.lastPathComponent == "MacOS", contents.lastPathComponent == "Contents",
+              app.pathExtension == "app",
+              let data = try? Data(contentsOf: contents.appendingPathComponent("Info.plist")),
+              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              info["CFBundleIdentifier"] as? String == "no.blogspot.RawCull" else { return nil }
+        return app
+    }
+
     @MainActor
-    private static func openBundledRawCull() async throws {
-        let app = Bundle.main.bundleURL
-        let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
-        let enclosingApp = executable.deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        let url = app.pathExtension == "app" ? app : enclosingApp
-        guard url.pathExtension == "app", Bundle(url: url)?.bundleIdentifier == "no.blogspot.RawCull" else {
-            throw CocoaError(.fileNoSuchFile)
-        }
+    private static func openBundledRawCull(at url: URL) async -> Bool {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
-        _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        do {
+            _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+            return true
+        } catch {
+            // A running RawCull can still claim the job from the shared store.
+            let launchError = error as NSError
+            let diagnostic = "RawCull launch failed (\(launchError.domain) \(launchError.code)).\n"
+            FileHandle.standardError.write(Data(diagnostic.utf8))
+            return false
+        }
     }
 
     private static func requestCancellation(_ job: AnalysisJob, store: AnalysisJobStore) throws -> AnalysisJob {

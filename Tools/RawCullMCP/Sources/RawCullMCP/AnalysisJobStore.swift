@@ -113,7 +113,12 @@ nonisolated struct AnalysisJobStore: Sendable {
             guard var current, current.state.isActive,
                   Date.now.timeIntervalSince(current.updatedAt) > Self.heartbeatTimeout
             else { return nil }
-            current.finish(.failed, message: "RawCull stopped responding. Start a new job with a new request ID.")
+            let message = if current.state == .queued {
+                "RawCull did not pick up the analysis. Open RawCull and start a new job with a new request ID."
+            } else {
+                "RawCull stopped responding. Start a new job with a new request ID."
+            }
+            current.finish(.failed, message: message)
             return current
         }
     }

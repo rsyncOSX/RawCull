@@ -100,6 +100,7 @@ final class MCPAnalysisController {
                   current.state == .queued else { return nil }
             current.state = .running
             current.stage = "openingCatalog"
+            current.message = nil
             didClaim = true
             return current
         }
