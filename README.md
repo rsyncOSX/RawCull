@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version **3.4.5** (build **440**).
+RawCull **3.4.6** (build **443**) is in development on `main` and `version-3.4.6`.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -42,6 +42,14 @@ RawCull's AI features run locally on the Mac. Model downloads and validation are
 In **AI Analysis › Objects**, RawCull uses Qwen to identify photographically relevant concepts, SAM 3 to segment matching visible instances, and Qwen to assess those numbered subjects locally on your Mac. Specific concepts can be entered manually. Results describe matches for the requested concepts; they are not a guaranteed inventory of every object in the scene.
 
 CLIP image embeddings are computed once and reused for later searches. SAM 3 masks and compatible analysis artifacts can also be cached. Qwen assessments are advisory: RawCull validates their structure, but the photographer remains the final judge.
+
+## RawCull MCP server
+
+The bundled Model Context Protocol (MCP) server lets you work with an authorized RawCull catalog from a compatible desktop AI client such as Codex. You can ask for photo counts, capture dates, and camera information while RawCull is closed. With burst analysis enabled, a prompt can open RawCull, run its on-device analysis, and retrieve ranked burst recommendations and coverage in chat.
+
+You choose which catalog to share and whether the client can start analysis in **Settings → MCP**. The helper runs locally and returns authorized catalog metadata and analysis results. The AI client may send those results to its configured model provider.
+
+Catalog analysis has been tested through the Apple TestFlight build. A future phase will let you start catalog setup and request job approval from a prompt. [Setup, TestFlight verification, and roadmap](Docs/mcp.md)
 
 ## Combined Review
 

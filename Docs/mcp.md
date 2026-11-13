@@ -1,13 +1,14 @@
 # RawCull MCP implementation plan
 
-**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The next release checks are a clean-account test and distribution through TestFlight. Phase 2 adds an opt-in catalog analysis workflow in helper version 0.5.0. Signed end-to-end testing and catalog benchmarks are pending.
+**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 starts with prompt-driven catalog setup and job approval.
 
 ## What the user should be able to do
 
 1. In RawCull, choose a catalog to make available to a desktop AI client.
 2. Quit RawCull and ask the client about that catalog. The client starts a bundled MCP helper on demand.
-3. In a later release, ask RawCull to analyze every supported photo, group bursts, and rank candidates. Ask the assistant to compare the top frames and revisit uncertain picks.
-4. Open RawCull later and review a saved draft with suggested keepers, alternatives, and reasons. Apply individual picks or an explicitly selected batch using the existing culling workflow.
+3. In Phase 2, ask RawCull to analyze an authorized catalog, group bursts, and rank candidates.
+4. In Phase 3, ask RawCull to add a catalog and run a job. Select the source folder and approve the job in RawCull when prompted.
+5. Ask the assistant to compare the top frames and revisit uncertain picks. Open RawCull later and review a saved draft with suggested keepers, alternatives, and reasons. Apply individual picks or an explicitly selected batch using the existing culling workflow.
 
 The first release stops after step 2. A good demo is “How many photos are in this catalog, and what cameras and capture dates does it cover?” It proves client setup, catalog authorization, a useful tool call, and operation with the app closed before introducing models, image sharing, and catalog writes.
 
@@ -41,7 +42,7 @@ For example, the request in step 3 looks like this on the wire. The numeric ID l
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rawcull_status","arguments":{}}}
 ```
 
-An eventual burst review would work the same way with more tools. Codex would interpret “pick one keeper per burst,” start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull's analysis code would do the scanning, scoring, and grouping. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. These tools are planned for later phases.
+Phase 2 uses the same flow for burst analysis. Codex can start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull scans, scores, and groups the photos. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. These tools are planned for later phases.
 
 The helper runs locally on the Mac. Where the model interprets your prompt depends on the client and model you use. A cloud model may receive data that a tool returns. The Phase 1 helper returns status and authorized catalog metadata, including filenames and capture metadata. The later preview-sharing setting will determine whether the helper can return image previews for the selected catalog. [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk), [MCP stdio transport](https://ruby.sdk.modelcontextprotocol.io/server/transports/)
 
@@ -159,7 +160,28 @@ RawCull runs its existing full catalog pipeline with the selected scoring settin
 
 RawCull runs one MCP job at a time. A new job replaces the previous result. Codex can disconnect and reconnect while the app continues the job. Quitting RawCull cancels a running job. An interrupted job with no heartbeat for 45 seconds is reported as failed. Revoking or replacing the catalog grant stops access to that grant's job and results.
 
-### Verify on a signed build
+### TestFlight smoke test
+
+Codex discovered all eight tools on `rawcull-testflight` and reported helper version `0.5.0`. The helper found exactly one catalog, `CatalogFull`, with analysis enabled. A fresh analysis request returned a queued job, and polling reported completion. The coverage matched the earlier `rawcull-local` run.
+
+| Field | Result |
+| --- | --- |
+| Catalog ID | `9C0B88FD-9AA1-4178-B9E2-F1298DD9B158` |
+| TestFlight job ID | `0A49A8C1-86DA-43CB-A47D-3B080A940F28` |
+| Final state | `completed` |
+| Photos scanned and analyzed | 275 |
+| Bursts | 72 |
+| Singletons | 58 |
+| Unevaluated photos | 0 |
+| Similarity backend | CLIP for all 275 photos |
+
+To reproduce, register the installed helper under `rawcull-testflight`, authorize a loaded catalog for analysis as described above, and quit RawCull. In a fresh Codex session, use this prompt.
+
+> Use only the `rawcull-testflight` MCP server. List my authorized catalogs. If there’s exactly one, start analysis with a fresh request ID. If there are several, ask which to use. If there are none, report that. Report the catalog ID and job ID as soon as the start call returns. Poll until the job reaches a terminal state. Report the final state, photos analyzed, singleton and unevaluated counts, and similarity backends.
+
+The TestFlight helper could also read the earlier local job. For a repeat test that verifies which app opens and runs the job, quit both copies and temporarily remove the local test copy before submitting a fresh request.
+
+### Broader signed-build verification
 
 1. Install a signed Phase 2 build and register its bundled helper as in Phase 1. Start with a small catalog containing known bursts and singletons, then authorize analysis and quit RawCull.
 2. In a fresh Codex session, ask Codex to call `list_catalogs`, start analysis with a new request ID, and poll for completion. Confirm that RawCull opens the authorized folder and shows the burst workspace. Compare the recommended frames, alternate IDs, and coverage with the app. Fetch a second page with `nextCursor`.
@@ -167,14 +189,28 @@ RawCull runs one MCP job at a time. A new job replaces the previous result. Code
 4. Verify that revoking or replacing authorization hides previous jobs, and that a changed or disconnected source produces an actionable failure. Repeat on a representative large catalog and record duration, peak memory, coverage, and agreement with manual burst analysis under the same settings. Exercise CLIP and Vision configurations.
 
 
-## Phase 3 — Add visual review and a draft the user can open
+## Phase 3 — Add prompt-driven catalog setup and job approval
+
+Start with burst analysis as the first job supported by this workflow. The target prompt is “Add my Saturday shoot and find the best frame in each burst.”
+
+1. Add an MCP operation that takes a catalog hint, a supported job type, and a client-generated request ID. Open RawCull with a pending request and return its ID so the client can poll while the user responds. Reuse the request ID on retry.
+2. In RawCull, let the user choose the source folder with the existing catalog picker when access is needed. Treat the name in the prompt as a hint for the picker. Show the selected folder and requested job in RawCull before approving access.
+3. On approval, add or open the catalog and queue the requested job through the existing Phase 2 pipeline. Make approval apply to that job by default. Offer an explicit choice to remember access for future jobs. Keep source-folder access in RawCull and define how a one-job grant expires while still letting the requesting client read the job’s progress and results.
+4. Report pending approval, approval, denial, or failure to the client. Once analysis is queued, return the catalog ID and job ID so the client can use `get_analysis_status` and `list_bursts`. Use the request ID to prevent duplicate prompts or jobs when clients retry.
+5. Test on a signed TestFlight install with RawCull closed and no existing MCP grant. Exercise approval, picker cancellation, denial, retries, a disconnected source, and a previously authorized catalog. Verify that cancelling or denying leaves no new grant or analysis job and that a retry after approval returns the same job.
+
+**Release gate.** From a prompt, a tester can select a new source folder, approve the requested job in RawCull, and receive completed analysis results in chat without visiting **Settings → MCP**.
+
+### Visual review and drafts
+
+After prompt-driven setup and approval work end to end, continue with visual review and saved drafts.
 
 1. Add an explicit preview sharing setting for the authorized catalog. A local helper can return images to a client that uses a cloud model. Tell the user this before enabling previews. Verify that the chosen client passes MCP image content to its vision model. [MCP media documentation](https://py.sdk.modelcontextprotocol.io/servers/media/)
 2. Add `get_burst_previews` for a bounded contact sheet with frame labels and a mapping to photo IDs. Add a larger JPEG preview for selected close calls if the contact sheet is insufficient. Reuse the preview pipeline, cap resolution and response size, and omit embedded metadata. Give the assistant the ranking evidence and let it explain why it agrees or picks a different frame.
 3. Add `save_review_draft`. Persist a versioned record with catalog and snapshot identity, job ID, timestamp, suggested winner and alternates, reason, and uncertainty. Validate that IDs came from the referenced scan and that a proposed winner belongs to its burst. Use atomic writes and an idempotency key so retrying a save cannot create duplicate drafts. Design the shared location and write ownership from the signed-build results in Phase 0.
 4. Add a draft entry point in RawCull that opens the matching catalog and shows proposed versus current choices. Check that the referenced frames still match before applying. Surface moved, removed, or changed files and choices edited since the review. Apply accepted suggestions via the existing culling APIs and confirm persistence before showing success. Exercise two concurrent clients, an interrupted save, catalog changes, and manual edits while a draft is pending.
 
-**Release gate.** A tester can ask for a burst review with RawCull closed, see that the correct draft survived the helper exiting, open it in RawCull, and apply only the suggestions they choose.
+**Visual review release gate.** A tester can ask for a burst review with RawCull closed, see that the correct draft survived the helper exiting, open it in RawCull, and apply only the suggestions they choose.
 
 ## What to consider after the pilot
 
