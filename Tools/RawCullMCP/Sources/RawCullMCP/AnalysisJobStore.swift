@@ -29,6 +29,8 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     var coverage: Coverage?
     var bursts: [Burst]?
     var setupRequestId: UUID?
+    var usesSavedGrant: Bool?
+    var usesSetupApproval: Bool { setupRequestId != nil && usesSavedGrant != true }
     var previousRequestIds: [UUID]?
     private(set) var formatVersion: Int? = currentFormatVersion
 

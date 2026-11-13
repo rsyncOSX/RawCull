@@ -51,7 +51,7 @@ enum AnalysisTools {
     )
     static let requestSetup = tool(
         "request_catalog_setup",
-        "Ask the user to choose and approve a catalog for burst analysis in RawCull. Reuse the requestId UUID on retry.",
+        "Find a catalog by exact name or absolute path and start burst analysis if it is already authorized. RawCull asks for approval or folder selection when needed. Reuse the requestId UUID on retry.",
         required: ["catalogHint": .object(["type": .string("string")]), "jobType": .object([
             "type": .string("string"), "enum": .array([.string("burstAnalysis")]),
         ]), "requestId": uuid],
@@ -139,7 +139,7 @@ enum AnalysisTools {
                 guard let current, current.catalogId == catalogId, current.jobId == jobId else {
                     throw MCPError.invalidParams("No current job matches that catalog and job ID.")
                 }
-                if current.setupRequestId == nil { try requireAnalysisGrant(catalogId) }
+                if !current.usesSetupApproval { try requireAnalysisGrant(catalogId) }
                 if params.name == cancel.name {
                     job = try requestCancellation(current, store: store)
                 } else {
@@ -150,7 +150,7 @@ enum AnalysisTools {
                     job = latest
                 }
             }
-            if job.setupRequestId == nil {
+            if !job.usesSetupApproval {
                 _ = try requireCatalog(catalogId)
             } else {
                 guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId else {
@@ -166,6 +166,7 @@ enum AnalysisTools {
             details.bursts = nil
             details.previousRequestIds = nil
             details.setupRequestId = nil
+            details.usesSavedGrant = nil
             return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error

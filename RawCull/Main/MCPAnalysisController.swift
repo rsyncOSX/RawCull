@@ -182,37 +182,26 @@ final class MCPAnalysisController {
         var response = request
         do {
             guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
+            let saved = try savedCatalog()
+            let match = matchingCatalog(for: request.catalogHint, viewModel: viewModel, saved: saved)
+            if let saved, let match, sameFolder(match, saved.url), hasFolderAccess(saved.url, viewModel: viewModel) {
+                try await queueSetup(
+                    request, url: saved.url, remember: false, savedGrantId: saved.grant.id,
+                    viewModel: viewModel, canStart: canStart
+                )
+                return
+            }
+
             guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) else {
                 throw JobError("Open RawCull's main window and start a new request.")
             }
 
-            let chooser = NSAlert()
-            chooser.messageText = String(localized: "Choose a catalog for burst analysis")
-            chooser.informativeText = request.catalogHint
-            chooser.addButton(withTitle: String(localized: "Choose Folder…"))
-            let current = viewModel.selectedSource
-            if current != nil {
-                chooser.addButton(withTitle: String(localized: "Use Current Catalog"))
-            }
-            chooser.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
-            let choice = await chooser.beginSheetModal(for: window)
             let url: URL
-            if choice == .alertFirstButtonReturn {
-                let picker = NSOpenPanel()
-                picker.canChooseDirectories = true
-                picker.canChooseFiles = false
-                picker.allowsMultipleSelection = false
-                if let current { picker.directoryURL = current.url.deletingLastPathComponent() }
-                guard await picker.beginSheetModal(for: window) == .OK, let picked = picker.url else {
-                    throw CancellationError()
-                }
-                url = picked
-            } else if choice == .alertSecondButtonReturn, let current {
-                url = current.url
+            if let match, hasFolderAccess(match, viewModel: viewModel) {
+                url = match
             } else {
-                throw CancellationError()
+                url = try await chooseFolder(for: request, viewModel: viewModel, window: window)
             }
-
             let confirmation = NSAlert()
             confirmation.messageText = String(localized: "Approve burst analysis?")
             confirmation.informativeText = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share its ranked bursts with the MCP client.")
@@ -249,8 +238,98 @@ final class MCPAnalysisController {
         }
     }
 
+    private func savedCatalog() throws -> (grant: CatalogGrant, url: URL)? {
+        guard let grant = try grants.authorizedCatalog(), grant.analysisEnabled == true,
+              grant.summary?.photos != nil, let data = MCPAnalysisAuthorization.savedData,
+              let authorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
+              authorization.catalogId == grant.id else { return nil }
+
+        var stale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: authorization.bookmark,
+            options: [.withSecurityScope, .withoutUI, .withoutMounting],
+            relativeTo: nil, bookmarkDataIsStale: &stale
+        ), !stale else { return nil }
+        return (grant, url)
+    }
+
+    private func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.standardizedFileURL.path == rhs.standardizedFileURL.path
+    }
+
+    private func matchingCatalog(
+        for hint: String, viewModel: RawCullViewModel, saved: (grant: CatalogGrant, url: URL)?
+    ) -> URL? {
+        let query = hint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return nil }
+        let path = query.hasPrefix("/") ? URL(fileURLWithPath: query, isDirectory: true) : nil
+        var candidates = viewModel.sources.map { (name: $0.name, url: $0.url) }
+        if let selected = viewModel.selectedSource {
+            candidates.append((selected.name, selected.url))
+        }
+        if let saved {
+            candidates.append((saved.grant.displayName, saved.url))
+        }
+        var match: URL?
+        for candidate in candidates {
+            let matches = if let path {
+                sameFolder(path, candidate.url)
+            } else {
+                candidate.name.compare(query, options: .caseInsensitive) == .orderedSame
+                    || candidate.url.lastPathComponent.compare(query, options: .caseInsensitive) == .orderedSame
+            }
+            guard matches else { continue }
+            if let match, !sameFolder(match, candidate.url) { return nil }
+            match = candidate.url
+        }
+        return match
+    }
+
+    private func hasFolderAccess(_ url: URL, viewModel: RawCullViewModel) -> Bool {
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { url.stopAccessingSecurityScopedResource() } }
+        guard started || viewModel.hasActiveSecurityScopedAccess(for: url) else { return false }
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey])
+        return values?.isDirectory == true && values?.isReadable == true
+    }
+
+    private func chooseFolder(
+        for request: CatalogSetupRequest, viewModel: RawCullViewModel, window: NSWindow
+    ) async throws -> URL {
+        let chooser = NSAlert()
+        chooser.messageText = String(localized: "Choose a catalog for burst analysis")
+        chooser.informativeText = request.catalogHint
+        chooser.addButton(withTitle: String(localized: "Choose Folder…"))
+        let current = viewModel.selectedSource
+        if current != nil {
+            chooser.addButton(withTitle: String(localized: "Use Current Catalog"))
+        }
+        chooser.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
+        let choice = await chooser.beginSheetModal(for: window)
+        if choice == .alertFirstButtonReturn {
+            let picker = NSOpenPanel()
+            picker.canChooseDirectories = true
+            picker.canChooseFiles = false
+            picker.allowsMultipleSelection = false
+            let hint = request.catalogHint.trimmingCharacters(in: .whitespacesAndNewlines)
+            if hint.hasPrefix("/") {
+                picker.directoryURL = URL(fileURLWithPath: hint, isDirectory: true).deletingLastPathComponent()
+            } else if let current {
+                picker.directoryURL = current.url.deletingLastPathComponent()
+            }
+            guard await picker.beginSheetModal(for: window) == .OK, let picked = picker.url else {
+                throw CancellationError()
+            }
+            return picked
+        } else if choice == .alertSecondButtonReturn, let current {
+            return current.url
+        } else {
+            throw CancellationError()
+        }
+    }
+
     private func queueSetup(
-        _ request: CatalogSetupRequest, url: URL, remember: Bool,
+        _ request: CatalogSetupRequest, url: URL, remember: Bool, savedGrantId: UUID? = nil,
         viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
     ) async throws {
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: true)
@@ -260,7 +339,14 @@ final class MCPAnalysisController {
                 throw JobError("The catalog setup request expired. Start a new request.")
             }
             let now = Date.now
-            var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
+            if let savedGrantId {
+                guard let grant = try grants.authorizedCatalog(), grant.id == savedGrantId,
+                      grant.analysisEnabled == true else {
+                    throw JobError("Catalog authorization changed. Start a new request.")
+                }
+            }
+            var job = AnalysisJob(jobId: UUID(), catalogId: savedGrantId ?? UUID(), createdAt: now, updatedAt: now)
+            if savedGrantId != nil { job.usesSavedGrant = true }
             job.setupRequestId = request.requestId
             try jobs.updateLocked { current in
                 guard current?.state.isActive != true else {
@@ -268,7 +354,7 @@ final class MCPAnalysisController {
                 }
                 return job
             }
-            approvedSetup = (job.jobId, url, remember)
+            if savedGrantId == nil { approvedSetup = (job.jobId, url, remember) }
             var response = request
             response.state = .queued
             response.catalogId = job.catalogId
@@ -296,7 +382,7 @@ final class MCPAnalysisController {
         defer {
             if approvedSetup?.id == job.jobId { approvedSetup = nil }
         }
-        if job.setupRequestId != nil {
+        if job.usesSetupApproval {
             guard let setupApproval else {
                 throw JobError("RawCull restarted before it could use the approved folder. Submit a new catalog setup request.")
             }
@@ -323,10 +409,10 @@ final class MCPAnalysisController {
             grant = savedGrant
             authorization = savedAuthorization
         }
-        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: setupApproval != nil)
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
         await prepare()
         try checkCurrent(job)
-        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: setupApproval != nil)
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
 
         let index = viewModel.sources.firstIndex { $0.url.standardizedFileURL == url.standardizedFileURL }
         let selection = viewModel.selectedSource.flatMap {
@@ -524,7 +610,7 @@ final class MCPAnalysisController {
     }
 
     private func isAuthorized(_ job: AnalysisJob) throws -> Bool {
-        if job.setupRequestId != nil { return approvedSetup?.id == job.jobId }
+        if job.usesSetupApproval { return approvedSetup?.id == job.jobId }
         let grant = try grants.authorizedCatalog()
         return grant?.id == job.catalogId && grant?.analysisEnabled == true
     }
