@@ -14,6 +14,7 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     let catalogId: UUID
     let createdAt: Date
     var updatedAt: Date
+    var heartbeatAt: Date?
     var state: State = .queued
     var cancellationRequested = false
     var stage = "queued"
@@ -63,12 +64,22 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         stageTotal = nil
         self.message = message
     }
+
+    func isExpired(at now: Date) -> Bool {
+        switch state {
+        case .queued:
+            now.timeIntervalSince(createdAt) > 120
+        case .running:
+            now.timeIntervalSince(heartbeatAt ?? updatedAt) > 45
+        default:
+            false
+        }
+    }
 }
 
 /// One job slot shared by the app and any number of helper processes. The lock
 /// file is never replaced. Every state transition replaces the JSON atomically.
 nonisolated struct AnalysisJobStore: Sendable {
-    static let heartbeatTimeout: TimeInterval = 45
     let directory: URL?
 
     enum StoreError: Error {
@@ -155,14 +166,14 @@ nonisolated struct AnalysisJobStore: Sendable {
     func expireInterruptedJob() throws -> AnalysisJob? {
         // Use the lock only for an expired job. An app heartbeat may race this read.
         let job = try readRecovering()
-        guard let job, job.state.isActive,
-              Date.now.timeIntervalSince(job.updatedAt) > Self.heartbeatTimeout
-        else { return job }
+        guard let job, job.isExpired(at: .now) else { return job }
 
         return try update { current in
-            guard var current, current.state.isActive,
-                  Date.now.timeIntervalSince(current.updatedAt) > Self.heartbeatTimeout
-            else { return nil }
+            guard var current, current.isExpired(at: .now) else { return nil }
+            if current.cancellationRequested {
+                current.finish(.cancelled)
+                return current
+            }
             let message = if current.state == .queued {
                 "RawCull did not pick up the analysis. Open RawCull and start a new job with a new request ID."
             } else {

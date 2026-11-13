@@ -166,6 +166,9 @@ enum AnalysisTools {
                 throw MCPError.invalidParams("That job has been replaced.")
             }
             guard current.state.isActive, !current.cancellationRequested else { return nil }
+            if current.state == .running, current.heartbeatAt == nil {
+                current.heartbeatAt = current.updatedAt
+            }
             current.cancellationRequested = true
             if current.state == .queued {
                 current.finish(.cancelled)
