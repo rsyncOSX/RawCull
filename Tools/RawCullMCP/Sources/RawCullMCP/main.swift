@@ -130,7 +130,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
             )
         }
 
-        let cursorPrefix = "\(catalogID.uuidString):"
+        let cursorPrefix = summary.photoIdPrefix(catalogId: catalogID)
         var start = 0
         if let cursor = arguments["cursor"] {
             guard case let .string(token) = cursor, token.hasPrefix(cursorPrefix),
@@ -209,7 +209,12 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
     case listCatalogsTool.name:
         let catalog = try readCatalogGrant()
         let catalogs: [Value] = catalog.map {
-            [.object(["id": .string($0.id.uuidString), "displayName": .string(catalogMetadataText($0.displayName)), "analysisEnabled": .bool($0.analysisEnabled == true)])]
+            [.object([
+                "id": .string($0.id.uuidString),
+                "displayName": .string(catalogMetadataText($0.displayName)),
+                "analysisEnabled": .bool($0.analysisEnabled == true),
+                "recurringFolder": .bool($0.recurringFolder == true),
+            ])]
         } ?? []
         return try structuredReply(
             catalog == nil ? "No catalog is authorized." : "RawCull has an authorized catalog.",

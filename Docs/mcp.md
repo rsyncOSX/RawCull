@@ -160,6 +160,16 @@ If RawCull has a different catalog open, select the authorized catalog in RawCul
 
 RawCull runs one MCP job at a time. A new job replaces the previous result. Codex can disconnect and reconnect while the app continues the job. Quitting RawCull cancels a running job. A queued job expires after two minutes. A running job with no worker heartbeat for 45 seconds of awake time on the same boot is reported as failed, or cancelled if cancellation was requested. Revoking or replacing the catalog grant stops access to that grant's job and results.
 
+### Reuse a folder for each shoot
+
+In RawCull, open the folder and wait for its photos to load. In **Settings → MCP**, turn on **Allow MCP to start burst analysis**, then turn on **Allow analysis of future photos in this folder** and choose **Authorize Selected Catalog**. This gives MCP recurring access for analysis of that folder, including photos added later. You can revoke it in the same tab.
+
+After replacing the photos, start a new request. RawCull rescans the folder even if it is already selected. A successful analysis refreshes the saved photo list, with new photo IDs and pagination cursors. Until completion, metadata tools return the last saved scan. Wait for the job to finish before replacing the files again.
+
+> Use the `rawcull` MCP server to start a fresh burst analysis of my `Downloads` catalog. Use a new request UUID, wait for completion, and show the first five ranked bursts with their recommended frames.
+
+For TestFlight, authorize a folder containing a known set of photos, run the prompt, and keep the folder open in RawCull. Replace the files with a different set and run the prompt again. Verify there is no approval sheet, the job counts and filenames reflect the new files, and a previous photo cursor is rejected. Repeat with RawCull closed and confirm revocation prevents another automatic run.
+
 ### TestFlight smoke test
 
 Codex discovered all eight tools on `rawcull-testflight` and reported helper version `0.5.0`. The helper found exactly one catalog, `CatalogFull`, with analysis enabled. A fresh analysis request returned a queued job, and polling reported completion. The coverage matched the earlier `rawcull-local` run.

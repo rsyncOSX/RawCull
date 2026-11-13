@@ -5,6 +5,7 @@ struct CatalogGrant: Codable {
     let displayName: String
     let summary: CatalogSummary?
     let analysisEnabled: Bool?
+    var recurringFolder: Bool?
 }
 
 struct CatalogSummary: Codable {
@@ -14,6 +15,12 @@ struct CatalogSummary: Codable {
     let cameraCounts: [String: Int]
     let snapshotAt: String
     let photos: [CatalogPhoto]?
+    var scanId: UUID?
+
+    func photoIdPrefix(catalogId: UUID) -> String {
+        let catalogPrefix = "\(catalogId.uuidString):"
+        return scanId.map { catalogPrefix + "\($0.uuidString):" } ?? catalogPrefix
+    }
 }
 
 struct CatalogPhoto: Codable {

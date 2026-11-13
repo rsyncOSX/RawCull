@@ -422,7 +422,8 @@ final class MCPAnalysisController {
         if index == nil {
             viewModel.sources.append(target)
         }
-        let needsCatalogLoad = viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
+        let needsCatalogLoad = grant?.recurringFolder == true
+            || viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
             || !viewModel.hasActiveSecurityScopedAccess(for: url)
         if viewModel.selectedSource != target { viewModel.selectedSource = target }
         if needsCatalogLoad {
@@ -430,9 +431,24 @@ final class MCPAnalysisController {
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
         let photoIds: [UUID: String]
-        if let photos = grant?.summary?.photos, let authorization {
+        let refreshedGrant: CatalogGrant?
+        if let grant, grant.recurringFolder == true {
+            guard let summary = viewModel.mcpCatalogSummary(scanId: job.jobId) else {
+                throw JobError("No supported photos were found in the authorized folder.")
+            }
+            let prefix = summary.photoIdPrefix(catalogId: grant.id)
+            photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
+                (file.id, "\(prefix)\(offset)")
+            })
+            refreshedGrant = CatalogGrant(
+                id: grant.id, displayName: grant.displayName, summary: summary,
+                analysisEnabled: true, recurringFolder: true
+            )
+        } else if let photos = grant?.summary?.photos, let authorization {
+            refreshedGrant = nil
             photoIds = try snapshotPhotoIds(files: viewModel.files, photos: photos, authorization: authorization)
         } else {
+            refreshedGrant = nil
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(job.catalogId.uuidString):\(offset)")
             })
@@ -473,6 +489,7 @@ final class MCPAnalysisController {
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running else { throw CancellationError() }
             guard !current.cancellationRequested, try isAuthorized(job) else { throw CancellationError() }
+            if let refreshedGrant { try grants.writeLocked(refreshedGrant) }
             current.coverage = output.coverage
             current.bursts = output.bursts
             current.filesScanned = photoIds.count
@@ -480,7 +497,7 @@ final class MCPAnalysisController {
             current.finish(.completed)
             return current
         }
-        if needsCatalogLoad {
+        if needsCatalogLoad, grant?.recurringFolder != true || selection == nil {
             viewModel.showsDetailedBurstComparison = false
             viewModel.useExistingBurstGroupIndex()
         }

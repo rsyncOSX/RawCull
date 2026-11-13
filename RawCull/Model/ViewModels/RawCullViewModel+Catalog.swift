@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 
 extension RawCullViewModel {
-    private func mcpCatalogSummary() -> CatalogSummary? {
+    func mcpCatalogSummary(scanId: UUID? = nil) -> CatalogSummary? {
         guard let selectedSource, catalogLifecycle.currentSource == selectedSource,
               !scanning, !files.isEmpty
         else { return nil }
@@ -31,18 +31,26 @@ extension RawCullViewModel {
                     camera: file.exifData?.camera,
                 )
             },
+            scanId: scanId,
         )
     }
 
-    func authorizeMCPCatalog(allowAnalysis: Bool) throws -> CatalogGrant {
-        try authorizeMCPCatalog(allowAnalysis: allowAnalysis, catalogId: UUID(), preservingJob: false)
+    func authorizeMCPCatalog(allowAnalysis: Bool, recurringFolder: Bool) throws -> CatalogGrant {
+        try authorizeMCPCatalog(
+            allowAnalysis: allowAnalysis, catalogId: UUID(), preservingJob: false, recurringFolder: recurringFolder
+        )
     }
 
     @discardableResult
-    func authorizeMCPCatalog(allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool) throws -> CatalogGrant {
+    func authorizeMCPCatalog(
+        allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false
+    ) throws -> CatalogGrant {
         guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
         let summary = mcpCatalogSummary()
-        let grant = CatalogGrant(id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis)
+        let grant = CatalogGrant(
+            id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis,
+            recurringFolder: allowAnalysis && recurringFolder ? true : nil
+        )
         let previous = MCPAnalysisAuthorization.savedData
         if allowAnalysis {
             guard summary != nil, hasActiveSecurityScopedAccess(for: source.url) else {
