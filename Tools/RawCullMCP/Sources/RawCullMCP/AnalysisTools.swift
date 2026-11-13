@@ -76,6 +76,8 @@ enum AnalysisTools {
             return try reply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
         }

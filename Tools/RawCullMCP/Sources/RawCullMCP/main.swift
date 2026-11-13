@@ -83,6 +83,20 @@ await server.withMethodHandler(ListResourceTemplates.self) { _ in
 }
 
 await server.withMethodHandler(CallTool.self) { params in
+    guard availableTools.contains(where: { $0.name == params.name }) else {
+        throw MCPError.invalidParams("Unknown tool: \(params.name)")
+    }
+    do {
+        return try await callKnownTool(params)
+    } catch MCPError.invalidParams(let message) {
+        return .init(
+            content: [.text(text: message ?? "Invalid tool arguments.", annotations: nil, _meta: nil)],
+            isError: true
+        )
+    }
+}
+
+func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Result {
     if AnalysisTools.all.contains(where: { $0.name == params.name }) {
         return try await AnalysisTools.call(params)
     }
@@ -161,7 +175,11 @@ await server.withMethodHandler(CallTool.self) { params in
         if catalog.analysisEnabled == true,
            let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
            job.catalogId == catalog.id, job.state == .completed, let coverage = job.coverage {
-            details["analysisCoverage"] = try Value(coverage)
+            do {
+                details["analysisCoverage"] = try Value(coverage)
+            } catch {
+                throw MCPError.internalError("The analysis coverage could not be encoded.")
+            }
         }
         return .init(
             content: [.text(text: "RawCull's saved scan for \(catalog.displayName) contains \(summary.photoCount) photos as of \(summary.snapshotAt).", annotations: nil, _meta: nil)],
