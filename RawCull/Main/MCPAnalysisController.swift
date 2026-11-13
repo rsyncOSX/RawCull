@@ -193,9 +193,10 @@ final class MCPAnalysisController {
         if index == nil {
             viewModel.sources.append(target)
         }
+        let needsCatalogLoad = viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
+            || !viewModel.hasActiveSecurityScopedAccess(for: url)
         if viewModel.selectedSource != target { viewModel.selectedSource = target }
-        if viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
-            || !viewModel.hasActiveSecurityScopedAccess(for: url) {
+        if needsCatalogLoad {
             viewModel.startCatalogLoad(for: target, scopedURL: url)
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
@@ -239,8 +240,10 @@ final class MCPAnalysisController {
             current.finish(.completed)
             return current
         }
-        viewModel.showsDetailedBurstComparison = false
-        viewModel.useExistingBurstGroupIndex()
+        if needsCatalogLoad {
+            viewModel.showsDetailedBurstComparison = false
+            viewModel.useExistingBurstGroupIndex()
+        }
     }
 
     private func requireAvailableWorkspace(
