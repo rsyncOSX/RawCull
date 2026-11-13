@@ -54,10 +54,7 @@ enum AnalysisTools {
         else { throw MCPError.invalidParams("Provide catalogId and \(idKey) UUIDs.") }
 
         let store = AnalysisJobStore(directory: grantStore.directory)
-        let catalog = try requireCatalog(catalogId)
-        guard catalog.analysisEnabled == true else {
-            throw MCPError.invalidParams("Enable catalog analysis when authorizing this loaded catalog in RawCull's MCP settings.")
-        }
+        try requireAnalysisGrant(catalogId)
         do {
             let current = try store.expireInterruptedJob()
             let job: AnalysisJob
@@ -84,24 +81,33 @@ enum AnalysisTools {
         }
     }
 
+    private static func requireAnalysisGrant(_ catalogId: UUID) throws {
+        guard try requireCatalog(catalogId).analysisEnabled == true else {
+            throw MCPError.invalidParams("Enable catalog analysis when authorizing this loaded catalog in RawCull's MCP settings.")
+        }
+    }
+
     private static func submit(
         catalogId: UUID, jobId: UUID, store: AnalysisJobStore
     ) async throws -> AnalysisJob {
-        let updated = try store.update { current in
-            if let current, current.catalogId == catalogId, current.jobId == jobId { return nil }
-            if current?.state.isActive == true {
-                throw MCPError.invalidParams("An analysis is already active. Wait for it to finish or cancel it.")
-            }
-            let now = Date.now
-            var next = AnalysisJob(jobId: jobId, catalogId: catalogId, createdAt: now, updatedAt: now)
-            if let current, current.catalogId == catalogId {
-                let previous = current.previousRequestIds ?? []
-                guard !previous.contains(jobId) else {
-                    throw MCPError.invalidParams("That request ID belongs to a replaced job. Use a new request ID.")
+        let updated = try store.withLock {
+            try requireAnalysisGrant(catalogId)
+            return try store.updateLocked { current in
+                if let current, current.catalogId == catalogId, current.jobId == jobId { return nil }
+                if current?.state.isActive == true {
+                    throw MCPError.invalidParams("An analysis is already active. Wait for it to finish or cancel it.")
                 }
-                next.previousRequestIds = previous + [current.jobId]
+                let now = Date.now
+                var next = AnalysisJob(jobId: jobId, catalogId: catalogId, createdAt: now, updatedAt: now)
+                if let current, current.catalogId == catalogId {
+                    let previous = current.previousRequestIds ?? []
+                    guard !previous.contains(jobId) else {
+                        throw MCPError.invalidParams("That request ID belongs to a replaced job. Use a new request ID.")
+                    }
+                    next.previousRequestIds = previous + [current.jobId]
+                }
+                return next
             }
-            return next
         }
         guard let job = updated else { throw MCPError.internalError("The job could not be queued.") }
 
