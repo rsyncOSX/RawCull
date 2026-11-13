@@ -57,6 +57,28 @@ struct SavedFilesJSONTests {
     }
 
     @Test
+    func `empty write removes active and backup stores and can be repeated`() async throws {
+        let fileURL = makeIsolatedSavedFilesURL()
+        let root = savedFilesTestRoot(for: fileURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let saved = SavedFiles(
+            catalog: URL(fileURLWithPath: "/tmp/catalog"),
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 2),
+        )
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+        let backupURL = fileURL.deletingLastPathComponent().appendingPathComponent("savedfiles.backup.json")
+        try #require(FileManager.default.fileExists(atPath: backupURL.path))
+
+        try await WriteSavedFilesJSON.write([], to: fileURL)
+
+        #expect(!FileManager.default.fileExists(atPath: fileURL.path))
+        #expect(!FileManager.default.fileExists(atPath: backupURL.path))
+        try await WriteSavedFilesJSON.write([], to: fileURL)
+    }
+
+    @Test
     func `write creates Application Support directory and saved files JSON`() async throws {
         let fileURL = makeIsolatedSavedFilesURL()
         let root = savedFilesTestRoot(for: fileURL)

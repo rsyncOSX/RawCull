@@ -14,6 +14,7 @@ struct CacheSettingsTab: View {
     @State private var savedFilesSize = 0
     @State private var showDeleteSavedFiles = false
     @State private var isDeletingSavedFiles = false
+    @State private var savedFilesDeletionError: String?
 
     let combinedReviewFeature: CombinedReviewFeature
     @State private var combinedReviewSize = 0
@@ -81,7 +82,7 @@ struct CacheSettingsTab: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(ByteCountFormatStyle(style: .memory).format(Int64(savedFilesSize)))
+                        Text(isDeletingSavedFiles ? "Deleting…" : formatBytes(savedFilesSize))
                             .font(.caption)
                             .monospacedDigit()
                         Button("Delete Saved Files", role: .destructive) {
@@ -106,9 +107,16 @@ struct CacheSettingsTab: View {
         .alert("Delete Saved Files?", isPresented: $showDeleteSavedFiles) {
             Button("Delete Saved Files", role: .destructive) {
                 isDeletingSavedFiles = true
-                viewModel.clearAllCullingState()
                 Task {
-                    _ = await viewModel.cullingModel.flushPersistence()
+                    let cullingModel = viewModel.cullingModel
+                    if await cullingModel.ensureLoaded() {
+                        viewModel.clearAllCullingState()
+                        if !(await cullingModel.flushPersistence()) {
+                            savedFilesDeletionError = cullingModel.persistenceError
+                        }
+                    } else {
+                        savedFilesDeletionError = cullingModel.persistenceError
+                    }
                     savedFilesSize = await WriteSavedFilesJSON.diskUsage()
                     isDeletingSavedFiles = false
                 }
@@ -116,6 +124,17 @@ struct CacheSettingsTab: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("All saved catalog records, ratings and analysis results will be deleted. Original photos will be kept.")
+        }
+        .alert("Could not delete saved files", isPresented: Binding(
+            get: { savedFilesDeletionError != nil }, set: {
+                if !$0 {
+                    savedFilesDeletionError = nil
+                }
+            },
+        )) {
+            Button("OK") { savedFilesDeletionError = nil }
+        } message: {
+            Text(savedFilesDeletionError ?? "")
         }
         .confirmationDialog("Delete Cache?", isPresented: $showPurgeConfirmation) {
             Button("Delete Cache", role: .destructive) { purge() }
