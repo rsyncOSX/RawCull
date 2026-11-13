@@ -84,6 +84,7 @@ nonisolated struct AnalysisJobStore: Sendable {
 
     enum StoreError: Error {
         case unsupportedFormat
+        case busy
     }
 
     /// An atomic replacement changes the inode or its change time.
@@ -134,9 +135,15 @@ nonisolated struct AnalysisJobStore: Sendable {
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         let lock = directory.appendingPathComponent("analysis-job.lock")
         let descriptor = open(lock.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else { throw POSIXError(.EIO) }
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         defer { close(descriptor) }
-        guard flock(descriptor, LOCK_EX) == 0 else { throw POSIXError(.EIO) }
+        // UI callers must never wait for a separate helper process to release the lock.
+        let flags = LOCK_EX | (Thread.isMainThread ? LOCK_NB : 0)
+        guard flock(descriptor, flags) == 0 else {
+            let code = errno
+            if code == EWOULDBLOCK { throw StoreError.busy }
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+        }
         defer { flock(descriptor, LOCK_UN) }
 
         return try operation()

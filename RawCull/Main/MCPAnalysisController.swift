@@ -41,6 +41,7 @@ final class MCPAnalysisController {
     private var activeJob: AnalysisJob?
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
+    private var isQuitting = false
     private var terminalRevision: AnalysisJobStore.Revision?
 
     func start(
@@ -53,6 +54,8 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                } catch AnalysisJobStore.StoreError.busy {
+                    // The next poll retries a claim or heartbeat.
                 } catch {
                     Logger.process.error("Could not update the MCP analysis job.")
                     analysis?.cancel()
@@ -62,11 +65,12 @@ final class MCPAnalysisController {
         }
     }
 
-    func stopForQuit() {
+    func stopForQuit() async {
+        isQuitting = true
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
-        finish(.cancelled, message: "RawCull quit.")
+        if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
     }
 
     private func poll(
@@ -126,17 +130,22 @@ final class MCPAnalysisController {
                 analysis = nil
             }
             guard let viewModel else {
-                finish(.cancelled)
+                if !isQuitting { await finish(claimed, as: .cancelled) }
                 return
             }
             do {
                 try await run(claimed, viewModel: viewModel, prepare: prepare, canStart: canStart)
             } catch is CancellationError {
-                finish(.cancelled)
+                if !isQuitting { await finish(claimed, as: .cancelled) }
             } catch let error as JobError {
-                finish(.failed, message: error.message)
+                if !isQuitting { await finish(claimed, as: .failed, message: error.message) }
             } catch {
-                finish(.failed, message: "RawCull could not open or analyze the authorized catalog. Check access and authorize it again.")
+                if !isQuitting {
+                    await finish(
+                        claimed, as: .failed,
+                        message: "RawCull could not open or analyze the authorized catalog. Check access and authorize it again."
+                    )
+                }
             }
         }
     }
@@ -208,7 +217,8 @@ final class MCPAnalysisController {
         }
 
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
-        try jobs.update { current in
+        try await updateWithRetry { current in
+            try Task.checkCancellation()
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .running else { throw CancellationError() }
             guard !current.cancellationRequested, try isAuthorized(job) else { throw CancellationError() }
@@ -381,13 +391,33 @@ final class MCPAnalysisController {
         }
     }
 
-    private func finish(_ state: AnalysisJob.State, message: String? = nil) {
-        guard let job = activeJob else { return }
+    private func updateWithRetry(
+        _ change: (AnalysisJob?) throws -> AnalysisJob?
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while true {
+            do {
+                try jobs.update(change)
+                return
+            } catch AnalysisJobStore.StoreError.busy where ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
+    private func finish(_ job: AnalysisJob, as state: AnalysisJob.State, message: String? = nil) async {
+        // A cancelled worker still needs to persist its final state.
+        await Task { await persistFinish(job, as: state, message: message) }.value
+    }
+
+    private func persistFinish(_ job: AnalysisJob, as state: AnalysisJob.State, message: String?) async {
         do {
-            try jobs.update { current in
+            try await updateWithRetry { current in
                 guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                       current.state == .running else { return nil }
-                if current.cancellationRequested && state != .cancelled {
+                if isQuitting {
+                    current.finish(.cancelled, message: "RawCull quit.")
+                } else if current.cancellationRequested && state != .cancelled {
                     current.finish(.cancelled)
                 } else {
                     current.finish(state, message: message)
