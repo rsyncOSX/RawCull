@@ -506,12 +506,19 @@ final class MCPAnalysisController {
     private func requireAvailableWorkspace(
         for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool, allowSwitch: Bool = false
     ) throws {
-        guard canStart(), !viewModel.cullingModel.isTerminationPending,
-              !viewModel.isDeepAIReviewBlockedByOtherWork, !viewModel.isPreparingBurstCatalog,
-              !viewModel.sharpnessModel.isCalibratingSharpnessScoring,
-              !viewModel.scanning, !viewModel.isCreatingThumbnails,
-              viewModel.catalogLifecycle.transitionTask == nil, viewModel.catalogLifecycle.loadTask == nil
-        else { throw JobError("RawCull is busy. Let the current operation finish, then start a new job.") }
+        if viewModel.cullingModel.isTerminationPending {
+            throw JobError("RawCull is waiting to quit. Resolve any save prompt in RawCull, then start a new request.")
+        }
+        if viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil
+            || viewModel.scanning || viewModel.isCreatingThumbnails
+        {
+            throw JobError("RawCull is loading a catalog. Wait for the catalog and thumbnails to finish loading, then start a new request.")
+        }
+        if !canStart() || viewModel.isDeepAIReviewBlockedByOtherWork || viewModel.isPreparingBurstCatalog
+            || viewModel.sharpnessModel.isCalibratingSharpnessScoring
+        {
+            throw JobError("RawCull is running analysis or preparing burst results. Wait for that operation to finish, then start a new request.")
+        }
 
         let requested = url.standardizedFileURL
         let selected = viewModel.selectedSource?.url.standardizedFileURL
