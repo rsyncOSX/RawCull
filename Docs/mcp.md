@@ -1,6 +1,6 @@
 # RawCull MCP implementation plan
 
-**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 (0.6.0) adds prompt-driven catalog setup and job approval. Signed TestFlight verification is pending.
+**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 (0.6.0) is complete. Prompt-driven catalog setup and job approval passed signed TestFlight verification.
 
 ## What the user should be able to do
 
@@ -201,6 +201,8 @@ The TestFlight helper could also read the earlier local job. For a repeat test t
 
 ## Phase 3 — Add prompt-driven catalog setup and job approval
 
+**Complete on signed TestFlight with helper `0.6.0`.** The connection and empty starting grant list were verified. Canceling the folder picker and denying job approval each left the grant list empty and issued no job. The step 4 release gate passed with job `77EFF505-2E38-40DA-AC4B-9A9EB38BC232`. Results remained readable after quitting, no grant was saved, and replay returned the same job ID. Step 5 completed and saved the Rekdal grant.
+
 Use the signed TestFlight build and the Rekdal catalog at `/Users/thomas/Pictures_raw/2023/Rekdal`. Run the steps in order. Use a fresh UUID for each new setup request and reuse the original UUID only for the replay in step 4. Respond to any RawCull picker or approval sheet within ten minutes.
 
 ### TestFlight walkthrough
@@ -255,7 +257,7 @@ Quit RawCull, then run the prompt. Observe whether either the picker or approval
 
 **Observed on TestFlight with helper `0.6.0`.** Request `7D034B9A-52E6-4C81-ABF3-906E1D278C45` went from `pendingApproval` to `failed` with “RawCull is busy. Let the current operation finish, then start a new job.” It returned no catalog or job ID. RawCull also stayed open during a subsequent quit attempt, so confirm the app has exited before counting a retry as a cold launch.
 
-To check the grant separately, leave RawCull open, wait for catalog loading and thumbnail generation to finish, then run the same prompt with a fresh UUID. If the job completes without a picker or approval sheet, record that the saved grant worked with RawCull already open. A successful run from a fully closed app is still needed to pass this step.
+**Final result: passed.** With RawCull fully quit, the saved grant queued job `BE84979E-6C1F-4B22-8586-C6512CA274F5` without showing a folder picker or approval sheet. The job completed and analyzed all 73 photos.
 
 #### 7. Check ambiguous names and unavailable sources
 
@@ -267,6 +269,8 @@ For the ambiguous-name case, use a second known catalog also named Rekdal. For t
 
 **Pass when** an ambiguous hint asks you to choose and cancellation issues no job. The unavailable source should ask you to choose a readable folder or produce an actionable failure.
 
+**Result: both cases passed.** RawCull asked for a folder when two known catalogs matched `Rekdal` and when the WDdisk copy was unavailable. Canceling each picker returned `denied` without issuing a job. The ambiguous-name request ID was `2F586D91-8A34-4CC7-B50E-697DA32E1048`.
+
 **Release gate.** Step 4 passes when you can start from a prompt, choose Rekdal in RawCull, approve once, and receive completed results in chat without opening **Settings → MCP** during that run. Record each step's outcome and retain the request and job IDs for any failures.
 
 ### Visual review and drafts
@@ -276,6 +280,14 @@ Helper `0.6.0` supports ranking retrieval through `list_bursts`. Preview sharing
 **Inspect low-confidence rankings with helper `0.6.0`.**
 
 > Use only `rawcull`. For `/Users/thomas/Pictures_raw/2023/Rekdal`, use the catalog and completed job IDs from step 6 and page through `list_bursts` until you find up to five low-confidence bursts or reach the end. Report each burst ID, its first-ranked frame and alternate, their scores if available, and RawCull’s confidence reason. Report the number found if there are fewer than five.
+
+**Result with helper `0.6.0`: passed.** `list_bursts` returned all 10 bursts for the completed Rekdal job `BE84979E-6C1F-4B22-8586-C6512CA274F5` in catalog `4BA198B2-762C-4E6C-A54F-CAB25BB574C8`. The final page returned `nextCursor: null`. Three bursts had the caution “Top two are close.” Two pairs tied at the reported precision.
+
+| Burst index | First-ranked frame (score) | Alternate (score) |
+| --- | --- | --- |
+| `2` | `DSC00737.ARW` (0.931000) | `DSC00732.ARW` (0.925574) |
+| `8` | `DSC01168.ARW` (0.931000) | `DSC01169.ARW` (0.931000) |
+| `9` | `DSC01278.ARW` (0.931000) | `DSC01279.ARW` (0.931000) |
 
 After prompt-driven setup and approval work end to end, continue with visual review and saved drafts.
 
