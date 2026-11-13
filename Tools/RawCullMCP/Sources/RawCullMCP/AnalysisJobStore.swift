@@ -28,6 +28,7 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     var message: String?
     var coverage: Coverage?
     var bursts: [Burst]?
+    var setupRequestId: UUID?
     var previousRequestIds: [UUID]?
     private(set) var formatVersion: Int? = currentFormatVersion
 

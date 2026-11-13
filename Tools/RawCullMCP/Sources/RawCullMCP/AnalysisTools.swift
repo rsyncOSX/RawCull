@@ -100,6 +100,11 @@ enum AnalysisTools {
             }
             request = existing
         }
+        if request.state == .pendingApproval, let job = try? store.jobs.read(), job.setupRequestId == id {
+            request.state = .queued
+            request.catalogId = job.catalogId
+            request.jobId = job.jobId
+        }
         if request.state == .pendingApproval, request.isExpired {
             request.state = .failed
             request.message = "The catalog setup request expired. Start a new request."
@@ -128,19 +133,35 @@ enum AnalysisTools {
         else { throw MCPError.invalidParams("Provide catalogId and \(idKey) UUIDs.") }
 
         let store = AnalysisJobStore(directory: grantStore.directory)
-        try requireAnalysisGrant(catalogId)
+        if isStart { try requireAnalysisGrant(catalogId) }
         do {
-            let current = try params.name == cancel.name ? store.readRecovering() : store.expireInterruptedJob()
+            let current = try store.readRecovering()
             let job: AnalysisJob
             if isStart {
+                _ = try store.expireInterruptedJob()
                 job = try await submit(catalogId: catalogId, jobId: jobId, store: store)
             } else {
                 guard let current, current.catalogId == catalogId, current.jobId == jobId else {
                     throw MCPError.invalidParams("No current job matches that catalog and job ID.")
                 }
-                job = params.name == cancel.name ? try requestCancellation(current, store: store) : current
+                if current.setupRequestId == nil { try requireAnalysisGrant(catalogId) }
+                if params.name == cancel.name {
+                    job = try requestCancellation(current, store: store)
+                } else {
+                    guard let latest = try store.expireInterruptedJob(),
+                          latest.jobId == jobId, latest.catalogId == catalogId else {
+                        throw MCPError.invalidParams("That job has been replaced.")
+                    }
+                    job = latest
+                }
             }
-            _ = try requireCatalog(catalogId)
+            if job.setupRequestId == nil {
+                _ = try requireCatalog(catalogId)
+            } else {
+                guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId else {
+                    throw MCPError.invalidParams("That job has been replaced or revoked.")
+                }
+            }
             if params.name == bursts.name {
                 return try page(job, arguments: arguments)
             }
@@ -149,6 +170,7 @@ enum AnalysisTools {
             details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
+            details.setupRequestId = nil
             return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error

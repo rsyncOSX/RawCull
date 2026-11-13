@@ -61,6 +61,11 @@ struct CatalogGrantStore: Sendable {
         }
     }
 
+    // Caller must hold the job lock.
+    func writeLocked(_ grant: CatalogGrant) throws {
+        try JSONEncoder().encode(grant).write(to: manifestURL(), options: .atomic)
+    }
+
     func revoke() throws {
         let manifest = try manifestURL()
         let jobs = AnalysisJobStore(directory: directory)

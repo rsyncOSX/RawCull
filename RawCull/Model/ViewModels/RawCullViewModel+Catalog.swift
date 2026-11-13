@@ -35,9 +35,14 @@ extension RawCullViewModel {
     }
 
     func authorizeMCPCatalog(allowAnalysis: Bool) throws -> CatalogGrant {
+        try authorizeMCPCatalog(allowAnalysis: allowAnalysis, catalogId: UUID(), preservingJob: false)
+    }
+
+    @discardableResult
+    func authorizeMCPCatalog(allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool) throws -> CatalogGrant {
         guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
         let summary = mcpCatalogSummary()
-        let grant = CatalogGrant(id: UUID(), displayName: source.name, summary: summary, analysisEnabled: allowAnalysis)
+        let grant = CatalogGrant(id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis)
         let previous = MCPAnalysisAuthorization.savedData
         if allowAnalysis {
             guard summary != nil, hasActiveSecurityScopedAccess(for: source.url) else {
@@ -56,7 +61,13 @@ extension RawCullViewModel {
             MCPAnalysisAuthorization.save(try JSONEncoder().encode(authorization))
         }
         do {
-            try CatalogGrantStore.shared().authorize(grant)
+            let store = CatalogGrantStore.shared()
+            if preservingJob {
+                // The setup controller holds the job lock and has checked job ownership.
+                try store.writeLocked(grant)
+            } else {
+                try store.authorize(grant)
+            }
         } catch {
             MCPAnalysisAuthorization.save(previous)
             throw error
