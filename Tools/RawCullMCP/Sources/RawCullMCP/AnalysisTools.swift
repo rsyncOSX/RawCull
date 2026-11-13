@@ -49,9 +49,76 @@ enum AnalysisTools {
             "cursor": .object(["type": .string("string")]),
         ]
     )
-    static let all = [start, status, cancel, bursts]
+    static let requestSetup = tool(
+        "request_catalog_setup",
+        "Find a catalog by exact name or absolute path and start burst analysis if it is already authorized. RawCull asks for approval or folder selection when needed. Reuse the requestId UUID on retry.",
+        required: ["catalogHint": .object(["type": .string("string")]), "jobType": .object([
+            "type": .string("string"), "enum": .array([.string("burstAnalysis")]),
+        ]), "requestId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
+    )
+    static let setupStatus = tool(
+        "get_catalog_setup_status", "Read the status of a catalog setup request and find its analysis job.",
+        required: ["requestId": uuid], annotations: catalogReadAnnotations
+    )
+    static let all = [start, status, cancel, bursts, requestSetup, setupStatus]
+
+    private static func callSetup(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+        let isSubmission = params.name == requestSetup.name
+        let keys: Set<String> = isSubmission ? ["requestId", "catalogHint", "jobType"] : ["requestId"]
+        guard let args = params.arguments, Set(args.keys) == keys,
+              let id = args["requestId"]?.stringValue.flatMap(UUID.init(uuidString:))
+        else { throw MCPError.invalidParams("Provide a requestId UUID and the required setup arguments.") }
+
+        let store = CatalogSetupStore(jobs: AnalysisJobStore(directory: grantStore.directory))
+        var request: CatalogSetupRequest
+        if isSubmission {
+            guard let hint = args["catalogHint"]?.stringValue, args["jobType"]?.stringValue == "burstAnalysis" else {
+                throw MCPError.invalidParams("Provide a catalog hint and use burstAnalysis as the job type.")
+            }
+            let proposed = CatalogSetupRequest(
+                requestId: id, catalogHint: catalogMetadataText(hint), jobType: "burstAnalysis", createdAt: .now
+            )
+            do {
+                request = try store.submit(proposed)
+            } catch CatalogSetupStore.StoreError.pendingRequest {
+                throw MCPError.invalidParams("Another catalog setup request is awaiting a response in RawCull.")
+            }
+            guard request.catalogHint == proposed.catalogHint, request.jobType == proposed.jobType else {
+                throw MCPError.invalidParams("That requestId belongs to a different request. Use a new UUID.")
+            }
+            if request.state == .pendingApproval, !request.isExpired {
+                if let app = bundledRawCullURL() {
+                    _ = await openBundledRawCull(at: app, activates: true)
+                } else {
+                    request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
+                }
+            }
+        } else {
+            guard let existing = try store.request(id) else {
+                throw MCPError.invalidParams("No catalog setup request matches that ID.")
+            }
+            request = existing
+        }
+        if request.state == .pendingApproval, request.isExpired {
+            request.state = .failed
+            request.message = "The catalog setup request expired. Start a new request."
+        }
+        return try structuredReply(
+            request.message ?? "Catalog setup: \(request.state.rawValue).", value: Value(request)
+        )
+    }
 
     static func call(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+        if params.name == requestSetup.name || params.name == setupStatus.name {
+            do {
+                return try await callSetup(params)
+            } catch let error as MCPError {
+                throw error
+            } catch {
+                throw MCPError.internalError("The RawCull catalog setup request could not be read or saved.")
+            }
+        }
         let isStart = params.name == start.name
         let idKey = isStart ? "requestId" : "jobId"
         let keys = params.name == bursts.name ? ["catalogId", idKey, "limit", "cursor"] : ["catalogId", idKey]
@@ -61,19 +128,35 @@ enum AnalysisTools {
         else { throw MCPError.invalidParams("Provide catalogId and \(idKey) UUIDs.") }
 
         let store = AnalysisJobStore(directory: grantStore.directory)
-        try requireAnalysisGrant(catalogId)
+        if isStart { try requireAnalysisGrant(catalogId) }
         do {
-            let current = try params.name == cancel.name ? store.readRecovering() : store.expireInterruptedJob()
+            let current = try store.readRecovering()
             let job: AnalysisJob
             if isStart {
+                _ = try store.expireInterruptedJob()
                 job = try await submit(catalogId: catalogId, jobId: jobId, store: store)
             } else {
                 guard let current, current.catalogId == catalogId, current.jobId == jobId else {
                     throw MCPError.invalidParams("No current job matches that catalog and job ID.")
                 }
-                job = params.name == cancel.name ? try requestCancellation(current, store: store) : current
+                if !current.usesSetupApproval { try requireAnalysisGrant(catalogId) }
+                if params.name == cancel.name {
+                    job = try requestCancellation(current, store: store)
+                } else {
+                    guard let latest = try store.expireInterruptedJob(),
+                          latest.jobId == jobId, latest.catalogId == catalogId else {
+                        throw MCPError.invalidParams("That job has been replaced.")
+                    }
+                    job = latest
+                }
             }
-            _ = try requireCatalog(catalogId)
+            if !job.usesSetupApproval {
+                _ = try requireCatalog(catalogId)
+            } else {
+                guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId else {
+                    throw MCPError.invalidParams("That job has been replaced or revoked.")
+                }
+            }
             if params.name == bursts.name {
                 return try page(job, arguments: arguments)
             }
@@ -82,6 +165,8 @@ enum AnalysisTools {
             details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
+            details.setupRequestId = nil
+            details.usesSavedGrant = nil
             return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
@@ -163,9 +248,9 @@ enum AnalysisTools {
     }
 
     @MainActor
-    private static func openBundledRawCull(at url: URL) async -> Bool {
+    private static func openBundledRawCull(at url: URL, activates: Bool = false) async -> Bool {
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
+        configuration.activates = activates
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             return true

@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Foundation
 import OSLog
@@ -42,6 +43,8 @@ final class MCPAnalysisController {
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
+    private var setup: Task<Void, Never>?
+    private var approvedSetup: (id: UUID, url: URL, remember: Bool)?
     private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
@@ -54,6 +57,14 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                    if setup == nil, analysis == nil, let request = try setupStore.pending() {
+                        setup = Task { [weak self, weak viewModel] in
+                            guard let self else { return }
+                            defer { setup = nil }
+                            guard let viewModel else { return }
+                            await respond(to: request, viewModel: viewModel, canStart: canStart)
+                        }
+                    }
                 } catch AnalysisJobStore.StoreError.unsupportedFormat {
                     Logger.process.error("MCP analysis job uses an unsupported format. Reauthorize the catalog to clear it.")
                     analysis?.cancel()
@@ -73,6 +84,7 @@ final class MCPAnalysisController {
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
+        setup?.cancel()
         if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
     }
 
@@ -92,6 +104,7 @@ final class MCPAnalysisController {
             throw AnalysisJobStore.StoreError.unsupportedFormat
         }
         guard let job = storedJob else {
+            approvedSetup = nil
             analysis?.cancel()
             return
         }
@@ -106,6 +119,7 @@ final class MCPAnalysisController {
             return
         }
         guard job.state.isActive else {
+            if approvedSetup?.id == job.jobId { approvedSetup = nil }
             inactiveRevision = revision
             return
         }
@@ -113,7 +127,7 @@ final class MCPAnalysisController {
             _ = try jobs.expireInterruptedJob()
             return
         }
-        guard job.state == .queued else { return }
+        guard job.state == .queued, setup == nil else { return }
 
         var didClaim = false
         let claimed = try jobs.update { current in
@@ -160,36 +174,251 @@ final class MCPAnalysisController {
         }
     }
 
+    private var setupStore: CatalogSetupStore { CatalogSetupStore(jobs: jobs) }
+
+    private func respond(
+        to request: CatalogSetupRequest, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+    ) async {
+        var response = request
+        do {
+            guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
+            let saved = try savedCatalog()
+            let match = matchingCatalog(for: request.catalogHint, viewModel: viewModel, saved: saved)
+            if let saved, let match, sameFolder(match, saved.url), hasFolderAccess(saved.url, viewModel: viewModel) {
+                try await queueSetup(
+                    request, url: saved.url, remember: false, savedGrantId: saved.grant.id,
+                    viewModel: viewModel, canStart: canStart
+                )
+                return
+            }
+
+            guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) else {
+                throw JobError("Open RawCull's main window and start a new request.")
+            }
+
+            let url: URL
+            if let match, hasFolderAccess(match, viewModel: viewModel) {
+                url = match
+            } else {
+                url = try await chooseFolder(for: request, viewModel: viewModel, window: window)
+            }
+            let confirmation = NSAlert()
+            confirmation.messageText = String(localized: "Approve burst analysis?")
+            confirmation.informativeText = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share its ranked bursts with the MCP client.")
+            confirmation.addButton(withTitle: String(localized: "Approve This Job"))
+            confirmation.addButton(withTitle: String(localized: "Approve and Remember"))
+            confirmation.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
+            let approval = await confirmation.beginSheetModal(for: window)
+            guard approval == .alertFirstButtonReturn || approval == .alertSecondButtonReturn else {
+                throw CancellationError()
+            }
+            try Task.checkCancellation()
+            try await queueSetup(
+                request, url: url, remember: approval == .alertSecondButtonReturn,
+                viewModel: viewModel, canStart: canStart
+            )
+            return
+        } catch is CancellationError {
+            response.state = .denied
+            response.message = "Catalog setup was cancelled or denied in RawCull."
+        } catch let error as JobError {
+            response.state = .failed
+            response.message = error.message
+        } catch {
+            response.state = .failed
+            response.message = "RawCull could not open the selected catalog or queue the analysis."
+        }
+        do {
+            try await withJobLockRetry {
+                guard try setupStore.pending()?.requestId == request.requestId else { return }
+                try setupStore.saveLocked(response)
+            }
+        } catch {
+            Logger.process.error("Could not save the MCP catalog setup response.")
+        }
+    }
+
+    private func savedCatalog() throws -> (grant: CatalogGrant, url: URL)? {
+        guard let grant = try grants.authorizedCatalog(), grant.analysisEnabled == true,
+              grant.summary?.photos != nil, let data = MCPAnalysisAuthorization.savedData,
+              let authorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
+              authorization.catalogId == grant.id else { return nil }
+
+        var stale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: authorization.bookmark,
+            options: [.withSecurityScope, .withoutUI, .withoutMounting],
+            relativeTo: nil, bookmarkDataIsStale: &stale
+        ), !stale else { return nil }
+        return (grant, url)
+    }
+
+    private func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.standardizedFileURL.path == rhs.standardizedFileURL.path
+    }
+
+    private func matchingCatalog(
+        for hint: String, viewModel: RawCullViewModel, saved: (grant: CatalogGrant, url: URL)?
+    ) -> URL? {
+        let query = hint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return nil }
+        let path = query.hasPrefix("/") ? URL(fileURLWithPath: query, isDirectory: true) : nil
+        var candidates = viewModel.sources.map { (name: $0.name, url: $0.url) }
+        if let selected = viewModel.selectedSource {
+            candidates.append((selected.name, selected.url))
+        }
+        if let saved {
+            candidates.append((saved.grant.displayName, saved.url))
+        }
+        var match: URL?
+        for candidate in candidates {
+            let matches = if let path {
+                sameFolder(path, candidate.url)
+            } else {
+                candidate.name.compare(query, options: .caseInsensitive) == .orderedSame
+                    || candidate.url.lastPathComponent.compare(query, options: .caseInsensitive) == .orderedSame
+            }
+            guard matches else { continue }
+            if let match, !sameFolder(match, candidate.url) { return nil }
+            match = candidate.url
+        }
+        return match
+    }
+
+    private func hasFolderAccess(_ url: URL, viewModel: RawCullViewModel) -> Bool {
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { url.stopAccessingSecurityScopedResource() } }
+        guard started || viewModel.hasActiveSecurityScopedAccess(for: url) else { return false }
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey])
+        return values?.isDirectory == true && values?.isReadable == true
+    }
+
+    private func chooseFolder(
+        for request: CatalogSetupRequest, viewModel: RawCullViewModel, window: NSWindow
+    ) async throws -> URL {
+        let chooser = NSAlert()
+        chooser.messageText = String(localized: "Choose a catalog for burst analysis")
+        chooser.informativeText = request.catalogHint
+        chooser.addButton(withTitle: String(localized: "Choose Folder…"))
+        let current = viewModel.selectedSource
+        if current != nil {
+            chooser.addButton(withTitle: String(localized: "Use Current Catalog"))
+        }
+        chooser.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
+        let choice = await chooser.beginSheetModal(for: window)
+        if choice == .alertFirstButtonReturn {
+            let picker = NSOpenPanel()
+            picker.canChooseDirectories = true
+            picker.canChooseFiles = false
+            picker.allowsMultipleSelection = false
+            let hint = request.catalogHint.trimmingCharacters(in: .whitespacesAndNewlines)
+            if hint.hasPrefix("/") {
+                picker.directoryURL = URL(fileURLWithPath: hint, isDirectory: true).deletingLastPathComponent()
+            } else if let current {
+                picker.directoryURL = current.url.deletingLastPathComponent()
+            }
+            guard await picker.beginSheetModal(for: window) == .OK, let picked = picker.url else {
+                throw CancellationError()
+            }
+            return picked
+        } else if choice == .alertSecondButtonReturn, let current {
+            return current.url
+        } else {
+            throw CancellationError()
+        }
+    }
+
+    private func queueSetup(
+        _ request: CatalogSetupRequest, url: URL, remember: Bool, savedGrantId: UUID? = nil,
+        viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+    ) async throws {
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: true)
+        try await withJobLockRetry {
+            try Task.checkCancellation()
+            guard !request.isExpired, try setupStore.pending()?.requestId == request.requestId else {
+                throw JobError("The catalog setup request expired. Start a new request.")
+            }
+            let now = Date.now
+            if let savedGrantId {
+                guard let grant = try grants.authorizedCatalog(), grant.id == savedGrantId,
+                      grant.analysisEnabled == true else {
+                    throw JobError("Catalog authorization changed. Start a new request.")
+                }
+            }
+            var job = AnalysisJob(jobId: UUID(), catalogId: savedGrantId ?? UUID(), createdAt: now, updatedAt: now)
+            if savedGrantId != nil { job.usesSavedGrant = true }
+            job.setupRequestId = request.requestId
+            try jobs.updateLocked { current in
+                guard current?.state.isActive != true else {
+                    throw JobError("An analysis is already active. Wait for it to finish and try again.")
+                }
+                return job
+            }
+            if savedGrantId == nil { approvedSetup = (job.jobId, url, remember) }
+            var response = request
+            response.state = .queued
+            response.catalogId = job.catalogId
+            response.jobId = job.jobId
+            do {
+                try setupStore.saveLocked(response)
+            } catch {
+                // The published job carries the request ID so the client can still find it.
+                Logger.process.error("Could not save the queued MCP catalog setup response.")
+            }
+        }
+    }
+
     private func run(
         _ job: AnalysisJob,
         viewModel: RawCullViewModel,
         prepare: @MainActor () async -> Void,
         canStart: @MainActor () -> Bool,
     ) async throws {
-        guard let grant = try grants.authorizedCatalog(), grant.id == job.catalogId,
-              grant.analysisEnabled == true, let photos = grant.summary?.photos,
-              let data = MCPAnalysisAuthorization.savedData,
-              let authorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
-              authorization.catalogId == grant.id
-        else { throw JobError("Authorize the loaded catalog for analysis in RawCull's MCP settings.") }
+        let url: URL
+        let name: String
+        let grant: CatalogGrant?
+        let authorization: MCPAnalysisAuthorization?
+        let setupApproval = approvedSetup.flatMap { $0.id == job.jobId ? $0 : nil }
+        defer {
+            if approvedSetup?.id == job.jobId { approvedSetup = nil }
+        }
+        if job.usesSetupApproval {
+            guard let setupApproval else {
+                throw JobError("RawCull restarted before it could use the approved folder. Submit a new catalog setup request.")
+            }
+            url = setupApproval.url
+            name = url.lastPathComponent
+            grant = nil
+            authorization = nil
+        } else {
+            guard let savedGrant = try grants.authorizedCatalog(), savedGrant.id == job.catalogId,
+                  savedGrant.analysisEnabled == true, savedGrant.summary?.photos != nil,
+                  let data = MCPAnalysisAuthorization.savedData,
+                  let savedAuthorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
+                  savedAuthorization.catalogId == savedGrant.id
+            else { throw JobError("Authorize the loaded catalog for analysis in RawCull's MCP settings.") }
 
-        var stale = false
-        let url = try URL(
-            resolvingBookmarkData: authorization.bookmark,
-            options: [.withSecurityScope, .withoutUI, .withoutMounting],
-            relativeTo: nil,
-            bookmarkDataIsStale: &stale
-        )
-        guard !stale else { throw JobError("The authorized catalog moved or its bookmark expired. Authorize it again.") }
-        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart)
+            var stale = false
+            url = try URL(
+                resolvingBookmarkData: savedAuthorization.bookmark,
+                options: [.withSecurityScope, .withoutUI, .withoutMounting],
+                relativeTo: nil, bookmarkDataIsStale: &stale
+            )
+            guard !stale else { throw JobError("The authorized catalog moved or its bookmark expired. Authorize it again.") }
+            name = savedGrant.displayName
+            grant = savedGrant
+            authorization = savedAuthorization
+        }
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
         await prepare()
         try checkCurrent(job)
-        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart)
+        try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
 
         let index = viewModel.sources.firstIndex { $0.url.standardizedFileURL == url.standardizedFileURL }
-        let target = viewModel.selectedSource
-            ?? index.map { viewModel.sources[$0] }
-            ?? ARWSourceCatalog(name: grant.displayName, url: url)
+        let selection = viewModel.selectedSource.flatMap {
+            $0.url.standardizedFileURL == url.standardizedFileURL ? $0 : nil
+        }
+        let target = selection ?? index.map { viewModel.sources[$0] } ?? ARWSourceCatalog(name: name, url: url)
         if index == nil {
             viewModel.sources.append(target)
         }
@@ -200,9 +429,20 @@ final class MCPAnalysisController {
             viewModel.startCatalogLoad(for: target, scopedURL: url)
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
-        let photoIds = try snapshotPhotoIds(
-            files: viewModel.files, photos: photos, authorization: authorization
-        )
+        let photoIds: [UUID: String]
+        if let photos = grant?.summary?.photos, let authorization {
+            photoIds = try snapshotPhotoIds(files: viewModel.files, photos: photos, authorization: authorization)
+        } else {
+            photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
+                (file.id, "\(job.catalogId.uuidString):\(offset)")
+            })
+            if setupApproval?.remember == true {
+                try await withJobLockRetry {
+                    try checkCurrent(job)
+                    try viewModel.authorizeMCPCatalog(allowAnalysis: true, catalogId: job.catalogId, preservingJob: true)
+                }
+            }
+        }
         try checkCurrent(job)
         if viewModel.similarityModel.semanticSearchState != .idle {
             await viewModel.semanticSearchFeature.clear()
@@ -247,7 +487,7 @@ final class MCPAnalysisController {
     }
 
     private func requireAvailableWorkspace(
-        for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+        for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool, allowSwitch: Bool = false
     ) throws {
         guard canStart(), !viewModel.cullingModel.isTerminationPending,
               !viewModel.isDeepAIReviewBlockedByOtherWork, !viewModel.isPreparingBurstCatalog,
@@ -259,7 +499,7 @@ final class MCPAnalysisController {
         let requested = url.standardizedFileURL
         let selected = viewModel.selectedSource?.url.standardizedFileURL
         let loaded = viewModel.catalogLifecycle.currentSource?.url.standardizedFileURL
-        guard (selected == nil || selected == requested), (loaded == nil || loaded == requested) else {
+        guard allowSwitch || ((selected == nil || selected == requested) && (loaded == nil || loaded == requested)) else {
             throw JobError("RawCull has another catalog open. Select the authorized catalog in RawCull, then start a new job.")
         }
     }
@@ -370,6 +610,7 @@ final class MCPAnalysisController {
     }
 
     private func isAuthorized(_ job: AnalysisJob) throws -> Bool {
+        if job.usesSetupApproval { return approvedSetup?.id == job.jobId }
         let grant = try grants.authorizedCatalog()
         return grant?.id == job.catalogId && grant?.analysisEnabled == true
     }
@@ -407,10 +648,14 @@ final class MCPAnalysisController {
     private func updateWithRetry(
         _ change: (AnalysisJob?) throws -> AnalysisJob?
     ) async throws {
+        try await withJobLockRetry { try jobs.updateLocked(change) }
+    }
+
+    private func withJobLockRetry(_ operation: () throws -> Void) async throws {
         let deadline = ContinuousClock.now + .seconds(2)
         while true {
             do {
-                try jobs.update(change)
+                try jobs.withLock(operation)
                 return
             } catch AnalysisJobStore.StoreError.busy where ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(50))
