@@ -49,9 +49,76 @@ enum AnalysisTools {
             "cursor": .object(["type": .string("string")]),
         ]
     )
-    static let all = [start, status, cancel, bursts]
+    static let requestSetup = tool(
+        "request_catalog_setup",
+        "Ask the user to choose and approve a catalog for burst analysis in RawCull. Reuse the requestId UUID on retry.",
+        required: ["catalogHint": .object(["type": .string("string")]), "jobType": .object([
+            "type": .string("string"), "enum": .array([.string("burstAnalysis")]),
+        ]), "requestId": uuid],
+        annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
+    )
+    static let setupStatus = tool(
+        "get_catalog_setup_status", "Read the status of a catalog setup request and find its analysis job.",
+        required: ["requestId": uuid], annotations: catalogReadAnnotations
+    )
+    static let all = [start, status, cancel, bursts, requestSetup, setupStatus]
+
+    private static func callSetup(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+        let isSubmission = params.name == requestSetup.name
+        let keys: Set<String> = isSubmission ? ["requestId", "catalogHint", "jobType"] : ["requestId"]
+        guard let args = params.arguments, Set(args.keys) == keys,
+              let id = args["requestId"]?.stringValue.flatMap(UUID.init(uuidString:))
+        else { throw MCPError.invalidParams("Provide a requestId UUID and the required setup arguments.") }
+
+        let store = CatalogSetupStore(jobs: AnalysisJobStore(directory: grantStore.directory))
+        var request: CatalogSetupRequest
+        if isSubmission {
+            guard let hint = args["catalogHint"]?.stringValue, args["jobType"]?.stringValue == "burstAnalysis" else {
+                throw MCPError.invalidParams("Provide a catalog hint and use burstAnalysis as the job type.")
+            }
+            let proposed = CatalogSetupRequest(
+                requestId: id, catalogHint: catalogMetadataText(hint), jobType: "burstAnalysis", createdAt: .now
+            )
+            do {
+                request = try store.submit(proposed)
+            } catch CatalogSetupStore.StoreError.pendingRequest {
+                throw MCPError.invalidParams("Another catalog setup request is awaiting a response in RawCull.")
+            }
+            guard request.catalogHint == proposed.catalogHint, request.jobType == proposed.jobType else {
+                throw MCPError.invalidParams("That requestId belongs to a different request. Use a new UUID.")
+            }
+            if request.state == .pendingApproval, !request.isExpired {
+                if let app = bundledRawCullURL() {
+                    _ = await openBundledRawCull(at: app, activates: true)
+                } else {
+                    request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
+                }
+            }
+        } else {
+            guard let existing = try store.request(id) else {
+                throw MCPError.invalidParams("No catalog setup request matches that ID.")
+            }
+            request = existing
+        }
+        if request.state == .pendingApproval, request.isExpired {
+            request.state = .failed
+            request.message = "The catalog setup request expired. Start a new request."
+        }
+        return try structuredReply(
+            request.message ?? "Catalog setup: \(request.state.rawValue).", value: Value(request)
+        )
+    }
 
     static func call(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+        if params.name == requestSetup.name || params.name == setupStatus.name {
+            do {
+                return try await callSetup(params)
+            } catch let error as MCPError {
+                throw error
+            } catch {
+                throw MCPError.internalError("The RawCull catalog setup request could not be read or saved.")
+            }
+        }
         let isStart = params.name == start.name
         let idKey = isStart ? "requestId" : "jobId"
         let keys = params.name == bursts.name ? ["catalogId", idKey, "limit", "cursor"] : ["catalogId", idKey]
@@ -163,9 +230,9 @@ enum AnalysisTools {
     }
 
     @MainActor
-    private static func openBundledRawCull(at url: URL) async -> Bool {
+    private static func openBundledRawCull(at url: URL, activates: Bool = false) async -> Bool {
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
+        configuration.activates = activates
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             return true

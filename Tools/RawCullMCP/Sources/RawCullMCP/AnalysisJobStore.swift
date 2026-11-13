@@ -233,3 +233,74 @@ nonisolated struct AnalysisJobStore: Sendable {
         }
     }
 }
+
+nonisolated struct CatalogSetupRequest: Codable, Sendable {
+    enum State: String, Codable, Sendable {
+        case pendingApproval, queued, denied, failed
+    }
+
+    let requestId: UUID
+    let catalogHint: String
+    let jobType: String
+    let createdAt: Date
+    var state: State = .pendingApproval
+    var catalogId: UUID?
+    var jobId: UUID?
+    var message: String?
+
+    var isExpired: Bool { Date.now.timeIntervalSince(createdAt) > 600 }
+}
+
+// Uses the job lock to serialize submissions and approval with job publication.
+nonisolated struct CatalogSetupStore: Sendable {
+    let jobs: AnalysisJobStore
+
+    enum StoreError: Error { case pendingRequest }
+
+    private func root() throws -> URL {
+        guard let directory = jobs.directory else { throw CatalogGrantStore.StoreError.unavailable }
+        return directory.appendingPathComponent("catalog-setup", isDirectory: true)
+    }
+
+    private func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
+        do {
+            return try JSONDecoder().decode(type, from: Data(contentsOf: url))
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
+    }
+
+    func request(_ id: UUID) throws -> CatalogSetupRequest? {
+        try read(CatalogSetupRequest.self, at: root().appendingPathComponent(id.uuidString))
+    }
+
+    func pending() throws -> CatalogSetupRequest? {
+        guard let id = try read(UUID.self, at: root().appendingPathComponent("pending")),
+              let request = try request(id), request.state == .pendingApproval else { return nil }
+        return request
+    }
+
+    func submit(_ request: CatalogSetupRequest) throws -> CatalogSetupRequest {
+        try jobs.withLock {
+            if let existing = try self.request(request.requestId) { return existing }
+            if let pending = try pending() {
+                guard pending.isExpired else { throw StoreError.pendingRequest }
+                var expired = pending
+                expired.state = .failed
+                expired.message = "The catalog setup request expired. Start a new request."
+                try saveLocked(expired)
+            }
+            let root = try root()
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try JSONEncoder().encode(request.requestId).write(to: root.appendingPathComponent("pending"), options: .atomic)
+            try saveLocked(request)
+            return request
+        }
+    }
+
+    func saveLocked(_ request: CatalogSetupRequest) throws {
+        try JSONEncoder().encode(request).write(
+            to: root().appendingPathComponent(request.requestId.uuidString), options: .atomic
+        )
+    }
+}
