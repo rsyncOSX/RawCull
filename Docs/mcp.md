@@ -201,34 +201,69 @@ The TestFlight helper could also read the earlier local job. For a repeat test t
 
 ## Phase 3 — Add prompt-driven catalog setup and job approval
 
-Start with burst analysis as the first job supported by this workflow. The target prompt is “Add my Saturday shoot and find the best frame in each burst.”
+Use the signed TestFlight build and the Rekdal catalog at `/Users/thomas/Pictures_raw/2023/Rekdal`. Run the steps in order. Use a fresh UUID for each new setup request and reuse the original UUID only for the replay in step 4. Respond to any RawCull picker or approval sheet within ten minutes.
 
-1. Call `request_catalog_setup` with a `catalogHint`, `jobType: "burstAnalysis"`, and a new UUID as `requestId`. RawCull opens in the foreground. Poll `get_catalog_setup_status` with that UUID. Reuse the UUID if retrying the same request.
-2. RawCull matches the hint against known catalog names or absolute folder paths. A unique match with a valid MCP analysis grant and readable folder starts automatically. A unique, accessible match without that grant goes straight to the approval sheet. For an ambiguous, unknown, or inaccessible match, choose a folder or use the current catalog. Check the folder path and requested job in the approval sheet when prompted. Choose **Approve This Job**, **Approve and Remember**, or **Deny**. Cancelling the picker also denies the request. A pending request expires after ten minutes.
-3. When the request reports `queued`, use its `catalogId` and `jobId` with `get_analysis_status` and `list_bursts`. One-job approval permits analysis while RawCull holds the approved folder access and permits reading that job until the shared job slot is replaced or cleared. Remembering access saves an MCP catalog grant after the folder loads. A restart before the approved job can use the folder requires a new setup request.
-4. On a signed TestFlight install, start with RawCull closed and no existing MCP grant. Exercise approval, picker cancellation, denial, retries, a disconnected source, and a previously authorized catalog. Verify that cancellation or denial leaves no new grant or job, the same request ID returns the same job, and a one-job result stays readable after RawCull quits. Repeat with **Approve and Remember** and verify that `list_catalogs` reports the saved catalog after it loads. Submit another request by exact name and verify it starts without a sheet. Try an accessible catalog without an MCP grant and verify it shows only the approval sheet. Try duplicate folder names and confirm RawCull asks you to choose.
+### TestFlight walkthrough
 
-**Release gate.** From a prompt, a tester can select a new source folder, approve the requested job in RawCull, and receive completed analysis results in chat without visiting **Settings → MCP**.
+#### 1. Verify the connection and starting state
 
-### TestFlight prompts
+Quit all RawCull copies. Confirm that the `rawcull` registration points to the helper bundled with the TestFlight installation, then start a fresh Codex session. Rekdal should have no MCP grant for steps 2–5. If Rekdal already appears in the authorized catalog list, revoke its grant in **Settings → MCP**, quit RawCull again, and repeat this check.
 
-Start with RawCull closed and use a source folder without an MCP grant. Run each prompt separately so you can respond to the picker or approval sheet in RawCull.
+> Use only `rawcull`. Call `rawcull_status` and confirm that the helper reports version `0.6.0`, transport `stdio`, and the `request_catalog_setup` and `get_catalog_setup_status` tools. Call `list_catalogs` and report whether `/Users/thomas/Pictures_raw/2023/Rekdal` is authorized.
 
-**Approve once and retrieve results.**
+**Pass when** the connection reports the expected helper and setup tools, and Rekdal has no grant.
 
-> Use only `rawcull`. Verify that `rawcull_status` reports helper version `0.6.0`. Request burst analysis for “Saturday shoot” with a fresh UUID. Report the request ID and poll while I choose the source folder and select Approve This Job in RawCull. When queued, report the catalog ID and job ID. Wait for completion and list the recommended frame in each of the first five bursts. After I quit RawCull, fetch those same results again. Replay the setup request with the original UUID and report whether it returns the same job ID.
+#### 2. Cancel the folder picker
 
-**Cancel or deny.** Run this twice with fresh UUIDs. Cancel the folder picker on the first run. On the second run, select the folder and choose **Deny**.
+Use an unmatched hint to force the picker even if RawCull already knows Rekdal. Click **Cancel** in the picker.
 
-> Use only `rawcull`. List the authorized catalogs, then request burst analysis for an unknown catalog hint with a fresh UUID. Poll until the setup request finishes. Report its terminal state, whether it returned a job ID, and whether the authorized catalog list changed.
+> Use only `rawcull`. The intended catalog is `/Users/thomas/Pictures_raw/2023/Rekdal`. To exercise the picker, send `request_catalog_setup` with the unmatched catalog hint “Rekdal TestFlight picker check”, job type `burstAnalysis`, and a fresh UUID. Report the request ID and poll `get_catalog_setup_status` while I cancel the picker. Report the terminal state, any job ID, and whether Rekdal appears in `list_catalogs`.
 
-**Remember access and run again.** Use a readable catalog already known to RawCull without an MCP grant. Select **Approve and Remember** when prompted.
+**Pass when** setup ends as denied, no job ID is issued, and Rekdal remains absent from `list_catalogs`.
 
-> Use only `rawcull`. Request burst analysis for `<absolute catalog folder path>` with a fresh UUID. Poll while I approve the job in RawCull, then wait for analysis to finish. Confirm that `list_catalogs` includes the catalog. Submit another setup request for the same exact path with a fresh UUID. Report whether it queues and completes. I’ll check which RawCull dialogs appear on each run.
+#### 3. Deny the job from the approval sheet
 
-**Ambiguous hint or disconnected source.** Run separately with a name shared by two known folders and with the exact path of a catalog on a disconnected volume. Cancel the picker if it appears.
+Select `/Users/thomas/Pictures_raw/2023/Rekdal` if the picker opens. Check that the approval sheet shows the Rekdal folder and burst analysis, then choose **Deny**.
 
-> Use only `rawcull`. Request burst analysis for `<catalog name or absolute path>` with a fresh UUID. Poll the setup request and report its state and any error or action RawCull requests. If it queues, poll the analysis job to its terminal state and report what happened.
+> Use only `rawcull`. Request `burstAnalysis` for the exact path `/Users/thomas/Pictures_raw/2023/Rekdal` with a fresh UUID. Report the request ID and poll while I choose Rekdal if prompted and deny the job. Report the terminal state, any job ID, and whether Rekdal appears in `list_catalogs`.
+
+**Pass when** setup ends as denied, no job ID is issued, and Rekdal remains absent from `list_catalogs`.
+
+#### 4. Approve once, retrieve results, and replay the request
+
+Quit RawCull before sending this prompt. In the picker, select `/Users/thomas/Pictures_raw/2023/Rekdal`, then choose **Approve This Job**. After Codex reports results, quit RawCull and tell Codex to continue.
+
+> Use only `rawcull`. Request `burstAnalysis` with a fresh UUID and the unmatched hint “Rekdal TestFlight picker check” so I can select `/Users/thomas/Pictures_raw/2023/Rekdal` and choose Approve This Job. Report the request ID and poll setup. When queued, report the catalog and job IDs, then poll `get_analysis_status` to completion and use `list_bursts` to report up to five recommended frames. Wait for me to say RawCull has quit. Then fetch the same results again, check whether Rekdal appears in `list_catalogs`, and replay the original setup call with the same hint, job type, and UUID. Report whether the replay returns the same job ID.
+
+**Pass when** analysis completes and returns results in chat, the results remain readable after quitting, Rekdal has no saved grant, and the replay returns the original job ID.
+
+#### 5. Match the exact path and remember access
+
+Rekdal should now be known to RawCull from step 4. When the approval sheet opens, choose **Approve and Remember**.
+
+> Use only `rawcull`. Request `burstAnalysis` for the exact path `/Users/thomas/Pictures_raw/2023/Rekdal` with a fresh UUID. Poll while I choose Approve and Remember, then wait for analysis to complete. Report the catalog ID, job ID, final state, and whether `list_catalogs` includes Rekdal at that path.
+
+**Pass when** RawCull goes directly to the approval sheet, the job completes, and Rekdal appears in `list_catalogs` after it loads.
+
+#### 6. Run again with the saved grant
+
+Quit RawCull, then run the prompt. Observe whether either the picker or approval sheet appears.
+
+> Use only `rawcull`. Request `burstAnalysis` for the exact path `/Users/thomas/Pictures_raw/2023/Rekdal` with a fresh UUID. Poll setup and analysis to completion. Report the new job ID, final state, and number of photos analyzed. If setup waits for user action, report the state so I can check the RawCull window.
+
+**Pass when** a new job queues and completes without a picker or approval sheet. Use this job's catalog and job IDs for the ranking prompt below.
+
+#### 7. Check ambiguous names and unavailable sources
+
+For the ambiguous-name case, use a second known catalog also named Rekdal. For the unavailable-source case, use a test copy on a removable volume and disconnect that volume. The example below uses the original Rekdal path as the intended catalog and the test copy's exact path as the unavailable hint. If the corresponding fixture is unavailable, record the case as untested.
+
+> Use only `rawcull`. My intended catalog is `/Users/thomas/Pictures_raw/2023/Rekdal`. Request `burstAnalysis` using only the name “Rekdal” as the hint and a fresh UUID. Poll setup while I check whether RawCull asks me to choose a folder and cancel the picker. Report the terminal state and any job ID.
+
+> Use only `rawcull`. I am testing an unavailable copy of `/Users/thomas/Pictures_raw/2023/Rekdal`. Request `burstAnalysis` for the exact path of the disconnected test copy, `<absolute path of disconnected Rekdal copy>`, with a fresh UUID. Poll setup, report any picker or error, and wait while I cancel if a picker opens. If it queues, poll the analysis job and report its terminal state and error.
+
+**Pass when** an ambiguous hint asks you to choose and cancellation issues no job. The unavailable source should ask you to choose a readable folder or produce an actionable failure.
+
+**Release gate.** Step 4 passes when you can start from a prompt, choose Rekdal in RawCull, approve once, and receive completed results in chat without opening **Settings → MCP** during that run. Record each step's outcome and retain the request and job IDs for any failures.
 
 ### Visual review and drafts
 
@@ -236,7 +271,7 @@ Helper `0.6.0` supports ranking retrieval through `list_bursts`. Preview sharing
 
 **Inspect low-confidence rankings with helper `0.6.0`.**
 
-> Use only `rawcull`. For `<catalog ID and completed job ID>`, page through `list_bursts` until you find up to five low-confidence bursts or reach the end. Report each burst ID, its first-ranked frame and alternate, their scores if available, and RawCull’s confidence reason. Report the number found if there are fewer than five.
+> Use only `rawcull`. For `/Users/thomas/Pictures_raw/2023/Rekdal`, use the catalog and completed job IDs from step 6 and page through `list_bursts` until you find up to five low-confidence bursts or reach the end. Report each burst ID, its first-ranked frame and alternate, their scores if available, and RawCull’s confidence reason. Report the number found if there are fewer than five.
 
 After prompt-driven setup and approval work end to end, continue with visual review and saved drafts.
 
@@ -249,7 +284,7 @@ After prompt-driven setup and approval work end to end, continue with visual rev
 
 **Acceptance prompt for a future build that exposes `get_burst_previews` and `save_review_draft`.**
 
-> Use only `rawcull`. Review up to five low-confidence bursts from `<catalog ID and completed job ID>`. If preview sharing needs my approval, tell me where to enable it and wait. Use the contact sheets and RawCull’s ranking evidence to choose a frame and an alternate for each burst. Explain the visible differences that affected your choices and flag any close calls. Save the suggestions as a review draft and give me its ID so I can open it in RawCull and decide which suggestions to apply. Leave the catalog’s frame choices for me to apply.
+> Use only `rawcull`. Review up to five low-confidence bursts from the completed analysis of `/Users/thomas/Pictures_raw/2023/Rekdal`, using its catalog and job IDs. If preview sharing needs my approval, tell me where to enable it and wait. Use the contact sheets and RawCull’s ranking evidence to choose a frame and an alternate for each burst. Explain the visible differences that affected your choices and flag any close calls. Save the suggestions as a review draft and give me its ID so I can open it in RawCull and decide which suggestions to apply. Leave the catalog’s frame choices for me to apply.
 
 ## What to consider after the pilot
 
