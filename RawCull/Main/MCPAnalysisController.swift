@@ -42,7 +42,7 @@ final class MCPAnalysisController {
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
-    private var terminalRevision: AnalysisJobStore.Revision?
+    private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
         viewModel: RawCullViewModel,
@@ -54,6 +54,9 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                } catch AnalysisJobStore.StoreError.unsupportedFormat {
+                    Logger.process.error("MCP analysis job uses an unsupported format. Reauthorize the catalog to clear it.")
+                    analysis?.cancel()
                 } catch AnalysisJobStore.StoreError.busy {
                     // The next poll retries a claim or heartbeat.
                 } catch {
@@ -79,9 +82,16 @@ final class MCPAnalysisController {
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
         let revision = jobs.revision()
-        if analysis == nil, let revision, revision == terminalRevision { return }
-        terminalRevision = nil
-        guard let job = try jobs.readRecovering() else {
+        if let revision, revision == inactiveRevision { return }
+        inactiveRevision = nil
+        let storedJob: AnalysisJob?
+        do {
+            storedJob = try jobs.readRecovering()
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            inactiveRevision = revision
+            throw AnalysisJobStore.StoreError.unsupportedFormat
+        }
+        guard let job = storedJob else {
             analysis?.cancel()
             return
         }
@@ -96,7 +106,7 @@ final class MCPAnalysisController {
             return
         }
         guard job.state.isActive else {
-            terminalRevision = revision
+            inactiveRevision = revision
             return
         }
         if job.isExpired(at: .now) {

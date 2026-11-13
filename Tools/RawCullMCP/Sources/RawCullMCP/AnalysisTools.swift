@@ -86,7 +86,7 @@ enum AnalysisTools {
         } catch let error as MCPError {
             throw error
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
-            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation.")
+            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation. If the error persists, reauthorize the catalog in RawCull settings to clear the saved job.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
         }
