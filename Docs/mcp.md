@@ -1,6 +1,6 @@
 # RawCull MCP implementation plan
 
-**Status.** The signed Phase 1 helper (0.4.0) passed local testing with Codex CLI. The Phase 2 helper (0.5.0) passed an analysis smoke test through the Apple TestFlight installation. The clean-account checks and broader Phase 2 verification below are still open. Phase 3 (0.6.0) is complete. Prompt-driven catalog setup and job approval passed signed TestFlight verification.
+**Status.** Signed builds passed the Phase 1 metadata and revocation checks and the Phase 2 analysis smoke tests. The Phase 3 TestFlight walkthrough is complete across builds `448` and `449` and the earlier Rekdal run. Clean-account and broader Phase 2 checks remain open. Preview sharing and review drafts are planned.
 
 ## What the user should be able to do
 
@@ -206,23 +206,7 @@ To reproduce, register the installed helper under `rawcull`, authorize `/Users/t
 
 > Use only the `rawcull` MCP server. List my authorized catalogs. Find the authorized catalog named `100MSDCF`, which I loaded from `/Users/thomas/Downloads/100MSDCF`. If there is exactly one match, start analysis with its catalog ID and a fresh request ID. If there are multiple matches, ask me for the catalog ID. If there is no match, report that and stop. Report the catalog ID and job ID as soon as the start call returns. Poll until the job reaches a terminal state. Report the final state, photos scanned and analyzed, singleton and unevaluated counts, and similarity backends. Compare the scanned and analyzed counts with the expected 809.
 
-**100MSDCF cold-launch attempt on 2026-11-14.** Catalog `ECB51F21-0E4A-43F1-B0D1-DDEE62693D2D` had analysis enabled. Job `92768C4D-0251-4CF8-AE39-6AB54E1820DF` queued, then failed with zero photos scanned or analyzed. RawCull reported “RawCull is loading a catalog. Wait for the catalog and thumbnails to finish loading, then start a new request.” The workspace check rejects jobs while a catalog transition, scan, or thumbnail generation is in progress. Coverage was unavailable because analysis never started.
-
-For a warm retry, open the TestFlight copy with `/Users/thomas/Downloads/100MSDCF` selected. Wait for the catalog and thumbnails to finish loading, keep RawCull open, then run the smoke-test prompt above with a fresh request UUID. Record the new job separately. The cold-launch attempt remains a failure even if the warm retry passes.
-
-**100MSDCF retry with RawCull open passed.** Exactly one authorized catalog matched, with the same catalog ID as the cold-launch attempt. Job `89D0F6A2-1BC3-4B97-BEF8-6052DC73A914` completed after the catalog and thumbnails had loaded.
-
-| Metric | Result |
-| --- | --- |
-| Photos scanned and analyzed | 809 each, matching the expected count |
-| Bursts | 5 |
-| Singletons | 0 |
-| Unevaluated photos | 0 |
-| Similarity backend | CLIP for all 809 photos |
-
-**Cold-launch retest with the updated app.** Install a signed build containing the workspace-loading fix and register its bundled helper. Leave the 100MSDCF analysis grant in place, select that catalog, and quit RawCull completely. Run the same smoke-test prompt with a fresh request UUID and let MCP launch RawCull. The job may report `openingCatalog` while the restored catalog and thumbnails load. Pass the check when the job completes with 809 photos scanned and analyzed. Record the app build number and job ID. Repeat Phase 3 step 6 to check the saved-grant setup path from a cold launch.
-
-**100MSDCF cold-launch retest passed on TestFlight build `448`.** The prompt found exactly one matching authorized catalog, `E7DFA40E-912A-418E-B493-3C0BDBB9EC9D`. Job `16914D6B-8FC9-49B3-8F6B-B01902CD8257` completed with 809 photos scanned and 809 analyzed, zero singletons, zero unevaluated photos, and CLIP used for all 809 photos. The Phase 3 saved-grant cold-launch retest remains open.
+**100MSDCF cold-launch smoke test passed on TestFlight build `448`.** The job scanned and analyzed all 809 photos, returned five bursts, and used CLIP for all photos. There were zero singletons and zero unevaluated photos.
 
 The TestFlight helper could also read the earlier local job. For a repeat test that verifies which app opens and runs the job, quit both copies and temporarily remove the local test copy before submitting a fresh request.
 
@@ -236,9 +220,22 @@ The TestFlight helper could also read the earlier local job. For a repeat test t
 
 ## Phase 3 — Add prompt-driven catalog setup and job approval
 
-**Previous Rekdal run on signed TestFlight with helper `0.6.0`.** The connection and empty starting grant list were verified. Canceling the folder picker and denying job approval each left the grant list empty and issued no job. The step 4 release gate passed with job `77EFF505-2E38-40DA-AC4B-9A9EB38BC232`. Results remained readable after quitting, no grant was saved, and replay returned the same job ID. Step 5 completed and saved the Rekdal grant.
+### TestFlight results
 
-For the new release test, use the latest installed signed TestFlight build and the 809-photo 100MSDCF catalog at `/Users/thomas/Downloads/100MSDCF`. The expected count is based on the files present when these prompts were prepared. If the folder contents change before the test, recount the ARW files and use that count in the checks below. Run the steps in order. Use a fresh UUID for each new setup request and reuse the original UUID only for the replay in step 4. Respond to any RawCull picker or approval sheet within ten minutes.
+| Check | Verified result |
+| --- | --- |
+| 1. Connection and starting state | Build `448` reported helper `0.6.0` over `stdio`, exposed both catalog setup tools, and returned an empty grant list. |
+| 2. Cancel the folder picker | Build `448` returned `denied` with no job ID and an empty grant list. |
+| 3. Deny job approval | Build `448` returned `denied` with no job ID and an empty grant list. |
+| 4. Approve once, retrieve results, and replay | Build `448` scanned and analyzed all 809 photos. Rankings remained readable after quitting, the grant list stayed empty, and replay returned the original job ID. |
+| 5. Match the exact path and remember access | Build `449` passed from a full quit with an empty grant list and existing cache and culling data. The approval sheet appeared, all 809 photos were scanned and analyzed, and the saved analysis grant matched the setup catalog ID. Whether a folder picker preceded approval was unverified. |
+| 6. Run again with the saved grant | Build `449` reused the same grant after a full quit. The tester confirmed no approval prompt appeared. The job scanned and analyzed all 809 photos and returned five bursts. Picker visibility was unverified. |
+| 7. Ambiguous names and unavailable sources | Both cases passed in the earlier signed TestFlight run with Rekdal. RawCull showed a folder picker, and canceling it returned `denied` with no job ID in both cases. Skipped for 100MSDCF because a second copy was unavailable. |
+| Low-confidence rankings | Build `449` returned all five bursts, including their recommended frames, alternates, scores, and confidence cautions. |
+
+The build `449` catalog ID was `A254A23E-C8A4-44A5-8091-2759B5CDF3E7`. The Step 5 job was `FFE0607B-EF67-4899-B4A9-BE78273EEE51`. The Step 6 job was `D435D4C2-7C1B-4DE4-94ED-C93C39EC2CDF`.
+
+To repeat the walkthrough, use the installed signed TestFlight build and the 809-photo 100MSDCF catalog at `/Users/thomas/Downloads/100MSDCF`. The expected count is based on the files present when these prompts were prepared. If the folder contents change before the test, recount the ARW files and use that count in the checks below. Run the steps in order. Use a fresh UUID for each new setup request and reuse the original UUID only for the replay in step 4. Respond to any RawCull picker or approval sheet within ten minutes.
 
 ### TestFlight walkthrough
 
@@ -252,8 +249,6 @@ Quit all RawCull copies. Confirm that the `rawcull` registration points to the h
 
 > Use only `rawcull`. Call `rawcull_status` and confirm that the helper reports version `0.6.0`, transport `stdio`, and the `request_catalog_setup` and `get_catalog_setup_status` tools. I’m preparing to test `/Users/thomas/Downloads/100MSDCF`. Call `list_catalogs` and report whether the authorized catalog list is empty. If it contains a grant, report its display name, ID, and whether analysis is enabled.
 
-**100MSDCF release test, TestFlight build `448` — passed.** The helper reported `0.6.0` over `stdio`, exposed `request_catalog_setup` and `get_catalog_setup_status`, and returned an empty authorized catalog list.
-
 #### 2. Cancel the folder picker
 
 - **What it tests.** Uses an unmatched hint to open folder selection, then cancels the macOS picker before selecting a folder.
@@ -263,8 +258,6 @@ Quit all RawCull copies. Confirm that the `rawcull` registration points to the h
 Use an unmatched hint to open the **Choose a catalog for burst analysis** sheet even if RawCull already knows 100MSDCF. Click **Choose Folder…** on that sheet, then click **Cancel** in the macOS folder picker. If the **Approve burst analysis?** sheet appears, choose **Deny** and record that the picker cancellation case did not pass.
 
 > Use only `rawcull`. The intended catalog is `/Users/thomas/Downloads/100MSDCF`. Submit exactly one `request_catalog_setup` with the literal `catalogHint` `100MSDCF TestFlight picker check`, job type `burstAnalysis`, and a fresh UUID. Report the actual hint and request ID. Poll only `get_catalog_setup_status` for that UUID while I click Choose Folder… and then Cancel. If setup reaches `queued`, report the job ID and flag the cancellation check as failed. Report the final setup state and whether `list_catalogs` is empty. Do not submit a replacement request.
-
-**100MSDCF release test, TestFlight build `448` — passed.** The single request `EA738B6D-92D5-44CE-BFB7-405D8F215ABC`, sent with the hint `100MSDCF TestFlight picker check`, reached `denied` after the folder picker was canceled. It never queued, returned no job ID, and left `list_catalogs` empty.
 
 #### 3. Deny the job from the approval sheet
 
@@ -276,8 +269,6 @@ Select `/Users/thomas/Downloads/100MSDCF` if the picker opens. Check that the ap
 
 > Use only `rawcull`. Request `burstAnalysis` for the exact path `/Users/thomas/Downloads/100MSDCF` with a fresh UUID. Report the request ID and poll while I choose 100MSDCF if prompted and deny the job. Report the terminal state, any job ID, and whether 100MSDCF appears in `list_catalogs`.
 
-**100MSDCF release test, TestFlight build `448` — passed.** The exact-path request `B3051A9F-39E8-42D1-941A-A7FC51496B28` reached `denied` after the job was denied on the approval sheet. It returned no job ID and left `list_catalogs` empty.
-
 #### 4. Approve once, retrieve results, and replay the request
 
 - **What it tests.** Approves one job, reads the results in chat before and after quitting RawCull, then submits the same request UUID again.
@@ -288,35 +279,15 @@ Quit RawCull before sending this prompt. In the picker, select `/Users/thomas/Do
 
 > Use only `rawcull`. Request `burstAnalysis` with a fresh UUID and the unmatched hint “100MSDCF TestFlight picker check” so I can select `/Users/thomas/Downloads/100MSDCF` and choose Approve This Job. Report the request ID and poll setup. When queued, report the catalog and job IDs, then poll `get_analysis_status` to completion and use `list_bursts` to report up to five recommended frames. Wait for me to say RawCull has quit. Then fetch the same results again, check whether 100MSDCF appears in `list_catalogs`, and replay the original setup call with the same hint, job type, and UUID. Report whether the replay returns the same job ID.
 
-**100MSDCF release test, TestFlight build `448`.** The one-time approval request `A929C745-2E63-4D91-B10A-874BF416C3E5` returned catalog ID `6DC7D5EF-DB5D-4FA0-A7D5-99BC080ABB1E` and job ID `BD1552C1-CECE-4C92-AC20-57C5A1790B78`. The job completed with 809 scanned, 809 analyzed, five bursts, zero singletons, and zero unevaluated photos. CLIP covered all 809 photos. All five recommendations had low confidence, with high ISO noise cautions and close top candidates.
-
-**Step 4 passed.** After RawCull quit, the same five recommendations remained readable: `_DSC4473.ARW`, `_DSC4493.ARW`, `_DSC4736.ARW`, `_DSC4984.ARW`, and `_DSC5231.ARW`. The authorized catalog list was empty. Replaying the original hint, job type, and request UUID returned `queued` with the original job ID `BD1552C1-CECE-4C92-AC20-57C5A1790B78`.
-
 #### 5. Match the exact path and remember access
 
 - **What it tests.** Uses the exact path to find the known 100MSDCF catalog and selects **Approve and Remember**.
 - **Why it matters.** The exact path should resolve the right folder without a picker, and saved access should belong to the catalog you approved.
 - **Expected result.** RawCull goes directly to approval when it already has access to the matched folder in the current session. After a cold launch without a saved grant, the picker can supply folder access. The job completes, and `list_catalogs` shows analysis enabled for 100MSDCF with the catalog ID returned by setup.
 
-With RawCull still running after step 4, 100MSDCF is known to that session. If you quit to verify step 4 results, RawCull can ask for the folder again because catalog selection is session-local and one-time approval saves no bookmark. Select `/Users/thomas/Downloads/100MSDCF` if the picker opens. When the approval sheet opens, choose **Approve and Remember**.
+Start with RawCull fully quit and an empty grant list. If a grant exists, revoke it in **Settings → MCP** before quitting. Keep the catalog cache and saved culling data in place. Select `/Users/thomas/Downloads/100MSDCF` if the picker opens, then choose **Approve and Remember**.
 
 > Use only `rawcull`. Request `burstAnalysis` for the exact path `/Users/thomas/Downloads/100MSDCF` with a fresh UUID. Poll while I choose Approve and Remember, then wait for analysis to complete. Report the catalog ID, job ID, final state, and whether `list_catalogs` includes 100MSDCF with the catalog ID returned by setup.
-
-**100MSDCF release test, TestFlight build `448` — three cold-launch failures.** All three exact-path requests queued after approval and then failed with “RawCull could not load the authorized catalog.” All three jobs reported zero photos scanned and analyzed, and `list_catalogs` remained empty.
-
-| Attempt | Catalog ID returned by setup | Job ID |
-| --- | --- | --- |
-| First | `A34A6001-8E66-4695-9BE1-FD80D4AC5DBD` | `17C26818-83FE-4D74-9FDD-8FE5C599CC37` |
-| Retry | `D9FB1CD7-C330-402C-A50E-A946B1AFF130` | `3D40096A-1C33-4D70-BD7F-29A0FAF37976` |
-| Cold-launch retest (request `87A66231-807B-4A85-85C6-D09E3BFA4C29`) | `0EBF99EA-DB14-49F7-BA83-D66D40AD3585` | `DAF62D30-551B-4B15-9BEC-B28D412CD0FA` |
-
-The retest kept the catalog cache and saved files in place. The authorized catalog list was empty before and after the request.
-
-The load check runs before the grant is saved. This error can mean the catalog selection changed, scanning was still active, folder access was unavailable, or the loaded photo list was empty. The status does not identify which condition failed.
-
-**Step 5 retry with RawCull open passed on build `448`.** With 100MSDCF already loaded, **Approve and Remember** queued job `D3F72121-B45B-41C5-8F33-FFA72FB20DC6`, which completed with 809 photos scanned and analyzed. `list_catalogs` returned 100MSDCF with catalog ID `AAD61755-E96B-4B46-BB52-EA66EE03605D`, matching setup, and `analysisEnabled: true`. Use this grant for step 6. The step 5 cold-launch failures remain open.
-
-**Retest on the next build.** The updated app retains folder access from validation through approval and hands that same access to the catalog loader. It also compares folder paths consistently and reports distinct load errors for folder access, an empty scan, a changed selection, and culling persistence. Keep the cache and saved culling data for the retest. Open 100MSDCF, revoke the MCP grant, quit RawCull completely, and run the step 5 prompt with a fresh UUID. Record whether the picker appeared, whether all 809 photos were scanned and analyzed, and whether the matching grant was saved. If RawCull needs the folder picker to obtain macOS access, record that separately from direct approval.
 
 #### 6. Run again with the saved grant
 
@@ -330,15 +301,7 @@ Quit RawCull, then run the prompt. Observe whether either the picker or approval
 
 Use this job's catalog and job IDs for the ranking prompt below.
 
-**Observed in the previous Rekdal run with helper `0.6.0`.** Request `7D034B9A-52E6-4C81-ABF3-906E1D278C45` went from `pendingApproval` to `failed` with “RawCull is busy. Let the current operation finish, then start a new job.” It returned no catalog or job ID. RawCull also stayed open during a subsequent quit attempt, so confirm the app has exited before counting a retry as a cold launch.
-
-**Previous Rekdal run.** With RawCull fully quit, the saved grant queued job `BE84979E-6C1F-4B22-8586-C6512CA274F5` without showing a folder picker or approval sheet. The job completed and analyzed all 73 photos.
-
-**Step 6 saved-grant job completed on build `448`.** Request `C65630D9-261F-4C09-B711-4D1C2961E06F` queued job `379F7C16-C33B-4380-B30B-71ACE3380B0F` without waiting for user action. Setup returned the saved catalog ID `AAD61755-E96B-4B46-BB52-EA66EE03605D`. The job scanned and analyzed 809 photos, matching both expected counts. Use these IDs for the ranking prompt. The MCP responses do not independently verify whether RawCull was fully quit before the request or whether a sheet briefly appeared.
-
 #### 7. Check ambiguous names and unavailable sources
-
-**100MSDCF release test, TestFlight build `448` — untested.** Only one catalog was available, and there was no removable drive with a test copy. Continue with the low-confidence ranking check using the completed step 6 job.
 
 **Ambiguous name**
 
@@ -358,8 +321,6 @@ For the ambiguous-name case, use a second known catalog also named 100MSDCF. For
 
 > Use only `rawcull`. I am testing an unavailable copy of `/Users/thomas/Downloads/100MSDCF`. Request `burstAnalysis` for the exact path of the disconnected test copy, `<absolute path of disconnected 100MSDCF copy>`, with a fresh UUID. Poll setup, report any picker or error, and wait while I cancel if a picker opens. If it queues, poll the analysis job and report its terminal state and error.
 
-**Previous Rekdal run. Both cases passed.** RawCull asked for a folder when two known catalogs matched `Rekdal` and when the WDdisk copy was unavailable. Canceling each picker returned `denied` without issuing a job. The ambiguous-name request ID was `2F586D91-8A34-4CC7-B50E-697DA32E1048`.
-
 **Release gate.** Step 4 passes when you can start from a prompt, choose 100MSDCF in RawCull, approve once, and receive completed results in chat without opening **Settings → MCP** during that run. Record each step's outcome and retain the request and job IDs for any failures.
 
 ### Visual review and drafts
@@ -374,15 +335,7 @@ Helper `0.6.0` supports ranking retrieval through `list_bursts`. Preview sharing
 
 > Use only `rawcull`. For `/Users/thomas/Downloads/100MSDCF`, use the catalog and completed job IDs from step 6 and page through `list_bursts` until you find up to five low-confidence bursts or reach the end. Report each burst ID, its first-ranked frame and alternate, their scores if available, and RawCull’s confidence reason. Report the number found if there are fewer than five.
 
-**Previous Rekdal run with helper `0.6.0`.** `list_bursts` returned all 10 bursts for the completed Rekdal job `BE84979E-6C1F-4B22-8586-C6512CA274F5` in catalog `4BA198B2-762C-4E6C-A54F-CAB25BB574C8`. The final page returned `nextCursor: null`. Three bursts had the caution “Top two are close.” Two pairs tied at the reported precision.
-
-| Burst index | First-ranked frame (score) | Alternate (score) |
-| --- | --- | --- |
-| `2` | `DSC00737.ARW` (0.931000) | `DSC00732.ARW` (0.925574) |
-| `8` | `DSC01168.ARW` (0.931000) | `DSC01169.ARW` (0.931000) |
-| `9` | `DSC01278.ARW` (0.931000) | `DSC01279.ARW` (0.931000) |
-
-**100MSDCF ranking check passed on TestFlight build `448`.** The first page of step 6 job `379F7C16-C33B-4380-B30B-71ACE3380B0F` returned five low-confidence bursts and `nextCursor: null`. Each burst had the caution “Top two are close,” and both frames in every pair had the caution “High ISO increases noise risk.” The response omitted a separate confidence-reason field.
+**100MSDCF ranking check passed on TestFlight build `449`.** The Step 6 job returned five low-confidence bursts on one page. Each burst reported “Top two are close,” and both frames in every pair carried a high ISO noise caution.
 
 | Burst index | First-ranked frame (score) | Alternate (score) |
 | --- | --- | --- |
