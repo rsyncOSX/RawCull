@@ -23,7 +23,14 @@ If a grant exists, preserve the initial output as upgrade evidence. Steps 2–5 
 
 ### Log 1
 
-Paste Codex output and UI notes here.
+```bash
+- Helper version: 0.7.0
+- appBuild: null
+- Transport: stdio
+- Both setup tools available: Yes — request_catalog_setup and get_catalog_setup_status
+- Saved grants: None (catalogs: []). Tool reported: “No catalog is authorized.”
+- Tool errors: None
+```
 
 ## 2. Cancel the folder picker and check the cooldown
 
@@ -41,7 +48,12 @@ On the approval sheet, verify that the resolved path is **/Users/thomas/Download
 
 ### Log 2
 
-Paste both responses, any retry, and what you saw in RawCull.
+```bash
+Request UUID: 60e299f3-e90d-4fa7-8b74-0341772a0cd9
+Exact response:
+{"content":[{"type":"text","text":"A catalog setup request was declined. Wait at least 4 seconds and try again if the user wants to proceed."}],"isError":true}
+The helper reported a cooldown. Stopped after that call; no state or job ID was returned.
+```
 
 ## 3. Launch from a full quit, replay pending setup, and approve once
 
@@ -57,7 +69,34 @@ Expect one pending request and one approval interaction. Successful analysis sho
 
 ### Log 3
 
-Paste the initial and replay responses, analysis output, and your chooser and approval observations.
+```bash
+| Call | State | Request ID | Job ID |
+|---|---|---|---|
+| Initial | pendingApproval | 5B346EE9-0C87-435A-8C1C-A0A82E2142DA | None returned |
+| Identical replay | pendingApproval | 5B346EE9-0C87-435A-8C1C-A0A82E2142DA | None returned |
+Both responses said: Catalog setup: pendingApproval.
+No errors. Stopped so you can inspect the chooser.
+```
+
+```bash
+Analysis completed successfully.
+- Request ID: 5B346EE9-0C87-435A-8C1C-A0A82E2142DA
+- Catalog ID: 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3
+- Job ID: 339F6967-B556-45BF-9EE2-80DD40098F82
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Similarity backend: clip for all 958 photos
+- Bursts: 64
+First five returned recommendations:
+| Recommended filename | Alternate | Confidence |
+|---|---|---|
+| _DSC7712.ARW | _DSC7711.ARW | Low |
+| _DSC7743.ARW | _DSC7741.ARW | Low |
+| _DSC7756.ARW | _DSC7755.ARW | Low |
+| _DSC7757.ARW | _DSC7759.ARW | Low |
+| _DSC7766.ARW | _DSC7765.ARW | Low |
+All five reported “Top two are close” and high ISO noise risk.
+list_catalogs returned {"catalogs":[]} — the saved grant list is empty. No tool errors.
+```
 
 ## 4. Read rankings after quitting, then clear the result
 
@@ -72,8 +111,66 @@ Expect identical rankings before clearing. Afterwards the old IDs should provide
 
 ### Log 4
 
-Paste both responses and what Settings showed before and after clearing.
+```bash
+Both reads succeeded with RawCull quit. Results match Step 3:
+- Analysis: completed
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Similarity: clip for 958 photos; 64 bursts
+- Returned recommendations, alternates, scores, and confidence were unchanged.
+| Recommended | Alternate | Confidence |
+|---|---|---|
+| _DSC7712.ARW | _DSC7711.ARW | Low |
+| _DSC7743.ARW | _DSC7741.ARW | Low |
+| _DSC7756.ARW | _DSC7755.ARW | Low |
+| _DSC7757.ARW | _DSC7759.ARW | Low |
+| _DSC7766.ARW | _DSC7765.ARW | Low |
+Replayed the exact setup call:
+{"catalogHint":"Downloads TestFlight one-time check","jobType":"burstAnalysis","requestId":"5b346ee9-0c87-435a-8c1c-a0a82e2142da"}
+Response state: queued. The original job ID was returned: 339F6967-B556-45BF-9EE2-80DD40098F82, with the original catalog ID 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3.
+No tool errors.
+```
 
+```bash
+Exact response:
+
+{"content":[{"type":"text","text":"Catalog setup: queued."},{"type":"text","text":"{\"catalogId\":\"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3\",\"state\":\"queued\",\"createdAt\":816372734.408464,\"jobId\":\"339F6967-B556-45BF-9EE2-80DD40098F82\",\"jobType\":\"burstAnalysis\",\"requestId\":\"5B346EE9-0C87-435A-8C1C-A0A82E2142DA\"}"}],"structuredContent":{"catalogId":"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3","createdAt":816372734.408464,"jobId":"339F6967-B556-45BF-9EE2-80DD40098F82","jobType":"burstAnalysis","requestId":"5B346EE9-0C87-435A-8C1C-A0A82E2142DA","state":"queued"}}
+
+4. list_bursts with those returned IDs:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+5. list_catalogs:
+
+⚠ Heads up, you have less than 10% of your 5h limit left. Run /status for a breakdown.
+Using catalog 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3 and job 339F6967-B556-45BF-9EE2-80DD40098F82:
+
+1. get_analysis_status returned:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+2. list_bursts returned:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+3. Replayed the original setup call:
+
+{"catalogHint":"Downloads TestFlight one-time check","jobType":"burstAnalysis","requestId":"5b346ee9-0c87-435a-8c1c-a0a82e2142da"}
+
+Exact response:
+
+{"content":[{"type":"text","text":"Catalog setup: queued."},{"type":"text","text":"{\"catalogId\":\"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3\",\"state\":\"queued\",\"createdAt\":816372734.408464,\"jobId\":\"339F6967-B556-45BF-9EE2-80DD40098F82\",\"jobType\":\"burstAnalysis\",\"requestId\":\"5B346EE9-0C87-435A-8C1C-A0A82E2142DA\"}"}],"structuredContent":{"catalogId":"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3","createdAt":816372734.408464,"jobId":"339F6967-B556-45BF-9EE2-80DD40098F82","jobType":"burstAnalysis","requestId":"5B346EE9-0C87-435A-8C1C-A0A82E2142DA","state":"queued"}}
+
+4. list_bursts with those returned IDs:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+5. list_catalogs:
+
+{"content":[{"type":"text","text":"No catalog is authorized."},{"type":"text","text":"{\"catalogs\":[]}"}],"structuredContent":{"catalogs":[]}}
+
+No coverage or rankings remain accessible through these calls. The replay returns the original IDs and queued state, but reading the result still fails. Saved access is empty.
+  Worked for 20s • 19:19
+```
 ## 5. Remember Downloads and reuse it after a full quit
 
 Quit RawCull and send the first prompt. Select Downloads if asked. Verify the path and click **Approve and Remember**. After the run completes, quit with **⌘Q** and send the second prompt.
@@ -86,7 +183,31 @@ Expect the saved grant to match the first job's catalog ID. The second job shoul
 
 ### Log 5
 
-Paste both responses and note whether any sheets appeared on the second run.
+```bash
+Analysis completed for /Users/thomas/Downloads.
+
+- Request ID: 4B9C6D02-865E-4A17-99F3-B7C8F126DE40
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: B419EE1B-0E48-4B4D-A8FD-A0613AA1B94A
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Results: 64 bursts, 0 singletons
+- Similarity backend: clip for all 958 photos
+
+list_catalogs confirms a saved Downloads grant with that exact catalog ID and analysisEnabled: true (recurringFolder: false).
+```
+
+```bash
+The fresh request completed without needing your input. Setup initially returned pendingApproval, then polled as queued.
+
+- Request ID: 743A6F90-81C2-4D09-A50B-10E378E50C84
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- New job ID: 4AD7F2BF-1FF7-42D0-AF2A-3752F4D5F538
+- Terminal state: completed
+- Photos: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Results: 64 bursts, 0 singletons; clip similarity for all 958 photos
+
+No tool errors.
+```
 
 ## 6. Check metadata from the saved grant
 
