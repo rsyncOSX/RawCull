@@ -19,7 +19,7 @@ With RawCull fully quit, paste this into the fresh chat.
 
 Expect helper **0.7.0**, build **450**, transport **stdio**, and both `request_catalog_setup` and `get_catalog_setup_status`. If the connection fails or the version differs, check `codex mcp get rawcull` in Terminal. The command should point to `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`. Start another fresh chat after correcting the registration or installed version.
 
-If a grant exists, preserve the initial output as upgrade evidence. Steps 2–5 require an empty grant list. When ready to remove the existing grant and its current result, open **Settings → MCP → Revoke Access**, quit RawCull, and repeat the prompt. If you want to keep that grant, mark Steps 2–5 untested.
+If a grant exists, preserve the initial output as upgrade evidence. Start Step 2 with an empty grant list. When ready to remove the existing grant and its current result, open **Settings → MCP → Revoke Access**, quit RawCull, and repeat the prompt. If you want to keep that grant, defer Steps 2–5. Step 5 creates the Downloads grant needed by Step 6.
 
 ### Log 1
 
@@ -352,9 +352,22 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 
 ## Run summary
 
-- Date and macOS version
-- App build and helper version
-- Main catalog count and sample filenames
-- Steps passed, failed, and untested
-- Most useful request and job IDs for any failures
-- Any screenshots or observations that differ from the tool output
+- Reviewed on 2026-11-14. The macOS version was not recorded.
+- Installed app version 3.4.6 (450). Helper version 0.7.0 over stdio.
+- Downloads analysis scanned and analyzed all 958 photos with CLIP and returned 64 bursts. Sample recommendations include `_DSC7712.ARW` and `_DSC7743.ARW`. The fixture count and known filenames from the RawCull UI were not recorded independently.
+
+| Step | Verdict | Evidence and follow-up |
+| --- | --- | --- |
+| 1. Helper and existing access | **FAIL** | `rawcull_status` returned `appBuild: null` on the original run and on review. The registered command points inside `/Applications/RawCull.app`, and that app's `Info.plist` reports build 450. Helper version, transport, tool discovery, and the empty grant list matched expectations. |
+| 2. Picker cancellation and cooldown | **PASS** for cooldown, **UNTESTED** for the remaining checks | Request `60e299f3-e90d-4fa7-8b74-0341772a0cd9` returned a four-second wait. The log lacks the first request ID and terminal status, the grant list after cancellation, and the retry followed by **Deny**. |
+| 3. One-time approval and replay | **PASS** for MCP, UI checks unverified | The replay returned the same pending request. Job `339F6967-B556-45BF-9EE2-80DD40098F82` completed and the grant list stayed empty. Record chooser and approval counts, displayed hint, resolved path, and the fixture comparison. |
+| 4. Read and clear | **PASS** for MCP, Settings display unverified | Reads succeeded after quitting. Clearing blocked status and rankings even when replay returned the original IDs. The grant list stayed empty. Record what **Last shared result** showed before clearing. |
+| 5. Remember and reuse | **PASS** for MCP, sheet visibility unverified | The second job reused catalog `80ACA98A-2225-4B49-B1AB-9370F7E1EDAE` with a fresh job ID and matching coverage. Setup briefly returned `pendingApproval` before queuing without input. Record whether either sheet appeared during the second run. |
+| 6–14 | **UNTESTED** | No results recorded in this run yet. |
+
+### Correct the build report and complete the missing checks
+
+1. To diagnose Step 1, run `codex mcp get rawcull` and `/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' /Applications/RawCull.app/Contents/Info.plist`. If the registered command points to a standalone helper, register the bundled helper and start a fresh chat. This run already had the expected registration and installed build.
+2. In the helper, update `rawcull_status` in `Tools/RawCullMCP/Sources/RawCullMCP/ToolHandlers.swift` to take `CFBundleVersion` from the enclosing app's `Contents/Info.plist`, which `AnalysisTools.bundledRawCullURL()` already reads and validates. Reuse that metadata lookup and preserve `null` for a standalone helper. Build and install a signed app with the updated helper, then confirm in a fresh chat that `appBuild` matches the installed build. Check that the standalone helper still reports `null`.
+3. Finish the checks that need the current Downloads grant before resetting access for Step 2. On the rerun, save the first request ID, record `denied` with no job ID and an empty grant list, and capture the second request's cooldown response. After the wait, retry the exact second request with the same UUID. Verify the approval sheet path and action, click **Deny**, and record the terminal status, job ID field, and grant list.
+4. Add any UI observations you can confirm from the original run to Logs 3–5. Record the remaining observations when repeating those steps in order, since Step 4 uses the shared result from Step 3.
