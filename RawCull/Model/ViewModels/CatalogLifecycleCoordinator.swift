@@ -79,19 +79,29 @@ final class CatalogLifecycleCoordinator {
 
     @discardableResult
     func startSecurityScopedAccess(for url: URL) -> Bool {
-        if hasActiveSecurityScopedAccess(for: url) {
-            return true
+        guard let grant = retainSecurityScopedAccess(for: url) else {
+            stopActiveSecurityScopedAccess()
+            return false
         }
-        stopActiveSecurityScopedAccess()
-        guard startSecurityScopedResource(url) else { return false }
-        let grant = RawCullCatalogGrant(url: url, stopAccess: stopSecurityScopedResource)
-        activeSecurityScopedGrant = grant
-        RawCullCatalogAccess.shared.register(grant)
+        activateSecurityScopedAccess(grant)
         return true
     }
 
+    func retainSecurityScopedAccess(for url: URL) -> RawCullCatalogGrant? {
+        if let activeSecurityScopedGrant, hasActiveSecurityScopedAccess(for: url) {
+            return activeSecurityScopedGrant
+        }
+        guard startSecurityScopedResource(url) else { return nil }
+        return RawCullCatalogGrant(url: url, stopAccess: stopSecurityScopedResource)
+    }
+
+    func activateSecurityScopedAccess(_ grant: RawCullCatalogGrant) {
+        activeSecurityScopedGrant = grant
+        RawCullCatalogAccess.shared.register(grant)
+    }
+
     func hasActiveSecurityScopedAccess(for url: URL) -> Bool {
-        activeSecurityScopedGrant?.url == url.standardizedFileURL
+        activeSecurityScopedGrant?.url.path == url.standardizedFileURL.path
     }
 
     func stopActiveSecurityScopedAccess() {

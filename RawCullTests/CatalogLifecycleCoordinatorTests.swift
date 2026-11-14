@@ -92,6 +92,34 @@ struct CatalogLifecycleCoordinatorTests {
     }
 
     @Test
+    func `Approved scope survives the catalog transition across folder URL forms`() throws {
+        let path = "/tmp/lifecycle-approval-" + UUID().uuidString
+        let pickerURL = URL(fileURLWithPath: path, isDirectory: true)
+        let catalogURL = URL(fileURLWithPath: path, isDirectory: false)
+        let coordinator = CatalogLifecycleCoordinator()
+        var starts: [URL] = []
+        var stops: [URL] = []
+        coordinator.startSecurityScopedResource = { starts.append($0); return true }
+        coordinator.stopSecurityScopedResource = { stops.append($0) }
+
+        do {
+            let approval = try #require(coordinator.retainSecurityScopedAccess(for: pickerURL))
+            #expect(!coordinator.hasActiveSecurityScopedAccess(for: catalogURL))
+            coordinator.cancelLoad()
+            #expect(stops.isEmpty)
+
+            coordinator.activateSecurityScopedAccess(approval)
+            #expect(coordinator.hasActiveSecurityScopedAccess(for: catalogURL))
+            #expect(coordinator.startSecurityScopedAccess(for: catalogURL))
+            #expect(starts == [pickerURL])
+        }
+
+        #expect(stops.isEmpty)
+        coordinator.cancelLoad()
+        #expect(stops == [pickerURL])
+    }
+
+    @Test
     func `Coordinator destruction releases its active grant`() {
         let url = URL(filePath: "/tmp/lifecycle-" + UUID().uuidString)
         var stops: [URL] = []
