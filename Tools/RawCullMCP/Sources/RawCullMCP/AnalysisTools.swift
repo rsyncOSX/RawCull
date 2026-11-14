@@ -83,8 +83,10 @@ enum AnalysisTools {
                 request = try store.submit(proposed)
             } catch CatalogSetupStore.StoreError.pendingRequest {
                 throw MCPError.invalidParams("Another catalog setup request is awaiting a response in RawCull.")
+            } catch CatalogSetupStore.StoreError.storageFull {
+                throw MCPError.invalidParams("The catalog setup replay store is full. Try again when older requests age out.")
             }
-            guard request.catalogHint == proposed.catalogHint, request.jobType == proposed.jobType else {
+            guard request.matches(proposed) else {
                 throw MCPError.invalidParams("That requestId belongs to a different request. Use a new UUID.")
             }
             if request.state == .pendingApproval, !request.isExpired {
@@ -104,6 +106,7 @@ enum AnalysisTools {
             request.state = .failed
             request.message = "The catalog setup request expired. Start a new request."
         }
+        request.hintDigest = nil
         return try structuredReply(
             request.message ?? "Catalog setup: \(request.state.rawValue).", value: Value(request)
         )
@@ -113,6 +116,8 @@ enum AnalysisTools {
         if params.name == requestSetup.name || params.name == setupStatus.name {
             do {
                 return try await callSetup(params)
+            } catch CatalogSetupStore.StoreError.expiredRequest {
+                throw MCPError.invalidParams("That catalog setup request is outside the replay window. Use a fresh UUID for a new run.")
             } catch let error as MCPError {
                 throw error
             } catch {
@@ -174,6 +179,7 @@ enum AnalysisTools {
             details.bursts = nil
             details.previousRequestIds = nil
             details.setupRequestId = nil
+            details.setupHintDigest = nil
             details.usesSavedGrant = nil
             return try structuredReply(latest.message ?? "Analysis job \(latest.jobId): \(latest.stage).", value: Value(details))
         } catch let error as MCPError {

@@ -79,6 +79,8 @@ Implemented in the app and bundled helper. Completed results use explicit cleari
 
 ### 2. Recover and bound setup storage
 
+Implemented with a 24-hour replay window, seven-day ID retention, and a 128-receipt cap. The pending request and current job are protected during cleanup. Resolved legacy hints migrate to digests. Malformed records are recovered under the job lock, and transient I/O errors propagate without deleting the affected files. Isolated storage checks covered recovery, interrupted publication, migration, replay, revocation, and retention. See [setup request replay](mcp.md#setup-request-replay) for the client behavior.
+
 - Under the job lock, distinguish a missing pointer, malformed pointer, malformed linked receipt, valid pending request, and transient I/O error. Recover from malformed state so an unrelated new request can proceed. Preserve a matching live job and the existing receipt reconstruction behavior when possible. Keep quarantine bounded if used and avoid duplicating path data.
 - Define a replay window and receipt limit before choosing concrete values. Keep active requests and receipts needed to resolve the current job. Preserve duplicate handling and check how expired IDs are reported. Avoid allowing an old request to unexpectedly raise a fresh approval prompt.
 - Persist the full hint only while needed for resolution. Review storing a digest or minimal identity for completed-request replay. Read existing receipts safely, then remove or migrate retained path data within the policy. Decide explicitly whether clearing or revocation also purges related receipts and which minimal replay records survive.

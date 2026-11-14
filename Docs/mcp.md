@@ -130,6 +130,12 @@ In **Settings → MCP**, **Last shared result** shows the current completed burs
 
 **Revoke Access** removes the saved authorization and the current job. Use the MCP cancellation tool to stop an active job while keeping the saved authorization. Clearing a result leaves pending setup requests in place. A remembered approval checks that the saved authorization still matches what the approval sheet showed, and a queued setup using a saved grant checks that the grant is still valid.
 
+### Setup request replay
+
+Use the original setup UUID only to retry the same request within 24 hours. RawCull keeps expired IDs for up to seven days and rejects retries while those IDs are still recorded. The current job's setup receipt remains available while that job occupies the slot. After a receipt is pruned, the helper can no longer recognize its UUID, so use a fresh UUID for each deliberate new run.
+
+The setup store holds up to 128 receipts. At capacity it rejects new submissions and still handles known retries. On upgrade, excess historical receipts are pruned oldest first while the pending request and current job are preserved. RawCull keeps the catalog hint while a request awaits resolution. Resolved receipts retain a digest of the hint for duplicate checks. Clearing a result or revoking access leaves the bounded receipt history available for replay. Access to rankings still requires a current shareable result.
+
 The local and distributed builds share their bundle ID and model-assets group. In local testing, both could use installed AI models, but downloading DataComp CLIP failed with both copies installed. Temporarily removing the local copy let the download succeed in the distributed build. The test workflow keeps the existing bundle IDs.
 
 ### Snapshot behavior

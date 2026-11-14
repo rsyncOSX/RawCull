@@ -62,9 +62,14 @@ final class MCPAnalysisController {
     ) {
         guard monitor == nil, grants.directory != nil else { return }
         monitor = Task { [weak self, weak viewModel] in
+            var nextSetupMaintenance = Date.distantPast
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                    if setup == nil, analysis == nil, Date.now >= nextSetupMaintenance {
+                        nextSetupMaintenance = .now.addingTimeInterval(60)
+                        try setupStore.maintain()
+                    }
                     if setup == nil, analysis == nil, let request = try setupStore.pending() {
                         setup = Task { [weak self, weak viewModel] in
                             guard let self else { return }
@@ -191,7 +196,7 @@ final class MCPAnalysisController {
         do {
             guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
             let saved = try savedCatalog()
-            let match = matchingCatalog(for: request.catalogHint, viewModel: viewModel, saved: saved)
+            let match = matchingCatalog(for: request.catalogHint ?? "", viewModel: viewModel, saved: saved)
             if let saved, let match, sameFolder(match, saved.url), readableFolderAccess(saved.url, viewModel: viewModel) != nil {
                 try await queueSetup(
                     request, url: saved.url, remember: false, savedGrantId: saved.grant.id,
@@ -254,7 +259,7 @@ final class MCPAnalysisController {
         }
         do {
             try await withJobLockRetry {
-                guard try setupStore.pending()?.requestId == request.requestId else { return }
+                guard try setupStore.pendingLocked()?.requestId == request.requestId else { return }
                 try setupStore.saveLocked(response)
             }
         } catch {
@@ -321,7 +326,7 @@ final class MCPAnalysisController {
     ) async throws -> URL {
         let chooser = NSAlert()
         chooser.messageText = String(localized: "Choose a catalog for burst analysis")
-        chooser.informativeText = request.catalogHint
+        chooser.informativeText = request.catalogHint ?? ""
         chooser.addButton(withTitle: String(localized: "Choose Folder…"))
         let current = viewModel.selectedSource
         if current != nil {
@@ -334,7 +339,7 @@ final class MCPAnalysisController {
             picker.canChooseDirectories = true
             picker.canChooseFiles = false
             picker.allowsMultipleSelection = false
-            let hint = request.catalogHint.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hint = (request.catalogHint ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if hint.hasPrefix("/") {
                 picker.directoryURL = URL(fileURLWithPath: hint, isDirectory: true).deletingLastPathComponent()
             } else if let current {
@@ -365,7 +370,7 @@ final class MCPAnalysisController {
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: true)
         try await withJobLockRetry {
             try Task.checkCancellation()
-            guard !request.isExpired, try setupStore.pending()?.requestId == request.requestId else {
+            guard !request.isExpired, try setupStore.pendingLocked()?.requestId == request.requestId else {
                 throw JobError("The catalog setup request expired. Start a new request.")
             }
             let now = Date.now
@@ -379,6 +384,7 @@ final class MCPAnalysisController {
             var job = AnalysisJob(jobId: UUID(), catalogId: savedGrantId ?? UUID(), createdAt: now, updatedAt: now)
             if savedGrantId != nil { job.usesSavedGrant = true }
             job.setupRequestId = request.requestId
+            job.setupHintDigest = request.replayDigest
             try jobs.updateLocked { current in
                 guard current?.state.isActive != true else {
                     throw JobError("An analysis is already active. Wait for it to finish and try again.")
