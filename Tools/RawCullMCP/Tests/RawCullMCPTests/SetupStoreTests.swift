@@ -78,6 +78,22 @@ struct SetupStoreTests {
         }
     }
 
+    @Test func legacyHintRetriesUseTheOriginalNormalization() {
+        let hint = "/photos/One\u{202E}Two"
+        var legacy = proposal()
+        legacy.catalogHint = "/photos/One Two"
+        legacy.discardHint()
+        var retry = proposal()
+        retry.catalogHint = hint
+        #expect(legacy.matches(retry))
+
+        var exact = retry
+        exact.usesExactHint = true
+        exact.discardHint()
+        retry.catalogHint = "/photos/One Two"
+        #expect(!exact.matches(retry))
+    }
+
     @Test func capsLegacyStorageAndKeepsNewestReceipts() throws {
         try withStore { store, root in
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -93,6 +109,63 @@ struct SetupStoreTests {
             #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).count == 128)
             #expect(try !store.submit(newest, now: now).wasAccepted)
             #expect(throws: CatalogSetupStore.StoreError.self) { try store.submit(proposal(), now: now) }
+        }
+    }
+
+    @Test func expiredReceiptsReleaseCapacityAndStillRejectReuse() throws {
+        try withStore { store, root in
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let expiredAt = now + 24 * 60 * 60
+            let receipts = (0 ..< 128).map { _ in proposal() }
+            for var receipt in receipts {
+                receipt.state = .failed
+                try JSONEncoder().encode(receipt).write(to: root.appendingPathComponent(receipt.requestId.uuidString))
+            }
+            #expect(throws: CatalogSetupStore.StoreError.storageFull(retryAt: expiredAt)) {
+                try store.submit(proposal(), now: now)
+            }
+            let expired = try #require(receipts.first)
+            #expect(throws: CatalogSetupStore.StoreError.expiredRequest) {
+                try store.submit(expired, now: expiredAt)
+            }
+            #expect(try store.submit(proposal(createdAt: expiredAt), now: expiredAt).wasAccepted)
+        }
+    }
+
+    @Test func repeatedDenialsIncreaseCooldownThenReset() throws {
+        try withStore { store, _ in
+            for offset in [0.0, 10.0, 30.0] {
+                let time = now + offset
+                var denied = proposal(createdAt: time)
+                _ = try store.submit(denied, now: time)
+                denied.state = .denied
+                denied.deniedAt = time
+                try store.jobs.withLock { try store.saveLocked(denied) }
+            }
+            #expect(throws: CatalogSetupStore.StoreError.denialCooldown(secondsRemaining: 39)) {
+                try store.submit(proposal(), now: now + 31)
+            }
+            let later = now + 16 * 60
+            var denied = proposal(createdAt: later)
+            _ = try store.submit(denied, now: later)
+            denied.state = .denied
+            denied.deniedAt = later
+            try store.jobs.withLock { try store.saveLocked(denied) }
+            #expect(throws: CatalogSetupStore.StoreError.denialCooldown(secondsRemaining: 10)) {
+                try store.submit(proposal(), now: later)
+            }
+        }
+    }
+
+    @Test func expiredPendingRequestFreesSlotAndRecordsFailure() throws {
+        try withStore { store, _ in
+            let original = proposal()
+            _ = try store.submit(original, now: now)
+            let deadline = original.expiresAt
+            #expect(try store.submit(proposal(createdAt: deadline), now: deadline).wasAccepted)
+            let expired = try #require(try store.request(original.requestId, now: deadline))
+            #expect(expired.state == .failed)
+            #expect(expired.catalogHint == nil)
         }
     }
 

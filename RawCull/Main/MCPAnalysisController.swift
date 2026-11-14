@@ -44,6 +44,9 @@ final class MCPAnalysisController {
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
     private var setup: Task<Void, Never>?
+    private var setupDeadline: Date?
+    private var setupSheet: (parent: NSWindow, window: NSWindow)?
+    private var cachedGrant: (revision: AnalysisJobStore.Revision, catalogId: UUID?, analysisEnabled: Bool)?
     private struct SetupApproval {
         let id: UUID
         let url: URL
@@ -65,6 +68,7 @@ final class MCPAnalysisController {
             var nextSetupMaintenance = Date.distantPast
             var storageFailureSince: ContinuousClock.Instant?
             while !Task.isCancelled, let self, let viewModel {
+                if let setupDeadline, Date.now >= setupDeadline { cancelSetup() }
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
                     storageFailureSince = nil
@@ -73,9 +77,13 @@ final class MCPAnalysisController {
                         try setupStore.maintain()
                     }
                     if setup == nil, analysis == nil, let request = try setupStore.pending() {
+                        setupDeadline = request.expiresAt
                         setup = Task { [weak self, weak viewModel] in
                             guard let self else { return }
-                            defer { setup = nil }
+                            defer {
+                                setup = nil
+                                setupDeadline = nil
+                            }
                             guard let viewModel else { return }
                             await respond(to: request, viewModel: viewModel, canStart: canStart)
                         }
@@ -106,8 +114,31 @@ final class MCPAnalysisController {
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
-        setup?.cancel()
+        cancelSetup()
         if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
+    }
+
+    private func cancelSetup() {
+        setup?.cancel()
+        if let sheet = setupSheet, sheet.parent.sheets.contains(sheet.window) {
+            setupSheet = nil
+            sheet.parent.endSheet(sheet.window, returnCode: .cancel)
+        }
+    }
+
+    private func showSetupSheet(
+        _ sheet: NSWindow, for request: CatalogSetupRequest, in parent: NSWindow,
+        present: @MainActor () async -> NSApplication.ModalResponse
+    ) async throws -> NSApplication.ModalResponse {
+        try Task.checkCancellation()
+        guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
+        sheet.preventsApplicationTerminationWhenModal = false
+        setupSheet = (parent, sheet)
+        defer { setupSheet = nil }
+        let response = await present()
+        guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
+        try Task.checkCancellation()
+        return response
     }
 
     private func poll(
@@ -250,7 +281,9 @@ final class MCPAnalysisController {
             confirmation.addButton(withTitle: String(localized: "Approve This Job"))
             confirmation.addButton(withTitle: String(localized: "Approve and Remember"))
             confirmation.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
-            let approval = await confirmation.beginSheetModal(for: window)
+            let approval = try await showSetupSheet(confirmation.window, for: request, in: window) {
+                await confirmation.beginSheetModal(for: window)
+            }
             guard approval == .alertFirstButtonReturn || approval == .alertSecondButtonReturn else {
                 throw CancellationError()
             }
@@ -262,6 +295,8 @@ final class MCPAnalysisController {
             )
             return
         } catch is CancellationError {
+            // A pending request can be resumed after RawCull reopens.
+            guard !isQuitting else { return }
             response.state = .denied
             response.message = "Catalog setup was cancelled or denied in RawCull."
         } catch let error as JobError {
@@ -355,7 +390,9 @@ final class MCPAnalysisController {
             chooser.addButton(withTitle: String(localized: "Use Current Catalog"))
         }
         chooser.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
-        let choice = await chooser.beginSheetModal(for: window)
+        let choice = try await showSetupSheet(chooser.window, for: request, in: window) {
+            await chooser.beginSheetModal(for: window)
+        }
         if choice == .alertFirstButtonReturn {
             let picker = NSOpenPanel()
             picker.canChooseDirectories = true
@@ -367,7 +404,10 @@ final class MCPAnalysisController {
             } else if let current {
                 picker.directoryURL = current.url.deletingLastPathComponent()
             }
-            guard await picker.beginSheetModal(for: window) == .OK, let picked = picker.url else {
+            let selection = try await showSetupSheet(picker, for: request, in: window) {
+                await picker.beginSheetModal(for: window)
+            }
+            guard selection == .OK, let picked = picker.url else {
                 throw CancellationError()
             }
             return picked
@@ -737,7 +777,15 @@ final class MCPAnalysisController {
 
     private func isAuthorized(_ job: AnalysisJob) throws -> Bool {
         if job.usesSetupApproval { return approvedSetup?.id == job.jobId }
+        let revision = grants.revision()
+        if let revision, let cachedGrant, cachedGrant.revision == revision {
+            return cachedGrant.catalogId == job.catalogId && cachedGrant.analysisEnabled
+        }
+        cachedGrant = nil
         let grant = try grants.authorizedCatalog()
+        if let revision, grants.revision() == revision {
+            cachedGrant = (revision, grant?.id, grant?.analysisEnabled == true)
+        }
         return grant?.id == job.catalogId && grant?.analysisEnabled == true
     }
 

@@ -52,7 +52,7 @@ enum AnalysisTools {
     )
     static let requestSetup = tool(
         "request_catalog_setup",
-        "Find a catalog by exact name or absolute path and start burst analysis if it is already authorized. RawCull asks for approval or folder selection when needed. Reuse the requestId UUID on retry.",
+        "Find a catalog by exact name or absolute path (up to 512 Unicode scalars) and start burst analysis if it is already authorized. RawCull asks for approval or folder selection when needed. Reuse the requestId UUID on retry.",
         required: ["catalogHint": .object(["type": .string("string")]), "jobType": .object([
             "type": .string("string"), "enum": .array([.string("burstAnalysis")]),
         ]), "requestId": uuid],
@@ -64,7 +64,10 @@ enum AnalysisTools {
     )
     static let all = [start, status, cancel, bursts, requestSetup, setupStatus]
 
-    private static func callSetup(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+    static func callSetup(
+        _ params: CallTool.Parameters, grantStore: CatalogGrantStore, application: URL?,
+        openApplication: (URL) async -> Bool
+    ) async throws -> CallTool.Result {
         let isSubmission = params.name == requestSetup.name
         let keys: Set<String> = isSubmission ? ["requestId", "catalogHint", "jobType"] : ["requestId"]
         guard let args = params.arguments, Set(args.keys) == keys,
@@ -74,22 +77,28 @@ enum AnalysisTools {
         let store = CatalogSetupStore(jobs: AnalysisJobStore(directory: grantStore.directory))
         var request: CatalogSetupRequest
         if isSubmission {
-            guard let app = bundledRawCullURL() else {
-                throw MCPError.invalidParams("Configure the MCP client to use the helper inside RawCull.app to start analysis.")
-            }
             guard let hint = args["catalogHint"]?.stringValue, args["jobType"]?.stringValue == "burstAnalysis" else {
                 throw MCPError.invalidParams("Provide a catalog hint and use burstAnalysis as the job type.")
             }
+            guard let application else {
+                throw MCPError.invalidParams("Configure the MCP client to use the helper inside RawCull.app to start analysis.")
+            }
             let proposed = CatalogSetupRequest(
-                requestId: id, catalogHint: catalogMetadataText(hint), jobType: "burstAnalysis", createdAt: .now
+                requestId: id, catalogHint: hint, jobType: "burstAnalysis", createdAt: .now, usesExactHint: true
             )
             let submission: CatalogSetupStore.Submission
             do {
                 submission = try store.submit(proposed)
+            } catch CatalogSetupStore.StoreError.invalidHint {
+                throw MCPError.invalidParams(
+                    "catalogHint must contain at most \(CatalogSetupRequest.maximumHintScalars) Unicode scalars."
+                )
             } catch CatalogSetupStore.StoreError.pendingRequest {
                 throw MCPError.invalidParams("Another catalog setup request is awaiting a response in RawCull.")
-            } catch CatalogSetupStore.StoreError.storageFull {
-                throw MCPError.invalidParams("The catalog setup replay store is full. Try again when older requests age out.")
+            } catch CatalogSetupStore.StoreError.storageFull(let retryAt) {
+                let retry = retryAt.map { "Try again after \($0.ISO8601Format())." }
+                    ?? "Try again when an older request ages out."
+                throw MCPError.invalidParams("The catalog setup replay store is full. \(retry)")
             } catch CatalogSetupStore.StoreError.denialCooldown(let secondsRemaining) {
                 throw MCPError.invalidParams("A catalog setup request was declined. Wait at least \(secondsRemaining) seconds and try again if the user wants to proceed.")
             }
@@ -97,11 +106,9 @@ enum AnalysisTools {
             guard request.matches(proposed) else {
                 throw MCPError.invalidParams("That requestId belongs to a different request. Use a new UUID.")
             }
-            if submission.wasAccepted {
-                // RawCull brings itself forward only if the request needs a response.
-                if !(await openBundledRawCull(at: app)) {
-                    request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
-                }
+            if request.state == .pendingApproval, !request.isExpired,
+               !(await openApplication(application)) {
+                request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
             }
         } else {
             guard let existing = try store.request(id) else {
@@ -113,6 +120,8 @@ enum AnalysisTools {
             request.state = .failed
             request.message = "The catalog setup request expired. Start a new request."
         }
+        request.catalogHint = request.catalogHint.map(catalogMetadataText)
+        request.usesExactHint = nil
         request.hintDigest = nil
         request.deniedAt = nil
         return try structuredReply(
@@ -120,10 +129,15 @@ enum AnalysisTools {
         )
     }
 
-    static func call(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+    static func call(
+        _ params: CallTool.Parameters, grantStore: CatalogGrantStore
+    ) async throws -> CallTool.Result {
         if params.name == requestSetup.name || params.name == setupStatus.name {
             do {
-                return try await callSetup(params)
+                return try await callSetup(
+                    params, grantStore: grantStore, application: bundledRawCullURL(),
+                    openApplication: openBundledRawCull
+                )
             } catch CatalogSetupStore.StoreError.expiredRequest {
                 throw MCPError.invalidParams("That catalog setup request is outside the replay window. Use a fresh UUID for a new run.")
             } catch let error as MCPError {
@@ -145,7 +159,7 @@ enum AnalysisTools {
             guard bundledRawCullURL() != nil else {
                 throw MCPError.invalidParams("Configure the MCP client to use the helper inside RawCull.app to start analysis.")
             }
-            try requireAnalysisGrant(catalogId)
+            try requireAnalysisGrant(catalogId, in: grantStore)
         }
         do {
             if params.name == bursts.name {
@@ -154,7 +168,7 @@ enum AnalysisTools {
                           latest.resultCleared != true else {
                         throw MCPError.invalidParams("That job was cleared, replaced, or revoked.")
                     }
-                    if !latest.usesSetupApproval { try requireAnalysisGrant(catalogId) }
+                    if !latest.usesSetupApproval { try requireAnalysisGrant(catalogId, in: grantStore) }
                     return try page(latest, arguments: arguments)
                 }
             }
@@ -162,12 +176,12 @@ enum AnalysisTools {
             let job: AnalysisJob
             if isStart {
                 _ = try store.expireInterruptedJob()
-                job = try await submit(catalogId: catalogId, jobId: jobId, store: store)
+                job = try await submit(catalogId: catalogId, jobId: jobId, store: store, grantStore: grantStore)
             } else {
                 guard let current, current.catalogId == catalogId, current.jobId == jobId else {
                     throw MCPError.invalidParams("No current job matches that catalog and job ID.")
                 }
-                if !current.usesSetupApproval { try requireAnalysisGrant(catalogId) }
+                if !current.usesSetupApproval { try requireAnalysisGrant(catalogId, in: grantStore) }
                 if params.name == cancel.name {
                     job = try requestCancellation(current, store: store)
                 } else {
@@ -179,7 +193,7 @@ enum AnalysisTools {
                 }
             }
             if !job.usesSetupApproval {
-                _ = try requireCatalog(catalogId)
+                _ = try requireCatalog(catalogId, in: grantStore)
             }
             guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId,
                   latest.resultCleared != true else {
@@ -211,17 +225,17 @@ enum AnalysisTools {
         }
     }
 
-    private static func requireAnalysisGrant(_ catalogId: UUID) throws {
-        guard try requireCatalog(catalogId).analysisEnabled == true else {
+    private static func requireAnalysisGrant(_ catalogId: UUID, in grantStore: CatalogGrantStore) throws {
+        guard try requireCatalog(catalogId, in: grantStore).analysisEnabled == true else {
             throw MCPError.invalidParams("Enable catalog analysis when authorizing this loaded catalog in RawCull's MCP settings.")
         }
     }
 
     private static func submit(
-        catalogId: UUID, jobId: UUID, store: AnalysisJobStore
+        catalogId: UUID, jobId: UUID, store: AnalysisJobStore, grantStore: CatalogGrantStore
     ) async throws -> AnalysisJob {
         let updated = try store.withLock {
-            try requireAnalysisGrant(catalogId)
+            try requireAnalysisGrant(catalogId, in: grantStore)
             return try store.updateLocked { current in
                 if let current, current.catalogId == catalogId, current.jobId == jobId { return nil }
                 if current?.state.isActive == true {
