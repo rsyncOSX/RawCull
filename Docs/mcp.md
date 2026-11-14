@@ -72,7 +72,7 @@ Point a desktop MCP client's local stdio server configuration at the absolute pa
 codex mcp add rawcull -- "$PWD/Tools/RawCullMCP/.build/release/rawcull-mcp"
 ```
 
-Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The current source reports version `0.6.0`, transport `stdio`, and the Phase 1 through Phase 3 tools. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
+Start a new client session and ask, “Use `rawcull_status` to tell me the RawCull MCP helper version and available capabilities.” The standalone helper reports version `0.7.0`, a null `appBuild`, transport `stdio`, and the Phase 1 through Phase 3 tools. Use a signed bundled build for the shared catalog snapshot test. RawCull itself can be closed. Use the bundled build below to test the installed app layout.
 
 ### Test the bundled helper with TestFlight
 
@@ -121,6 +121,20 @@ Quit any running RawCull instance and open the test copy directly from Finder. S
 > Call `list_catalogs` on `rawcull`. Use the catalog ID for `100MSDCF` at `/Users/thomas/Downloads/100MSDCF` to call `catalog_summary` and `list_photos` with a limit of 5. Show the summary, check that it reports 809 photos, and show both pages of photos, using `nextCursor` to fetch the second page.
 
 Reopen the test app, choose **Revoke Access**, quit, and call `list_catalogs` again. Expect an empty list.
+
+### Clearing shared results
+
+In **Settings → MCP**, **Last shared result** shows the current completed burst analysis even when there is no saved catalog authorization. A completed result remains available after quitting RawCull. It has no automatic expiry and stays available until you clear it or the current job is replaced or removed.
+
+**Clear Last Shared Result** removes rankings and coverage from future MCP reads and preserves any saved catalog authorization and snapshot. An earlier setup receipt may still return the same IDs on replay. Those IDs cannot retrieve the cleared result. A client may keep copies from reads that already completed or were in flight as you cleared the result.
+
+**Revoke Access** removes the saved authorization and the current job. Use the MCP cancellation tool to stop an active job while keeping the saved authorization. Clearing a result leaves pending setup requests in place. A remembered approval checks that the saved authorization still matches what the approval sheet showed, and a queued setup using a saved grant checks that the grant is still valid.
+
+### Setup request replay
+
+Use the original setup UUID only to retry the same request within 24 hours. RawCull keeps expired IDs for up to seven days and rejects retries while those IDs are still recorded. The current job's setup receipt remains available while that job occupies the slot. After a receipt is pruned, the helper can no longer recognize its UUID, so use a fresh UUID for each deliberate new run.
+
+The setup store holds up to 128 receipts. At capacity it rejects new submissions and still handles known retries. On upgrade, excess historical receipts are pruned oldest first while the pending request and current job are preserved. RawCull keeps the catalog hint while a request awaits resolution. Resolved receipts retain a digest of the hint for duplicate checks. Clearing a result or revoking access leaves the bounded receipt history available for replay. Access to rankings still requires a current shareable result.
 
 The local and distributed builds share their bundle ID and model-assets group. In local testing, both could use installed AI models, but downloading DataComp CLIP failed with both copies installed. Temporarily removing the local copy let the download succeed in the distributed build. The test workflow keeps the existing bundle IDs.
 
@@ -243,11 +257,11 @@ To repeat the walkthrough, use the installed signed TestFlight build and the 809
 
 - **What it tests.** Checks the signed TestFlight helper’s connection, version, and catalog access.
 - **Why it matters.** An empty saved-access list lets the following tests exercise approval from scratch.
-- **Expected result.** The helper reports `0.6.0`, `stdio`, and both setup tools. `list_catalogs` is empty.
+- **Expected result.** The helper reports `0.7.0`, the installed TestFlight build in `appBuild`, `stdio`, and both setup tools. `list_catalogs` is empty.
 
-Quit all RawCull copies. Confirm that the `rawcull` registration points to the helper bundled with the TestFlight installation, then start a fresh Codex session. Steps 2–5 require an empty authorized catalog list. Helper `0.6.0` returns display names and IDs without folder paths. If a grant already exists and you are ready to clear it for the test, open **RawCull → Settings → MCP**, click **Revoke Access**, quit RawCull again, and repeat this check. Verify the exact 100MSDCF path on the approval sheet in step 3.
+Quit all RawCull copies. Confirm that the `rawcull` registration points to the helper bundled with the TestFlight installation, then start a fresh Codex session. Steps 2–5 require an empty authorized catalog list. The helper returns authorized catalog display names and IDs. If a grant already exists and you are ready to clear it for the test, open **RawCull → Settings → MCP**, click **Revoke Access**, quit RawCull again, and repeat this check. Verify the exact 100MSDCF path on the approval sheet in step 3.
 
-> Use only `rawcull`. Call `rawcull_status` and confirm that the helper reports version `0.6.0`, transport `stdio`, and the `request_catalog_setup` and `get_catalog_setup_status` tools. I’m preparing to test `/Users/thomas/Downloads/100MSDCF`. Call `list_catalogs` and report whether the authorized catalog list is empty. If it contains a grant, report its display name, ID, and whether analysis is enabled.
+> Use only `rawcull`. Call `rawcull_status` and confirm that the helper reports version `0.7.0`, the installed build in `appBuild`, transport `stdio`, and the `request_catalog_setup` and `get_catalog_setup_status` tools. I’m preparing to test `/Users/thomas/Downloads/100MSDCF`. Call `list_catalogs` and report whether the authorized catalog list is empty. If it contains a grant, report its display name, ID, and whether analysis is enabled.
 
 #### 2. Cancel the folder picker
 
@@ -322,6 +336,22 @@ For the ambiguous-name case, use a second known catalog also named 100MSDCF. For
 > Use only `rawcull`. I am testing an unavailable copy of `/Users/thomas/Downloads/100MSDCF`. Request `burstAnalysis` for the exact path of the disconnected test copy, `<absolute path of disconnected 100MSDCF copy>`, with a fresh UUID. Poll setup, report any picker or error, and wait while I cancel if a picker opens. If it queues, poll the analysis job and report its terminal state and error.
 
 **Release gate.** Step 4 passes when you can start from a prompt, choose 100MSDCF in RawCull, approve once, and receive completed results in chat without opening **Settings → MCP** during that run. Record each step's outcome and retain the request and job IDs for any failures.
+
+### TestFlight regression pass for helper 0.7.0
+
+Record the installed app build and helper version from `rawcull_status`, plus the request, catalog, and job IDs for each run.
+
+1. Run the new-catalog walkthrough from a full quit. During the chooser, replay the same request UUID and verify RawCull only comes forward for the original interaction. Check the chooser's client hint label and the resolved path in the approval sheet.
+2. After cancelling or denying setup, submit a fresh UUID immediately and verify the cooldown response. Wait 10 seconds and retry that request. Confirm the expected prompt appears.
+3. Approve once, quit RawCull, and read the original rankings. Reopen MCP Settings while no grant exists, verify the result is visible, and clear it. Call `get_analysis_status` and `list_bursts` with the original IDs, then replay the setup receipt. Verify the IDs cannot read the cleared result.
+4. Remember a catalog, quit, and run again using its saved grant. Keep Settings open while approving a different catalog with **Approve and Remember**. Verify the replacement notice and Settings refresh. Cancel an active analysis and confirm the job ends as cancelled.
+5. Run a recurring folder twice with different photos. Record the count and filenames after each run. Verify the original photo and burst cursors fail for the new snapshot and job. Revoke access and verify catalog and result reads are blocked.
+6. Use separate fixtures for ambiguous folder names and a disconnected removable source. Verify the chooser or folder error and record the result for each.
+7. Interrupt a running analysis by force-quitting RawCull. Query the saved job and verify it fails promptly with the worker-exit message. Start a fresh job and confirm analysis works again.
+
+The standalone helper supports status and reads. Run analysis through the helper embedded in the signed RawCull app. Direct starts remember the most recent 128 replaced job UUIDs in the current catalog's uninterrupted job chain. Use a fresh UUID for each new run. The helper's Codex transport compatibility shim remains in use, and existing cursor formats are accepted.
+
+Run helper tests with `swift test --package-path Tools/RawCullMCP`. The RawCull Xcode test target includes the **MCP job lifecycle** and **MCP Settings result visibility** suites.
 
 ### Visual review and drafts
 

@@ -17,11 +17,13 @@ RawCull runs the analysis on your Mac. The MCP server returns filenames, ranked 
 
 Keep RawCull open while analysis runs. Send one analysis request at a time. Starting a new run uses a fresh request UUID. A retry of the same submission uses its original UUID.
 
+If setup is declined or the folder picker is cancelled, wait 10 seconds before starting a new request, and retry only if you intend to proceed. Replaying a pending request returns its status without bringing RawCull forward again. If the app did not open, open it manually and poll the existing request.
+
 ## Analyze a new catalog
 
 > Use the `rawcull` MCP server to open and analyze the catalog at `<absolute folder path>`. Submit `request_catalog_setup` with the exact path, job type `burstAnalysis`, and a fresh request UUID. If RawCull needs me to choose a folder or approve the job, tell me what to do and wait while polling setup. When it queues, use the returned catalog and job IDs to poll analysis to completion. If setup is denied or the job fails, report the reason and stop. On success, page through the ranked bursts and show up to ten in a table with burst ID, frame count, recommended filename, alternate filename, scores when available, and confidence. Report the total number of bursts and how many are shown. Summarize the most important findings, including close picks, recurring cautions, and any gaps in coverage. Include photos scanned and analyzed, singleton and unevaluated counts, any reasons for skipped photos, the similarity backend, and the job ID.
 
-In RawCull, choose **Approve This Job** for one run or **Approve and Remember** to reuse the grant for the same set of photos. Choose the exact folder in the picker if it appears.
+If the folder chooser appears, select the intended folder and check the resolved path on the approval sheet. The chooser may show a shortened folder hint supplied by the MCP client. Choose **Approve This Job** for one run or **Approve and Remember** to reuse the grant for the same set of photos.
 
 ## Analyze a remembered catalog again
 

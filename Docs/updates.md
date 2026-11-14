@@ -69,6 +69,8 @@ The helper package has one executable target and no test target. Searches across
 
 ### 1. Make shared results visible and removable
 
+Implemented in the app and bundled helper. Completed results use explicit clearing with no automatic expiry. Clearing retains the job and request IDs for replay and removes the result payload. See [clearing shared results](mcp.md#clearing-shared-results) for the Settings and revocation behavior. The signed walkthrough below is the acceptance check for the new build.
+
 - Show the last shareable result in MCP Settings independently of the persistent grant. Provide **Clear Last Shared Result** when appropriate and keep **Revoke Access** for saved authorization. Refresh visible state when prompt-driven approval writes or replaces a grant or changes the shared result.
 - Define the approval copy around one run and its saved results. Preserve retrieval after quit. Propose explicit clearing as the initial policy. Review whether a documented automatic expiry is also needed.
 - Clear completed results under the existing job lock with an expected job ID, so a stale button cannot remove a replacement job. Keep active-job cancellation explicit. Review how clearing and revocation interact with pending setup, saved-grant runs, and in-flight reads. Describe that clearing stops future reads and that copies already delivered may remain with a client.
@@ -77,6 +79,8 @@ The helper package has one executable target and no test target. Searches across
 
 ### 2. Recover and bound setup storage
 
+Implemented with a 24-hour replay window, seven-day ID retention, and a 128-receipt cap. The pending request and current job are protected during cleanup. Resolved legacy hints migrate to digests. Malformed records are recovered under the job lock, and transient I/O errors propagate without deleting the affected files. Isolated storage checks covered recovery, interrupted publication, migration, replay, revocation, and retention. See [setup request replay](mcp.md#setup-request-replay) for the client behavior.
+
 - Under the job lock, distinguish a missing pointer, malformed pointer, malformed linked receipt, valid pending request, and transient I/O error. Recover from malformed state so an unrelated new request can proceed. Preserve a matching live job and the existing receipt reconstruction behavior when possible. Keep quarantine bounded if used and avoid duplicating path data.
 - Define a replay window and receipt limit before choosing concrete values. Keep active requests and receipts needed to resolve the current job. Preserve duplicate handling and check how expired IDs are reported. Avoid allowing an old request to unexpectedly raise a fresh approval prompt.
 - Persist the full hint only while needed for resolution. Review storing a digest or minimal identity for completed-request replay. Read existing receipts safely, then remove or migrate retained path data within the policy. Decide explicitly whether clearing or revocation also purges related receipts and which minimal replay records survive.
@@ -84,11 +88,15 @@ The helper package has one executable target and no test target. Searches across
 
 ### 3. Reduce prompt abuse and clarify UI text
 
+Implemented with fixed chooser instructions, a single-line client hint, and activation only when a newly submitted request needs interaction. Denial and picker cancellation start a 10-second cooldown shared by clients using the same store. See [RawCull MCP prompts](prompts.md) for retry instructions.
+
 - Use fixed chooser copy that labels the client hint as data. Format it for a single-line display and handle Unicode line and paragraph separators. Keep the real resolved path visible for approval. Preserve valid path matching when display formatting changes.
 - Activate RawCull for a newly accepted interactive request and avoid repeated activation on an idempotent replay. Review a brief cooldown or rate limit after denial that allows the user to recover from an accidental dismissal. With the current shared store, any cooldown applies across clients unless a trustworthy identity model is introduced.
 - **Acceptance.** Exercise line separators, bidi and zero-width characters, long hints, and printable misleading filenames. Verify repeat submissions after denial, pending replay, and saved-grant launches, including a normal retry after the cooldown.
 
 ### 4. Make failure handling predictable
+
+Implemented worker ownership with a process-held lock. Status reports stale progress while the worker owns the lock. Recovery transitions an interrupted job after the lock is released. Legacy records retain their heartbeat timeout, with awake uptime on the same boot and wall time across reboots. Polling allows five seconds of consecutive retryable storage failures, and ownership reads and writes retry for up to two seconds. Cancellation, storage failures, and unsupported formats have distinct outcomes. Format 2 is used only for a running job with a worker lock. A format-1 helper rejects that record, so use the app and helper from the same build. Queued and terminal records remain readable by the older helper.
 
 - Add targeted cases with controlled clocks and injected storage failures. Separate a temporarily stale heartbeat, a confirmed dead or replaced worker, an explicit cancellation, and invalid authorization. Review whether status reads should report staleness while the app owns the terminal transition. Preserve bounded recovery when the app has exited and prevent an old worker from publishing over a replacement.
 - Retry transient poll and persistence failures within a defined bound. Keep cancellation for loss of ownership, revoked authorization, explicit cancellation, or unrecoverable state. Report contention and unsupported format distinctly from folder access errors.
@@ -96,6 +104,8 @@ The helper package has one executable target and no test target. Searches across
 - **Acceptance.** Cover stale heartbeat with a live worker, confirmed interruption, sleep or reboot fallback, transient read failure, lock contention at completion, cancellation during progress, and unsupported versus malformed job records. Verify terminal states and messages after each fault.
 
 ### 5. Add regression tests and review follow-up items
+
+Implemented automated setup-store, job lifecycle, Settings visibility, and cursor-boundary checks. Direct starts retain the most recent 128 replaced IDs in the current catalog chain. Standalone analysis submissions return bundled-helper instructions. Tool annotations reflect the remaining recovery writes in status calls and the read-only burst listing path. Helper 0.7.0 reports the enclosing app build. The transport shim and cursor formats remain compatible. The [TestFlight regression pass](mcp.md#testflight-regression-pass-for-helper-070) is ready for signed verification.
 
 - Start with helper-store tests using isolated temporary directories and an injected clock or equivalent deterministic time control. Cover locks, pending and terminal receipts, replay, retention, clearing, corruption, expiry, and cursor boundaries. Add app-level coverage for Settings state and lifecycle transitions where the ownership rules live. Use a separate signed TestFlight pass for app-group access, cold launches, user prompts, and post-quit retrieval.
 - Bound direct-start request history under an explicit replay policy. Revisit read-only and destructive hints once final tool side effects are defined. Decide whether standalone analysis is supported or should fail consistently with actionable bundled-helper guidance.

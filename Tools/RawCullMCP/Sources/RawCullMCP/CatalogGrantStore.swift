@@ -45,6 +45,10 @@ struct CatalogGrantStore: Sendable {
         return directory.appendingPathComponent("catalog-grant.json")
     }
 
+    func revision() -> AnalysisJobStore.Revision? {
+        AnalysisJobStore.revision(of: try? manifestURL())
+    }
+
     func authorizedCatalog() throws -> CatalogGrant? {
         let manifest = try manifestURL()
         let data: Data

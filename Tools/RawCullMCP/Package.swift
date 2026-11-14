@@ -13,5 +13,6 @@ let package = Package(
         .executableTarget(name: "RawCullMCP", dependencies: [
             .product(name: "MCP", package: "swift-sdk"),
         ]),
+        .testTarget(name: "RawCullMCPTests", dependencies: ["RawCullMCP"]),
     ],
 )
