@@ -49,7 +49,7 @@ The bundled Model Context Protocol (MCP) server lets you work with an authorized
 
 You choose which catalog to share and whether the client can start analysis in **Settings → MCP**. The helper runs locally and returns authorized catalog metadata and analysis results. The AI client may send those results to its configured model provider.
 
-Catalog analysis has been tested through the Apple TestFlight build. A future phase will let you start catalog setup and request job approval from a prompt. [Setup, TestFlight verification, and roadmap](Docs/mcp.md)
+Prompt-driven catalog setup, job approval, and saved-grant reuse have been verified on TestFlight. [Copy-ready prompts](Docs/prompts.md) · [Setup, TestFlight verification, and roadmap](Docs/mcp.md)
 
 ## Combined Review
 
