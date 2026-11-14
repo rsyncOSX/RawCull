@@ -332,6 +332,14 @@ final class MCPAnalysisController {
         _ request: CatalogSetupRequest, url: URL, remember: Bool, savedGrantId: UUID? = nil,
         viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
     ) async throws {
+        if savedGrantId != nil {
+            try await waitForWorkspaceLoad(viewModel: viewModel) {
+                try Task.checkCancellation()
+                guard !request.isExpired, try setupStore.pending()?.requestId == request.requestId else {
+                    throw JobError("The catalog setup request expired. Start a new request.")
+                }
+            }
+        }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: true)
         try await withJobLockRetry {
             try Task.checkCancellation()
@@ -409,9 +417,10 @@ final class MCPAnalysisController {
             grant = savedGrant
             authorization = savedAuthorization
         }
+        try await waitForWorkspaceLoad(viewModel: viewModel) { try checkCurrent(job) }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
         await prepare()
-        try checkCurrent(job)
+        try await waitForWorkspaceLoad(viewModel: viewModel) { try checkCurrent(job) }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
 
         let index = viewModel.sources.firstIndex { $0.url.standardizedFileURL == url.standardizedFileURL }
@@ -503,15 +512,33 @@ final class MCPAnalysisController {
         }
     }
 
+    private func isWorkspaceLoading(_ viewModel: RawCullViewModel) -> Bool {
+        viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil
+            || viewModel.scanning || viewModel.isCreatingThumbnails
+    }
+
+    private func waitForWorkspaceLoad(
+        viewModel: RawCullViewModel, checkRequest: () throws -> Void
+    ) async throws {
+        let clock = SuspendingClock()
+        let deadline = clock.now.advanced(by: .seconds(120))
+        while isWorkspaceLoading(viewModel) {
+            try checkRequest()
+            guard clock.now < deadline else {
+                throw JobError("RawCull is still loading a catalog after two minutes. Wait for the catalog and thumbnails to finish loading, then start a new request.")
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        try checkRequest()
+    }
+
     private func requireAvailableWorkspace(
         for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool, allowSwitch: Bool = false
     ) throws {
         if viewModel.cullingModel.isTerminationPending {
             throw JobError("RawCull is waiting to quit. Resolve any save prompt in RawCull, then start a new request.")
         }
-        if viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil
-            || viewModel.scanning || viewModel.isCreatingThumbnails
-        {
+        if isWorkspaceLoading(viewModel) {
             throw JobError("RawCull is loading a catalog. Wait for the catalog and thumbnails to finish loading, then start a new request.")
         }
         if !canStart() || viewModel.isDeepAIReviewBlockedByOtherWork || viewModel.isPreparingBurstCatalog
