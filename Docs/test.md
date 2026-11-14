@@ -19,11 +19,18 @@ With RawCull fully quit, paste this into the fresh chat.
 
 Expect helper **0.7.0**, build **450**, transport **stdio**, and both `request_catalog_setup` and `get_catalog_setup_status`. If the connection fails or the version differs, check `codex mcp get rawcull` in Terminal. The command should point to `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`. Start another fresh chat after correcting the registration or installed version.
 
-If a grant exists, preserve the initial output as upgrade evidence. Steps 2–5 require an empty grant list. When ready to remove the existing grant and its current result, open **Settings → MCP → Revoke Access**, quit RawCull, and repeat the prompt. If you want to keep that grant, mark Steps 2–5 untested.
+If a grant exists, preserve the initial output as upgrade evidence. Start Step 2 with an empty grant list. When ready to remove the existing grant and its current result, open **Settings → MCP → Revoke Access**, quit RawCull, and repeat the prompt. If you want to keep that grant, defer Steps 2–5. Step 5 creates the Downloads grant needed by Step 6.
 
 ### Log 1
 
-Paste Codex output and UI notes here.
+```bash
+- Helper version: 0.7.0
+- appBuild: null
+- Transport: stdio
+- Both setup tools available: Yes — request_catalog_setup and get_catalog_setup_status
+- Saved grants: None (catalogs: []). Tool reported: “No catalog is authorized.”
+- Tool errors: None
+```
 
 ## 2. Cancel the folder picker and check the cooldown
 
@@ -41,7 +48,12 @@ On the approval sheet, verify that the resolved path is **/Users/thomas/Download
 
 ### Log 2
 
-Paste both responses, any retry, and what you saw in RawCull.
+```bash
+Request UUID: 60e299f3-e90d-4fa7-8b74-0341772a0cd9
+Exact response:
+{"content":[{"type":"text","text":"A catalog setup request was declined. Wait at least 4 seconds and try again if the user wants to proceed."}],"isError":true}
+The helper reported a cooldown. Stopped after that call; no state or job ID was returned.
+```
 
 ## 3. Launch from a full quit, replay pending setup, and approve once
 
@@ -57,7 +69,34 @@ Expect one pending request and one approval interaction. Successful analysis sho
 
 ### Log 3
 
-Paste the initial and replay responses, analysis output, and your chooser and approval observations.
+```bash
+| Call | State | Request ID | Job ID |
+|---|---|---|---|
+| Initial | pendingApproval | 5B346EE9-0C87-435A-8C1C-A0A82E2142DA | None returned |
+| Identical replay | pendingApproval | 5B346EE9-0C87-435A-8C1C-A0A82E2142DA | None returned |
+Both responses said: Catalog setup: pendingApproval.
+No errors. Stopped so you can inspect the chooser.
+```
+
+```bash
+Analysis completed successfully.
+- Request ID: 5B346EE9-0C87-435A-8C1C-A0A82E2142DA
+- Catalog ID: 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3
+- Job ID: 339F6967-B556-45BF-9EE2-80DD40098F82
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Similarity backend: clip for all 958 photos
+- Bursts: 64
+First five returned recommendations:
+| Recommended filename | Alternate | Confidence |
+|---|---|---|
+| _DSC7712.ARW | _DSC7711.ARW | Low |
+| _DSC7743.ARW | _DSC7741.ARW | Low |
+| _DSC7756.ARW | _DSC7755.ARW | Low |
+| _DSC7757.ARW | _DSC7759.ARW | Low |
+| _DSC7766.ARW | _DSC7765.ARW | Low |
+All five reported “Top two are close” and high ISO noise risk.
+list_catalogs returned {"catalogs":[]} — the saved grant list is empty. No tool errors.
+```
 
 ## 4. Read rankings after quitting, then clear the result
 
@@ -72,8 +111,66 @@ Expect identical rankings before clearing. Afterwards the old IDs should provide
 
 ### Log 4
 
-Paste both responses and what Settings showed before and after clearing.
+```bash
+Both reads succeeded with RawCull quit. Results match Step 3:
+- Analysis: completed
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Similarity: clip for 958 photos; 64 bursts
+- Returned recommendations, alternates, scores, and confidence were unchanged.
+| Recommended | Alternate | Confidence |
+|---|---|---|
+| _DSC7712.ARW | _DSC7711.ARW | Low |
+| _DSC7743.ARW | _DSC7741.ARW | Low |
+| _DSC7756.ARW | _DSC7755.ARW | Low |
+| _DSC7757.ARW | _DSC7759.ARW | Low |
+| _DSC7766.ARW | _DSC7765.ARW | Low |
+Replayed the exact setup call:
+{"catalogHint":"Downloads TestFlight one-time check","jobType":"burstAnalysis","requestId":"5b346ee9-0c87-435a-8c1c-a0a82e2142da"}
+Response state: queued. The original job ID was returned: 339F6967-B556-45BF-9EE2-80DD40098F82, with the original catalog ID 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3.
+No tool errors.
+```
 
+```bash
+Exact response:
+
+{"content":[{"type":"text","text":"Catalog setup: queued."},{"type":"text","text":"{\"catalogId\":\"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3\",\"state\":\"queued\",\"createdAt\":816372734.408464,\"jobId\":\"339F6967-B556-45BF-9EE2-80DD40098F82\",\"jobType\":\"burstAnalysis\",\"requestId\":\"5B346EE9-0C87-435A-8C1C-A0A82E2142DA\"}"}],"structuredContent":{"catalogId":"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3","createdAt":816372734.408464,"jobId":"339F6967-B556-45BF-9EE2-80DD40098F82","jobType":"burstAnalysis","requestId":"5B346EE9-0C87-435A-8C1C-A0A82E2142DA","state":"queued"}}
+
+4. list_bursts with those returned IDs:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+5. list_catalogs:
+
+⚠ Heads up, you have less than 10% of your 5h limit left. Run /status for a breakdown.
+Using catalog 81927B3C-F7ED-4F27-82AD-E39C00D9FDA3 and job 339F6967-B556-45BF-9EE2-80DD40098F82:
+
+1. get_analysis_status returned:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+2. list_bursts returned:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+3. Replayed the original setup call:
+
+{"catalogHint":"Downloads TestFlight one-time check","jobType":"burstAnalysis","requestId":"5b346ee9-0c87-435a-8c1c-a0a82e2142da"}
+
+Exact response:
+
+{"content":[{"type":"text","text":"Catalog setup: queued."},{"type":"text","text":"{\"catalogId\":\"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3\",\"state\":\"queued\",\"createdAt\":816372734.408464,\"jobId\":\"339F6967-B556-45BF-9EE2-80DD40098F82\",\"jobType\":\"burstAnalysis\",\"requestId\":\"5B346EE9-0C87-435A-8C1C-A0A82E2142DA\"}"}],"structuredContent":{"catalogId":"81927B3C-F7ED-4F27-82AD-E39C00D9FDA3","createdAt":816372734.408464,"jobId":"339F6967-B556-45BF-9EE2-80DD40098F82","jobType":"burstAnalysis","requestId":"5B346EE9-0C87-435A-8C1C-A0A82E2142DA","state":"queued"}}
+
+4. list_bursts with those returned IDs:
+
+{"content":[{"type":"text","text":"That job was cleared, replaced, or revoked."}],"isError":true}
+
+5. list_catalogs:
+
+{"content":[{"type":"text","text":"No catalog is authorized."},{"type":"text","text":"{\"catalogs\":[]}"}],"structuredContent":{"catalogs":[]}}
+
+No coverage or rankings remain accessible through these calls. The replay returns the original IDs and queued state, but reading the result still fails. Saved access is empty.
+  Worked for 20s • 19:19
+```
 ## 5. Remember Downloads and reuse it after a full quit
 
 Quit RawCull and send the first prompt. Select Downloads if asked. Verify the path and click **Approve and Remember**. After the run completes, quit with **⌘Q** and send the second prompt.
@@ -86,7 +183,31 @@ Expect the saved grant to match the first job's catalog ID. The second job shoul
 
 ### Log 5
 
-Paste both responses and note whether any sheets appeared on the second run.
+```bash
+Analysis completed for /Users/thomas/Downloads.
+
+- Request ID: 4B9C6D02-865E-4A17-99F3-B7C8F126DE40
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: B419EE1B-0E48-4B4D-A8FD-A0613AA1B94A
+- Coverage: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Results: 64 bursts, 0 singletons
+- Similarity backend: clip for all 958 photos
+
+list_catalogs confirms a saved Downloads grant with that exact catalog ID and analysisEnabled: true (recurringFolder: false).
+```
+
+```bash
+The fresh request completed without needing your input. Setup initially returned pendingApproval, then polled as queued.
+
+- Request ID: 743A6F90-81C2-4D09-A50B-10E378E50C84
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- New job ID: 4AD7F2BF-1FF7-42D0-AF2A-3752F4D5F538
+- Terminal state: completed
+- Photos: 958 scanned, 958 analyzed, 0 skipped, 0 unevaluated
+- Results: 64 bursts, 0 singletons; clip similarity for all 958 photos
+
+No tool errors.
+```
 
 ## 6. Check metadata from the saved grant
 
@@ -231,9 +352,22 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 
 ## Run summary
 
-- Date and macOS version
-- App build and helper version
-- Main catalog count and sample filenames
-- Steps passed, failed, and untested
-- Most useful request and job IDs for any failures
-- Any screenshots or observations that differ from the tool output
+- Reviewed on 2026-11-14. The macOS version was not recorded.
+- Installed app version 3.4.6 (450). Helper version 0.7.0 over stdio.
+- Downloads analysis scanned and analyzed all 958 photos with CLIP and returned 64 bursts. Sample recommendations include `_DSC7712.ARW` and `_DSC7743.ARW`. The fixture count and known filenames from the RawCull UI were not recorded independently.
+
+| Step | Verdict | Evidence and follow-up |
+| --- | --- | --- |
+| 1. Helper and existing access | **FAIL** | `rawcull_status` returned `appBuild: null` on the original run and on review. The registered command points inside `/Applications/RawCull.app`, and that app's `Info.plist` reports build 450. Helper version, transport, tool discovery, and the empty grant list matched expectations. |
+| 2. Picker cancellation and cooldown | **PASS** for cooldown, **UNTESTED** for the remaining checks | Request `60e299f3-e90d-4fa7-8b74-0341772a0cd9` returned a four-second wait. The log lacks the first request ID and terminal status, the grant list after cancellation, and the retry followed by **Deny**. |
+| 3. One-time approval and replay | **PASS** for MCP, UI checks unverified | The replay returned the same pending request. Job `339F6967-B556-45BF-9EE2-80DD40098F82` completed and the grant list stayed empty. Record chooser and approval counts, displayed hint, resolved path, and the fixture comparison. |
+| 4. Read and clear | **PASS** for MCP, Settings display unverified | Reads succeeded after quitting. Clearing blocked status and rankings even when replay returned the original IDs. The grant list stayed empty. Record what **Last shared result** showed before clearing. |
+| 5. Remember and reuse | **PASS** for MCP, sheet visibility unverified | The second job reused catalog `80ACA98A-2225-4B49-B1AB-9370F7E1EDAE` with a fresh job ID and matching coverage. Setup briefly returned `pendingApproval` before queuing without input. Record whether either sheet appeared during the second run. |
+| 6–14 | **UNTESTED** | No results recorded in this run yet. |
+
+### Correct the build report and complete the missing checks
+
+1. To diagnose Step 1, run `codex mcp get rawcull` and `/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' /Applications/RawCull.app/Contents/Info.plist`. If the registered command points to a standalone helper, register the bundled helper and start a fresh chat. This run already had the expected registration and installed build.
+2. In the helper, update `rawcull_status` in `Tools/RawCullMCP/Sources/RawCullMCP/ToolHandlers.swift` to take `CFBundleVersion` from the enclosing app's `Contents/Info.plist`, which `AnalysisTools.bundledRawCullURL()` already reads and validates. Reuse that metadata lookup and preserve `null` for a standalone helper. Build and install a signed app with the updated helper, then confirm in a fresh chat that `appBuild` matches the installed build. Check that the standalone helper still reports `null`.
+3. Finish the checks that need the current Downloads grant before resetting access for Step 2. On the rerun, save the first request ID, record `denied` with no job ID and an empty grant list, and capture the second request's cooldown response. After the wait, retry the exact second request with the same UUID. Verify the approval sheet path and action, click **Deny**, and record the terminal status, job ID field, and grant list.
+4. Add any UI observations you can confirm from the original run to Logs 3–5. Record the remaining observations when repeating those steps in order, since Step 4 uses the shared result from Step 3.
