@@ -84,7 +84,9 @@ extension RawCullViewModel {
         return grant
     }
 
-    func startCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL? = nil) {
+    func startCatalogLoad(
+        for source: ARWSourceCatalog?, scopedURL: URL? = nil, retainedAccess: RawCullCatalogGrant? = nil
+    ) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if scopedURL == nil, let url = source?.url,
            catalogLifecycle.currentSource == source,
@@ -98,6 +100,7 @@ extension RawCullViewModel {
            pendingCatalogTransitionSource == source { return }
 
         let previousSource = catalogLifecycle.currentSource
+        catalogLoadFailure = nil
         pendingCatalogTransitionSource = source
         catalogLifecycle.startTransition(
             flushPersistence: { [weak self] in
@@ -106,11 +109,15 @@ extension RawCullViewModel {
             },
             isStillSelected: { [weak self] in self?.selectedSource == source },
             onFailure: { [weak self] in self?.selectedSource = previousSource },
-            onReady: { [weak self] in self?.beginCatalogLoad(for: source, scopedURL: scopedURL) },
+            onReady: { [weak self] in
+                self?.beginCatalogLoad(for: source, scopedURL: scopedURL, retainedAccess: retainedAccess)
+            },
         )
     }
 
-    private func beginCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL?) {
+    private func beginCatalogLoad(
+        for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?
+    ) {
         Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
         selectedFileID = nil
         selectedFileIDs = []
@@ -126,7 +133,10 @@ extension RawCullViewModel {
             return
         }
 
-        guard startSecurityScopedAccess(for: scopedURL ?? url) else {
+        if let retainedAccess, retainedAccess.url.path == url.standardizedFileURL.path {
+            catalogLifecycle.activateSecurityScopedAccess(retainedAccess)
+        } else if !startSecurityScopedAccess(for: scopedURL ?? url) {
+            catalogLoadFailure = .folderAccess
             scanning = false
             return
         }
@@ -240,6 +250,9 @@ extension RawCullViewModel {
         preselectFirstVisibleFileByName()
 
         guard !files.isEmpty else {
+            let directoryReadFailed = await scan.directoryReadFailed
+            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+            catalogLoadFailure = directoryReadFailed ? .folderAccess : .noPhotos
             scanning = false
             catalogLifecycle.currentSource = nil
             stopActiveSecurityScopedAccess()

@@ -84,6 +84,7 @@ struct FileItemSortDescriptor: Equatable, Sendable {
 actor ScanFiles {
     /// Store raw decoded data
     var decodedFocusPoints: [DecodeFocusPoints]?
+    private(set) var directoryReadFailed = false
     private let rawLoader: any RawImageLoading
     private let maximumConcurrentReads: Int
 
@@ -111,6 +112,7 @@ actor ScanFiles {
             }
         }
 
+        directoryReadFailed = false
         var discoveredCount = 0
         // Logger.process.debugThreadOnly("ScanFiles: func scanFiles()")
 
@@ -197,7 +199,8 @@ actor ScanFiles {
 
             return result
         } catch {
-            // Logger.process.warning("Scan Error: \(error)")
+            directoryReadFailed = true
+            Logger.process.error("Catalog directory enumeration failed: \(error.localizedDescription, privacy: .private)")
             return []
         }
     }
