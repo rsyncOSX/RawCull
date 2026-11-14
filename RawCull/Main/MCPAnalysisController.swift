@@ -63,9 +63,11 @@ final class MCPAnalysisController {
         guard monitor == nil, grants.directory != nil else { return }
         monitor = Task { [weak self, weak viewModel] in
             var nextSetupMaintenance = Date.distantPast
+            var storageFailureSince: ContinuousClock.Instant?
             while !Task.isCancelled, let self, let viewModel {
                 do {
                     try poll(viewModel, prepare: prepare, canStart: canStart)
+                    storageFailureSince = nil
                     if setup == nil, analysis == nil, Date.now >= nextSetupMaintenance {
                         nextSetupMaintenance = .now.addingTimeInterval(60)
                         try setupStore.maintain()
@@ -79,12 +81,19 @@ final class MCPAnalysisController {
                         }
                     }
                 } catch AnalysisJobStore.StoreError.unsupportedFormat {
-                    Logger.process.error("MCP analysis job uses an unsupported format. Reauthorize the catalog to clear it.")
+                    Logger.process.error("MCP analysis job uses an unsupported format. Use the helper bundled with this RawCull installation.")
                     analysis?.cancel()
-                } catch AnalysisJobStore.StoreError.busy {
-                    // The next poll retries a claim or heartbeat.
+                } catch where AnalysisJobStore.StoreError.isRetryable(error) {
+                    let now = ContinuousClock.now
+                    let since = storageFailureSince ?? now
+                    storageFailureSince = since
+                    if let job = activeJob, now - since >= .seconds(5) {
+                        await finish(job, as: .failed, message: storageFailureMessage(error))
+                        if activeJob?.jobId == job.jobId { analysis?.cancel() }
+                    }
                 } catch {
                     Logger.process.error("Could not update the MCP analysis job.")
+                    if let job = activeJob { await finish(job, as: .failed, message: storageFailureMessage(error)) }
                     analysis?.cancel()
                 }
                 try? await Task.sleep(for: .seconds(1))
@@ -136,17 +145,17 @@ final class MCPAnalysisController {
             inactiveRevision = revision
             return
         }
-        if job.isExpired(at: .now) {
+        if job.usesWorkerLease || job.isExpired(at: .now) {
             _ = try jobs.expireInterruptedJob()
             return
         }
-        guard job.state == .queued, setup == nil else { return }
+        guard job.state == .queued, setup == nil, let lease = try jobs.acquireWorkerLease() else { return }
 
         var didClaim = false
         let claimed = try jobs.update { current in
             guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
                   current.state == .queued, !current.isExpired(at: .now) else { return nil }
-            current.state = .running
+            current.claim()
             current.recordHeartbeat()
             current.stage = "openingCatalog"
             current.message = nil
@@ -156,12 +165,13 @@ final class MCPAnalysisController {
         guard didClaim, let claimed else { return }
 
         activeJob = claimed
-        analysis = Task { [weak self, weak viewModel] in
+        analysis = Task { [weak self, weak viewModel, lease] in
             guard let self else { return }
             let activity = ProcessInfo.processInfo.beginActivity(
                 options: .userInitiatedAllowingIdleSystemSleep, reason: "RawCull MCP catalog analysis"
             )
             defer {
+                withExtendedLifetime(lease) {}
                 ProcessInfo.processInfo.endActivity(activity)
                 activeJob = nil
                 analysis = nil
@@ -176,6 +186,8 @@ final class MCPAnalysisController {
                 if !isQuitting { await finish(claimed, as: .cancelled) }
             } catch let error as JobError {
                 if !isQuitting { await finish(claimed, as: .failed, message: error.message) }
+            } catch where error is AnalysisJobStore.StoreError || AnalysisJobStore.StoreError.isRetryable(error) {
+                if !isQuitting { await finish(claimed, as: .failed, message: storageFailureMessage(error)) }
             } catch {
                 if !isQuitting {
                     await finish(
@@ -373,8 +385,10 @@ final class MCPAnalysisController {
     ) async throws {
         try await waitForWorkspaceLoad(viewModel: viewModel) {
             try Task.checkCancellation()
-            guard !request.isExpired, try setupStore.pending()?.requestId == request.requestId else {
-                throw JobError("The catalog setup request expired. Start a new request.")
+            try await retryStorage {
+                guard !request.isExpired, try setupStore.pending()?.requestId == request.requestId else {
+                    throw JobError("The catalog setup request expired. Start a new request.")
+                }
             }
         }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: true)
@@ -466,10 +480,10 @@ final class MCPAnalysisController {
             grant = savedGrant
             authorization = savedAuthorization
         }
-        try await waitForWorkspaceLoad(viewModel: viewModel) { try checkCurrent(job) }
+        try await waitForWorkspaceLoad(viewModel: viewModel) { try await checkCurrentWithRetry(job) }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
         await prepare()
-        try await waitForWorkspaceLoad(viewModel: viewModel) { try checkCurrent(job) }
+        try await waitForWorkspaceLoad(viewModel: viewModel) { try await checkCurrentWithRetry(job) }
         try requireAvailableWorkspace(for: url, viewModel: viewModel, canStart: canStart, allowSwitch: job.setupRequestId != nil)
 
         let index = viewModel.sources.firstIndex { sameFolder($0.url, url) }
@@ -518,10 +532,10 @@ final class MCPAnalysisController {
                 }
             }
         }
-        try checkCurrent(job)
+        try await checkCurrentWithRetry(job)
         if viewModel.similarityModel.semanticSearchState != .idle {
             await viewModel.semanticSearchFeature.clear()
-            try checkCurrent(job)
+            try await checkCurrentWithRetry(job)
         }
         guard viewModel.selectedSource == target, viewModel.catalogLifecycle.currentSource == target,
               viewModel.hasActiveSecurityScopedAccess(for: url), canStart(),
@@ -533,7 +547,7 @@ final class MCPAnalysisController {
         let similaritySignature = viewModel.currentBurstSimilaritySignature
         let sharpnessSignature = viewModel.sharpnessModel.scoringSignature
         let result = await viewModel.startBurstAnalysis(catalog: target.url, files: orderedFiles)
-        try checkCurrent(job)
+        try await checkCurrentWithRetry(job)
         guard viewModel.selectedSource == target, viewModel.burstAnalysisGeneration == generation,
               viewModel.currentBurstSimilaritySignature == similaritySignature,
               viewModel.sharpnessModel.scoringSignature == sharpnessSignature,
@@ -545,9 +559,7 @@ final class MCPAnalysisController {
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
         try await updateWithRetry { current in
             try Task.checkCancellation()
-            guard var current, current.jobId == job.jobId, current.catalogId == job.catalogId,
-                  current.state == .running else { throw CancellationError() }
-            guard !current.cancellationRequested, try isAuthorized(job) else { throw CancellationError() }
+            guard var current, current.canPublish(for: job), try isAuthorized(job) else { throw CancellationError() }
             if let refreshedGrant { try grants.writeLocked(refreshedGrant) }
             current.catalogDisplayName = name
             current.coverage = output.coverage
@@ -569,18 +581,18 @@ final class MCPAnalysisController {
     }
 
     private func waitForWorkspaceLoad(
-        viewModel: RawCullViewModel, checkRequest: () throws -> Void
+        viewModel: RawCullViewModel, checkRequest: () async throws -> Void
     ) async throws {
         let clock = SuspendingClock()
         let deadline = clock.now.advanced(by: .seconds(120))
         while isWorkspaceLoading(viewModel) {
-            try checkRequest()
+            try await checkRequest()
             guard clock.now < deadline else {
                 throw JobError("RawCull is still loading a catalog after two minutes. Wait for the catalog and thumbnails to finish loading, then start a new request.")
             }
             try await Task.sleep(for: .milliseconds(250))
         }
-        try checkRequest()
+        try await checkRequest()
     }
 
     private func requireAvailableWorkspace(
@@ -620,11 +632,11 @@ final class MCPAnalysisController {
         _ job: AnalysisJob, target: ARWSourceCatalog, viewModel: RawCullViewModel
     ) async throws {
         while viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil {
-            try checkCurrent(job)
+            try await checkCurrentWithRetry(job)
             guard viewModel.selectedSource == target else { throw CancellationError() }
             try await Task.sleep(for: .milliseconds(250))
         }
-        try checkCurrent(job)
+        try await checkCurrentWithRetry(job)
         guard viewModel.cullingModel.persistenceError == nil else {
             throw JobError("RawCull could not load or save culling data. Resolve the error in RawCull, then start a new request.")
         }
@@ -731,9 +743,30 @@ final class MCPAnalysisController {
 
     private func checkCurrent(_ job: AnalysisJob) throws {
         try Task.checkCancellation()
-        guard let current = try jobs.read(), current.jobId == job.jobId, current.catalogId == job.catalogId,
-              current.state == .running, !current.cancellationRequested, try isAuthorized(job)
-        else { throw CancellationError() }
+        do {
+            guard let current = try jobs.read(), current.canPublish(for: job), try isAuthorized(job) else {
+                throw CancellationError()
+            }
+        } catch is DecodingError {
+            throw AnalysisJobStore.StoreError.damagedActiveJob
+        }
+    }
+
+    private func checkCurrentWithRetry(_ job: AnalysisJob) async throws {
+        try await retryStorage { try checkCurrent(job) }
+    }
+
+    private func storageFailureMessage(_ error: Error) -> String {
+        switch error {
+        case AnalysisJobStore.StoreError.busy:
+            "MCP job storage stayed busy. Start a new request."
+        case AnalysisJobStore.StoreError.unsupportedFormat:
+            "The MCP job uses an unsupported format. Use the helper bundled with this RawCull installation."
+        case AnalysisJobStore.StoreError.damagedActiveJob:
+            "The active MCP job record is damaged. Start a new request after RawCull releases it."
+        default:
+            "RawCull could not read or save the MCP job. Start a new request."
+        }
     }
 
     private func updateProgress(_ job: AnalysisJob, viewModel: RawCullViewModel) throws {
@@ -766,12 +799,16 @@ final class MCPAnalysisController {
     }
 
     private func withJobLockRetry(_ operation: () throws -> Void) async throws {
+        try await retryStorage { try jobs.withLock(operation) }
+    }
+
+    private func retryStorage(_ operation: () throws -> Void) async throws {
         let deadline = ContinuousClock.now + .seconds(2)
         while true {
             do {
-                try jobs.withLock(operation)
+                try operation()
                 return
-            } catch AnalysisJobStore.StoreError.busy where ContinuousClock.now < deadline {
+            } catch where AnalysisJobStore.StoreError.isRetryable(error) && ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(50))
             }
         }

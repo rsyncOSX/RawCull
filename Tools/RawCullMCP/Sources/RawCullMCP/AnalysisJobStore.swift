@@ -4,7 +4,7 @@ import Dispatch
 import Foundation
 
 nonisolated struct AnalysisJob: Codable, Sendable {
-    static let currentFormatVersion = 1
+    static let currentFormatVersion = 2
 
     enum State: String, Codable, Sendable {
         case queued, running, completed, cancelled, failed
@@ -37,7 +37,17 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     var setupHintDigest: Data?
     var resultCleared: Bool?
     var previousRequestIds: [UUID]?
-    private(set) var formatVersion: Int? = currentFormatVersion
+    private(set) var formatVersion: Int? = 1
+    var usesWorkerLease: Bool { formatVersion == Self.currentFormatVersion && state == .running }
+
+    func canPublish(for job: Self) -> Bool {
+        jobId == job.jobId && catalogId == job.catalogId && state == .running && !cancellationRequested
+    }
+
+    mutating func claim() {
+        state = .running
+        formatVersion = Self.currentFormatVersion
+    }
 
     struct Coverage: Codable, Sendable {
         let photoCount: Int
@@ -70,6 +80,7 @@ nonisolated struct AnalysisJob: Codable, Sendable {
 
     mutating func finish(_ state: State, message: String? = nil) {
         self.state = state
+        if !state.isActive { formatVersion = 1 }
         stage = state.rawValue
         stageCompleted = nil
         stageTotal = nil
@@ -80,7 +91,7 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         var bytes = [UInt8](repeating: 0, count: 64)
         var size = bytes.count
         guard sysctlbyname("kern.bootsessionuuid", &bytes, &size, nil, 0) == 0 else { return nil }
-        return String(validating: bytes.prefix { $0 != 0 }, as: UTF8.self)
+        return String(bytes: bytes.prefix { $0 != 0 }, encoding: .utf8)
     }()
 
     mutating func recordHeartbeat() {
@@ -89,15 +100,14 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         heartbeatBootID = Self.bootID
     }
 
-    func isExpired(at now: Date) -> Bool {
+    func isExpired(at now: Date, uptime: UInt64 = DispatchTime.now().uptimeNanoseconds, bootID: String? = Self.bootID) -> Bool {
         switch state {
         case .queued:
             return now.timeIntervalSince(createdAt) > 120
         case .running:
             // Dispatch uptime pauses during system sleep and is shared across processes.
-            let uptime = DispatchTime.now().uptimeNanoseconds
             let wallAge = now.timeIntervalSince(heartbeatAt ?? updatedAt)
-            if let heartbeatUptime, let bootID = Self.bootID,
+            if let heartbeatUptime, let bootID,
                heartbeatBootID == bootID, uptime >= heartbeatUptime {
                 return uptime - heartbeatUptime > 45_000_000_000
             }
@@ -116,6 +126,20 @@ nonisolated struct AnalysisJobStore: Sendable {
     enum StoreError: Error {
         case unsupportedFormat
         case busy
+        case damagedActiveJob
+
+        static func isRetryable(_ error: Error) -> Bool {
+            if case Self.busy = error { return true }
+            if case Self.damagedActiveJob = error { return true }
+            let code = (error as NSError)
+            if code.domain == NSPOSIXErrorDomain {
+                return [EINTR, EAGAIN, EIO, ETIMEDOUT].contains(Int32(code.code))
+            }
+            if let underlying = code.userInfo[NSUnderlyingErrorKey] as? POSIXError {
+                return isRetryable(underlying)
+            }
+            return false
+        }
     }
 
     /// An atomic replacement changes the inode or its change time.
@@ -150,7 +174,7 @@ nonisolated struct AnalysisJobStore: Sendable {
             let data = try Data(contentsOf: directory.appendingPathComponent("analysis-job.json"))
             let decoder = JSONDecoder()
             let format = try decoder.decode(Format.self, from: data)
-            guard (format.formatVersion ?? 1) == AnalysisJob.currentFormatVersion else {
+            guard (1 ... AnalysisJob.currentFormatVersion).contains(format.formatVersion ?? 1) else {
                 throw StoreError.unsupportedFormat
             }
             return try decoder.decode(AnalysisJob.self, from: data)
@@ -183,6 +207,26 @@ nonisolated struct AnalysisJobStore: Sendable {
         return try operation()
     }
 
+    final class WorkerLease: Sendable {
+        private let descriptor: Int32
+
+        init(descriptor: Int32) { self.descriptor = descriptor }
+
+        deinit { close(descriptor) }
+    }
+
+    func acquireWorkerLease() throws -> WorkerLease? {
+        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        let path = directory.appendingPathComponent("analysis-worker.lock").path
+        let descriptor = open(path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        if flock(descriptor, LOCK_EX | LOCK_NB) == 0 { return WorkerLease(descriptor: descriptor) }
+        let code = errno
+        close(descriptor)
+        if code == EWOULDBLOCK { return nil }
+        throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
+
     // The caller must hold the job lock.
     func updateLocked(_ change: (AnalysisJob?) throws -> AnalysisJob?) throws -> AnalysisJob? {
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
@@ -210,7 +254,8 @@ nonisolated struct AnalysisJobStore: Sendable {
         do {
             return try read()
         } catch is DecodingError {
-            try removeLocked()
+            guard let lease = try acquireWorkerLease() else { throw StoreError.damagedActiveJob }
+            try withExtendedLifetime(lease) { try removeLocked() }
             return nil
         }
     }
@@ -241,23 +286,27 @@ nonisolated struct AnalysisJobStore: Sendable {
         }
     }
 
-    func expireInterruptedJob() throws -> AnalysisJob? {
-        // Use the lock only for an expired job. An app heartbeat may race this read.
+    func expireInterruptedJob(now: Date = .now) throws -> AnalysisJob? {
         let job = try readRecovering()
-        guard let job, job.isExpired(at: .now) else { return job }
+        guard let job, job.state.isActive, job.usesWorkerLease || job.isExpired(at: now) else { return job }
 
         return try update { current in
-            guard var current, current.isExpired(at: .now) else { return nil }
+            guard var current, current.jobId == job.jobId, current.state.isActive else { return nil }
+            if current.usesWorkerLease {
+                // The kernel releases this lock even when the app exits without cleaning up.
+                guard try acquireWorkerLease() != nil else { return nil }
+            } else {
+                guard current.isExpired(at: now) else { return nil }
+            }
             if current.cancellationRequested {
                 current.finish(.cancelled)
-                return current
-            }
-            let message = if current.state == .queued {
-                "RawCull did not pick up the analysis. Open RawCull and start a new job with a new request ID."
+            } else if current.state == .queued {
+                current.finish(.failed, message: "RawCull did not pick up the analysis. Open RawCull and start a new job with a new request ID.")
+            } else if current.usesWorkerLease {
+                current.finish(.failed, message: "The RawCull analysis worker exited. Start a new job with a new request ID.")
             } else {
-                "RawCull stopped responding. Start a new job with a new request ID."
+                current.finish(.failed, message: "RawCull stopped reporting progress. Start a new job with a new request ID.")
             }
-            current.finish(.failed, message: message)
             return current
         }
     }

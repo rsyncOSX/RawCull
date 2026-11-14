@@ -186,11 +186,18 @@ enum AnalysisTools {
             details.setupRequestId = nil
             details.setupHintDigest = nil
             details.usesSavedGrant = nil
-            return try structuredReply(latest.message ?? "Analysis job \(latest.jobId): \(latest.stage).", value: Value(details))
+            if latest.usesWorkerLease, latest.isExpired(at: .now), details.message == nil {
+                details.message = "RawCull still owns this job, but its last heartbeat is stale."
+            }
+            return try structuredReply(details.message ?? "Analysis job \(latest.jobId): \(latest.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
-            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation. If the error persists, reauthorize the catalog in RawCull settings to clear the saved job.")
+            throw MCPError.internalError("The analysis job uses an unsupported format. Use the helper from the current RawCull installation.")
+        } catch AnalysisJobStore.StoreError.busy {
+            throw MCPError.internalError("RawCull MCP job storage is busy. Retry this call.")
+        } catch AnalysisJobStore.StoreError.damagedActiveJob {
+            throw MCPError.internalError("The active RawCull job record could not be decoded. Retry after the worker exits.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
         }
@@ -288,7 +295,7 @@ enum AnalysisTools {
                 throw MCPError.invalidParams("That job has been replaced.")
             }
             guard current.state.isActive else { return nil }
-            if current.state == .queued || current.isExpired(at: .now) {
+            if current.state == .queued || (!current.usesWorkerLease && current.isExpired(at: .now)) {
                 current.cancellationRequested = true
                 current.finish(.cancelled)
                 return current
