@@ -141,6 +141,23 @@ RawCull writes one `catalog-grant.json` manifest in the dedicated `93M47F4H9T.no
 
 Local signed-build tests verified catalog authorization and revocation, a summary of 486 photos, and two distinct five-photo pages from a 1,198-photo snapshot. The second page used the first page’s cursor and returned a cursor for offset 10.
 
+**100MSDCF release test on 2026-11-14.** The Phase 1 summary and pagination prompt passed for the catalog loaded from `/Users/thomas/Downloads/100MSDCF`. `list_catalogs` returned `100MSDCF` with ID `7F4FBA7E-A035-45D6-9E1F-91CEEED6279C` and omitted the folder path.
+
+| Check | Result |
+| --- | --- |
+| Photo count and camera | 809 photos, all SONY ILCE-1M2 |
+| Capture range | 2025-06-24 17:27:01 to 17:31:24 UTC |
+| Scan status | `saved_snapshot` |
+| Snapshot time | 2026-11-14 06:47:48 UTC |
+| Page 1 | Five photos and a cursor at offset 5 |
+| Page 2 | Five distinct photos fetched with the first cursor, then a cursor at offset 10 |
+
+**Revocation passed.** After access was revoked, `list_catalogs` returned an empty list and reported “No catalog is authorized.” The earlier summary and pagination results were captured while access was granted.
+
+To repeat the revocation check, choose **Settings → MCP → Revoke Access**, quit RawCull, and run the following prompt.
+
+> Use only `rawcull`. Call `list_catalogs` after I revoked access to `100MSDCF` at `/Users/thomas/Downloads/100MSDCF` and quit RawCull. Report whether the authorized catalog list is empty and flag the check if a grant remains.
+
 Before release, repeat the workflow on a clean account and with the Phase 1 TestFlight build. Compare counts and sample metadata with RawCull. Exercise a large catalog, upgrade from an older authorization, invalid IDs and cursors, and revocation. Check how the app handles a moved or disconnected source when refreshing the snapshot. After the beta, submit the bundled helper as part of the RawCull update and include the closed-app test steps in the review notes. [Mac App Store review guidelines](https://developer.apple.com/app-store/review/guidelines/#hardware-compatibility)
 
 **Release gate.** A beta tester can install and configure the helper, get a correct catalog summary with RawCull closed, and revoke access using the documented workflow.
@@ -188,6 +205,22 @@ Codex discovered all eight tools in the installed TestFlight helper and reported
 To reproduce, register the installed helper under `rawcull`, authorize `/Users/thomas/Downloads/100MSDCF` for analysis after its 809 photos load, and quit RawCull. In a fresh Codex session, use this prompt.
 
 > Use only the `rawcull` MCP server. List my authorized catalogs. Find the authorized catalog named `100MSDCF`, which I loaded from `/Users/thomas/Downloads/100MSDCF`. If there is exactly one match, start analysis with its catalog ID and a fresh request ID. If there are multiple matches, ask me for the catalog ID. If there is no match, report that and stop. Report the catalog ID and job ID as soon as the start call returns. Poll until the job reaches a terminal state. Report the final state, photos scanned and analyzed, singleton and unevaluated counts, and similarity backends. Compare the scanned and analyzed counts with the expected 809.
+
+**100MSDCF cold-launch attempt on 2026-11-14.** Catalog `ECB51F21-0E4A-43F1-B0D1-DDEE62693D2D` had analysis enabled. Job `92768C4D-0251-4CF8-AE39-6AB54E1820DF` queued, then failed with zero photos scanned or analyzed. RawCull reported “RawCull is loading a catalog. Wait for the catalog and thumbnails to finish loading, then start a new request.” The workspace check rejects jobs while a catalog transition, scan, or thumbnail generation is in progress. Coverage was unavailable because analysis never started.
+
+For a warm retry, open the TestFlight copy with `/Users/thomas/Downloads/100MSDCF` selected. Wait for the catalog and thumbnails to finish loading, keep RawCull open, then run the smoke-test prompt above with a fresh request UUID. Record the new job separately. The cold-launch attempt remains a failure even if the warm retry passes.
+
+**100MSDCF retry with RawCull open passed.** Exactly one authorized catalog matched, with the same catalog ID as the cold-launch attempt. Job `89D0F6A2-1BC3-4B97-BEF8-6052DC73A914` completed after the catalog and thumbnails had loaded.
+
+| Metric | Result |
+| --- | --- |
+| Photos scanned and analyzed | 809 each, matching the expected count |
+| Bursts | 5 |
+| Singletons | 0 |
+| Unevaluated photos | 0 |
+| Similarity backend | CLIP for all 809 photos |
+
+**Cold-launch retest with the updated app.** Install a signed build containing the workspace-loading fix and register its bundled helper. Leave the 100MSDCF analysis grant in place, select that catalog, and quit RawCull completely. Run the same smoke-test prompt with a fresh request UUID and let MCP launch RawCull. The job may report `openingCatalog` while the restored catalog and thumbnails load. Pass the check when the job completes with 809 photos scanned and analyzed. Record the app build number and job ID. Repeat Phase 3 step 6 to check the saved-grant setup path from a cold launch.
 
 The TestFlight helper could also read the earlier local job. For a repeat test that verifies which app opens and runs the job, quit both copies and temporarily remove the local test copy before submitting a fresh request.
 
