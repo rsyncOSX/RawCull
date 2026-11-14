@@ -47,7 +47,8 @@ enum AnalysisTools {
                 "maximum": .int(maximumLimit), "default": .int(defaultLimit),
             ]),
             "cursor": .object(["type": .string("string")]),
-        ]
+        ],
+        annotations: .init(readOnlyHint: true, openWorldHint: false)
     )
     static let requestSetup = tool(
         "request_catalog_setup",
@@ -59,7 +60,7 @@ enum AnalysisTools {
     )
     static let setupStatus = tool(
         "get_catalog_setup_status", "Read the status of a catalog setup request and find its analysis job.",
-        required: ["requestId": uuid], annotations: catalogReadAnnotations
+        required: ["requestId": uuid]
     )
     static let all = [start, status, cancel, bursts, requestSetup, setupStatus]
 
@@ -73,6 +74,9 @@ enum AnalysisTools {
         let store = CatalogSetupStore(jobs: AnalysisJobStore(directory: grantStore.directory))
         var request: CatalogSetupRequest
         if isSubmission {
+            guard let app = bundledRawCullURL() else {
+                throw MCPError.invalidParams("Configure the MCP client to use the helper inside RawCull.app to start analysis.")
+            }
             guard let hint = args["catalogHint"]?.stringValue, args["jobType"]?.stringValue == "burstAnalysis" else {
                 throw MCPError.invalidParams("Provide a catalog hint and use burstAnalysis as the job type.")
             }
@@ -95,8 +99,7 @@ enum AnalysisTools {
             }
             if submission.wasAccepted {
                 // RawCull brings itself forward only if the request needs a response.
-                let launched = if let app = bundledRawCullURL() { await openBundledRawCull(at: app) } else { false }
-                if !launched {
+                if !(await openBundledRawCull(at: app)) {
                     request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
                 }
             }
@@ -138,8 +141,23 @@ enum AnalysisTools {
         else { throw MCPError.invalidParams("Provide catalogId and \(idKey) UUIDs.") }
 
         let store = AnalysisJobStore(directory: grantStore.directory)
-        if isStart { try requireAnalysisGrant(catalogId) }
+        if isStart {
+            guard bundledRawCullURL() != nil else {
+                throw MCPError.invalidParams("Configure the MCP client to use the helper inside RawCull.app to start analysis.")
+            }
+            try requireAnalysisGrant(catalogId)
+        }
         do {
+            if params.name == bursts.name {
+                return try store.withLock {
+                    guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId,
+                          latest.resultCleared != true else {
+                        throw MCPError.invalidParams("That job was cleared, replaced, or revoked.")
+                    }
+                    if !latest.usesSetupApproval { try requireAnalysisGrant(catalogId) }
+                    return try page(latest, arguments: arguments)
+                }
+            }
             let current = try store.readRecovering()
             let job: AnalysisJob
             if isStart {
@@ -158,16 +176,6 @@ enum AnalysisTools {
                         throw MCPError.invalidParams("That job has been replaced.")
                     }
                     job = latest
-                }
-            }
-            if params.name == bursts.name {
-                return try store.withLock {
-                    guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId,
-                          latest.resultCleared != true else {
-                        throw MCPError.invalidParams("That job was cleared, replaced, or revoked.")
-                    }
-                    if !latest.usesSetupApproval { try requireAnalysisGrant(catalogId) }
-                    return try page(latest, arguments: arguments)
                 }
             }
             if !job.usesSetupApproval {
@@ -226,7 +234,7 @@ enum AnalysisTools {
                     guard !previous.contains(jobId) else {
                         throw MCPError.invalidParams("That request ID belongs to a replaced job. Use a new request ID.")
                     }
-                    next.previousRequestIds = previous + [current.jobId]
+                    next.previousRequestIds = current.nextDirectRequestHistory()
                 }
                 return next
             }
@@ -239,11 +247,7 @@ enum AnalysisTools {
             let latest = try store.update { current in
                 guard var current, current.jobId == jobId, current.catalogId == catalogId,
                       current.state == .queued else { return nil }
-                if url == nil {
-                    current.finish(.failed, message: "Configure the MCP client to use the helper inside RawCull.app.")
-                } else {
-                    current.message = "Open RawCull to start the queued analysis."
-                }
+                current.message = "Open RawCull to start the queued analysis."
                 return current
             }
             if let latest, latest.catalogId == catalogId, latest.jobId == jobId { return latest }
@@ -251,7 +255,7 @@ enum AnalysisTools {
         return job
     }
 
-    private static func bundledRawCullURL() -> URL? {
+    static func bundledRawCullURL() -> URL? {
         // The helper has its own executable metadata. Read the enclosing app's
         // Info.plist directly instead of asking Bundle.main for its identity.
         var size: UInt32 = 0
@@ -318,11 +322,11 @@ enum AnalysisTools {
               (1 ... maximumLimit).contains(limit) else {
             throw MCPError.invalidParams("limit must be an integer between 1 and \(maximumLimit).")
         }
-        let prefix = "\(job.catalogId.uuidString):\(job.jobId.uuidString):"
+        let prefix = job.burstCursorPrefix
         var start = 0
         if let cursor = arguments["cursor"] {
-            guard let token = cursor.stringValue, token.hasPrefix(prefix),
-                  let offset = Int(token.dropFirst(prefix.count)), offset > 0, offset < bursts.count
+            guard let token = cursor.stringValue,
+                  let offset = job.burstCursorOffset(token, count: bursts.count)
             else { throw MCPError.invalidParams("Use nextCursor from a page of this analysis job.") }
             start = offset
         }

@@ -1,7 +1,7 @@
 import Foundation
 import MCP
 
-let version = "0.6.0"
+let version = "0.7.0"
 let emptyArguments: Value = .object([
     "type": .string("object"),
     "properties": .object([:]),
@@ -227,10 +227,13 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
     }
 
     let capabilities = availableTools.map(\.name)
+    let appBuild = AnalysisTools.bundledRawCullURL().flatMap { Bundle(url: $0) }?
+        .object(forInfoDictionaryKey: "CFBundleVersion") as? String
     return try structuredReply(
         "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
         value: .object([
             "version": .string(version),
+            "appBuild": appBuild.map(Value.string) ?? .null,
             "capabilities": .array(capabilities.map(Value.string)),
             "transport": .string("stdio"),
         ])

@@ -105,6 +105,8 @@ Implemented worker ownership with a process-held lock. Status reports stale prog
 
 ### 5. Add regression tests and review follow-up items
 
+Implemented automated setup-store, job lifecycle, Settings visibility, and cursor-boundary checks. Direct starts retain the most recent 128 replaced IDs in the current catalog chain. Standalone analysis submissions return bundled-helper instructions. Tool annotations reflect the remaining recovery writes in status calls and the read-only burst listing path. Helper 0.7.0 reports the enclosing app build. The transport shim and cursor formats remain compatible. The [TestFlight regression pass](mcp.md#testflight-regression-pass-for-helper-070) is ready for signed verification.
+
 - Start with helper-store tests using isolated temporary directories and an injected clock or equivalent deterministic time control. Cover locks, pending and terminal receipts, replay, retention, clearing, corruption, expiry, and cursor boundaries. Add app-level coverage for Settings state and lifecycle transitions where the ownership rules live. Use a separate signed TestFlight pass for app-group access, cold launches, user prompts, and post-quit retrieval.
 - Bound direct-start request history under an explicit replay policy. Revisit read-only and destructive hints once final tool side effects are defined. Decide whether standalone analysis is supported or should fail consistently with actionable bundled-helper guidance.
 - Keep the transport shim until an SDK compatibility change is verified with Codex. Decide how to expose the helper version alongside the app build. Defer cursor canonicalization unless there is a defined need and a compatibility decision.

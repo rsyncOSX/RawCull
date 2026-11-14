@@ -44,6 +44,21 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         jobId == job.jobId && catalogId == job.catalogId && state == .running && !cancellationRequested
     }
 
+    var burstCursorPrefix: String { "\(catalogId.uuidString):\(jobId.uuidString):" }
+
+    func burstCursorOffset(_ token: String, count: Int) -> Int? {
+        guard token.hasPrefix(burstCursorPrefix),
+              let offset = Int(token.dropFirst(burstCursorPrefix.count)),
+              offset > 0, offset < count else { return nil }
+        return offset
+    }
+
+    static let directReplayLimit = 128
+
+    func nextDirectRequestHistory() -> [UUID] {
+        Array(((previousRequestIds ?? []).suffix(Self.directReplayLimit - 1)) + [jobId])
+    }
+
     mutating func claim() {
         state = .running
         formatVersion = Self.currentFormatVersion

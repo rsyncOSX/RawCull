@@ -112,13 +112,7 @@ struct MCPSettingsTab: View {
     private func refreshResult() {
         do {
             let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
-            if let job = try jobs.read(), job.hasShareableResult,
-               job.usesSetupApproval || (grant?.id == job.catalogId && grant?.analysisEnabled == true && !grantReadFailed) {
-                let name = job.catalogDisplayName ?? (grant?.id == job.catalogId ? grant?.displayName : nil)
-                sharedResult = SharedResult(id: job.jobId, catalogName: name, date: job.updatedAt)
-            } else {
-                sharedResult = nil
-            }
+            sharedResult = try jobs.read().flatMap { SharedResult(job: $0, grant: grantReadFailed ? nil : grant) }
             resultReadFailed = false
         } catch {
             sharedResult = nil
@@ -174,10 +168,18 @@ struct MCPSettingsTab: View {
     }
 }
 
-private struct SharedResult {
+nonisolated struct SharedResult {
     let id: UUID
     let catalogName: String?
     let date: Date
+
+    init?(job: AnalysisJob, grant: CatalogGrant?) {
+        let matchingGrant = grant?.id == job.catalogId ? grant : nil
+        guard job.hasShareableResult, job.usesSetupApproval || matchingGrant?.analysisEnabled == true else { return nil }
+        id = job.jobId
+        catalogName = job.catalogDisplayName ?? matchingGrant?.displayName
+        date = job.updatedAt
+    }
 }
 
 private struct SharedResultSection: View {
