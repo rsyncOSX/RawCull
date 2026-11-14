@@ -209,6 +209,8 @@ final class MCPAnalysisController {
                 throw JobError("Open RawCull's main window and start a new request.")
             }
 
+            NSApp.activate()
+
             // Keep the same scope from folder validation through the queued handoff.
             let url: URL
             let access: RawCullCatalogGrant
@@ -260,6 +262,7 @@ final class MCPAnalysisController {
         do {
             try await withJobLockRetry {
                 guard try setupStore.pendingLocked()?.requestId == request.requestId else { return }
+                if response.state == .denied { response.deniedAt = .now }
                 try setupStore.saveLocked(response)
             }
         } catch {
@@ -326,7 +329,14 @@ final class MCPAnalysisController {
     ) async throws -> URL {
         let chooser = NSAlert()
         chooser.messageText = String(localized: "Choose a catalog for burst analysis")
-        chooser.informativeText = request.catalogHint ?? ""
+        let hint = request.displayHint
+        let instructions = String(localized: "Select the folder you want RawCull to analyze. You will review the selected path before approving.")
+        if hint.isEmpty {
+            chooser.informativeText = instructions
+        } else {
+            let clientHint = String(localized: "Folder hint from the MCP client: “\(hint)”")
+            chooser.informativeText = instructions + "\n\n" + clientHint
+        }
         chooser.addButton(withTitle: String(localized: "Choose Folder…"))
         let current = viewModel.selectedSource
         if current != nil {

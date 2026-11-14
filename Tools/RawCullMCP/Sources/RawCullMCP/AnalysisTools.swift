@@ -79,20 +79,24 @@ enum AnalysisTools {
             let proposed = CatalogSetupRequest(
                 requestId: id, catalogHint: catalogMetadataText(hint), jobType: "burstAnalysis", createdAt: .now
             )
+            let submission: CatalogSetupStore.Submission
             do {
-                request = try store.submit(proposed)
+                submission = try store.submit(proposed)
             } catch CatalogSetupStore.StoreError.pendingRequest {
                 throw MCPError.invalidParams("Another catalog setup request is awaiting a response in RawCull.")
             } catch CatalogSetupStore.StoreError.storageFull {
                 throw MCPError.invalidParams("The catalog setup replay store is full. Try again when older requests age out.")
+            } catch CatalogSetupStore.StoreError.denialCooldown(let secondsRemaining) {
+                throw MCPError.invalidParams("A catalog setup request was declined. Wait at least \(secondsRemaining) seconds and try again if the user wants to proceed.")
             }
+            request = submission.request
             guard request.matches(proposed) else {
                 throw MCPError.invalidParams("That requestId belongs to a different request. Use a new UUID.")
             }
-            if request.state == .pendingApproval, !request.isExpired {
-                if let app = bundledRawCullURL() {
-                    _ = await openBundledRawCull(at: app, activates: true)
-                } else {
+            if submission.wasAccepted {
+                // RawCull brings itself forward only if the request needs a response.
+                let launched = if let app = bundledRawCullURL() { await openBundledRawCull(at: app) } else { false }
+                if !launched {
                     request.message = "Open RawCull to respond, or configure your client to use the bundled helper."
                 }
             }
@@ -107,6 +111,7 @@ enum AnalysisTools {
             request.message = "The catalog setup request expired. Start a new request."
         }
         request.hintDigest = nil
+        request.deniedAt = nil
         return try structuredReply(
             request.message ?? "Catalog setup: \(request.state.rawValue).", value: Value(request)
         )
@@ -262,9 +267,9 @@ enum AnalysisTools {
     }
 
     @MainActor
-    private static func openBundledRawCull(at url: URL, activates: Bool = false) async -> Bool {
+    private static func openBundledRawCull(at url: URL) async -> Bool {
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = activates
+        configuration.activates = false
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             return true

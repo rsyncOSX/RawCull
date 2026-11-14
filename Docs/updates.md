@@ -88,6 +88,8 @@ Implemented with a 24-hour replay window, seven-day ID retention, and a 128-rece
 
 ### 3. Reduce prompt abuse and clarify UI text
 
+Implemented with fixed chooser instructions, a single-line client hint, and activation only when a newly submitted request needs interaction. Denial and picker cancellation start a 10-second cooldown shared by clients using the same store. See [RawCull MCP prompts](prompts.md) for retry instructions.
+
 - Use fixed chooser copy that labels the client hint as data. Format it for a single-line display and handle Unicode line and paragraph separators. Keep the real resolved path visible for approval. Preserve valid path matching when display formatting changes.
 - Activate RawCull for a newly accepted interactive request and avoid repeated activation on an idempotent replay. Review a brief cooldown or rate limit after denial that allows the user to recover from an accidental dismissal. With the current shared store, any cooldown applies across clients unless a trustworthy identity model is introduced.
 - **Acceptance.** Exercise line separators, bidi and zero-width characters, long hints, and printable misleading filenames. Verify repeat submissions after denial, pending replay, and saved-grant launches, including a normal retry after the cooldown.

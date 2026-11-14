@@ -277,6 +277,7 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
     var catalogId: UUID?
     var jobId: UUID?
     var message: String?
+    var deniedAt: Date?
 
     var isExpired: Bool { isExpired(at: .now) }
 
@@ -286,6 +287,15 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
         guard jobType == proposed.jobType, let hint = proposed.catalogHint else { return false }
         if let catalogHint { return catalogHint == hint }
         return hintDigest == Self.digest(hint)
+    }
+
+    var displayHint: String {
+        guard let catalogHint else { return "" }
+        let scalars = catalogHint.unicodeScalars.prefix(160)
+        let line = String(String.UnicodeScalarView(scalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar) ? " " : scalar
+        })).trimmingCharacters(in: .whitespaces)
+        return scalars.endIndex == catalogHint.unicodeScalars.endIndex ? line : line + "…"
     }
 
     var replayDigest: Data? { catalogHint.map(Self.digest) ?? hintDigest }
@@ -304,12 +314,21 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
 nonisolated struct CatalogSetupStore: Sendable {
     let jobs: AnalysisJobStore
 
-    enum StoreError: Error { case pendingRequest, expiredRequest, storageFull }
+    enum StoreError: Error {
+        case pendingRequest, expiredRequest, storageFull
+        case denialCooldown(secondsRemaining: Int)
+    }
+
+    struct Submission {
+        let request: CatalogSetupRequest
+        let wasAccepted: Bool
+    }
 
     // Reserve space for every accepted UUID throughout its replay protection window.
     private static let replayWindow: TimeInterval = 24 * 60 * 60
     private static let retentionWindow: TimeInterval = 7 * 24 * 60 * 60
     private static let receiptLimit = 128
+    private static let denialCooldown: TimeInterval = 10
 
     private func root() throws -> URL {
         guard let directory = jobs.directory else { throw CatalogGrantStore.StoreError.unavailable }
@@ -435,20 +454,26 @@ nonisolated struct CatalogSetupStore: Sendable {
         return nil
     }
 
-    func submit(_ request: CatalogSetupRequest, now: Date = .now) throws -> CatalogSetupRequest {
+    func submit(_ request: CatalogSetupRequest, now: Date = .now) throws -> Submission {
         try jobs.withLock {
             let pending = try pendingLocked(now: now)
             let currentJob = try currentSetupJob()
-            let count = try pruneLocked(pendingID: pending?.requestId, currentJob: currentJob, now: now)
+            let retained = try pruneLocked(pendingID: pending?.requestId, currentJob: currentJob, now: now)
             if let existing = try requestLocked(request.requestId, currentJob: currentJob, now: now) {
-                return existing
+                return Submission(request: existing, wasAccepted: false)
             }
             guard pending == nil else { throw StoreError.pendingRequest }
-            guard count < Self.receiptLimit else { throw StoreError.storageFull }
+            if let deniedAt = retained.lastDenial {
+                let remaining = Self.denialCooldown - max(0, now.timeIntervalSince(deniedAt))
+                if remaining > 0 {
+                    throw StoreError.denialCooldown(secondsRemaining: Int(remaining.rounded(.up)))
+                }
+            }
+            guard retained.count < Self.receiptLimit else { throw StoreError.storageFull }
             let root = try root()
             try saveLocked(request)
             try JSONEncoder().encode(request.requestId).write(to: root.appendingPathComponent("pending"), options: .atomic)
-            return request
+            return Submission(request: request, wasAccepted: true)
         }
     }
 
@@ -459,15 +484,18 @@ nonisolated struct CatalogSetupStore: Sendable {
         }
     }
 
-    private func pruneLocked(pendingID: UUID?, currentJob: AnalysisJob?, now: Date) throws -> Int {
+    private func pruneLocked(
+        pendingID: UUID?, currentJob: AnalysisJob?, now: Date
+    ) throws -> (count: Int, lastDenial: Date?) {
         let root = try root()
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return 0
+            return (0, nil)
         }
         var protectedCount = 0
+        var lastDenial: Date?
         var historical: [(url: URL, createdAt: Date)] = []
         for url in files {
             guard let id = UUID(uuidString: url.lastPathComponent) else { continue }
@@ -496,7 +524,10 @@ nonisolated struct CatalogSetupStore: Sendable {
                 } else if stored.catalogHint != nil {
                     try saveLocked(stored)
                 }
-                historical.append((url, stored.createdAt))
+                if stored.state == .denied, let deniedAt = stored.deniedAt {
+                    lastDenial = max(lastDenial ?? .distantPast, deniedAt)
+                }
+                historical.append((url, max(stored.createdAt, stored.deniedAt ?? .distantPast)))
             }
         }
         if let currentJob, let id = currentJob.setupRequestId,
@@ -510,7 +541,7 @@ nonisolated struct CatalogSetupStore: Sendable {
             return $0.createdAt > $1.createdAt
         }
         for entry in ordered.dropFirst(available) { try remove(entry.url) }
-        return protectedCount + min(available, ordered.count)
+        return (protectedCount + min(available, ordered.count), lastDenial)
     }
 
     // Must be called with the job lock held.
