@@ -69,6 +69,8 @@ The helper package has one executable target and no test target. Searches across
 
 ### 1. Make shared results visible and removable
 
+Implemented in the app and bundled helper. Completed results use explicit clearing with no automatic expiry. Clearing retains the job and request IDs for replay and removes the result payload. See [clearing shared results](mcp.md#clearing-shared-results) for the Settings and revocation behavior. The signed walkthrough below is the acceptance check for the new build.
+
 - Show the last shareable result in MCP Settings independently of the persistent grant. Provide **Clear Last Shared Result** when appropriate and keep **Revoke Access** for saved authorization. Refresh visible state when prompt-driven approval writes or replaces a grant or changes the shared result.
 - Define the approval copy around one run and its saved results. Preserve retrieval after quit. Propose explicit clearing as the initial policy. Review whether a documented automatic expiry is also needed.
 - Clear completed results under the existing job lock with an expected job ID, so a stale button cannot remove a replacement job. Keep active-job cancellation explicit. Review how clearing and revocation interact with pending setup, saved-grant runs, and in-flight reads. Describe that clearing stops future reads and that copies already delivered may remain with a client.

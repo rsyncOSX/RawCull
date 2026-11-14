@@ -150,24 +150,32 @@ enum AnalysisTools {
                     job = latest
                 }
             }
-            if !job.usesSetupApproval {
-                _ = try requireCatalog(catalogId)
-            } else {
-                guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId else {
-                    throw MCPError.invalidParams("That job has been replaced or revoked.")
+            if params.name == bursts.name {
+                return try store.withLock {
+                    guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId,
+                          latest.resultCleared != true else {
+                        throw MCPError.invalidParams("That job was cleared, replaced, or revoked.")
+                    }
+                    if !latest.usesSetupApproval { try requireAnalysisGrant(catalogId) }
+                    return try page(latest, arguments: arguments)
                 }
             }
-            if params.name == bursts.name {
-                return try page(job, arguments: arguments)
+            if !job.usesSetupApproval {
+                _ = try requireCatalog(catalogId)
             }
-            var details = job
+            guard let latest = try store.read(), latest.jobId == jobId, latest.catalogId == catalogId,
+                  latest.resultCleared != true else {
+                throw MCPError.invalidParams("That job was cleared, replaced, or revoked.")
+            }
+            var details = latest
+            details.catalogDisplayName = nil
             details.heartbeatUptime = nil
             details.heartbeatBootID = nil
             details.bursts = nil
             details.previousRequestIds = nil
             details.setupRequestId = nil
             details.usesSavedGrant = nil
-            return try structuredReply(job.message ?? "Analysis job \(job.jobId): \(job.stage).", value: Value(details))
+            return try structuredReply(latest.message ?? "Analysis job \(latest.jobId): \(latest.stage).", value: Value(details))
         } catch let error as MCPError {
             throw error
         } catch AnalysisJobStore.StoreError.unsupportedFormat {

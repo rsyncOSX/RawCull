@@ -31,6 +31,9 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     var setupRequestId: UUID?
     var usesSavedGrant: Bool?
     var usesSetupApproval: Bool { setupRequestId != nil && usesSavedGrant != true }
+    var hasShareableResult: Bool { state == .completed && coverage != nil && bursts != nil }
+    var catalogDisplayName: String?
+    var resultCleared: Bool?
     var previousRequestIds: [UUID]?
     private(set) var formatVersion: Int? = currentFormatVersion
 
@@ -121,10 +124,13 @@ nonisolated struct AnalysisJobStore: Sendable {
     }
 
     func revision() -> Revision? {
-        guard let directory else { return nil }
+        Self.revision(of: directory?.appendingPathComponent("analysis-job.json"))
+    }
+
+    static func revision(of url: URL?) -> Revision? {
+        guard let url else { return nil }
         var info = stat()
-        let path = directory.appendingPathComponent("analysis-job.json").path
-        guard lstat(path, &info) == 0 else { return nil }
+        guard lstat(url.path, &info) == 0 else { return nil }
         return Revision(
             inode: info.st_ino,
             seconds: info.st_ctimespec.tv_sec,
@@ -213,6 +219,23 @@ nonisolated struct AnalysisJobStore: Sendable {
         do {
             try FileManager.default.removeItem(at: directory.appendingPathComponent("analysis-job.json"))
         } catch let error as CocoaError where error.code == .fileNoSuchFile {}
+    }
+
+    @discardableResult
+    func clearResult(expectedJobID: UUID) throws -> Bool {
+        try withLock {
+            guard let job = try read(), job.jobId == expectedJobID, job.hasShareableResult else { return false }
+            // Retain job identity for replay without retaining the shared result.
+            var cleared = AnalysisJob(jobId: job.jobId, catalogId: job.catalogId,
+                                      createdAt: job.createdAt, updatedAt: .now)
+            cleared.finish(.completed)
+            cleared.resultCleared = true
+            cleared.setupRequestId = job.setupRequestId
+            cleared.usesSavedGrant = job.usesSavedGrant
+            cleared.previousRequestIds = job.previousRequestIds
+            _ = try updateLocked { _ in cleared }
+            return true
+        }
     }
 
     func expireInterruptedJob() throws -> AnalysisJob? {

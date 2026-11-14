@@ -44,7 +44,15 @@ final class MCPAnalysisController {
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
     private var setup: Task<Void, Never>?
-    private var approvedSetup: (id: UUID, url: URL, access: RawCullCatalogGrant, remember: Bool)?
+    private struct SetupApproval {
+        let id: UUID
+        let url: URL
+        let access: RawCullCatalogGrant
+        let remember: Bool
+        let expectedGrantID: UUID?
+    }
+
+    private var approvedSetup: SetupApproval?
     private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
@@ -210,8 +218,16 @@ final class MCPAnalysisController {
                 access = pickedAccess
             }
             let confirmation = NSAlert()
+            let existingGrant = try grants.authorizedCatalog()
             confirmation.messageText = String(localized: "Approve burst analysis?")
-            confirmation.informativeText = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share its ranked bursts with the MCP client.")
+            let sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) once and share the ranked bursts with the MCP client. The result stays available after you quit until it is cleared in MCP Settings or the job is replaced.")
+            let remembering: String
+            if let existingGrant {
+                remembering = String(localized: "Approve and Remember also replaces the saved authorization for \(existingGrant.displayName) and allows future analysis of the newly approved catalog.")
+            } else {
+                remembering = String(localized: "Approve and Remember also saves authorization for future analysis of this catalog.")
+            }
+            confirmation.informativeText = sharing + "\n\n" + remembering
             confirmation.addButton(withTitle: String(localized: "Approve This Job"))
             confirmation.addButton(withTitle: String(localized: "Approve and Remember"))
             confirmation.addButton(withTitle: String(localized: "Deny")).keyEquivalent = "\u{1b}"
@@ -222,6 +238,7 @@ final class MCPAnalysisController {
             try Task.checkCancellation()
             try await queueSetup(
                 request, url: url, remember: approval == .alertSecondButtonReturn, access: access,
+                expectedGrantID: existingGrant?.id,
                 viewModel: viewModel, canStart: canStart
             )
             return
@@ -336,6 +353,7 @@ final class MCPAnalysisController {
 
     private func queueSetup(
         _ request: CatalogSetupRequest, url: URL, remember: Bool, savedGrantId: UUID? = nil, access: RawCullCatalogGrant? = nil,
+        expectedGrantID: UUID? = nil,
         viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
     ) async throws {
         try await waitForWorkspaceLoad(viewModel: viewModel) {
@@ -357,6 +375,7 @@ final class MCPAnalysisController {
                     throw JobError("Catalog authorization changed. Start a new request.")
                 }
             }
+            if remember { try requireUnchangedGrant(expectedGrantID) }
             var job = AnalysisJob(jobId: UUID(), catalogId: savedGrantId ?? UUID(), createdAt: now, updatedAt: now)
             if savedGrantId != nil { job.usesSavedGrant = true }
             job.setupRequestId = request.requestId
@@ -366,7 +385,10 @@ final class MCPAnalysisController {
                 }
                 return job
             }
-            if let access { approvedSetup = (job.jobId, url, access, remember) }
+            if let access {
+                approvedSetup = SetupApproval(id: job.jobId, url: url, access: access,
+                                              remember: remember, expectedGrantID: expectedGrantID)
+            }
             var response = request
             response.state = .queued
             response.catalogId = job.catalogId
@@ -377,6 +399,13 @@ final class MCPAnalysisController {
                 // The published job carries the request ID so the client can still find it.
                 Logger.process.error("Could not save the queued MCP catalog setup response.")
             }
+        }
+    }
+
+    // Call under the job lock before publishing a job or replacing its grant.
+    private func requireUnchangedGrant(_ expectedID: UUID?) throws {
+        guard try grants.authorizedCatalog()?.id == expectedID else {
+            throw JobError("The saved catalog authorization changed. Start a new request to review the change.")
         }
     }
 
@@ -465,9 +494,10 @@ final class MCPAnalysisController {
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(job.catalogId.uuidString):\(offset)")
             })
-            if setupApproval?.remember == true {
+            if let setupApproval, setupApproval.remember {
                 try await withJobLockRetry {
                     try checkCurrent(job)
+                    try requireUnchangedGrant(setupApproval.expectedGrantID)
                     try viewModel.authorizeMCPCatalog(allowAnalysis: true, catalogId: job.catalogId, preservingJob: true)
                 }
             }
@@ -503,6 +533,7 @@ final class MCPAnalysisController {
                   current.state == .running else { throw CancellationError() }
             guard !current.cancellationRequested, try isAuthorized(job) else { throw CancellationError() }
             if let refreshedGrant { try grants.writeLocked(refreshedGrant) }
+            current.catalogDisplayName = name
             current.coverage = output.coverage
             current.bursts = output.bursts
             current.filesScanned = photoIds.count

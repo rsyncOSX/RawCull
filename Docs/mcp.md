@@ -122,6 +122,14 @@ Quit any running RawCull instance and open the test copy directly from Finder. S
 
 Reopen the test app, choose **Revoke Access**, quit, and call `list_catalogs` again. Expect an empty list.
 
+### Clearing shared results
+
+In **Settings → MCP**, **Last shared result** shows the current completed burst analysis even when there is no saved catalog authorization. A completed result remains available after quitting RawCull. It has no automatic expiry and stays available until you clear it or the current job is replaced or removed.
+
+**Clear Last Shared Result** removes rankings and coverage from future MCP reads and preserves any saved catalog authorization and snapshot. An earlier setup receipt may still return the same IDs on replay. Those IDs cannot retrieve the cleared result. A client may keep copies from reads that already completed or were in flight as you cleared the result.
+
+**Revoke Access** removes the saved authorization and the current job. Use the MCP cancellation tool to stop an active job while keeping the saved authorization. Clearing a result leaves pending setup requests in place. A remembered approval checks that the saved authorization still matches what the approval sheet showed, and a queued setup using a saved grant checks that the grant is still valid.
+
 The local and distributed builds share their bundle ID and model-assets group. In local testing, both could use installed AI models, but downloading DataComp CLIP failed with both copies installed. Temporarily removing the local copy let the download succeed in the distributed build. The test workflow keeps the existing bundle IDs.
 
 ### Snapshot behavior
