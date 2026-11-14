@@ -52,15 +52,14 @@ let listPhotosTool = Tool(
     annotations: catalogReadAnnotations
 )
 let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
-let grantStore = CatalogGrantStore.shared()
 
 func catalogMetadataText(_ value: String) -> String {
     String(String.UnicodeScalarView(value.unicodeScalars.prefix(512).map { scalar in
-        CharacterSet.controlCharacters.contains(scalar) ? " " : scalar
+        CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar) ? " " : scalar
     }))
 }
 
-func readCatalogGrant() throws -> CatalogGrant? {
+func readCatalogGrant(_ grantStore: CatalogGrantStore) throws -> CatalogGrant? {
     do {
         return try grantStore.authorizedCatalog()
     } catch {
@@ -68,48 +67,18 @@ func readCatalogGrant() throws -> CatalogGrant? {
     }
 }
 
-func requireCatalog(_ id: UUID) throws -> CatalogGrant {
-    guard let catalog = try readCatalogGrant(), catalog.id == id else {
+func requireCatalog(_ id: UUID, in grantStore: CatalogGrantStore) throws -> CatalogGrant {
+    guard let catalog = try readCatalogGrant(grantStore), catalog.id == id else {
         throw MCPError.invalidParams("No authorized catalog matches that ID. Call list_catalogs for the current ID.")
     }
     return catalog
 }
 
-let server = Server(
-    name: "rawcull-mcp",
-    version: version,
-    capabilities: .init(resources: .init(), tools: .init())
-)
-
-await server.withMethodHandler(ListTools.self) { _ in
-    .init(tools: availableTools)
-}
-
-await server.withMethodHandler(ListResources.self) { _ in
-    .init(resources: [])
-}
-
-await server.withMethodHandler(ListResourceTemplates.self) { _ in
-    .init(templates: [])
-}
-
-await server.withMethodHandler(CallTool.self) { params in
-    guard availableTools.contains(where: { $0.name == params.name }) else {
-        throw MCPError.invalidParams("Unknown tool: \(params.name)")
-    }
-    do {
-        return try await callKnownTool(params)
-    } catch MCPError.invalidParams(let message) {
-        return .init(
-            content: [.text(text: message ?? "Invalid tool arguments.", annotations: nil, _meta: nil)],
-            isError: true
-        )
-    }
-}
-
-func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+func callKnownTool(
+    _ params: CallTool.Parameters, grantStore: CatalogGrantStore
+) async throws -> CallTool.Result {
     if AnalysisTools.all.contains(where: { $0.name == params.name }) {
-        return try await AnalysisTools.call(params)
+        return try await AnalysisTools.call(params, grantStore: grantStore)
     }
 
     if params.name == listPhotosTool.name {
@@ -122,7 +91,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
               (1 ... maximumPhotoPageSize).contains(limit)
         else { throw MCPError.invalidParams("limit must be an integer between 1 and \(maximumPhotoPageSize).") }
 
-        let catalog = try requireCatalog(catalogID)
+        let catalog = try requireCatalog(catalogID, in: grantStore)
         guard let summary = catalog.summary, let photos = summary.photos else {
             return try structuredReply(
                 "No saved photo list. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
@@ -167,7 +136,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
               case let .string(id)? = arguments["catalogId"], let catalogID = UUID(uuidString: id)
         else { throw MCPError.invalidParams("catalog_summary requires one catalogId UUID.") }
 
-        let catalog = try requireCatalog(catalogID)
+        let catalog = try requireCatalog(catalogID, in: grantStore)
         guard let summary = catalog.summary else {
             return try structuredReply(
                 "No saved scan summary. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
@@ -207,7 +176,7 @@ func callKnownTool(_ params: CallTool.Parameters) async throws -> CallTool.Resul
 
     switch params.name {
     case listCatalogsTool.name:
-        let catalog = try readCatalogGrant()
+        let catalog = try readCatalogGrant(grantStore)
         let catalogs: [Value] = catalog.map {
             [.object([
                 "id": .string($0.id.uuidString),
@@ -250,6 +219,3 @@ func structuredReply(_ summary: String, value: Value) throws -> CallTool.Result 
         structuredContent: Optional.some(value)
     )
 }
-
-try await server.start(transport: StatusStdioTransport())
-await server.waitUntilCompleted()

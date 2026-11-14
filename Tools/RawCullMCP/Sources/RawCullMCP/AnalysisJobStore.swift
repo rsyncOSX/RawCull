@@ -332,6 +332,8 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
         case pendingApproval, queued, denied, failed
     }
 
+    static let maximumHintScalars = 512
+
     let requestId: UUID
     var catalogHint: String?
     var hintDigest: Data?
@@ -342,15 +344,26 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
     var jobId: UUID?
     var message: String?
     var deniedAt: Date?
+    var usesExactHint: Bool?
 
+    var expiresAt: Date { createdAt.addingTimeInterval(600) }
     var isExpired: Bool { isExpired(at: .now) }
 
-    func isExpired(at now: Date) -> Bool { now.timeIntervalSince(createdAt) > 600 }
+    func isExpired(at now: Date) -> Bool { now >= expiresAt }
 
     func matches(_ proposed: Self) -> Bool {
         guard jobType == proposed.jobType, let hint = proposed.catalogHint else { return false }
-        if let catalogHint { return catalogHint == hint }
-        return hintDigest == Self.digest(hint)
+        func matchesHint(_ value: String) -> Bool {
+            if let catalogHint { return catalogHint == value }
+            return hintDigest == Self.digest(value)
+        }
+        if matchesHint(hint) { return true }
+        guard usesExactHint != true else { return false }
+        // Older helpers replaced control characters before writing the receipt.
+        let legacyHint = String(String.UnicodeScalarView(hint.unicodeScalars.prefix(Self.maximumHintScalars).map {
+            CharacterSet.controlCharacters.contains($0) ? " " : $0
+        }))
+        return matchesHint(legacyHint)
     }
 
     var displayHint: String {
@@ -378,8 +391,8 @@ nonisolated struct CatalogSetupRequest: Codable, Sendable {
 nonisolated struct CatalogSetupStore: Sendable {
     let jobs: AnalysisJobStore
 
-    enum StoreError: Error {
-        case pendingRequest, expiredRequest, storageFull
+    enum StoreError: Error, Equatable {
+        case pendingRequest, expiredRequest, invalidHint, storageFull(retryAt: Date?)
         case denialCooldown(secondsRemaining: Int)
     }
 
@@ -392,7 +405,10 @@ nonisolated struct CatalogSetupStore: Sendable {
     private static let replayWindow: TimeInterval = 24 * 60 * 60
     private static let retentionWindow: TimeInterval = 7 * 24 * 60 * 60
     private static let receiptLimit = 128
-    private static let denialCooldown: TimeInterval = 10
+    // Keep expired IDs separately so they can still reject stale retries.
+    private static let expiredReceiptLimit = 7 * receiptLimit
+    private static let denialWindow: TimeInterval = 15 * 60
+    private static let denialDelays: [TimeInterval] = [10, 20, 40, 80, 160, 300]
 
     private func root() throws -> URL {
         guard let directory = jobs.directory else { throw CatalogGrantStore.StoreError.unavailable }
@@ -465,7 +481,7 @@ nonisolated struct CatalogSetupStore: Sendable {
             return recovered
         }
         guard var stored else { return nil }
-        guard now.timeIntervalSince(stored.createdAt) <= Self.replayWindow else { throw StoreError.expiredRequest }
+        guard now.timeIntervalSince(stored.createdAt) < Self.replayWindow else { throw StoreError.expiredRequest }
         if stored.state == .pendingApproval, try pendingIDLocked() != id {
             stored.state = .failed
             stored.message = "The setup request was interrupted. Start a new request."
@@ -526,14 +542,18 @@ nonisolated struct CatalogSetupStore: Sendable {
             if let existing = try requestLocked(request.requestId, currentJob: currentJob, now: now) {
                 return Submission(request: existing, wasAccepted: false)
             }
-            guard pending == nil else { throw StoreError.pendingRequest }
-            if let deniedAt = retained.lastDenial {
-                let remaining = Self.denialCooldown - max(0, now.timeIntervalSince(deniedAt))
-                if remaining > 0 {
-                    throw StoreError.denialCooldown(secondsRemaining: Int(remaining.rounded(.up)))
-                }
+            let maximumHintScalars = CatalogSetupRequest.maximumHintScalars
+            guard let hint = request.catalogHint,
+                  hint.unicodeScalars.prefix(maximumHintScalars + 1).count <= maximumHintScalars else {
+                throw StoreError.invalidHint
             }
-            guard retained.count < Self.receiptLimit else { throw StoreError.storageFull }
+            guard pending == nil else { throw StoreError.pendingRequest }
+            if let delay = retained.denialRetryAt?.timeIntervalSince(now), delay > 0 {
+                throw StoreError.denialCooldown(secondsRemaining: Int(delay.rounded(.up)))
+            }
+            guard retained.count < Self.receiptLimit else {
+                throw StoreError.storageFull(retryAt: retained.nextSlotAt)
+            }
             let root = try root()
             try saveLocked(request)
             try JSONEncoder().encode(request.requestId).write(to: root.appendingPathComponent("pending"), options: .atomic)
@@ -550,17 +570,18 @@ nonisolated struct CatalogSetupStore: Sendable {
 
     private func pruneLocked(
         pendingID: UUID?, currentJob: AnalysisJob?, now: Date
-    ) throws -> (count: Int, lastDenial: Date?) {
+    ) throws -> (count: Int, nextSlotAt: Date?, denialRetryAt: Date?) {
         let root = try root()
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return (0, nil)
+            return (0, nil, nil)
         }
         var protectedCount = 0
-        var lastDenial: Date?
-        var historical: [(url: URL, createdAt: Date)] = []
+        var recentDenials: [Date] = []
+        var replayable: [(url: URL, createdAt: Date)] = []
+        var expired: [(url: URL, createdAt: Date)] = []
         for url in files {
             guard let id = UUID(uuidString: url.lastPathComponent) else { continue }
             let stored: CatalogSetupRequest?
@@ -588,10 +609,15 @@ nonisolated struct CatalogSetupStore: Sendable {
                 } else if stored.catalogHint != nil {
                     try saveLocked(stored)
                 }
-                if stored.state == .denied, let deniedAt = stored.deniedAt {
-                    lastDenial = max(lastDenial ?? .distantPast, deniedAt)
+                if stored.state == .denied, let deniedAt = stored.deniedAt,
+                   now.timeIntervalSince(deniedAt) < Self.denialWindow {
+                    recentDenials.append(min(now, deniedAt))
                 }
-                historical.append((url, max(stored.createdAt, stored.deniedAt ?? .distantPast)))
+                if now.timeIntervalSince(stored.createdAt) < Self.replayWindow {
+                    replayable.append((url, stored.createdAt))
+                } else {
+                    expired.append((url, stored.createdAt))
+                }
             }
         }
         if let currentJob, let id = currentJob.setupRequestId,
@@ -600,12 +626,22 @@ nonisolated struct CatalogSetupStore: Sendable {
             protectedCount += 1
         }
         let available = max(0, Self.receiptLimit - protectedCount)
-        let ordered = historical.sorted {
-            if $0.createdAt == $1.createdAt { return $0.url.lastPathComponent < $1.url.lastPathComponent }
-            return $0.createdAt > $1.createdAt
+        func newestFirst(_ lhs: (url: URL, createdAt: Date), _ rhs: (url: URL, createdAt: Date)) -> Bool {
+            if lhs.createdAt == rhs.createdAt { return lhs.url.lastPathComponent < rhs.url.lastPathComponent }
+            return lhs.createdAt > rhs.createdAt
         }
+        let ordered = replayable.sorted(by: newestFirst)
         for entry in ordered.dropFirst(available) { try remove(entry.url) }
-        return (protectedCount + min(available, ordered.count), lastDenial)
+        for entry in expired.sorted(by: newestFirst).dropFirst(Self.expiredReceiptLimit) {
+            try remove(entry.url)
+        }
+        let kept = ordered.prefix(available)
+        let nextSlotAt = kept.last?.createdAt.addingTimeInterval(Self.replayWindow)
+        let denialRetryAt = recentDenials.max().map { deniedAt in
+            let delay = Self.denialDelays[min(recentDenials.count, Self.denialDelays.count) - 1]
+            return deniedAt.addingTimeInterval(delay)
+        }
+        return (protectedCount + kept.count, nextSlotAt, denialRetryAt)
     }
 
     // Must be called with the job lock held.

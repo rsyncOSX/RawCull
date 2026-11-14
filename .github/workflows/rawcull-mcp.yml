@@ -1,0 +1,22 @@
+name: RawCull MCP tests
+
+on:
+  pull_request:
+    paths:
+      - 'Tools/RawCullMCP/**'
+      - '.github/workflows/rawcull-mcp.yml'
+  push:
+    paths:
+      - 'Tools/RawCullMCP/**'
+      - '.github/workflows/rawcull-mcp.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  helper-tests:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - run: swift test --package-path Tools/RawCullMCP

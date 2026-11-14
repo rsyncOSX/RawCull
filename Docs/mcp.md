@@ -33,7 +33,7 @@ sequenceDiagram
 1. **Codex starts the helper.** The MCP configuration gives Codex the absolute path to `rawcull-mcp`. Codex launches that executable and connects two pipes to it. `stdio` means that the client sends messages through the helper's standard input and reads replies from its standard output. There is no local web address or port to configure. When the client closes the input pipe, the helper exits.
 2. **Codex discovers the tools.** After the MCP handshake, Codex sends `tools/list`. The helper returns each tool’s name, description, and JSON input schema. The `rawcull_status` tool takes no arguments. That information tells the model what operation it can use and how to call it.
 3. **The model interprets your prompt.** When you ask for the helper version, the model in Codex chooses `rawcull_status`. Codex turns that choice into a structured MCP request. The helper receives the tool name and arguments. Codex retains the natural-language prompt and conversation.
-4. **The helper runs Swift code.** The MCP Swift SDK decodes the request and hands it to the `CallTool` handler. The handler validates the tool name and arguments, then returns the helper version, transport, and available capabilities. The implementation lives in [the helper's main.swift](../Tools/RawCullMCP/Sources/RawCullMCP/main.swift).
+4. **The helper runs Swift code.** The MCP Swift SDK decodes the request and hands it to the `CallTool` handler. The handler validates the tool name and arguments, then returns the helper version, transport, and available capabilities. The implementation lives in [the helper entry point](../Tools/RawCullMCP/Sources/RawCullMCP/RawCullMCPMain.swift).
 5. **Codex shows the result.** The helper returns a human-readable line and structured JSON. Codex can use that response to answer you or decide what to call next. The terminal line `Called rawcull.rawcull_status` identifies the server and tool that actually ran.
 
 For example, the request in step 3 looks like this on the wire. The numeric ID lets Codex match the reply to the request.
@@ -42,7 +42,7 @@ For example, the request in step 3 looks like this on the wire. The numeric ID l
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rawcull_status","arguments":{}}}
 ```
 
-Phase 2 uses the same flow for burst analysis. Codex can start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull scans, scores, and groups the photos. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. These tools are planned for later phases.
+Phase 2 uses the same flow for burst analysis. Codex can start analysis for an authorized catalog ID, poll for progress, and request the ranked frames. RawCull scans, scores, and groups the photos. If preview sharing were enabled, the assistant could inspect selected frames, then send structured suggestions to a draft-saving tool. Opening the draft in RawCull would let you decide which picks to apply. Preview sharing and review drafts are planned for later phases.
 
 The helper runs locally on the Mac. Where the model interprets your prompt depends on the client and model you use. A cloud model may receive data that a tool returns. The Phase 1 helper returns status and authorized catalog metadata, including filenames and capture metadata. The later preview-sharing setting will determine whether the helper can return image previews for the selected catalog. [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk), [MCP stdio transport](https://ruby.sdk.modelcontextprotocol.io/server/transports/)
 
@@ -76,7 +76,7 @@ Start a new client session and ask, “Use `rawcull_status` to tell me the RawCu
 
 ### Test the bundled helper with TestFlight
 
-Xcode builds the helper as a separate target and copies it to `Contents/MacOS` inside `RawCull.app`. The helper has its own bundle identifier and App Sandbox entitlement because Codex launches it directly. Its identifier is also embedded in the executable's `Info.plist` so macOS can identify it when applying the sandbox. The status prototype requires only the two pipes from Codex. It has no catalog grants or network entitlements. [Apple's guidance on identifying a sandboxed command-line executable](https://developer.apple.com/forums/thread/802443)
+Xcode builds the helper as a separate target and copies it to `Contents/MacOS` inside `RawCull.app`. The helper has its own bundle identifier and App Sandbox entitlement because Codex launches it directly. Its identifier is also embedded in the executable's `Info.plist` so macOS can identify it when applying the sandbox. The original status prototype used only the two pipes from Codex. The current helper also has RawCull’s MCP app-group entitlement for reading the saved catalog grant and exchanging setup requests and jobs. It has no network entitlement. [Apple's guidance on identifying a sandboxed command-line executable](https://developer.apple.com/forums/thread/802443)
 
 Upload an internal build with `./Scripts/release.sh internal` and install it from TestFlight after Apple processes it. Quit RawCull, then confirm the helper is present and signed. Adjust the path if RawCull is installed elsewhere. If `rawcull` already points to another helper, run `codex mcp remove rawcull` before registering this one.
 
@@ -132,9 +132,9 @@ In **Settings → MCP**, **Last shared result** shows the current completed burs
 
 ### Setup request replay
 
-Use the original setup UUID only to retry the same request within 24 hours. RawCull keeps expired IDs for up to seven days and rejects retries while those IDs are still recorded. The current job's setup receipt remains available while that job occupies the slot. After a receipt is pruned, the helper can no longer recognize its UUID, so use a fresh UUID for each deliberate new run.
+Use the original setup UUID only to retry the same request within 24 hours. RawCull keeps a separate history of up to 896 expired IDs for up to seven days from submission and rejects retries while those IDs are still recorded. The current job's setup receipt remains available while that job occupies the slot. After a receipt is pruned, the helper can no longer recognize its UUID, so use a fresh UUID for each deliberate new run.
 
-The setup store holds up to 128 receipts. At capacity it rejects new submissions and still handles known retries. On upgrade, excess historical receipts are pruned oldest first while the pending request and current job are preserved. RawCull keeps the catalog hint while a request awaits resolution. Resolved receipts retain a digest of the hint for duplicate checks. Clearing a result or revoking access leaves the bounded receipt history available for replay. Access to rankings still requires a current shareable result.
+The setup store has 128 slots for receipts within the 24-hour replay window, including reserved slots for a pending request and the current job. When the store is full, new submissions are rejected with the time the next historical receipt leaves the replay window. Known retries still work. Expired historical receipts move into the separate history and free a slot. Excess historical receipts in either group are pruned oldest first while the pending request and current job are preserved. RawCull keeps the catalog hint while a request awaits resolution. Resolved receipts retain a digest of the hint for duplicate checks. Clearing a result or revoking access leaves the bounded receipt history available for replay. Access to rankings still requires a current shareable result.
 
 The local and distributed builds share their bundle ID and model-assets group. In local testing, both could use installed AI models, but downloading DataComp CLIP failed with both copies installed. Temporarily removing the local copy let the download succeed in the distributed build. The test workflow keeps the existing bundle IDs.
 
@@ -342,16 +342,19 @@ For the ambiguous-name case, use a second known catalog also named 100MSDCF. For
 Record the installed app build and helper version from `rawcull_status`, plus the request, catalog, and job IDs for each run.
 
 1. Run the new-catalog walkthrough from a full quit. During the chooser, replay the same request UUID and verify RawCull only comes forward for the original interaction. Check the chooser's client hint label and the resolved path in the approval sheet.
-2. After cancelling or denying setup, submit a fresh UUID immediately and verify the cooldown response. Wait 10 seconds and retry that request. Confirm the expected prompt appears.
+2. After cancelling or denying setup, submit a fresh UUID immediately and verify the cooldown response. Wait 10 seconds after the first denial and retry that request. Confirm the expected prompt appears. Deny again within 15 minutes and verify the next cooldown is 20 seconds. Further denials in the rolling window raise the delay to 40, 80, 160, and then 300 seconds.
 3. Approve once, quit RawCull, and read the original rankings. Reopen MCP Settings while no grant exists, verify the result is visible, and clear it. Call `get_analysis_status` and `list_bursts` with the original IDs, then replay the setup receipt. Verify the IDs cannot read the cleared result.
 4. Remember a catalog, quit, and run again using its saved grant. Keep Settings open while approving a different catalog with **Approve and Remember**. Verify the replacement notice and Settings refresh. Cancel an active analysis and confirm the job ends as cancelled.
 5. Run a recurring folder twice with different photos. Record the count and filenames after each run. Verify the original photo and burst cursors fail for the new snapshot and job. Revoke access and verify catalog and result reads are blocked.
 6. Use separate fixtures for ambiguous folder names and a disconnected removable source. Verify the chooser or folder error and record the result for each.
 7. Interrupt a running analysis by force-quitting RawCull. Query the saved job and verify it fails promptly with the worker-exit message. Start a fresh job and confirm analysis works again.
+8. Leave a setup chooser, folder picker, or approval sheet open for 10 minutes. Verify the expired sheet closes and the client reports failure. Submit a fresh UUID and verify RawCull handles it. Repeat for all three sheets.
+9. Submit a setup request, quit RawCull while the request is still pending, and retry the same UUID before expiry. Verify the bundled helper reopens RawCull and the request keeps its original deadline.
+10. Submit a new setup request with a hint longer than 512 Unicode scalars. Verify the helper reports the limit. A valid-length hint is preserved for matching, while text displayed to the user or returned to the MCP client has controls and line breaks replaced with spaces.
 
 The standalone helper supports status and reads. Run analysis through the helper embedded in the signed RawCull app. Direct starts remember the most recent 128 replaced job UUIDs in the current catalog's uninterrupted job chain. Use a fresh UUID for each new run. The helper's Codex transport compatibility shim remains in use, and existing cursor formats are accepted.
 
-Run helper tests with `swift test --package-path Tools/RawCullMCP`. The RawCull Xcode test target includes the **MCP job lifecycle** and **MCP Settings result visibility** suites.
+Run helper tests with `swift test --package-path Tools/RawCullMCP`. The RawCull MCP GitHub Actions workflow runs this suite on macOS for changes to the helper or its workflow. The RawCull Xcode test target includes the **MCP job lifecycle** and **MCP Settings result visibility** suites.
 
 ### Visual review and drafts
 
