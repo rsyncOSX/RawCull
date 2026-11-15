@@ -41,7 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return beginTermination(
             flush: { await viewModel.cullingModel.flushPersistence() },
             chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
-            setPending: { viewModel.cullingModel.isTerminationPending = $0 },
+            setPending: { pending in
+                self.mcpAnalysis.setTerminationPending(pending)
+                viewModel.cullingModel.isTerminationPending = pending
+            },
             releaseAccess: {
                 await self.mcpAnalysis.stopForQuit()
                 viewModel.stopActiveSecurityScopedAccess()

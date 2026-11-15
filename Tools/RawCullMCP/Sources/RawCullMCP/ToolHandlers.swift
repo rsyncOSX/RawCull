@@ -196,8 +196,7 @@ func callKnownTool(
     }
 
     let capabilities = availableTools.map(\.name)
-    let appBuild = AnalysisTools.bundledRawCullURL().flatMap { Bundle(url: $0) }?
-        .object(forInfoDictionaryKey: "CFBundleVersion") as? String
+    let appBuild = AnalysisTools.bundledRawCullBuild()
     return try structuredReply(
         "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
         value: .object([

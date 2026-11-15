@@ -43,6 +43,7 @@ final class MCPAnalysisController {
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
     private var isQuitting = false
+    private var isTerminationPending = false
     private var setup: Task<Void, Never>?
     private var setupDeadline: Date?
     private var setupSheet: (parent: NSWindow, window: NSWindow)?
@@ -76,7 +77,8 @@ final class MCPAnalysisController {
                         nextSetupMaintenance = .now.addingTimeInterval(60)
                         try setupStore.maintain()
                     }
-                    if setup == nil, analysis == nil, let request = try setupStore.pending() {
+                    if !isTerminationPending, setup == nil, analysis == nil,
+                       let request = try setupStore.pending() {
                         setupDeadline = request.expiresAt
                         setup = Task { [weak self, weak viewModel] in
                             guard let self else { return }
@@ -107,6 +109,13 @@ final class MCPAnalysisController {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
+    }
+
+    func setTerminationPending(_ pending: Bool) {
+        isTerminationPending = pending
+        // Suspend setup before the asynchronous quit save. If quitting is
+        // cancelled, the monitor can present the same stored request again.
+        if pending { cancelSetup() }
     }
 
     func stopForQuit() async {
@@ -237,6 +246,7 @@ final class MCPAnalysisController {
     ) async {
         var response = request
         do {
+            try Task.checkCancellation()
             guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
             let saved = try savedCatalog()
             let match = matchingCatalog(for: request.catalogHint ?? "", viewModel: viewModel, saved: saved)
@@ -295,8 +305,6 @@ final class MCPAnalysisController {
             )
             return
         } catch is CancellationError {
-            // A pending request can be resumed after RawCull reopens.
-            guard !isQuitting else { return }
             response.state = .denied
             response.message = "Catalog setup was cancelled or denied in RawCull."
         } catch let error as JobError {
@@ -306,12 +314,17 @@ final class MCPAnalysisController {
             response.state = .failed
             response.message = "RawCull could not open the selected catalog or queue the analysis."
         }
+        // Task cancellation dismisses setup for quit or expiry. An explicit
+        // denial also throws CancellationError, but leaves the task active.
+        guard !Task.isCancelled else { return }
         do {
             try await withJobLockRetry {
-                guard try setupStore.pendingLocked()?.requestId == request.requestId else { return }
+                guard !Task.isCancelled, try setupStore.pendingLocked()?.requestId == request.requestId else { return }
                 if response.state == .denied { response.deniedAt = .now }
                 try setupStore.saveLocked(response)
             }
+        } catch is CancellationError {
+            return
         } catch {
             Logger.process.error("Could not save the MCP catalog setup response.")
         }

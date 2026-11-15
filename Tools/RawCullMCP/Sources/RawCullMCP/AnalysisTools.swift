@@ -270,6 +270,14 @@ enum AnalysisTools {
     }
 
     static func bundledRawCullURL() -> URL? {
+        bundledRawCull()?.url
+    }
+
+    static func bundledRawCullBuild() -> String? {
+        bundledRawCull()?.build
+    }
+
+    private static func bundledRawCull() -> (url: URL, build: String?)? {
         // The helper has its own executable metadata. Read the enclosing app's
         // Info.plist directly instead of asking Bundle.main for its identity.
         var size: UInt32 = 0
@@ -288,7 +296,7 @@ enum AnalysisTools {
               let data = try? Data(contentsOf: contents.appendingPathComponent("Info.plist")),
               let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               info["CFBundleIdentifier"] as? String == "no.blogspot.RawCull" else { return nil }
-        return app
+        return (app, info["CFBundleVersion"] as? String)
     }
 
     @MainActor
