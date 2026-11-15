@@ -122,6 +122,53 @@ struct ToolHandlerTests {
         }
     }
 
+    @Test func clearingRecurringResultPreservesCatalogUntilRevoked() async throws {
+        let store = try makeStore()
+        defer { removeStore(store) }
+        let catalogId = try authorizePhotos(in: store, recurringFolder: true)
+        let jobs = AnalysisJobStore(directory: store.directory)
+        let jobId = UUID()
+        let now = Date.now
+        var job = AnalysisJob(jobId: jobId, catalogId: catalogId, createdAt: now, updatedAt: now)
+        job.coverage = .init(photoCount: 2, burstCount: 0, singletonCount: 2, unevaluatedCount: 0,
+                             skippedByReason: [:], similarityBackends: [:])
+        job.bursts = []
+        job.finish(.completed)
+        try jobs.update { _ in job }
+
+        let catalogs = CallTool.Parameters(name: "list_catalogs")
+        let catalogArguments = ["catalogId": Value.string(catalogId.uuidString)]
+        let summary = CallTool.Parameters(name: "catalog_summary", arguments: catalogArguments)
+        var jobArguments = catalogArguments
+        jobArguments["jobId"] = .string(jobId.uuidString)
+        let status = CallTool.Parameters(name: "get_analysis_status", arguments: jobArguments)
+        let bursts = CallTool.Parameters(name: "list_bursts", arguments: jobArguments)
+
+        let before = try await callKnownTool(summary, grantStore: store)
+        #expect(before.structuredContent?.objectValue?["analysisCoverage"] != nil)
+        _ = try await callKnownTool(bursts, grantStore: store)
+
+        try #require(try jobs.clearResult(expectedJobID: jobId))
+        let listed = try await callKnownTool(catalogs, grantStore: store)
+        let grant = try #require(listed.structuredContent?.objectValue?["catalogs"]?.arrayValue?.first?.objectValue)
+        #expect(grant["id"] == .string(catalogId.uuidString))
+        #expect(grant["analysisEnabled"] == .bool(true))
+        #expect(grant["recurringFolder"] == .bool(true))
+        let cleared = try await callKnownTool(summary, grantStore: store)
+        #expect(cleared.structuredContent?.objectValue?["photoCount"] == .int(2))
+        #expect(cleared.structuredContent?.objectValue?["analysisCoverage"] == nil)
+        for params in [status, bursts] {
+            await #expect(throws: MCPError.self) { try await callKnownTool(params, grantStore: store) }
+        }
+
+        try store.revoke()
+        let revoked = try await callKnownTool(catalogs, grantStore: store)
+        #expect(revoked.structuredContent?.objectValue?["catalogs"] == .array([]))
+        for params in [summary, status, bursts] {
+            await #expect(throws: MCPError.self) { try await callKnownTool(params, grantStore: store) }
+        }
+    }
+
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {
         .init(name: "request_catalog_setup", arguments: [
             "requestId": .string(id.uuidString), "catalogHint": .string(hint), "jobType": .string("burstAnalysis"),
@@ -138,7 +185,9 @@ struct ToolHandlerTests {
         return try #require(result.structuredContent?.objectValue)
     }
 
-    private func authorizePhotos(in store: CatalogGrantStore, catalogId: UUID = UUID()) throws -> UUID {
+    private func authorizePhotos(
+        in store: CatalogGrantStore, catalogId: UUID = UUID(), recurringFolder: Bool? = nil
+    ) throws -> UUID {
         let photos = [
             CatalogPhoto(name: "First\u{2028}Frame.raw", captureDate: nil, camera: "Camera\u{2029}Model"),
             CatalogPhoto(name: "Second.raw", captureDate: nil, camera: nil),
@@ -147,7 +196,8 @@ struct ToolHandlerTests {
             photoCount: photos.count, earliestCaptureDate: nil, latestCaptureDate: nil,
             cameraCounts: [:], snapshotAt: "2026-11-14", photos: photos, scanId: UUID()
         )
-        try store.authorize(.init(id: catalogId, displayName: "Photos", summary: summary, analysisEnabled: true))
+        try store.authorize(.init(id: catalogId, displayName: "Photos", summary: summary,
+                                  analysisEnabled: true, recurringFolder: recurringFolder))
         return catalogId
     }
 

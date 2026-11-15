@@ -420,10 +420,11 @@ The first-run burst cursor was null: untested, because no cursor was available.
 
 ## 10. Clear a result while keeping the grant, then revoke access
 
-1. In **Settings → MCP**, click **Clear Last Shared Result** and send the first prompt.
-2. Click **Revoke Access**, quit RawCull, and send the second prompt. Use the most recent recurring IDs.
+1. Use the most recent recurring catalog and job IDs. If rerunning this step after revoking access, authorize the recurring folder again and complete a fresh analysis first.
+2. In **Settings → MCP**, verify that both **Authorized catalog** and **Last shared result** show the recurring folder. Click **Clear Last Shared Result** and record what both sections show afterward. Send the first prompt and save the response before continuing.
+3. Click **Revoke Access** if enabled, record what Settings shows, quit RawCull, and send the second prompt.
 
-> Use only `rawcull`. After I cleared the last shared result, call `list_catalogs`, `catalog_summary` for the recurring grant, and `list_bursts` for the last job. Report whether saved access and metadata are still available and whether the old rankings can be read.
+> Use only `rawcull`. After I cleared the last shared result, call `list_catalogs`, `catalog_summary` for the recurring grant, and `get_analysis_status` and `list_bursts` for the last job. Report each actual response or error. Verify whether the grant and photo metadata remain available and whether the old coverage and rankings are blocked.
 
 > Use only `rawcull`. I revoked access and quit RawCull. Call `list_catalogs`, then try `catalog_summary`, `get_analysis_status`, and `list_bursts` with the former catalog and job IDs. Report each actual response or error.
 

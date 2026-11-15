@@ -1,6 +1,9 @@
+import OSLog
 import SwiftUI
 
 struct MCPSettingsTab: View {
+    private static let sharingLog = Logger(subsystem: "no.blogspot.RawCull", category: "MCPSettings")
+
     let selectedCatalogName: String?
     let selectedCatalogURL: URL?
     let canAuthorizeAnalysis: Bool
@@ -48,9 +51,10 @@ struct MCPSettingsTab: View {
                     Text("Select a catalog in RawCull to authorize it.")
                 }
 
-                Button("Revoke Access") {
+                Button("Revoke Access", role: .destructive) {
                     revoke()
                 }
+                .buttonStyle(.bordered)
                 .disabled(grant == nil && !grantReadFailed)
 
                 if grantReadFailed {
@@ -124,6 +128,7 @@ struct MCPSettingsTab: View {
         do {
             let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
             if try jobs.clearResult(expectedJobID: id) {
+                Self.sharingLog.notice("Cleared the last shared MCP result.")
                 clearError = nil
             } else {
                 clearError = "The shared result changed. Review the current result before clearing it."
@@ -154,6 +159,7 @@ struct MCPSettingsTab: View {
         do {
             try CatalogGrantStore.shared().revoke()
             MCPAnalysisAuthorization.save(nil)
+            Self.sharingLog.notice("Revoked saved MCP catalog access.")
             allowAnalysis = false
             recurringFolder = false
             grant = nil
@@ -196,6 +202,7 @@ private struct SharedResultSection: View {
                 }
                 LabeledContent("Completed", value: result.date.formatted(date: .abbreviated, time: .shortened))
                 Button("Clear Last Shared Result", role: .destructive) { clear(result.id) }
+                    .buttonStyle(.bordered)
             } else if readFailed {
                 Text("The last shared result could not be read.")
             } else {
@@ -207,7 +214,7 @@ private struct SharedResultSection: View {
         } header: {
             Text("Last shared result")
         } footer: {
-            Text("Clearing stops future reads of this result. An MCP client may keep copies it already received.")
+            Text("Clearing removes the shared rankings and coverage and keeps any saved catalog authorization and photo metadata. An MCP client may keep copies it already received.")
         }
     }
 }
