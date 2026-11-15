@@ -1,4 +1,4 @@
-# RawCull TestFlight test runs for builds 450 and 451
+# RawCull TestFlight test runs for builds 450–452
 
 Use **/Users/thomas/Downloads** for the main catalog. Select that exact folder whenever a main-catalog prompt opens a picker. The replacement and recurring tests use copies of RAW photos in a temporary subfolder of Downloads so you can leave the originals in place.
 
@@ -637,7 +637,28 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 
 ## Run summary
 
-### Local retest and next TestFlight build
+### TestFlight build 452 release validation
+
+Run on 2026-11-15 with RawCull 3.4.6 (452) and MCP helper 0.7.0 over stdio. **About RawCull** and the installed app’s `Info.plist` both reported 452. The registered helper path was `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`.
+
+| Step | Release verdict | Evidence |
+| --- | --- | --- |
+| 1. Installed helper and access | **APPROVED** | Helper version, transport, both setup tools, and the empty initial grant list matched expectations. The connected helper returned `appBuild: null`. Accepted for this release. |
+| 2. Picker cancellation and cooldown | **PASS on 452** | Picker cancellation returned `denied` with no job ID. The immediate follow-up was blocked for 10 seconds. Retrying with the same request ID opened setup. Explicit **Deny** returned `denied` with no job ID and no saved grant. |
+| 3. Cold launch, replay, and approve once | **PASS on 452** | RawCull opened from a full quit and showed the chooser. Replay preserved the pending request ID and creation time. One-time job `45E6CBB2-D664-410A-91A6-DB05341E9225` analyzed 958 photos with CLIP, found 64 bursts, and left the grant list empty. |
+| 4. Read after quit and clear | **PASS on 452** | Coverage and the first five rankings matched after quit. Clearing blocked status and rankings, including with the IDs returned by replay. The grant list stayed empty. |
+| 5. Remember and reuse Downloads | **PASS on 452** | The analysis-enabled grant was saved. After a full quit, a fresh request reused the catalog ID without another approval and completed job `BC101DA1-5B2E-4E01-B9C3-F68E580CF79E` with 958 analyzed photos and 64 bursts. |
+| 6. Saved metadata and pagination | **PASS on 452** | The saved snapshot reported 958 Sony ILCE-1M2 photos with capture-date coverage. Two pages returned 10 distinct photo IDs. |
+| 7. Force-quit and recovery | **PASS carried forward from 450** | The 452 job completed before the force-quit interrupted it. Worker-exit recovery was untested on 452. |
+| 8. Cancel a running job through MCP | **PASS on 452** | Job `230475FC-59E1-47AA-B8E7-CB9E36025D48` transitioned from `running` to `cancelled`. The Downloads grant remained analysis-enabled. |
+| 9. Replace grant and refresh recurring folder | **PASS carried forward from 450 for MCP grant replacement, refresh, and photo cursor rejection** | The burst cursor check and Settings replacement UI remain unverified. Step 9 was deferred on 452. |
+| 10. Clear result and revoke access | **PASS carried forward from 451 for the MCP checks** | Revocation on 452 left an empty grant list before Step 11. The full Step 10 sequence was deferred on 452. |
+| 11. Quit with the chooser open and resume | **PASS on 452** | With the chooser unanswered, **⌘Q** left request `30BE848C-8C12-4285-9C56-9BCC08C5DD54` in `pendingApproval` on the first read after exit. Replay preserved its ID and creation time (`816422891.35488`), relaunched RawCull, and restored the chooser. One-time approval completed job `184BB754-E83B-464B-943D-15E38C0063F5` with 958 analyzed photos, 64 bursts, and no skipped or unevaluated photos. The grant list stayed empty. |
+| 12–14. Expiry, hint limit, and ambiguous or unavailable hints | **DEFERRED** | Untested in this release run. |
+
+**Release readiness: Ready for release.** The build 451 cold-launch and quit-and-resume failures both passed on TestFlight build 452. The observed `appBuild: null` is accepted and does not block release. The last-window-close variant and automated quit-versus-deny coverage remain open follow-ups.
+
+### Local retest before build 452
 
 - Step 11 **PASS** on the local build with the quit-handling fix. The original request resumed and analysis completed. Retest on the next TestFlight build and capture the first post-quit status and replay responses.
 - Step 1 build reporting was fixed after the local retest. On the next TestFlight build, check that `rawcull_status.appBuild` matches **About RawCull**.
@@ -669,7 +690,7 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 | 10. Clear result and revoke access | **FAIL** for clearing. Post-revoke reads blocked. | Clearing blocked rankings, but the grant list was already empty and metadata was unavailable before revocation. The post-revoke calls also showed no saved access and blocked reads with the former IDs. |
 | 11–14 | **UNTESTED** | Logs 11–14 have no complete results. |
 
-### Correct the build report and complete the missing checks
+### Historical follow-ups from the build 450 run
 
 1. To diagnose Step 1, run `codex mcp get rawcull` and `/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' /Applications/RawCull.app/Contents/Info.plist`. If the registered command points to a standalone helper, register the bundled helper and start a fresh chat. This run already had the expected registration and installed build.
 2. The updated helper reads `CFBundleVersion` from the validated enclosing app's `Contents/Info.plist`. In a fresh chat using the bundled helper, confirm that `appBuild` matches the installed build. A standalone helper should still report `null`.
