@@ -219,8 +219,33 @@ Expect the same count as the loaded catalog, metadata available with RawCull clo
 
 ### Log 6
 
-Paste the output and your comparison with RawCull.
+```bash
+Downloads catalog: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
 
+- Photos: 958
+- Camera: SONY ILCE-1M2 (all 958)
+- Capture coverage: May 6, 2026, 02:19:04–03:29:33 UTC
+- Saved snapshot: November 14, 2026, 18:21:45 UTC
+
+Both pages used limit 5. Photo IDs below show the suffix appended to the catalog ID.
+
+| Page | ID suffix | Photo | Capture time (UTC, May 6) |
+|---|---|---|---|
+| 1 | :0 | _DSC7847.ARW | 02:22:56 |
+| 1 | :1 | _DSC8590.ARW | 03:28:14 |
+| 1 | :2 | _DSC8547.ARW | 03:26:21 |
+| 1 | :3 | _DSC8023.ARW | 02:57:35 |
+| 1 | :4 | _DSC8037.ARW | 02:57:39 |
+| 2 | :5 | _DSC8221.ARW | 03:06:09 |
+| 2 | :6 | _DSC7853.ARW | 02:22:59 |
+| 2 | :7 | _DSC8584.ARW | 03:28:14 |
+| 2 | :8 | _DSC8235.ARW | 03:06:14 |
+| 2 | :9 | _DSC8553.ARW | 03:27:32 |
+
+Page 2 used page 1’s nextCursor (80ACA98A-2225-4B49-B1AB-9370F7E1EDAE:5). Its next cursor ends in :10.
+
+Photo ID overlap: none — 10 distinct IDs across both pages.
+```
 ## 7. Force-quit a running job and verify recovery
 
 1. Use the saved Downloads grant. Open the macOS **Force Quit Applications** window with **⌥⌘Esc** so it's ready.
@@ -237,8 +262,46 @@ Expect the live job to report `running`. For a new build 450 job, once the worke
 
 ### Log 7
 
-Paste the three responses and record when you force-quit and when failure appeared.
+```bash
+Analysis first reported running at stage openingCatalog. Stopped polling; you can force-quit RawCull now.
 
+- Request ID: 9C62AC5B-41D3-4976-AC28-40A0B761FDE9
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: CD5820DF-30ED-456E-8A7E-A6210519764A
+```
+
+```bash
+The first query returned terminal state failed immediately (0.013 seconds), so no further polling was needed. The failure timestamp was 73.28 seconds after the last heartbeat and 77.15 seconds after job creation.
+
+Exact message:
+
+> The RawCull analysis worker exited. Start a new job with a new request ID.
+
+I made only the status query; no app-open or new-job request was sent.
+```
+
+```bash
+Analysis completed in about 15.8 seconds.
+
+- Request ID: 4BA1E5EC-A39D-40F1-B4C7-356A49D9C208
+- Job ID: DA13168E-256C-4373-B6E3-D01F53A504FC
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Coverage: 958/958 photos analyzed, 64 bursts, 0 singletons, 0 unevaluated, no skips. CLIP covered all 958 photos.
+
+Fetched the first rankings page, containing 5 of 64 bursts:
+
+| Burst | Frames | Recommended photo | Score | Alternate |
+|---|---:|---|---:|---|
+| 0 | 26 | _DSC7712.ARW | 0.377885 | _DSC7711.ARW |
+| 1 | 20 | _DSC7743.ARW | 0.564368 | _DSC7741.ARW |
+| 2 | 13 | _DSC7756.ARW | 0.393275 | _DSC7755.ARW |
+| 3 | 5 | _DSC7757.ARW | 0.377129 | _DSC7759.ARW |
+| 4 | 8 | _DSC7766.ARW | 0.399245 | _DSC7765.ARW |
+
+All five have low confidence, with “Top two are close” and high-ISO noise cautions.
+
+Next cursor: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE:DA13168E-256C-4373-B6E3-D01F53A504FC:5
+```
 ## 8. Cancel an active job through MCP
 
 Leave RawCull open. This test needs enough photos to get a `running` response before analysis finishes.
@@ -249,7 +312,19 @@ Expect `cancelled` and the same saved grant.
 
 ### Log 8
 
-Paste the output and any UI observations.
+```bash
+The cancellation test succeeded.
+
+- Request ID: B1D7E8A4-69F2-4C35-A028-5FD936BC7E10
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: CC6AE07E-89C5-476F-AB8F-D2EA4FE2C228
+
+Immediately after observing running, I called cancel_analysis with the same catalog and job IDs. It returned state: running, stage: scoringSharpness, and cancellationRequested: true.
+
+The next poll reported terminal state cancelled: 958 files scanned, 0 analyzed.
+
+list_catalogs still shows the saved Downloads grant with analysisEnabled: true.
+```
 
 ## 9. Replace the saved grant and test a recurring folder
 
@@ -269,7 +344,79 @@ Expect Settings to refresh after grant replacement. The second recurring job sho
 
 ### Log 9
 
-Paste all three responses. List both fixture counts and filenames, and note what the replacement sheet and Settings showed.
+```bash
+Analysis completed.
+
+- Request ID: A84C397F-21B6-4E59-91D3-07F2C8E64A10
+- Catalog ID: CF3AED28-16A6-4DFD-8F81-C5441612B1ED
+- Job ID: 7A1D6768-C6FC-4F15-8A8A-2E0B086486B7
+- Coverage: 13/13 photos analyzed, 1 burst, 0 singletons, 0 unevaluated, no skips; CLIP covered all 13.
+
+list_catalogs now shows only RawCull-TestFlight-Recurring, with the matching catalog ID and analysisEnabled: true. Downloads is no longer listed.
+
+The grant reports recurringFolder: false, so the catalog change is confirmed, but that flag does not confirm a recurring-folder grant.
+```
+
+```bash
+Confirmed RawCull-TestFlight-Recurring has analysisEnabled: true and recurringFolder: true.
+
+The new analysis completed: 13 scanned, 13 analyzed, 1 burst, no skips or unevaluated photos.
+
+- Request ID: D6A2E930-7F84-4CB1-9A65-E308B21F4C79
+- Catalog ID: DC64BA70-F140-4B58-A969-ED4969C4F8BD
+- Job ID: AC8F7D52-888A-4123-8626-F3FE33A7F688
+
+Both listing calls used limit 1. The first photo was _DSC8644.ARW, ID:
+DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:0
+
+The first burst contains 13 frames. Its returned rankings were:
+
+| Rank | Filename | Score |
+|---|---|---:|
+| 1 | _DSC8643.ARW | 0.9309999943 |
+| 2 | _DSC8644.ARW | 0.9309999943 |
+| 3 | _DSC8646.ARW | 0.9309999943 |
+| 4 | _DSC8649.ARW | 0.9296809435 |
+| 5 | _DSC8647.ARW | 0.9283439517 |
+
+Recommended: _DSC8643.ARW; alternate: _DSC8644.ARW. Confidence: low; caution: “Top two are close.”
+
+Exact cursors preserved for the next prompt:
+
+- Photos nextCursor: DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:1
+- Bursts nextCursor: null
+```
+
+```bash
+The fresh analysis completed with 12 scanned and 12 analyzed, 1 burst, 0 singletons, 0 unevaluated, and no skips. CLIP covered all 12 photos.
+
+- Request ID: F092B61D-8C43-4E75-A209-67D15B3C8E94
+- Catalog ID: DC64BA70-F140-4B58-A969-ED4969C4F8BD
+- Job ID: 50E59481-1053-47AF-A02A-8AC822258CD1
+
+Filenames in returned order: _DSC8630.ARW, _DSC8631.ARW, _DSC8622.ARW, _DSC8625.ARW, _DSC8626.ARW, _DSC8627.ARW, _DSC8624.ARW, _DSC8623.ARW, _DSC8620.ARW, _DSC8621.ARW, _DSC8629.ARW, _DSC8628.ARW.
+
+The 12-frame burst returned these rankings:
+
+| Rank | Filename | Score |
+|---|---|---:|
+| 1 | _DSC8625.ARW | 0.9309999943 |
+| 2 | _DSC8629.ARW | 0.9309999943 |
+| 3 | _DSC8631.ARW | 0.9309999943 |
+| 4 | _DSC8630.ARW | 0.9206074476 |
+| 5 | _DSC8624.ARW | 0.9175561666 |
+
+Recommended: _DSC8625.ARW; alternate: _DSC8629.ARW. Confidence: low; caution: “Top two are close.”
+
+The first-run photo cursor, tested against the current catalog ID, was:
+DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:1
+
+Exact response:
+
+{"content":[{"type":"text","text":"Invalid cursor. Use nextCursor from a page of this catalog snapshot."}],"isError":true}
+
+The first-run burst cursor was null: untested, because no cursor was available.
+```
 
 ## 10. Clear a result while keeping the grant, then revoke access
 
@@ -284,7 +431,38 @@ Expect clearing to preserve the grant and metadata while removing rankings. Revo
 
 ### Log 10
 
-Paste both responses and your Settings observations.
+```bash
+Saved access, metadata, and old rankings are unavailable after clearing the shared result.
+
+- list_catalogs: catalogs: [] — “No catalog is authorized.”
+- catalog_summary for the previous recurring grant: “No authorized catalog matches that ID. Call list_catalogs for the current ID.”
+- list_bursts for job 50E59481-1053-47AF-A02A-8AC822258CD1: “That job was cleared, replaced, or revoked.”
+
+Both read attempts returned isError: true.
+```
+
+```bash
+Used former catalog DC64BA70-F140-4B58-A969-ED4969C4F8BD and job 50E59481-1053-47AF-A02A-8AC822258CD1.
+
+| Call | Actual response | Error |
+|---|---|---|
+| list_catalogs | “No catalog is authorized.” — {"catalogs":[]} | No |
+| catalog_summary | “No authorized catalog matches that ID. Call list_catalogs for the current ID.” | isError: true |
+| get_analysis_status | “No current job matches that catalog and job ID.” | isError: true |
+| list_bursts | “That job was cleared, replaced, or revoked.” | isError: true |
+```
+
+```bash
+The identical resubmission returned terminal state denied.
+
+- Request ID: E3478A91-6F25-4DB0-A8C3-92B51E7D064F
+- Original creation time: 816415263.532646
+- Deadline: not provided
+- Exact message: “Catalog setup was cancelled or denied in RawCull.”
+
+No job ID was returned, so there is no analysis job to poll.
+```
+
 
 ## 11. Quit and resume a pending setup request
 
