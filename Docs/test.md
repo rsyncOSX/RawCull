@@ -219,8 +219,33 @@ Expect the same count as the loaded catalog, metadata available with RawCull clo
 
 ### Log 6
 
-Paste the output and your comparison with RawCull.
+```bash
+Downloads catalog: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
 
+- Photos: 958
+- Camera: SONY ILCE-1M2 (all 958)
+- Capture coverage: May 6, 2026, 02:19:04–03:29:33 UTC
+- Saved snapshot: November 14, 2026, 18:21:45 UTC
+
+Both pages used limit 5. Photo IDs below show the suffix appended to the catalog ID.
+
+| Page | ID suffix | Photo | Capture time (UTC, May 6) |
+|---|---|---|---|
+| 1 | :0 | _DSC7847.ARW | 02:22:56 |
+| 1 | :1 | _DSC8590.ARW | 03:28:14 |
+| 1 | :2 | _DSC8547.ARW | 03:26:21 |
+| 1 | :3 | _DSC8023.ARW | 02:57:35 |
+| 1 | :4 | _DSC8037.ARW | 02:57:39 |
+| 2 | :5 | _DSC8221.ARW | 03:06:09 |
+| 2 | :6 | _DSC7853.ARW | 02:22:59 |
+| 2 | :7 | _DSC8584.ARW | 03:28:14 |
+| 2 | :8 | _DSC8235.ARW | 03:06:14 |
+| 2 | :9 | _DSC8553.ARW | 03:27:32 |
+
+Page 2 used page 1’s nextCursor (80ACA98A-2225-4B49-B1AB-9370F7E1EDAE:5). Its next cursor ends in :10.
+
+Photo ID overlap: none — 10 distinct IDs across both pages.
+```
 ## 7. Force-quit a running job and verify recovery
 
 1. Use the saved Downloads grant. Open the macOS **Force Quit Applications** window with **⌥⌘Esc** so it's ready.
@@ -237,8 +262,46 @@ Expect the live job to report `running`. For a new build 450 job, once the worke
 
 ### Log 7
 
-Paste the three responses and record when you force-quit and when failure appeared.
+```bash
+Analysis first reported running at stage openingCatalog. Stopped polling; you can force-quit RawCull now.
 
+- Request ID: 9C62AC5B-41D3-4976-AC28-40A0B761FDE9
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: CD5820DF-30ED-456E-8A7E-A6210519764A
+```
+
+```bash
+The first query returned terminal state failed immediately (0.013 seconds), so no further polling was needed. The failure timestamp was 73.28 seconds after the last heartbeat and 77.15 seconds after job creation.
+
+Exact message:
+
+> The RawCull analysis worker exited. Start a new job with a new request ID.
+
+I made only the status query; no app-open or new-job request was sent.
+```
+
+```bash
+Analysis completed in about 15.8 seconds.
+
+- Request ID: 4BA1E5EC-A39D-40F1-B4C7-356A49D9C208
+- Job ID: DA13168E-256C-4373-B6E3-D01F53A504FC
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Coverage: 958/958 photos analyzed, 64 bursts, 0 singletons, 0 unevaluated, no skips. CLIP covered all 958 photos.
+
+Fetched the first rankings page, containing 5 of 64 bursts:
+
+| Burst | Frames | Recommended photo | Score | Alternate |
+|---|---:|---|---:|---|
+| 0 | 26 | _DSC7712.ARW | 0.377885 | _DSC7711.ARW |
+| 1 | 20 | _DSC7743.ARW | 0.564368 | _DSC7741.ARW |
+| 2 | 13 | _DSC7756.ARW | 0.393275 | _DSC7755.ARW |
+| 3 | 5 | _DSC7757.ARW | 0.377129 | _DSC7759.ARW |
+| 4 | 8 | _DSC7766.ARW | 0.399245 | _DSC7765.ARW |
+
+All five have low confidence, with “Top two are close” and high-ISO noise cautions.
+
+Next cursor: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE:DA13168E-256C-4373-B6E3-D01F53A504FC:5
+```
 ## 8. Cancel an active job through MCP
 
 Leave RawCull open. This test needs enough photos to get a `running` response before analysis finishes.
@@ -249,7 +312,19 @@ Expect `cancelled` and the same saved grant.
 
 ### Log 8
 
-Paste the output and any UI observations.
+```bash
+The cancellation test succeeded.
+
+- Request ID: B1D7E8A4-69F2-4C35-A028-5FD936BC7E10
+- Catalog ID: 80ACA98A-2225-4B49-B1AB-9370F7E1EDAE
+- Job ID: CC6AE07E-89C5-476F-AB8F-D2EA4FE2C228
+
+Immediately after observing running, I called cancel_analysis with the same catalog and job IDs. It returned state: running, stage: scoringSharpness, and cancellationRequested: true.
+
+The next poll reported terminal state cancelled: 958 files scanned, 0 analyzed.
+
+list_catalogs still shows the saved Downloads grant with analysisEnabled: true.
+```
 
 ## 9. Replace the saved grant and test a recurring folder
 
