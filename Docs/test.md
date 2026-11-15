@@ -1,10 +1,10 @@
-# RawCull 3.4.6 (450) TestFlight test run
+# RawCull TestFlight test runs for builds 450 and 451
 
 Use **/Users/thomas/Downloads** for the main catalog. Select that exact folder whenever a main-catalog prompt opens a picker. The replacement and recurring tests use copies of RAW photos in a temporary subfolder of Downloads so you can leave the originals in place.
 
 ## Before you start
 
-1. Open the installed TestFlight copy. In **RawCull → About RawCull**, confirm version **3.4.6 (450)**. Quit with **⌘Q**.
+1. Open the installed TestFlight copy. In **RawCull → About RawCull**, record the version and build. The original run used **3.4.6 (450)**. The November 15 rerun used build **451**. Quit with **⌘Q**.
 2. Check that Downloads itself contains supported RAW photos, including at least one burst. RawCull's normal scan looks at files directly in the selected folder. If your RAW files are all nested, copy a representative set into Downloads before starting. Note the loaded photo count and a few known filenames. A folder with at least two bursts is needed to exercise burst pagination.
 3. Start a fresh Codex chat for the run and use it throughout so Codex can refer to previous IDs. Paste one prompt at a time. When a prompt asks Codex to wait for you, send the follow-up after completing the UI action. Respond to pickers and approval sheets within 10 minutes except in the expiry test.
 4. Paste the full Codex responses under the matching **Log** headings below. Include every follow-up response. Add your own UI observations, since Codex's tool output cannot show which sheets appeared. Mark each step **PASS**, **FAIL**, or **UNTESTED** and keep the exact tool error and request, catalog, and job IDs if available.
@@ -17,7 +17,7 @@ With RawCull fully quit, paste this into the fresh chat.
 
 > Use only the `rawcull` MCP server. Call `rawcull_status` and `list_catalogs`. Report the actual helper version, appBuild, transport, whether both setup tools are available, and each saved grant's display name, catalog ID, and analysis permission. Include any tool errors verbatim.
 
-Expect helper **0.7.0**, build **450**, transport **stdio**, and both `request_catalog_setup` and `get_catalog_setup_status`. If the connection fails or the version differs, check `codex mcp get rawcull` in Terminal. The command should point to `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`. Start another fresh chat after correcting the registration or installed version.
+Expect helper **0.7.0**, the installed build number in `appBuild`, transport **stdio**, and both `request_catalog_setup` and `get_catalog_setup_status`. If the connection fails or the version differs, check `codex mcp get rawcull` in Terminal. The command should point to `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`. Start another fresh chat after correcting the registration or installed version.
 
 If a grant exists, preserve the initial output as upgrade evidence. Start Step 2 with an empty grant list. When ready to remove the existing grant and its current result, open **Settings → MCP → Revoke Access**, quit RawCull, and repeat the prompt. If you want to keep that grant, defer Steps 2–5. Step 5 creates the Downloads grant needed by Step 6.
 
@@ -465,6 +465,37 @@ No job ID was returned, so there is no analysis job to poll.
 ```
 
 
+#### Build 451 rerun on 2026-11-15
+
+The initial `rawcull_status` reported helper `0.7.0` and `appBuild: null`. The initial `list_catalogs` returned an empty list. After authorizing `/Users/thomas/Downloads/RawCull-TestFlight-Recurring` in RawCull, Codex confirmed an analysis-enabled recurring grant and ran a fresh `burstAnalysis`.
+
+- Catalog ID `35A085F3-93DA-4879-9B96-6F0F1BD8ABD5`
+- Job ID `F7225B70-836F-4B25-85AF-8B20760A0846`
+- Terminal state `completed` with 12 photos analyzed and 1 burst
+
+After **Clear Last Shared Result**:
+
+```json
+{"catalogs":[{"recurringFolder":true,"displayName":"RawCull-TestFlight-Recurring","id":"35A085F3-93DA-4879-9B96-6F0F1BD8ABD5","analysisEnabled":true}]}
+```
+
+```json
+{"photoCount":12,"snapshotAt":"2026-11-15T06:52:00Z","earliestCaptureDate":"2026-05-06T03:29:30Z","cameraCounts":{"SONY ILCE-1M2":12},"scanStatus":"saved_snapshot","latestCaptureDate":"2026-05-06T03:29:31Z","catalogId":"35A085F3-93DA-4879-9B96-6F0F1BD8ABD5"}
+```
+
+Both `get_analysis_status` and `list_bursts` returned `isError: true` with “That job was cleared, replaced, or revoked.”
+
+After **Revoke Access** and quitting RawCull:
+
+| Call | Response |
+| --- | --- |
+| `list_catalogs` | “No catalog is authorized.” with `{"catalogs":[]}` |
+| `catalog_summary` | `isError: true` with “No authorized catalog matches that ID. Call list_catalogs for the current ID.” |
+| `get_analysis_status` | `isError: true` with “No current job matches that catalog and job ID.” |
+| `list_bursts` | `isError: true` with “That job was cleared, replaced, or revoked.” |
+
+**PASS** for the MCP clear and revoke checks. The Settings display after each action was unrecorded.
+
 ## 11. Quit and resume a pending setup request
 
 With RawCull quit, send the first prompt. When the chooser appears, leave it unanswered and quit RawCull with **⌘Q**. Confirm the app quit, then send the second prompt before the 10-minute setup deadline. When the chooser returns, select Downloads and click **Approve This Job**.
@@ -477,7 +508,25 @@ Expect the same request to resume with its original creation time and deadline. 
 
 ### Log 11
 
-Paste both responses and the observed sequence.
+#### Build 451 attempt on 2026-11-15
+
+RawCull did not start and the chooser never appeared. The initial submission response was unrecorded. The identical resubmission and subsequent status poll both returned the following.
+
+- Request ID `A978464F-12B8-4AA9-BDCB-55E0D4CE1DC2`
+- State `denied`
+- Original `createdAt` value `816418540.867627`
+- Deadline and job ID were absent.
+- Exact message “Catalog setup was cancelled or denied in RawCull.”
+
+**FAIL** for launch and chooser visibility. **UNTESTED** for recovery after quitting with the chooser open because the chooser never appeared.
+
+#### Next check on build 451
+
+1. Verify that `codex mcp get rawcull` points to the helper in the installed RawCull app. Check the installed build in About RawCull or the app's `Info.plist` and record it alongside the helper's `appBuild` response.
+2. With the grant list empty and RawCull fully quit, send the first Step 11 prompt with a fresh request ID. Save the initial submission response before replaying it. Record whether the app launches and whether the chooser appears.
+3. If the chooser appears, leave it unanswered and press **⌘Q**. Confirm the app exited and immediately send the second Step 11 prompt with the same request ID. Complete the one-time approval if the chooser returns.
+4. If the app or chooser fails to appear, capture the request status before replaying. Once that request is terminal, open RawCull manually and retry the first prompt with a fresh request ID. Record whether the chooser appears with the app already open. If it appears, cancel it and record the terminal state to close the trial.
+5. Start Step 12 once the chooser can open reliably. Its three expiry checks depend on reaching the intended setup screens.
 
 ## 12. Check setup expiry at each screen
 
@@ -530,6 +579,14 @@ Expect the ambiguous hint to ask which folder to use. An unavailable exact path 
 Paste both responses. Note exactly which UI appeared and any resolved path shown.
 
 ## Run summary
+
+### Build 451 rerun
+
+- The helper reported `0.7.0` and `appBuild: null`. Build reporting still fails.
+- Step 10 passed the MCP clear and revoke checks. The Settings display was unrecorded.
+- Step 11 failed to launch RawCull and show the chooser. Quit-and-resume recovery remains untested.
+
+### Original build 450 run
 
 - Reviewed on 2026-11-14. The macOS version was not recorded.
 - Installed app version 3.4.6 (450). Helper version 0.7.0 over stdio.
