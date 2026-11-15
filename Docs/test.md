@@ -431,7 +431,38 @@ Expect clearing to preserve the grant and metadata while removing rankings. Revo
 
 ### Log 10
 
-Paste both responses and your Settings observations.
+```bash
+Saved access, metadata, and old rankings are unavailable after clearing the shared result.
+
+- list_catalogs: catalogs: [] — “No catalog is authorized.”
+- catalog_summary for the previous recurring grant: “No authorized catalog matches that ID. Call list_catalogs for the current ID.”
+- list_bursts for job 50E59481-1053-47AF-A02A-8AC822258CD1: “That job was cleared, replaced, or revoked.”
+
+Both read attempts returned isError: true.
+```
+
+```bash
+Used former catalog DC64BA70-F140-4B58-A969-ED4969C4F8BD and job 50E59481-1053-47AF-A02A-8AC822258CD1.
+
+| Call | Actual response | Error |
+|---|---|---|
+| list_catalogs | “No catalog is authorized.” — {"catalogs":[]} | No |
+| catalog_summary | “No authorized catalog matches that ID. Call list_catalogs for the current ID.” | isError: true |
+| get_analysis_status | “No current job matches that catalog and job ID.” | isError: true |
+| list_bursts | “That job was cleared, replaced, or revoked.” | isError: true |
+```
+
+```bash
+The identical resubmission returned terminal state denied.
+
+- Request ID: E3478A91-6F25-4DB0-A8C3-92B51E7D064F
+- Original creation time: 816415263.532646
+- Deadline: not provided
+- Exact message: “Catalog setup was cancelled or denied in RawCull.”
+
+No job ID was returned, so there is no analysis job to poll.
+```
+
 
 ## 11. Quit and resume a pending setup request
 
