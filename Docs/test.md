@@ -420,10 +420,11 @@ The first-run burst cursor was null: untested, because no cursor was available.
 
 ## 10. Clear a result while keeping the grant, then revoke access
 
-1. In **Settings → MCP**, click **Clear Last Shared Result** and send the first prompt.
-2. Click **Revoke Access**, quit RawCull, and send the second prompt. Use the most recent recurring IDs.
+1. Use the most recent recurring catalog and job IDs. If rerunning this step after revoking access, authorize the recurring folder again and complete a fresh analysis first.
+2. In **Settings → MCP**, verify that both **Authorized catalog** and **Last shared result** show the recurring folder. Click **Clear Last Shared Result** and record what both sections show afterward. Send the first prompt and save the response before continuing.
+3. Click **Revoke Access** if enabled, record what Settings shows, quit RawCull, and send the second prompt.
 
-> Use only `rawcull`. After I cleared the last shared result, call `list_catalogs`, `catalog_summary` for the recurring grant, and `list_bursts` for the last job. Report whether saved access and metadata are still available and whether the old rankings can be read.
+> Use only `rawcull`. After I cleared the last shared result, call `list_catalogs`, `catalog_summary` for the recurring grant, and `get_analysis_status` and `list_bursts` for the last job. Report each actual response or error. Verify whether the grant and photo metadata remain available and whether the old coverage and rankings are blocked.
 
 > Use only `rawcull`. I revoked access and quit RawCull. Call `list_catalogs`, then try `catalog_summary`, `get_analysis_status`, and `list_bursts` with the former catalog and job IDs. Report each actual response or error.
 
@@ -541,11 +542,16 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 | 3. One-time approval and replay | **PASS** for MCP, UI checks unverified | The replay returned the same pending request. Job `339F6967-B556-45BF-9EE2-80DD40098F82` completed and the grant list stayed empty. Record chooser and approval counts, displayed hint, resolved path, and the fixture comparison. |
 | 4. Read and clear | **PASS** for MCP, Settings display unverified | Reads succeeded after quitting. Clearing blocked status and rankings even when replay returned the original IDs. The grant list stayed empty. Record what **Last shared result** showed before clearing. |
 | 5. Remember and reuse | **PASS** for MCP, sheet visibility unverified | The second job reused catalog `80ACA98A-2225-4B49-B1AB-9370F7E1EDAE` with a fresh job ID and matching coverage. Setup briefly returned `pendingApproval` before queuing without input. Record whether either sheet appeared during the second run. |
-| 6–14 | **UNTESTED** | No results recorded in this run yet. |
+| 6. Metadata from saved grant | **PASS** for MCP | The Downloads snapshot returned 958 photos with camera and capture-date coverage. Two pages returned 10 distinct photo IDs. |
+| 7. Force-quit and recovery | **PASS** | The running job reported `failed` on the first status query after force-quit, with the worker-exit message. A fresh job analyzed all 958 photos and returned rankings. |
+| 8. Cancel an active job | **PASS** | Cancellation was requested while the job was running. The next poll returned `cancelled`, and the saved Downloads grant remained analysis-enabled. |
+| 9. Replace grant and refresh recurring folder | **PASS** for MCP grant replacement, refresh, and photo cursor rejection. Burst cursor **UNTESTED**. | The recurring run reflected the change from 13 to 12 photos and rejected the old photo cursor. The first run contained one burst and returned no burst cursor. The Settings replacement notice and refresh remain unverified. |
+| 10. Clear result and revoke access | **FAIL** for clearing. Post-revoke reads blocked. | Clearing blocked rankings, but the grant list was already empty and metadata was unavailable before revocation. The post-revoke calls also showed no saved access and blocked reads with the former IDs. |
+| 11–14 | **UNTESTED** | Logs 11–14 have no complete results. |
 
 ### Correct the build report and complete the missing checks
 
 1. To diagnose Step 1, run `codex mcp get rawcull` and `/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' /Applications/RawCull.app/Contents/Info.plist`. If the registered command points to a standalone helper, register the bundled helper and start a fresh chat. This run already had the expected registration and installed build.
 2. In the helper, update `rawcull_status` in `Tools/RawCullMCP/Sources/RawCullMCP/ToolHandlers.swift` to take `CFBundleVersion` from the enclosing app's `Contents/Info.plist`, which `AnalysisTools.bundledRawCullURL()` already reads and validates. Reuse that metadata lookup and preserve `null` for a standalone helper. Build and install a signed app with the updated helper, then confirm in a fresh chat that `appBuild` matches the installed build. Check that the standalone helper still reports `null`.
-3. Finish the checks that need the current Downloads grant before resetting access for Step 2. On the rerun, save the first request ID, record `denied` with no job ID and an empty grant list, and capture the second request's cooldown response. After the wait, retry the exact second request with the same UUID. Verify the approval sheet path and action, click **Deny**, and record the terminal status, job ID field, and grant list.
+3. On the Step 2 rerun, save the first request ID, record `denied` with no job ID and an empty grant list, and capture the second request's cooldown response. After the wait, retry the exact second request with the same UUID. Verify the approval sheet path and action, click **Deny**, and record the terminal status, job ID field, and grant list.
 4. Add any UI observations you can confirm from the original run to Logs 3–5. Record the remaining observations when repeating those steps in order, since Step 4 uses the shared result from Step 3.
