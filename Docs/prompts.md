@@ -4,7 +4,7 @@ Use these prompts to open a photo folder in RawCull, analyze it, and get a ranke
 
 ## Where these prompts work
 
-Use **Codex on your Mac** with the `rawcull` MCP server configured to launch the helper bundled in the installed RawCull app over local `stdio`. Prompt-driven setup and analysis were verified with the signed TestFlight app and helper `0.6.0`. For connection and verification steps, see [RawCull MCP setup](mcp.md#test-the-bundled-helper-with-testflight).
+Use **Codex on your Mac** with the `rawcull` MCP server configured to launch the helper bundled in the installed RawCull app over local `stdio`. Prompt-driven setup and analysis were verified with the signed TestFlight app and helper `0.6.0`. For connection and verification steps, see [RawCull MCP setup](mcpserver.md#connect-codex-to-the-bundled-helper).
 
 RawCull runs the analysis on your Mac. The MCP server returns filenames, ranked candidates, scores, and coverage to the client, which may send those results to its model provider. Other clients need local stdio MCP support and are unverified for this workflow. Image previews and saved review drafts require future tools.
 

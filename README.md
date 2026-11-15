@@ -51,7 +51,7 @@ The bundled Model Context Protocol (MCP) server lets you work with an authorized
 
 You choose which catalog to share and whether the client can start analysis in **Settings → MCP**. The helper runs locally and returns authorized catalog metadata and analysis results. The AI client may send those results to its configured model provider.
 
-Prompt-driven catalog setup, job approval, and saved-grant reuse have been verified on TestFlight. [Copy-ready prompts](Docs/prompts.md) · [Setup, TestFlight verification, and roadmap](Docs/mcp.md)
+Prompt-driven catalog setup, job approval, and saved-grant reuse have been verified on TestFlight. [Copy-ready prompts](Docs/prompts.md) · [MCP server setup and TestFlight results](Docs/mcpserver.md)
 
 ## Combined Review
 
