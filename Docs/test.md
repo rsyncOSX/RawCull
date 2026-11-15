@@ -520,7 +520,53 @@ RawCull did not start and the chooser never appeared. The initial submission res
 
 **FAIL** for launch and chooser visibility. **UNTESTED** for recovery after quitting with the chooser open because the chooser never appeared.
 
+#### Build 451 retry
+
+The replay returned:
+
+```json
+{
+  "createdAt": 816418845.778556,
+  "jobType": "burstAnalysis",
+  "message": "Catalog setup was cancelled or denied in RawCull.",
+  "requestId": "4CBBD8A2-13BE-4D75-9D38-76BC597F021E",
+  "state": "denied"
+}
+```
+
+RawCull did not reopen after replay. The replay was terminal and returned no job ID. Codex stopped after replay. The initial submission response and the chooser behavior before quitting are unrecorded for this retry.
+
+#### Build 451 chooser check with RawCull already open
+
+The folder chooser appeared after a fresh request while RawCull was running. After the tester clicked **Cancel**, one `get_catalog_setup_status` call returned the following.
+
+- Request ID `A17E6D90-4B53-48AF-B2C8-5D093FC176EA`
+- State `denied`
+- Original `createdAt` value `816418969.398638`
+- Exact message “Catalog setup was cancelled or denied in RawCull.”
+- Job ID was absent. The request was checked once and was not replayed.
+
+**PASS** for showing the chooser with RawCull already running and closing the request on cancellation.
+
+#### Build 451 quit with the chooser open
+
+With RawCull already running, the tester submitted a fresh request, left the folder chooser unanswered, and quit with **⌘Q**. The first `get_catalog_setup_status` call after quitting and the subsequent identical replay both returned:
+
+```json
+{
+  "createdAt": 816419095.518444,
+  "jobType": "burstAnalysis",
+  "state": "denied",
+  "message": "Catalog setup was cancelled or denied in RawCull.",
+  "requestId": "7EB6C45F-9D2A-4FE8-A102-3C861B0D5749"
+}
+```
+
+**FAIL** for quit-and-resume recovery. The first status check already returned a terminal denial, and replay preserved that state. Neither response contained a job ID. The initial submission payload and whether replay reopened RawCull were unrecorded.
+
 #### Next check on build 451
+
+The quit-and-resume failure is now reproduced with the chooser open. Investigate what transitions the request to `denied` during normal quit or on the first status read after exit. On a build with a fix, repeat the quit-with-chooser-open trial above. Use the full-quit launch check below to verify automatic launch separately.
 
 1. Verify that `codex mcp get rawcull` points to the helper in the installed RawCull app. Check the installed build in About RawCull or the app's `Info.plist` and record it alongside the helper's `appBuild` response.
 2. With the grant list empty and RawCull fully quit, send the first Step 11 prompt with a fresh request ID. Save the initial submission response before replaying it. Record whether the app launches and whether the chooser appears.
@@ -584,7 +630,7 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 
 - The helper reported `0.7.0` and `appBuild: null`. Build reporting still fails.
 - Step 10 passed the MCP clear and revoke checks. The Settings display was unrecorded.
-- Step 11 failed to launch RawCull and show the chooser. Quit-and-resume recovery remains untested.
+- Step 11 failed on the full-quit launch attempt. With RawCull already running, the chooser appeared and cancellation worked. Quitting with the chooser unanswered also failed the recovery check. The first status check after exit already returned `denied`.
 
 ### Original build 450 run
 
