@@ -344,7 +344,79 @@ Expect Settings to refresh after grant replacement. The second recurring job sho
 
 ### Log 9
 
-Paste all three responses. List both fixture counts and filenames, and note what the replacement sheet and Settings showed.
+```bash
+Analysis completed.
+
+- Request ID: A84C397F-21B6-4E59-91D3-07F2C8E64A10
+- Catalog ID: CF3AED28-16A6-4DFD-8F81-C5441612B1ED
+- Job ID: 7A1D6768-C6FC-4F15-8A8A-2E0B086486B7
+- Coverage: 13/13 photos analyzed, 1 burst, 0 singletons, 0 unevaluated, no skips; CLIP covered all 13.
+
+list_catalogs now shows only RawCull-TestFlight-Recurring, with the matching catalog ID and analysisEnabled: true. Downloads is no longer listed.
+
+The grant reports recurringFolder: false, so the catalog change is confirmed, but that flag does not confirm a recurring-folder grant.
+```
+
+```bash
+Confirmed RawCull-TestFlight-Recurring has analysisEnabled: true and recurringFolder: true.
+
+The new analysis completed: 13 scanned, 13 analyzed, 1 burst, no skips or unevaluated photos.
+
+- Request ID: D6A2E930-7F84-4CB1-9A65-E308B21F4C79
+- Catalog ID: DC64BA70-F140-4B58-A969-ED4969C4F8BD
+- Job ID: AC8F7D52-888A-4123-8626-F3FE33A7F688
+
+Both listing calls used limit 1. The first photo was _DSC8644.ARW, ID:
+DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:0
+
+The first burst contains 13 frames. Its returned rankings were:
+
+| Rank | Filename | Score |
+|---|---|---:|
+| 1 | _DSC8643.ARW | 0.9309999943 |
+| 2 | _DSC8644.ARW | 0.9309999943 |
+| 3 | _DSC8646.ARW | 0.9309999943 |
+| 4 | _DSC8649.ARW | 0.9296809435 |
+| 5 | _DSC8647.ARW | 0.9283439517 |
+
+Recommended: _DSC8643.ARW; alternate: _DSC8644.ARW. Confidence: low; caution: “Top two are close.”
+
+Exact cursors preserved for the next prompt:
+
+- Photos nextCursor: DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:1
+- Bursts nextCursor: null
+```
+
+```bash
+The fresh analysis completed with 12 scanned and 12 analyzed, 1 burst, 0 singletons, 0 unevaluated, and no skips. CLIP covered all 12 photos.
+
+- Request ID: F092B61D-8C43-4E75-A209-67D15B3C8E94
+- Catalog ID: DC64BA70-F140-4B58-A969-ED4969C4F8BD
+- Job ID: 50E59481-1053-47AF-A02A-8AC822258CD1
+
+Filenames in returned order: _DSC8630.ARW, _DSC8631.ARW, _DSC8622.ARW, _DSC8625.ARW, _DSC8626.ARW, _DSC8627.ARW, _DSC8624.ARW, _DSC8623.ARW, _DSC8620.ARW, _DSC8621.ARW, _DSC8629.ARW, _DSC8628.ARW.
+
+The 12-frame burst returned these rankings:
+
+| Rank | Filename | Score |
+|---|---|---:|
+| 1 | _DSC8625.ARW | 0.9309999943 |
+| 2 | _DSC8629.ARW | 0.9309999943 |
+| 3 | _DSC8631.ARW | 0.9309999943 |
+| 4 | _DSC8630.ARW | 0.9206074476 |
+| 5 | _DSC8624.ARW | 0.9175561666 |
+
+Recommended: _DSC8625.ARW; alternate: _DSC8629.ARW. Confidence: low; caution: “Top two are close.”
+
+The first-run photo cursor, tested against the current catalog ID, was:
+DC64BA70-F140-4B58-A969-ED4969C4F8BD:AC8F7D52-888A-4123-8626-F3FE33A7F688:1
+
+Exact response:
+
+{"content":[{"type":"text","text":"Invalid cursor. Use nextCursor from a page of this catalog snapshot."}],"isError":true}
+
+The first-run burst cursor was null: untested, because no cursor was available.
+```
 
 ## 10. Clear a result while keeping the grant, then revoke access
 
