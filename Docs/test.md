@@ -572,7 +572,18 @@ The quit-and-resume failure is now reproduced with the chooser open. Investigate
 2. With the grant list empty and RawCull fully quit, send the first Step 11 prompt with a fresh request ID. Save the initial submission response before replaying it. Record whether the app launches and whether the chooser appears.
 3. If the chooser appears, leave it unanswered and press **⌘Q**. Confirm the app exited and immediately send the second Step 11 prompt with the same request ID. Complete the one-time approval if the chooser returns.
 4. If the app or chooser fails to appear, capture the request status before replaying. Once that request is terminal, open RawCull manually and retry the first prompt with a fresh request ID. Record whether the chooser appears with the app already open. If it appears, cancel it and record the terminal state to close the trial.
-5. Start Step 12 once the chooser can open reliably. Its three expiry checks depend on reaching the intended setup screens.
+
+#### Local build retest with the quit-handling fix
+
+The test used `rawcull-local` from `/Applications/RawCull-MCP-Test.app/Contents/MacOS/rawcull-mcp`. The helper reported version `0.7.0` and `appBuild: null`.
+
+The initial submission returned `pendingApproval` for request `A2F87E1D-C954-4B06-9A73-028C1E64FB95`, with `createdAt: 816419940.57585`, hint `Downloads TestFlight pending relaunch`, and job type `burstAnalysis`. The tester reported that RawCull reopened. Setup finished under the original request ID and creation time.
+
+- Catalog ID `4E16CB10-C654-4123-A9E5-6323D30896C4`
+- Job ID `30EEF112-E6A9-459A-83D2-46B95B6B1779`
+- Terminal state `completed` with 958 photos analyzed and 64 bursts
+
+**PASS** for resuming the original request and completing analysis on the local build. The first post-quit status and replay response payloads were unrecorded.
 
 ## 12. Check setup expiry at each screen
 
@@ -626,6 +637,12 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 
 ## Run summary
 
+### Local retest and next TestFlight build
+
+- Step 11 **PASS** on the local build with the quit-handling fix. The original request resumed and analysis completed. Retest on the next TestFlight build and capture the first post-quit status and replay responses.
+- Step 1 build reporting was fixed after the local retest. On the next TestFlight build, check that `rawcull_status.appBuild` matches **About RawCull**.
+- Steps 12–14 are deferred and remain **UNTESTED** for this release run.
+
 ### Build 451 rerun
 
 - The helper reported `0.7.0` and `appBuild: null`. Build reporting still fails.
@@ -655,6 +672,6 @@ Paste both responses. Note exactly which UI appeared and any resolved path shown
 ### Correct the build report and complete the missing checks
 
 1. To diagnose Step 1, run `codex mcp get rawcull` and `/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' /Applications/RawCull.app/Contents/Info.plist`. If the registered command points to a standalone helper, register the bundled helper and start a fresh chat. This run already had the expected registration and installed build.
-2. In the helper, update `rawcull_status` in `Tools/RawCullMCP/Sources/RawCullMCP/ToolHandlers.swift` to take `CFBundleVersion` from the enclosing app's `Contents/Info.plist`, which `AnalysisTools.bundledRawCullURL()` already reads and validates. Reuse that metadata lookup and preserve `null` for a standalone helper. Build and install a signed app with the updated helper, then confirm in a fresh chat that `appBuild` matches the installed build. Check that the standalone helper still reports `null`.
+2. The updated helper reads `CFBundleVersion` from the validated enclosing app's `Contents/Info.plist`. In a fresh chat using the bundled helper, confirm that `appBuild` matches the installed build. A standalone helper should still report `null`.
 3. On the Step 2 rerun, save the first request ID, record `denied` with no job ID and an empty grant list, and capture the second request's cooldown response. After the wait, retry the exact second request with the same UUID. Verify the approval sheet path and action, click **Deny**, and record the terminal status, job ID field, and grant list.
 4. Add any UI observations you can confirm from the original run to Logs 3–5. Record the remaining observations when repeating those steps in order, since Step 4 uses the shared result from Step 3.
