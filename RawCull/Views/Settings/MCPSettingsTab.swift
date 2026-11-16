@@ -17,6 +17,8 @@ struct MCPSettingsTab: View {
     @State private var grantReadFailed = false
     @State private var sharedResult: SharedResult?
     @State private var resultReadFailed = false
+    @State private var assessments: [AnalysisJobStore.FollowUpRecord] = []
+    @State private var assessmentError = false
     @State private var clearError: LocalizedStringResource?
 
     var body: some View {
@@ -79,6 +81,17 @@ struct MCPSettingsTab: View {
                 Text("An MCP client can read saved catalog metadata while RawCull is closed. If you allow analysis, it can also open RawCull to scan this catalog and read ranked bursts. Revoking access removes the saved authorization and the current job, including any shared result.")
             }
             SharedResultSection(result: sharedResult, readFailed: resultReadFailed, error: clearError, clear: clearResult)
+            if !assessments.isEmpty || assessmentError {
+                Section("Photo assessments") {
+                    ForEach(assessments, id: \.request.id) { record in
+                        assessmentRow(record)
+                    }
+                    if assessmentError {
+                        Text("RawCull could not update the assessment. Try again.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .onChange(of: selectedCatalogURL) {
@@ -88,6 +101,61 @@ struct MCPSettingsTab: View {
         .task { await observeSharing() }
     }
 
+    private func assessmentRow(_ record: AnalysisJobStore.FollowUpRecord) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                if case let .photos(ids) = record.request.target {
+                    Text("Photos assessed or requested: \(ids.count)")
+                }
+                Text(record.createdAt, format: .dateTime.month().day().hour().minute())
+                Text(record.request.rubric.map { field in
+                    switch field {
+                    case "composition": String(localized: "Composition")
+                    case "exposure": String(localized: "Exposure")
+                    default: String(localized: "Subject visibility")
+                    }
+                }.formatted(.list(type: .and)))
+                Text(assessmentState(record))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if record.state == .running || record.state == .queued {
+                Button("Cancel") { updateAssessment(record.request.id, clear: false) }
+                    .disabled(record.cancellationRequested)
+            } else if record.state == .completed || record.state == .failed {
+                Button("Clear") { updateAssessment(record.request.id, clear: true) }
+            }
+        }
+    }
+
+    private func assessmentState(_ record: AnalysisJobStore.FollowUpRecord) -> LocalizedStringResource {
+        if record.cancellationRequested, record.state == .running { return "Cancelling" }
+        switch record.state {
+        case .queued: return "Queued"
+        case .running: return "Analyzing photo previews"
+        case .completed: return "Shared with MCP"
+        case .cancelled: return "Cancelled"
+        case .interrupted: return "Interrupted"
+        case .failed: return "Failed"
+        }
+    }
+
+    private func updateAssessment(_ id: UUID, clear: Bool) {
+        let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
+        do {
+            if clear { try jobs.clearFollowUpResult(id) }
+            else { try jobs.cancelFollowUp(id) }
+            assessmentError = false
+            refreshAssessments(jobs)
+        } catch {
+            assessmentError = true
+        }
+    }
+
+    private func refreshAssessments(_ jobs: AnalysisJobStore) {
+        if let latest = try? jobs.recentFollowUps(), latest != assessments { assessments = latest }
+    }
+
     private func observeSharing() async {
         let grants = CatalogGrantStore.shared()
         let jobs = AnalysisJobStore(directory: grants.directory)
@@ -95,6 +163,7 @@ struct MCPSettingsTab: View {
         var jobRevision = jobs.revision()
         refreshGrant()
         refreshResult()
+        refreshAssessments(jobs)
         while !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             let nextGrant = grants.revision()
@@ -102,6 +171,7 @@ struct MCPSettingsTab: View {
             let grantChanged = nextGrant != grantRevision || grantReadFailed
             if grantChanged { refreshGrant() }
             if grantChanged || nextJob != jobRevision || resultReadFailed { refreshResult() }
+            refreshAssessments(jobs)
             grantRevision = nextGrant
             jobRevision = nextJob
         }

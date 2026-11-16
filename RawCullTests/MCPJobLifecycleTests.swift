@@ -338,6 +338,73 @@ struct MCPJobLifecycleTests {
         }
     }
 
+    @Test func queuedAssessmentReplaysAndClaimsExactlyOnce() throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            let queued = try store.enqueueFollowUp(request)
+            #expect(queued.state == .queued)
+            #expect(try store.replayFollowUp(request) == queued)
+            let conflicting = AnalysisJobStore.FollowUpRequest(
+                id: request.id, catalogID: request.catalogID, sourceJobID: request.sourceJobID,
+                target: request.target, rubric: ["exposure"]
+            )
+            #expect(throws: AnalysisJobStore.FollowUpError.conflict) {
+                try store.replayFollowUp(conflicting)
+            }
+            let worker = try startFollowUp(request, in: store)
+            #expect(try store.queuedFollowUp() == nil)
+            #expect(try store.followUpStatus(request.id).state == .running)
+            let replacement = AnalysisJob(jobId: UUID(), catalogId: request.catalogID, createdAt: now, updatedAt: now)
+            #expect(throws: AnalysisJobStore.StoreError.busy) {
+                try store.update { _ in replacement }
+            }
+            let output = Data("{}".utf8)
+            try store.finishFollowUp(worker, result: output)
+            #expect(try store.followUpStatus(request.id).state == .completed)
+            #expect(try store.readFollowUpResult(request.id) == output)
+            try store.clearFollowUpResult(request.id)
+            #expect(try store.followUpStatus(request.id).resultCleared == true)
+            #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                try store.readFollowUpResult(request.id)
+            }
+        }
+    }
+
+    @Test func cancellingQueuedAssessmentLeavesReplayReceipt() throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            _ = try store.enqueueFollowUp(request)
+            try store.cancelFollowUp(request.id)
+            #expect(try store.queuedFollowUp() == nil)
+            #expect(try store.followUpStatus(request.id).state == .cancelled)
+            #expect(try store.replayFollowUp(request)?.state == .cancelled)
+        }
+    }
+
+    @Test func assessmentProjectionPreservesUnknownsAndExcludesUnrequestedFields() throws {
+        let assessment = try QwenPhotoAssessment.decodeResponse("""
+            {"schemaVersion":2,"subject":"private subject","compositionScore":3,
+             "compositionEvidence":"Useful framing\\nDetail","exposureScore":null,"exposureEvidence":null,
+             "subjectVisibilityScore":4,"subjectVisibilityEvidence":"private evidence","eyesOpen":null,
+             "problems":[],"strengths":[],"confidence":0.5}
+            """)
+        let output = MCPPhotoAssessmentResult(
+            requestId: UUID(), sourceJobId: UUID(), model: "Qwen fixture", assessedCount: 1, failedCount: 1,
+            photos: [
+                .init(photoId: "supported", assessedImage: .init(width: 2048, height: 1365),
+                      findings: assessment.mcpFindings(for: ["composition", "exposure"])),
+                .init(photoId: "unreadable", errorCode: "unreadablePhoto")
+            ]
+        )
+        let json = String(decoding: try JSONEncoder().encode(output), as: UTF8.self)
+        #expect(json.contains("Useful framing Detail"))
+        #expect(json.contains("\"score\":null"))
+        #expect(json.contains("\"evidence\":null"))
+        #expect(json.contains("unreadablePhoto"))
+        #expect(!json.contains("private"))
+        #expect(!json.contains("subjectVisibility"))
+    }
+
     private func seedFollowUpSource(in store: AnalysisJobStore) throws -> AnalysisJobStore.FollowUpRequest {
         let catalogID = UUID()
         let jobID = UUID()

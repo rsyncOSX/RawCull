@@ -129,3 +129,92 @@ nonisolated struct QwenBatchProgress: Equatable, Sendable {
     let totalCount: Int
     let currentFileName: String?
 }
+
+nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
+    struct Image: Encodable, Sendable {
+        let kind = "preview"
+        let width: Int
+        let height: Int
+    }
+
+    struct Finding: Encodable, Sendable {
+        let score: Int?
+        let evidence: String?
+
+        enum CodingKeys: String, CodingKey { case score, evidence }
+
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(score, forKey: .score)
+            try container.encode(evidence, forKey: .evidence)
+        }
+    }
+
+    struct Photo: Encodable, Sendable {
+        let photoId: String
+        var assessedImage: Image?
+        var findings: [String: Finding]?
+        var errorCode: String?
+    }
+
+    let requestId: UUID
+    let sourceJobId: UUID
+    let model: String
+    let promptTemplateVersion = 1
+    let resultSchemaVersion = 1
+    let untrustedModelText = true
+    let assessedCount: Int
+    let failedCount: Int
+    let photos: [Photo]
+}
+
+nonisolated extension QwenPhotoAssessment {
+    func mcpFindings(for rubric: [String]) -> [String: MCPPhotoAssessmentResult.Finding] {
+        func finding(_ score: Int?, _ evidence: String?) -> MCPPhotoAssessmentResult.Finding {
+            let clean = evidence.map { value in
+                String(String.UnicodeScalarView(value.unicodeScalars.prefix(240).map { scalar in
+                    CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar) ? " " : scalar
+                }))
+            }
+            return .init(score: score, evidence: clean)
+        }
+
+        let fields = [
+            "composition": finding(compositionScore, compositionEvidence),
+            "exposure": finding(exposureScore, exposureEvidence),
+            "subjectVisibility": finding(subjectVisibilityScore, subjectVisibilityEvidence),
+        ]
+        return fields.filter { rubric.contains($0.key) }
+    }
+}
+
+nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
+    case modelUnavailable
+    case visionModelRequired
+    case imageUnavailable
+    case emptyResponse
+    case invalidStructuredResponse
+    case invalidTokenLimit
+
+    var errorDescription: String? {
+        switch self {
+        case .modelUnavailable:
+            "Select and validate a Qwen model in AI Settings first."
+
+        case .visionModelRequired:
+            "The selected model is text-only. Select a Qwen vision-language bundle, such as Qwen3-VL-2B-Instruct."
+
+        case .imageUnavailable:
+            "The selected photo could not be decoded for Qwen."
+
+        case .emptyResponse:
+            "Qwen returned an empty response."
+
+        case .invalidStructuredResponse:
+            "Qwen did not return a valid structured photo assessment."
+
+        case .invalidTokenLimit:
+            "The requested Qwen response length is outside the supported range."
+        }
+    }
+}

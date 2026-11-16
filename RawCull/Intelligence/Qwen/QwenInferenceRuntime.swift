@@ -34,6 +34,7 @@ nonisolated struct QwenVisionRequest: Sendable {
     let instruction: String
     let image: CGImage
     let maximumResponseTokens: Int
+    var captureDiagnostics = true
 }
 
 actor QwenInferenceRuntime: QwenInferenceServing {
@@ -43,6 +44,15 @@ actor QwenInferenceRuntime: QwenInferenceServing {
     private var modelGeneration: UInt64 = 0
     private let generationGate = QwenGenerationGate()
     private var activeGeneration: Task<String, Error>?
+
+    nonisolated struct Identity: Equatable, Sendable {
+        let name: String
+        let generation: UInt64
+    }
+
+    func assessmentIdentity() -> Identity? {
+        provider.map { Identity(name: $0.configuration.name, generation: modelGeneration) }
+    }
 
     func validate(url: URL) -> QwenModelStatus {
         activeGeneration?.cancel()
@@ -88,6 +98,33 @@ actor QwenInferenceRuntime: QwenInferenceServing {
             maximumResponseTokens: 512,
         ))
         return try QwenModelResponse.decode(response)
+    }
+
+    func assessForMCP(rubric: [String], image: CGImage, identity: Identity) async throws -> QwenPhotoAssessment {
+        let criteria = "Return the complete structured photograph assessment. Focus evidence on "
+            + rubric.joined(separator: ", ")
+            + ". Use null score and evidence where unsupported. Use at most 160 characters per evidence sentence."
+        for attempt in 0 ..< 2 {
+            try Task.checkCancellation()
+            guard assessmentIdentity() == identity else { throw MCPAssessmentError.modelChanged }
+            let retry = attempt == 0 ? "" : " Return JSON with every required key and no surrounding prose."
+            do {
+                let response = try await respond(to: .init(
+                    instruction: Self.assessmentInstruction(criteria: criteria + retry),
+                    image: image, maximumResponseTokens: 512, captureDiagnostics: false
+                ))
+                try Task.checkCancellation()
+                guard assessmentIdentity() == identity else { throw MCPAssessmentError.modelChanged }
+                if let result = try? QwenPhotoAssessment.decodeResponse(response) { return result }
+            } catch QwenModelError.emptyResponse {
+                // Apply the same single retry as for invalid JSON.
+            }
+        }
+        throw QwenModelError.invalidStructuredResponse
+    }
+
+    nonisolated enum MCPAssessmentError: Error {
+        case modelChanged
     }
 
     func respond(to request: QwenVisionRequest) async throws -> String {
@@ -146,7 +183,9 @@ actor QwenInferenceRuntime: QwenInferenceServing {
         try Task.checkCancellation()
         guard modelGeneration == generation else { throw CancellationError() }
         let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        captureDiagnostic(request: request, response: content)
+        if request.captureDiagnostics {
+            captureDiagnostic(request: request, response: content)
+        }
         guard !content.isEmpty else { throw QwenModelError.emptyResponse }
         return content
     }
@@ -248,37 +287,6 @@ actor QwenInferenceRuntime: QwenInferenceServing {
     private static func message(for error: Error) -> String {
         let description = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return description.isEmpty ? String(reflecting: error) : description
-    }
-}
-
-nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
-    case modelUnavailable
-    case visionModelRequired
-    case imageUnavailable
-    case emptyResponse
-    case invalidStructuredResponse
-    case invalidTokenLimit
-
-    var errorDescription: String? {
-        switch self {
-        case .modelUnavailable:
-            "Select and validate a Qwen model in AI Settings first."
-
-        case .visionModelRequired:
-            "The selected model is text-only. Select a Qwen vision-language bundle, such as Qwen3-VL-2B-Instruct."
-
-        case .imageUnavailable:
-            "The selected photo could not be decoded for Qwen."
-
-        case .emptyResponse:
-            "Qwen returned an empty response."
-
-        case .invalidStructuredResponse:
-            "Qwen did not return a valid structured photo assessment."
-
-        case .invalidTokenLimit:
-            "The requested Qwen response length is outside the supported range."
-        }
     }
 }
 

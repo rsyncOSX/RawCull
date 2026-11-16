@@ -751,3 +751,10 @@ Tested the source-snapshot changes at commit `662efb02` on 2026-11-16.
 - **PASS**. Build 453’s MCP settings still showed “Follow-up photo analysis is authorized” after the CLIP refresh. Snapshot contents and lookup were verified in the isolated production-store harness. Direct inspection of the signed app’s on-disk snapshot from a separate process was unavailable.
 
 **Step 2 verdict — passed.** The production-store Release harness and helper tests passed, and signed build 453 passed legacy grant and ranking compatibility and the live Vision and CLIP baseline.
+
+## Follow-up AI plan — Step 3 test progress
+
+- **PASS**. The bundled candidate implements `start_photo_assessment`, `get_photo_assessment_status`, `get_photo_assessment_result`, and `cancel_photo_assessment`. The helper suite passed 19 tests. The isolated Release harness passed 18 lifecycle and projection tests.
+- **PASS**. Signed build 453 assessed the two reference frames with Qwen3-VL-2B. Request `61AD5B25-E2C6-43BF-BD79-27727027A752` completed in about 77 seconds from cold start with composition and subject-visibility findings for both photos. Request `8F357E7C-EACD-4926-B1E3-D5666956A7BC` assessed exposure on the same frames and had completed at the first status check after 90 seconds without polling. Both identical replays returned the original terminal state. Conflicting replay was rejected. The returned result passed the preview, projection, size, and privacy-field checks.
+- **PASS**. The MCP settings showed the active assessment and a Cancel control. The app’s visible catalog selection stayed empty during assessment.
+- **OPEN**. A rapid overlap test accepted both submissions and the first request reported interruption. Storage-lock retries were added to assessment startup and failure publication. Verify the overlap and cancellation behavior on the rebuilt candidate. Missing-model, unreadable-photo, and diagnostic-capture checks remain open. The execution timeout and batch limits remain provisional. Step 3 has not passed its release gate.

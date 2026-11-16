@@ -8,6 +8,7 @@ mkdir -p "$package/Sources/RawCull" "$package/Tests/RawCullTests"
 
 store_sources="$repo/Tools/RawCullMCP/Sources/RawCullMCP"
 cp "$store_sources/AnalysisJobStore.swift" "$store_sources/CatalogGrantStore.swift" "$package/Sources/RawCull/"
+cp "$repo/RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift" "$package/Sources/RawCull/"
 cp "$repo/RawCullTests/MCPJobLifecycleTests.swift" "$package/Tests/RawCullTests/"
 
 # Compile the shared stores in Release without bringing in app tests that depend on DEBUG hooks.

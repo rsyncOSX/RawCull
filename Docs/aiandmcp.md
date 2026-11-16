@@ -108,6 +108,17 @@ An example start payload for the proposed tool is:
 }
 ```
 
+The development candidate exposes the following tools through its bundled helper.
+
+| Tool | Arguments and result |
+| --- | --- |
+| `start_photo_assessment` | The payload above. Returns request identity and state. A repeat of the same normalized request returns its existing state. A different payload using the same ID returns `conflictingReplay`. |
+| `get_photo_assessment_status` | Takes `requestId`. Returns state, cancellation and Clear flags, and a failure code when applicable. |
+| `get_photo_assessment_result` | Takes `requestId`. Returns bounded preview findings, per-photo failures, and provenance. An all-photos failure can include per-photo errors. |
+| `cancel_photo_assessment` | Takes `requestId`. Cancels queued work or asks the running worker to stop. |
+
+The candidate accepts four photos, one retry per photo, and up to 16 KiB of serialized results. The provisional execution timeout is 180 seconds. The helper waits up to six seconds for the bundled app to publish its protocol compatibility and suggests polling every two seconds. Common admission errors are `incompatibleApp`, `permissionRequired`, `staleSource`, `invalidRequest`, `invalidTarget`, `conflictingReplay`, and `busy`. The app can report `modelUnavailable`, `modelChanged`, `reauthorizationRequired`, `executionTimeout`, or `allPhotosFailed` after queueing. Returned evidence is model-generated text.
+
 **Release gate.** Automate input validation, structured response handling, replay and conflicting replay, lease exclusion in both directions, dead-worker recovery, model change during a batch, cancellation, and partial failure. With the signed candidate, assess two explicit IDs through MCP and confirm the results map to the expected frames and requested fields. Assess the same IDs with a different rubric and a new request ID, then replay the identical request and verify that it does not trigger duplicate inference. Exercise a missing model and an unreadable photo. Verify result provenance, projection, size bounds, and continued access to source rankings. Check app controls and diagnostic capture with private fixture markers. Run without client polling and verify the app activity and lease stay effective. Confirm the visible workspace selection is preserved.
 
 ### Step 4 — Target a burst directly
