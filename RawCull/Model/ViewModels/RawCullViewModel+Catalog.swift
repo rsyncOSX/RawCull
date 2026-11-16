@@ -35,24 +35,23 @@ extension RawCullViewModel {
         )
     }
 
-    func authorizeMCPCatalog(allowAnalysis: Bool, recurringFolder: Bool, allowFollowUp: Bool) throws -> CatalogGrant {
+    func authorizeMCPCatalog(allowAnalysis: Bool, recurringFolder: Bool) throws -> CatalogGrant {
         try authorizeMCPCatalog(
             allowAnalysis: allowAnalysis, catalogId: UUID(), preservingJob: false,
-            recurringFolder: recurringFolder, allowFollowUp: allowFollowUp
+            recurringFolder: recurringFolder
         )
     }
 
     @discardableResult
     func authorizeMCPCatalog(
-        allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false,
-        allowFollowUp: Bool = false
+        allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false
     ) throws -> CatalogGrant {
         guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
         let summary = mcpCatalogSummary()
         let grant = CatalogGrant(
             id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis,
             recurringFolder: allowAnalysis && recurringFolder ? true : nil,
-            followUpEnabled: allowAnalysis && allowFollowUp ? true : nil
+            followUpEnabled: allowAnalysis ? true : nil
         )
         let previous = MCPAnalysisAuthorization.savedData
         if allowAnalysis {
@@ -78,6 +77,7 @@ extension RawCullViewModel {
                 try store.writeLocked(grant)
             } else {
                 try store.authorize(grant)
+                MCPJobPhotoAccess.save(nil)
             }
         } catch {
             MCPAnalysisAuthorization.save(previous)

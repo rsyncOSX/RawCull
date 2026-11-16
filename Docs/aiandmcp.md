@@ -41,7 +41,7 @@ Source entry points are [AnalysisTools](../Tools/RawCullMCP/Sources/RawCullMCP/A
 ### Source, permission, and workspace
 
 - Persist a versioned app-side snapshot for the source job and saved grant. Map photo IDs to catalog-relative paths, sizes, and modification times. Map burst IDs to full ordered membership and original ranks, with the recommendation and alternate where available. Current catalog discovery is nonrecursive. Preserve the on-disk path for lookup and cover canonically equivalent Unicode names in tests. If name normalization is needed for a comparison, use canonical Unicode normalization and reject ambiguous matches. Later grouping settings and live group IDs do not determine identity or rank.
-- Require explicit follow-up permission on a saved grant, defaulting to off for existing grants. Carry the flag through recurring refreshes and rewrites of the same grant, and include it in cached authorization checks. Changing the authorized catalog requires a fresh choice. For a source created with **Approve This Job**, explain how to authorize the catalog for follow-up and create an eligible source job. One-time approval does not persist a bookmark for reopening the files.
+- Include follow-up assessments in burst analysis approval. **Approve This Job** keeps a read-only bookmark in RawCull for the current shared result. Clearing, revoking, or replacing that result ends its photo access. **Approve and Remember** uses the saved catalog grant for that job and later jobs. Existing analysis grants cover assessments after a burst job publishes an eligible source snapshot.
 - The app worker resolves the saved bookmark, acquires scoped access before resolving targets, and retains it through preview loading and inference. Report a stale or denied bookmark as a typed error with reauthorization guidance. Reject absolute paths and parent traversal, resolve symlinks, and verify containment by path components under the resolved catalog root before opening a preview. Check size and modification time for changes. Retain access using the app’s catalog access layer independently of the visible selection.
 - Run from the snapshot without switching catalogs, changing selected photos, or resetting burst UI. A different idle catalog on screen is valid. Return busy when the workspace or model lease conflicts with active UI work or a catalog transition.
 
@@ -96,7 +96,9 @@ Use a repeatable fixture with a burst containing more than five frames, a close 
 2. Extract a request-scoped runner using the existing preview loader and Qwen inference service. Reuse structured validation and retry, and read model availability from the runtime. Return outcomes such as unreadable photo and invalid assessment per file. Publish successful assessments alongside per-photo failures and report a failed job when every file fails.
 3. Acquire the shared lease at the MCP and UI entry points. Publish only while the worker still owns its reservation, the source grant is valid, and the model identity is unchanged. Add the app indicator, Cancel, and result summaries with Clear. Enforce sharing and diagnostic boundaries before returning results.
 
-An example start payload for the proposed tool is:
+Both burst approval choices cover assessments from the completed job. The saved grant from **Approve and Remember** also covers later burst jobs. **Approve This Job** keeps read-only access for its result until the result is cleared, revoked, or replaced. The worker refreshes model availability if needed when it picks up an assessment.
+
+An example start payload is:
 
 ```json
 {
@@ -120,6 +122,8 @@ The development candidate exposes the following tools through its bundled helper
 The candidate accepts four photos, one retry per photo, and up to 16 KiB of serialized results. The provisional execution timeout is 180 seconds. The helper waits up to six seconds for the bundled app to publish its protocol compatibility and suggests polling every two seconds. Common admission errors are `incompatibleApp`, `permissionRequired`, `staleSource`, `invalidRequest`, `invalidTarget`, `conflictingReplay`, and `busy`. The app can report `modelUnavailable`, `modelChanged`, `reauthorizationRequired`, `executionTimeout`, or `allPhotosFailed` after queueing. Returned evidence is model-generated text.
 
 **Release gate.** Automate input validation, structured response handling, replay and conflicting replay, lease exclusion in both directions, dead-worker recovery, model change during a batch, cancellation, and partial failure. With the signed candidate, assess two explicit IDs through MCP and confirm the results map to the expected frames and requested fields. Assess the same IDs with a different rubric and a new request ID, then replay the identical request and verify that it does not trigger duplicate inference. Exercise a missing model and an unreadable photo. Verify result provenance, projection, size bounds, and continued access to source rankings. Check app controls and diagnostic capture with private fixture markers. Run without client polling and verify the app activity and lease stay effective. Confirm the visible workspace selection is preserved.
+
+**Gate status — open.** All 37 helper and Release lifecycle tests passed. A locally signed Release build assessed four photos with all three rubric fields in 67 seconds using the saved grant, and assessed two photos from a one-time job after a full quit and reopen. No-polling completion, replay, worker exclusion, cancellation, and model refresh also passed. Live missing-model and unreadable-photo coverage remains open. The disposable-catalog picker kept **Open** disabled. See the [Step 3 gate record](mcpserver.md#step-3-release-gate).
 
 ### Step 4 — Target a burst directly
 
@@ -146,4 +150,4 @@ The candidate accepts four photos, one retry per photo, and up to 16 KiB of seri
 
 **Release gate for Object Analysis.** With the installed candidate, assess a fixed photo set with observable objects. Confirm results map to the correct photos and criteria, and verify repeat requests with changed criteria, partial failures, and unavailable models. Run the baseline burst, Qwen, and Deep AI Review smoke tests before release.
 
-All follow-up steps are proposed. The existing burst validation is recorded in [mcpserver.md](mcpserver.md).
+The burst baseline and follow-up release evidence are recorded in [mcpserver.md](mcpserver.md).

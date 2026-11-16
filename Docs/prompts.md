@@ -23,7 +23,7 @@ If setup is declined or the folder picker is cancelled, wait 10 seconds before s
 
 > Use the `rawcull` MCP server to open and analyze the catalog at `<absolute folder path>`. Submit `request_catalog_setup` with the exact path, job type `burstAnalysis`, and a fresh request UUID. If RawCull needs me to choose a folder or approve the job, tell me what to do and wait while polling setup. When it queues, use the returned catalog and job IDs to poll analysis to completion. If setup is denied or the job fails, report the reason and stop. On success, page through the ranked bursts and show up to ten in a table with burst ID, frame count, recommended filename, alternate filename, scores when available, and confidence. Report the total number of bursts and how many are shown. Summarize the most important findings, including close picks, recurring cautions, and any gaps in coverage. Include photos scanned and analyzed, singleton and unevaluated counts, any reasons for skipped photos, the similarity backend, and the job ID.
 
-If the folder chooser appears, select the intended folder and check the resolved path on the approval sheet. The chooser may show a shortened folder hint supplied by the MCP client. Choose **Approve This Job** for one run or **Approve and Remember** to reuse the grant for the same set of photos.
+If the folder chooser appears, select the intended folder and check the resolved path on the approval sheet. The chooser may show a shortened folder hint supplied by the MCP client. Choose **Approve This Job** for one run or **Approve and Remember** to reuse the grant for the same set of photos. Both choices allow photo assessments from the completed job until its result is cleared, revoked, or replaced.
 
 ## Analyze a remembered catalog again
 
@@ -33,7 +33,7 @@ A saved grant from **Approve and Remember** is tied to the approved photo snapsh
 
 ## Analyze the next shoot in the same folder
 
-Set this up once in RawCull. Open the folder, let the photos load, then go to **Settings → MCP**. Turn on **Allow MCP to start burst analysis** and **Allow analysis of future photos in this folder**, then choose **Authorize Selected Catalog**. That grant covers future photos placed in the same folder. Wait for each run to finish before replacing the files again.
+Set this up once in RawCull. Open the folder, let the photos load, then go to **Settings → MCP**. Turn on **Allow MCP burst analysis and photo assessments** and **Allow analysis of future photos in this folder**, then choose **Authorize Selected Catalog**. That grant covers future photos placed in the same folder. Wait for each run to finish before replacing the files again.
 
 > Use the `rawcull` MCP server to analyze the current photos in my recurring shoot folder at `<absolute folder path>`. Use `list_catalogs` to check for an analysis-enabled grant with `recurringFolder` enabled and a display name matching the folder. If there is no such grant, tell me how to enable it and stop. The grant list omits paths, so use the exact path for setup. Otherwise submit `request_catalog_setup` for the exact path with job type `burstAnalysis` and a fresh request UUID. Tell me if setup needs my attention. Poll the new job to completion and use its returned IDs to read the current rankings. On success, report the counts scanned and analyzed, the total bursts, the job ID, and up to ten bursts with their recommended frames, alternates, scores when available, and confidence. Highlight the close picks, recurring cautions, and any coverage gaps. If the job fails, report RawCull’s reason.
 
@@ -44,3 +44,9 @@ Use the new job’s results for each shoot. A successful recurring run refreshes
 > Use `rawcull` to read the completed burst analysis for catalog `<catalog ID>` and job `<job ID>`. Follow `list_bursts` cursors until you find five low-confidence bursts or reach the end. For each, show the recommended frame and alternate, both scores when available, and the reasons or cautions RawCull returned. Call out any ties and tell me which pairs to compare first in RawCull. If there are fewer than five, report how many you found. Base the report on the ranking evidence returned by RawCull.
 
 Use this follow-up in the same chat by referring to “the job you just completed” in place of the two IDs.
+
+## Assess photos from a completed burst job
+
+> Use `rawcull` to call `start_photo_assessment` with catalogId `<catalog ID>`, sourceJobId `<job ID>`, a fresh requestId UUID, photoIds `["<first photo ID>", "<second photo ID>"]`, and rubric `["exposure"]`. Poll `get_photo_assessment_status` with the requestId until it completes or fails. If it completes, fetch `get_photo_assessment_result` and show each returned score and its evidence. Preserve any unknown scores.
+
+Use the photo IDs returned by the burst job. The tool accepts up to four photo IDs and supports `composition`, `exposure`, and `subjectVisibility`. Use the original request ID and identical arguments to replay an assessment. A different rubric requires a fresh request ID. If a burst result from an earlier version lacks an assessment snapshot, run a new burst analysis.

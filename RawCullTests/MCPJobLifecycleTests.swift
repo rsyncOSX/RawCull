@@ -99,21 +99,26 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func followUpSourceRequiresPublishedResultAndCurrentConsent() throws {
+    @Test(arguments: [false, true])
+    func followUpSourceRequiresPublishedResultAndCurrentConsent(oneTimeApproval: Bool) throws {
         try withStore { store, jobFile in
             let catalogID = UUID()
             let jobID = UUID()
             let grantStore = CatalogGrantStore(directory: store.directory)
-            var grant = CatalogGrant(
-                id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true,
-                followUpEnabled: true
-            )
-            try grantStore.authorize(grant)
+            if !oneTimeApproval {
+                // Existing analysis grants may predate the follow-up consent flag.
+                try grantStore.authorize(CatalogGrant(
+                    id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true
+                ))
+            }
             var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: now, updatedAt: now)
+            job.setupRequestId = UUID()
             job.claim()
             try store.update { _ in job }
             let memberIDs = (0 ..< 7).map { "photo-\($0)" }
-            let snapshot = FollowUpSourceSnapshot(jobID: jobID, catalogID: catalogID, photos: [:], bursts: [
+            let snapshot = FollowUpSourceSnapshot(jobID: jobID, catalogID: catalogID, photos: [
+                memberIDs[6]: .init(relativePath: "fixture.ARW", size: 1, modified: now)
+            ], bursts: [
                 "burst": .init(photoIDs: memberIDs, ranks: [memberIDs[6]: 1],
                                recommendedPhotoID: memberIDs[6], alternatePhotoID: nil)
             ])
@@ -127,6 +132,13 @@ struct MCPJobLifecycleTests {
             job.bursts = []
             job.finish(.completed)
             try store.update { _ in job }
+            if oneTimeApproval {
+                #expect(throws: FollowUpSourceSnapshot.SourceError.unavailable) {
+                    try store.readFollowUpSource(catalogID: catalogID, jobID: jobID)
+                }
+                job.allowsJobPhotoAccess = true
+                try store.update { _ in job }
+            }
             let source = try store.readFollowUpSource(catalogID: catalogID, jobID: jobID)
             #expect(try source.burst(id: "burst").photoIDs == memberIDs)
             #expect(try source.burst(id: "burst").ranks[memberIDs[6]] == 1)
@@ -134,13 +146,21 @@ struct MCPJobLifecycleTests {
                 try store.readFollowUpSource(catalogID: catalogID, jobID: UUID())
             }
 
-            grant.followUpEnabled = nil
-            try store.withLock { try grantStore.writeLocked(grant) }
-            #expect(throws: FollowUpSourceSnapshot.SourceError.unavailable) {
-                try store.readFollowUpSource(catalogID: catalogID, jobID: jobID)
+            if !oneTimeApproval {
+                let disabled = CatalogGrant(id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: false)
+                try store.withLock { try grantStore.writeLocked(disabled) }
+                #expect(throws: FollowUpSourceSnapshot.SourceError.unavailable) {
+                    try store.readFollowUpSource(catalogID: catalogID, jobID: jobID)
+                }
+                let enabled = CatalogGrant(id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true)
+                try store.withLock { try grantStore.writeLocked(enabled) }
             }
-            grant.followUpEnabled = true
-            try store.withLock { try grantStore.writeLocked(grant) }
+
+            let assessment = AnalysisJobStore.FollowUpRequest(
+                id: UUID(), catalogID: catalogID, sourceJobID: jobID,
+                target: .photos([memberIDs[6]]), rubric: ["exposure"]
+            )
+            #expect(try store.enqueueFollowUp(assessment).state == .queued)
 
             // Simulate an older app clearing the result without removing the snapshot.
             var cleared = job

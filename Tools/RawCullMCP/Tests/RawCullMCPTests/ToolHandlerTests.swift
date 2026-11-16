@@ -169,7 +169,7 @@ struct ToolHandlerTests {
         }
     }
 
-    @Test func assessmentRejectsUnsupportedRubricAndRequiresConsentBeforeLaunching() async throws {
+    @Test func assessmentRejectsUnsupportedRubricMissingSourceAndRevokedAccess() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogID = try authorizePhotos(in: store)
@@ -183,7 +183,13 @@ struct ToolHandlerTests {
         #expect(invalid.structuredContent?.objectValue?["errorCode"] == .string("invalidRequest"))
 
         args["rubric"] = .array([.string("composition")])
-        let denied = try await callKnownTool(.init(name: "start_photo_assessment", arguments: args), grantStore: store)
+        let assessment = CallTool.Parameters(name: "start_photo_assessment", arguments: args)
+        let stale = try await callKnownTool(assessment, grantStore: store)
+        #expect(stale.isError == true)
+        #expect(stale.structuredContent?.objectValue?["errorCode"] == .string("staleSource"))
+
+        try store.revoke()
+        let denied = try await callKnownTool(assessment, grantStore: store)
         #expect(denied.isError == true)
         #expect(denied.structuredContent?.objectValue?["errorCode"] == .string("permissionRequired"))
         #expect(try AnalysisJobStore(directory: store.directory).queuedFollowUp() == nil)

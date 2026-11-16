@@ -35,6 +35,23 @@ struct MCPAnalysisAuthorization: Codable {
     }
 }
 
+// A one-time approval keeps its bookmark private and tied to the current shared result.
+struct MCPJobPhotoAccess: Codable {
+    private static let preferenceKey = "MCPJobPhotoAccess"
+
+    let jobID: UUID
+    let bookmark: Data
+
+    static var saved: Self? {
+        guard let data = UserDefaults.standard.data(forKey: preferenceKey) else { return nil }
+        return try? JSONDecoder().decode(Self.self, from: data)
+    }
+
+    static func save(_ data: Data?) {
+        UserDefaults.standard.set(data, forKey: preferenceKey)
+    }
+}
+
 @MainActor
 final class MCPAnalysisController {
     private let grants = CatalogGrantStore.shared()
@@ -68,6 +85,7 @@ final class MCPAnalysisController {
         viewModel: RawCullViewModel,
         qwen: QwenInferenceRuntime? = nil,
         prepare: @escaping @MainActor () async -> Void,
+        preparePhotoAssessment: @escaping @MainActor () async -> Void = {},
         canStart: @escaping @MainActor () -> Bool,
     ) {
         guard monitor == nil, grants.directory != nil else { return }
@@ -77,7 +95,9 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 if let setupDeadline, Date.now >= setupDeadline { cancelSetup() }
                 do {
-                    if let qwen { try pollFollowUp(qwen: qwen, viewModel: viewModel, canStart: canStart) }
+                    if let qwen {
+                        try pollFollowUp(qwen: qwen, viewModel: viewModel, prepare: preparePhotoAssessment, canStart: canStart)
+                    }
                     if followUp == nil { try poll(viewModel, prepare: prepare, canStart: canStart) }
                     storageFailureSince = nil
                     if setup == nil, analysis == nil, Date.now >= nextSetupMaintenance {
@@ -137,7 +157,8 @@ final class MCPAnalysisController {
     }
 
     private func pollFollowUp(
-        qwen: QwenInferenceRuntime, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+        qwen: QwenInferenceRuntime, viewModel: RawCullViewModel, prepare: @escaping @MainActor () async -> Void,
+        canStart: @MainActor () -> Bool
     ) throws {
         if !isTerminationPending, Date.now >= nextHostPublication {
             let path = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path
@@ -189,6 +210,8 @@ final class MCPAnalysisController {
                 followUp = nil
             }
             do {
+                if await qwen.assessmentIdentity() == nil { await prepare() }
+                try Task.checkCancellation()
                 let output = try await assessFollowUp(worker, qwen: qwen)
                 try await retryStorage {
                     try Task.checkCancellation()
@@ -295,6 +318,10 @@ final class MCPAnalysisController {
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
             inactiveRevision = revision
             throw AnalysisJobStore.StoreError.unsupportedFormat
+        }
+        if let photoAccess = MCPJobPhotoAccess.saved,
+           storedJob?.jobId != photoAccess.jobID || storedJob?.hasShareableResult != true {
+            MCPJobPhotoAccess.save(nil)
         }
         guard let job = storedJob else {
             approvedSetup = nil
@@ -411,7 +438,7 @@ final class MCPAnalysisController {
             let confirmation = NSAlert()
             let existingGrant = try grants.authorizedCatalog()
             confirmation.messageText = String(localized: "Approve burst analysis?")
-            let sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) once and share the ranked bursts with the MCP client. The result stays available after you quit until it is cleared in MCP Settings or the job is replaced.")
+            let sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share the ranked bursts with the MCP client. This also allows local assessment of photos from this job and shares text findings. The job and its photo access stay available after you quit, until you clear the result, revoke access, or replace the job.")
             let remembering: String
             if let existingGrant {
                 remembering = String(localized: "Approve and Remember also replaces the saved authorization for \(existingGrant.displayName) and allows future analysis of the newly approved catalog.")
@@ -486,12 +513,25 @@ final class MCPAnalysisController {
 
     private func followUpCatalogAccess(for worker: AnalysisJobStore.FollowUpWorker) throws -> RawCullCatalogGrant {
         _ = try jobs.readFollowUpSource(catalogID: worker.request.catalogID, jobID: worker.request.sourceJobID)
-        guard let saved = try savedCatalog(), saved.grant.id == worker.request.catalogID,
-              saved.grant.followUpEnabled == true else { throw FollowUpCatalogError.reauthorizationRequired }
-        if let existing = RawCullCatalogAccess.shared.retainAccess(for: [saved.url]).first,
-           existing.url.standardizedFileURL == saved.url.standardizedFileURL { return existing }
-        guard saved.url.startAccessingSecurityScopedResource() else { throw FollowUpCatalogError.reauthorizationRequired }
-        let access = RawCullCatalogGrant(url: saved.url) { $0.stopAccessingSecurityScopedResource() }
+        let url: URL
+        if let jobAccess = MCPJobPhotoAccess.saved, jobAccess.jobID == worker.request.sourceJobID {
+            var stale = false
+            guard let resolved = try? URL(
+                resolvingBookmarkData: jobAccess.bookmark,
+                options: [.withSecurityScope, .withoutUI, .withoutMounting],
+                relativeTo: nil, bookmarkDataIsStale: &stale
+            ), !stale else { throw FollowUpCatalogError.reauthorizationRequired }
+            url = resolved
+        } else {
+            guard let saved = try savedCatalog(), saved.grant.id == worker.request.catalogID else {
+                throw FollowUpCatalogError.reauthorizationRequired
+            }
+            url = saved.url
+        }
+        if let existing = RawCullCatalogAccess.shared.retainAccess(for: [url]).first,
+           existing.url.standardizedFileURL == url.standardizedFileURL { return existing }
+        guard url.startAccessingSecurityScopedResource() else { throw FollowUpCatalogError.reauthorizationRequired }
+        let access = RawCullCatalogGrant(url: url) { $0.stopAccessingSecurityScopedResource() }
         RawCullCatalogAccess.shared.register(access)
         return access
     }
@@ -762,19 +802,37 @@ final class MCPAnalysisController {
         }
 
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
-        let source = grant?.followUpEnabled == true
-            ? makeFollowUpSource(result, job: job, catalog: url, files: orderedFiles, photoIDs: photoIds)
-            : nil
+        let source = makeFollowUpSource(result, job: job, catalog: url, files: orderedFiles, photoIDs: photoIds)
+        let oneTimeApproval = setupApproval?.remember == false
+        let jobPhotoAccess: Data?
+        if oneTimeApproval {
+            let bookmark = try? url.bookmarkData(
+                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                includingResourceValuesForKeys: nil, relativeTo: nil
+            )
+            jobPhotoAccess = try bookmark.map {
+                try JSONEncoder().encode(MCPJobPhotoAccess(jobID: job.jobId, bookmark: $0))
+            }
+            if jobPhotoAccess == nil {
+                Logger.process.error("Could not save read-only access for MCP photo assessments.")
+            }
+        } else {
+            jobPhotoAccess = nil
+        }
         try await updateWithRetry { current in
             try Task.checkCancellation()
             guard var current, current.canPublish(for: job), try isAuthorized(job) else { throw CancellationError() }
             if let refreshedSummary {
                 try grants.refreshRecurringLocked(catalogID: job.catalogId, summary: refreshedSummary)
             }
-            if let source, let grant = try grants.authorizedCatalog(),
-               grant.id == job.catalogId, grant.followUpEnabled == true {
+            let savedGrant = try grants.authorizedCatalog()
+            if let source, jobPhotoAccess != nil || (savedGrant?.id == job.catalogId && savedGrant?.analysisEnabled == true) {
                 do {
                     try jobs.stageFollowUpSourceLocked(source)
+                    if let jobPhotoAccess {
+                        MCPJobPhotoAccess.save(jobPhotoAccess)
+                        current.allowsJobPhotoAccess = true
+                    }
                 } catch {
                     Logger.process.error("Could not save the MCP follow-up source snapshot.")
                 }
