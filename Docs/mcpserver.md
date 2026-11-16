@@ -728,3 +728,12 @@ After the user cleared the shared CLIP result, status and burst reads both retur
 The user confirmed RawCull had fully quit before the MCP request. RawCull reopened for one-time approval. Request `DAE0C660-051C-4FB0-9693-88EA86B22275` queued job `E3718D6C-B41D-4E7A-BD18-BFE6CDBCA58B` for catalog `85C70AA5-AD98-4384-BAA7-A5B114D17221`. Build 452 analyzed all 275 photos with `vision-feature-print` and zero unevaluated. Both pages returned 50 unique bursts in total, including the same seven-frame recommendation and alternate.
 
 **Step 1 verdict — accepted.** The functional baseline passed on TestFlight 3.4.6 (452), including the Vision cold-start retest. The user accepted build 452 as the Step 1 baseline on 2026-11-16. The development branch targets 3.4.7 (453). The separate strict helper signature check returned `CSSMERR_TP_NOT_TRUSTED` during preflight. Acceptance closes the Step 1 gate for the tested build.
+
+## Follow-up AI plan — Step 2 test progress
+
+Tested the source-snapshot changes at commit `662efb02` on 2026-11-16.
+
+- **PASS**. Nine MCP job lifecycle tests ran against the production store sources in an isolated Release harness. The tests cover source visibility after publication, current consent, wrong job IDs, legacy Clear, retaining membership and ranks beyond five frames, changed files, and symlink escape. Existing worker ownership and recovery tests also passed.
+- **PASS**. All 18 MCP helper package tests passed, covering the existing tool handlers and setup store.
+- **OPEN**. The full Xcode Release build could not be verified. Reusing the package graph hit restricted Xcode cache writes, and a fresh graph with cached repositories could not update a dependency submodule.
+- **OPEN**. Signed-candidate testing is pending the in-app consent control, follow-up request and result storage, and shared worker admission. The automated passes above do not close the Step 2 gate.
