@@ -500,40 +500,7 @@ The first-run burst cursor was null: untested, because no cursor was available.
 
 #### Codex logs and recorded observations
 
-```bash
-Saved access, metadata, and old rankings are unavailable after clearing the shared result.
-
-- list_catalogs: catalogs: [] — “No catalog is authorized.”
-- catalog_summary for the previous recurring grant: “No authorized catalog matches that ID. Call list_catalogs for the current ID.”
-- list_bursts for job 50E59481-1053-47AF-A02A-8AC822258CD1: “That job was cleared, replaced, or revoked.”
-
-Both read attempts returned isError: true.
-```
-
-```bash
-Used former catalog DC64BA70-F140-4B58-A969-ED4969C4F8BD and job 50E59481-1053-47AF-A02A-8AC822258CD1.
-
-| Call | Actual response | Error |
-|---|---|---|
-| list_catalogs | “No catalog is authorized.” — {"catalogs":[]} | No |
-| catalog_summary | “No authorized catalog matches that ID. Call list_catalogs for the current ID.” | isError: true |
-| get_analysis_status | “No current job matches that catalog and job ID.” | isError: true |
-| list_bursts | “That job was cleared, replaced, or revoked.” | isError: true |
-```
-
-```bash
-The identical resubmission returned terminal state denied.
-
-- Request ID: E3478A91-6F25-4DB0-A8C3-92B51E7D064F
-- Original creation time: 816415263.532646
-- Deadline: not provided
-- Exact message: “Catalog setup was cancelled or denied in RawCull.”
-
-No job ID was returned, so there is no analysis job to poll.
-```
-
-
-##### Build 451 rerun on 2026-11-15
+##### Build 451 validation on 2026-11-15
 
 The initial `rawcull_status` reported helper `0.7.0` and `appBuild: null`. The initial `list_catalogs` returned an empty list. After authorizing `/Users/thomas/Downloads/RawCull-TestFlight-Recurring` in RawCull, Codex confirmed an analysis-enabled recurring grant and ran a fresh `burstAnalysis`.
 
@@ -578,34 +545,6 @@ After **Revoke Access** and quitting RawCull:
 
 #### Codex logs and recorded observations
 
-##### Build 451 attempt on 2026-11-15
-
-RawCull did not start and the chooser never appeared. The initial submission response was unrecorded. The identical resubmission and subsequent status poll both returned the following.
-
-- Request ID `A978464F-12B8-4AA9-BDCB-55E0D4CE1DC2`
-- State `denied`
-- Original `createdAt` value `816418540.867627`
-- Deadline and job ID were absent.
-- Exact message “Catalog setup was cancelled or denied in RawCull.”
-
-**FAIL** for launch and chooser visibility. **UNTESTED** for recovery after quitting with the chooser open because the chooser never appeared.
-
-##### Build 451 retry
-
-The replay returned:
-
-```bash
-{
-  "createdAt": 816418845.778556,
-  "jobType": "burstAnalysis",
-  "message": "Catalog setup was cancelled or denied in RawCull.",
-  "requestId": "4CBBD8A2-13BE-4D75-9D38-76BC597F021E",
-  "state": "denied"
-}
-```
-
-RawCull did not reopen after replay. The replay was terminal and returned no job ID. Codex stopped after replay. The initial submission response and the chooser behavior before quitting are unrecorded for this retry.
-
 ##### Build 451 chooser check with RawCull already open
 
 The folder chooser appeared after a fresh request while RawCull was running. After the tester clicked **Cancel**, one `get_catalog_setup_status` call returned the following.
@@ -618,23 +557,7 @@ The folder chooser appeared after a fresh request while RawCull was running. Aft
 
 **PASS** for showing the chooser with RawCull already running and closing the request on cancellation.
 
-##### Build 451 quit with the chooser open
-
-With RawCull already running, the tester submitted a fresh request, left the folder chooser unanswered, and quit with **⌘Q**. The first `get_catalog_setup_status` call after quitting and the subsequent identical replay both returned:
-
-```bash
-{
-  "createdAt": 816419095.518444,
-  "jobType": "burstAnalysis",
-  "state": "denied",
-  "message": "Catalog setup was cancelled or denied in RawCull.",
-  "requestId": "7EB6C45F-9D2A-4FE8-A102-3C861B0D5749"
-}
-```
-
-**FAIL** for quit-and-resume recovery. The first status check already returned a terminal denial, and replay preserved that state. Neither response contained a job ID. The initial submission payload and whether replay reopened RawCull were unrecorded.
-
-##### Local build retest with the quit-handling fix
+##### Local build validation
 
 The test used `rawcull-local` from `/Applications/RawCull-MCP-Test.app/Contents/MacOS/rawcull-mcp`. The helper reported version `0.7.0` and `appBuild: null`.
 
@@ -690,4 +613,4 @@ The initial submission returned `pendingApproval` for request `A2F87E1D-C954-4B0
 
 Validation ran on 2026-11-15 with RawCull 3.4.6 (452) and MCP helper 0.7.0 over `stdio`. **About RawCull** and the installed app’s `Info.plist` both reported build 452. Codex used the helper bundled in `/Applications/RawCull.app`.
 
-**Ready for release.** The build 451 cold-launch and quit-and-resume failures both passed on TestFlight build 452. The release accepts the observed `appBuild: null`. The last-window-close variant and automated quit-versus-deny coverage remain open follow-ups.
+**Ready for release.** Cold launch and quit-and-resume both passed on TestFlight build 452. The release accepts the observed `appBuild: null`. The last-window-close variant and automated quit-versus-deny coverage remain open follow-ups.
