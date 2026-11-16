@@ -34,6 +34,13 @@ PYTHON ?= python3
 test-scripts:
 	$(PYTHON) -B -m unittest discover -s Scripts -p 'Test*.py' -v
 
+.PHONY: test-mcp test-mcp-release
+test-mcp:
+	swift test --package-path Tools/RawCullMCP
+
+test-mcp-release: test-mcp
+	sh Scripts/TestMCPRelease.sh
+
 # Opt-in, hostless Release integration against real Downloads ARW files.
 RELEASE_CATALOG ?= $(HOME)/Downloads
 RELEASE_MODELS ?= $(HOME)/ModelAssets/Release/Models

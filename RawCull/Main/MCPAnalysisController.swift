@@ -42,6 +42,11 @@ final class MCPAnalysisController {
     private var activeJob: AnalysisJob?
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
+    private var followUp: Task<Void, Never>?
+    private var followUpID: UUID?
+    private var followUpDeadline: ContinuousClock.Instant?
+    private var followUpStopCode: String?
+    private var nextHostPublication = Date.distantPast
     private var isQuitting = false
     private var isTerminationPending = false
     private var setup: Task<Void, Never>?
@@ -61,6 +66,7 @@ final class MCPAnalysisController {
 
     func start(
         viewModel: RawCullViewModel,
+        qwen: QwenInferenceRuntime? = nil,
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) {
@@ -71,13 +77,14 @@ final class MCPAnalysisController {
             while !Task.isCancelled, let self, let viewModel {
                 if let setupDeadline, Date.now >= setupDeadline { cancelSetup() }
                 do {
-                    try poll(viewModel, prepare: prepare, canStart: canStart)
+                    if let qwen { try pollFollowUp(qwen: qwen, viewModel: viewModel, canStart: canStart) }
+                    if followUp == nil { try poll(viewModel, prepare: prepare, canStart: canStart) }
                     storageFailureSince = nil
                     if setup == nil, analysis == nil, Date.now >= nextSetupMaintenance {
                         nextSetupMaintenance = .now.addingTimeInterval(60)
                         try setupStore.maintain()
                     }
-                    if !isTerminationPending, setup == nil, analysis == nil,
+                    if !isTerminationPending, setup == nil, analysis == nil, followUp == nil,
                        let request = try setupStore.pending() {
                         setupDeadline = request.expiresAt
                         setup = Task { [weak self, weak viewModel] in
@@ -123,8 +130,132 @@ final class MCPAnalysisController {
         monitor?.cancel()
         monitor = nil
         analysis?.cancel()
+        followUp?.cancel()
+        await followUp?.value
         cancelSetup()
         if let job = activeJob { await finish(job, as: .cancelled, message: "RawCull quit.") }
+    }
+
+    private func pollFollowUp(
+        qwen: QwenInferenceRuntime, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool
+    ) throws {
+        if !isTerminationPending, Date.now >= nextHostPublication {
+            let path = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path
+            try jobs.publishFollowUpHost(bundlePath: path)
+            nextHostPublication = .now.addingTimeInterval(2)
+        }
+        if let followUpID {
+            let status: AnalysisJobStore.FollowUpRecord
+            do { status = try jobs.followUpStatus(followUpID) }
+            catch FollowUpSourceSnapshot.SourceError.unavailable, AnalysisJobStore.FollowUpError.unavailable {
+                followUp?.cancel()
+                return
+            }
+            if status.cancellationRequested {
+                followUp?.cancel()
+            } else if let followUpDeadline, ContinuousClock.now >= followUpDeadline {
+                followUpStopCode = "executionTimeout"
+                followUp?.cancel()
+            }
+            return
+        }
+        guard !isTerminationPending, setup == nil, analysis == nil,
+              let pending = try jobs.queuedFollowUp(), Date.now.timeIntervalSince(pending.createdAt) < 120 else { return }
+        guard case let .started(worker) = try jobs.beginFollowUp(pending.request) else { return }
+
+        let id = worker.request.id
+        let lease = CombinedReviewLease.shared
+        guard canStart(), !isWorkspaceLoading(viewModel), !viewModel.isDeepAIReviewBlockedByOtherWork,
+              !viewModel.isPreparingBurstCatalog, (try? lease.acquire(id)) != nil else {
+            try jobs.finishFollowUp(worker, result: nil, errorCode: "busy")
+            return
+        }
+        followUpID = id
+        followUpDeadline = .now.advanced(by: .seconds(180))
+        lease.invalidateOwner = { [weak self] in
+            self?.followUpStopCode = "modelChanged"
+            self?.followUp?.cancel()
+        }
+        followUp = Task {
+            let activity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiatedAllowingIdleSystemSleep], reason: "RawCull MCP photo assessment"
+            )
+            defer {
+                ProcessInfo.processInfo.endActivity(activity)
+                lease.release(id)
+                followUpID = nil
+                followUpDeadline = nil
+                followUpStopCode = nil
+                followUp = nil
+            }
+            do {
+                let output = try await assessFollowUp(worker, qwen: qwen)
+                try await retryStorage {
+                    try Task.checkCancellation()
+                    try jobs.finishFollowUp(worker, result: JSONEncoder().encode(output),
+                                            errorCode: output.assessedCount == 0 ? "allPhotosFailed" : nil)
+                }
+            } catch {
+                let code: String?
+                if let followUpStopCode { code = followUpStopCode }
+                else if error is CancellationError { code = nil }
+                else if error is QwenInferenceRuntime.MCPAssessmentError { code = "modelChanged" }
+                else if case QwenModelError.modelUnavailable = error { code = "modelUnavailable" }
+                else if error is FollowUpCatalogError { code = "reauthorizationRequired" }
+                else { code = "assessmentFailed" }
+                // Publish terminal state from a fresh task so a cancelled inference can still retry a busy store.
+                await Task {
+                    do {
+                        try await retryStorage { try jobs.finishFollowUp(worker, result: nil, errorCode: code) }
+                    } catch {
+                        Logger.process.notice("MCP assessment ended without a publishable result.")
+                    }
+                }.value
+            }
+        }
+    }
+
+    private func assessFollowUp(
+        _ worker: AnalysisJobStore.FollowUpWorker, qwen: QwenInferenceRuntime
+    ) async throws -> MCPPhotoAssessmentResult {
+        guard let identity = await qwen.assessmentIdentity() else { throw QwenModelError.modelUnavailable }
+        let access = try await retryStorage { try followUpCatalogAccess(for: worker) }
+        defer { withExtendedLifetime(access) {} }
+        let ids = try worker.request.target.photoIDs(in: worker.source)
+        var outcomes: [MCPPhotoAssessmentResult.Photo] = []
+        for id in ids {
+            try Task.checkCancellation()
+            guard let url = try? worker.source.resolve(photoID: id, in: access.url),
+                  let image = await RawParserKitImageLoader.shared.thumbnailCGImage(for: url, maxPixelSize: 2048) else {
+                outcomes.append(.init(photoId: id, errorCode: "unreadablePhoto"))
+                continue
+            }
+            do {
+                let assessment = try await qwen.assessForMCP(rubric: worker.request.rubric, image: image, identity: identity)
+                outcomes.append(.init(
+                    photoId: id, assessedImage: .init(width: image.width, height: image.height),
+                    findings: assessment.mcpFindings(for: worker.request.rubric)
+                ))
+            } catch QwenModelError.invalidStructuredResponse {
+                outcomes.append(.init(photoId: id, errorCode: "invalidAssessment"))
+            } catch is CancellationError {
+                guard await qwen.assessmentIdentity() == identity else {
+                    throw QwenInferenceRuntime.MCPAssessmentError.modelChanged
+                }
+                throw CancellationError()
+            } catch let error as QwenInferenceRuntime.MCPAssessmentError {
+                throw error
+            } catch {
+                outcomes.append(.init(photoId: id, errorCode: "inferenceFailed"))
+            }
+        }
+        try Task.checkCancellation()
+        guard await qwen.assessmentIdentity() == identity else { throw QwenInferenceRuntime.MCPAssessmentError.modelChanged }
+        let assessed = outcomes.filter { $0.findings != nil }.count
+        return .init(
+            requestId: worker.request.id, sourceJobId: worker.request.sourceJobID, model: identity.name,
+            assessedCount: assessed, failedCount: outcomes.count - assessed, photos: outcomes
+        )
     }
 
     private func cancelSetup() {
@@ -345,6 +476,30 @@ final class MCPAnalysisController {
         return (grant, url)
     }
 
+    /// Resolves the saved bookmark independently of the visible workspace.
+    func resolveFollowUpTargets(
+        for worker: AnalysisJobStore.FollowUpWorker
+    ) throws -> (photos: [URL], access: RawCullCatalogGrant) {
+        let access = try followUpCatalogAccess(for: worker)
+        return (try worker.resolveTargets(in: access.url), access)
+    }
+
+    private func followUpCatalogAccess(for worker: AnalysisJobStore.FollowUpWorker) throws -> RawCullCatalogGrant {
+        _ = try jobs.readFollowUpSource(catalogID: worker.request.catalogID, jobID: worker.request.sourceJobID)
+        guard let saved = try savedCatalog(), saved.grant.id == worker.request.catalogID,
+              saved.grant.followUpEnabled == true else { throw FollowUpCatalogError.reauthorizationRequired }
+        if let existing = RawCullCatalogAccess.shared.retainAccess(for: [saved.url]).first,
+           existing.url.standardizedFileURL == saved.url.standardizedFileURL { return existing }
+        guard saved.url.startAccessingSecurityScopedResource() else { throw FollowUpCatalogError.reauthorizationRequired }
+        let access = RawCullCatalogGrant(url: saved.url) { $0.stopAccessingSecurityScopedResource() }
+        RawCullCatalogAccess.shared.register(access)
+        return access
+    }
+
+    enum FollowUpCatalogError: Error {
+        case reauthorizationRequired
+    }
+
     private func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
         lhs.standardizedFileURL.path == rhs.standardizedFileURL.path
     }
@@ -556,7 +711,7 @@ final class MCPAnalysisController {
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
         let photoIds: [UUID: String]
-        let refreshedGrant: CatalogGrant?
+        let refreshedSummary: CatalogSummary?
         if let grant, grant.recurringFolder == true {
             guard let summary = viewModel.mcpCatalogSummary(scanId: job.jobId) else {
                 throw JobError("No supported photos were found in the authorized folder.")
@@ -565,15 +720,12 @@ final class MCPAnalysisController {
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(prefix)\(offset)")
             })
-            refreshedGrant = CatalogGrant(
-                id: grant.id, displayName: grant.displayName, summary: summary,
-                analysisEnabled: true, recurringFolder: true
-            )
+            refreshedSummary = summary
         } else if let photos = grant?.summary?.photos, let authorization {
-            refreshedGrant = nil
+            refreshedSummary = nil
             photoIds = try snapshotPhotoIds(files: viewModel.files, photos: photos, authorization: authorization)
         } else {
-            refreshedGrant = nil
+            refreshedSummary = nil
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(job.catalogId.uuidString):\(offset)")
             })
@@ -610,10 +762,23 @@ final class MCPAnalysisController {
         }
 
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
+        let source = grant?.followUpEnabled == true
+            ? makeFollowUpSource(result, job: job, catalog: url, files: orderedFiles, photoIDs: photoIds)
+            : nil
         try await updateWithRetry { current in
             try Task.checkCancellation()
             guard var current, current.canPublish(for: job), try isAuthorized(job) else { throw CancellationError() }
-            if let refreshedGrant { try grants.writeLocked(refreshedGrant) }
+            if let refreshedSummary {
+                try grants.refreshRecurringLocked(catalogID: job.catalogId, summary: refreshedSummary)
+            }
+            if let source, let grant = try grants.authorizedCatalog(),
+               grant.id == job.catalogId, grant.followUpEnabled == true {
+                do {
+                    try jobs.stageFollowUpSourceLocked(source)
+                } catch {
+                    Logger.process.error("Could not save the MCP follow-up source snapshot.")
+                }
+            }
             current.catalogDisplayName = name
             current.coverage = output.coverage
             current.bursts = output.bursts
@@ -726,6 +891,45 @@ final class MCPAnalysisController {
         return ids
     }
 
+    private func makeFollowUpSource(
+        _ result: BurstAnalysisPipelineResult, job: AnalysisJob, catalog: URL,
+        files: [FileItem], photoIDs: [UUID: String]
+    ) -> FollowUpSourceSnapshot? {
+        let root = catalog.standardizedFileURL.pathComponents
+        var photos: [String: FollowUpSourceSnapshot.Photo] = [:]
+        for file in files {
+            guard let photoID = photoIDs[file.id] else { continue }
+            let path = file.url.standardizedFileURL.pathComponents
+            guard path.count > root.count, path.starts(with: root) else { return nil }
+            photos[photoID] = .init(
+                relativePath: path.dropFirst(root.count).joined(separator: "/"),
+                size: file.size,
+                modified: file.dateModified
+            )
+        }
+        var bursts: [String: FollowUpSourceSnapshot.Burst] = [:]
+        for ranking in result.rankings {
+            let members = ranking.fileIDs.compactMap { photoIDs[$0] }
+            guard members.count == ranking.fileIDs.count,
+                  members.allSatisfy({ photos[$0] != nil }) else { return nil }
+            var ranks: [String: Int] = [:]
+            for (index, candidate) in ranking.candidates.enumerated() {
+                if let photoID = photoIDs[candidate.fileID] { ranks[photoID] = index + 1 }
+            }
+            bursts[sharedBurstID(job: job, groupID: ranking.groupID)] = .init(
+                photoIDs: members,
+                ranks: ranks,
+                recommendedPhotoID: ranking.recommendedFileID.flatMap { photoIDs[$0] },
+                alternatePhotoID: ranking.secondBestFileID.flatMap { photoIDs[$0] }
+            )
+        }
+        return .init(jobID: job.jobId, catalogID: job.catalogId, photos: photos, bursts: bursts)
+    }
+
+    private func sharedBurstID(job: AnalysisJob, groupID: Int) -> String {
+        "\(job.catalogId.uuidString):\(job.jobId.uuidString):\(groupID)"
+    }
+
     private func makeResults(
         _ result: BurstAnalysisPipelineResult, job: AnalysisJob,
         photoIds: [UUID: String], viewModel: RawCullViewModel
@@ -759,7 +963,7 @@ final class MCPAnalysisController {
             let candidates = preferred.compactMap { byId[$0] }
                 + ranking.candidates.lazy.filter { !preferredSet.contains($0.fileID) }.prefix(5)
             return AnalysisJob.Burst(
-                id: "\(job.catalogId.uuidString):\(job.jobId.uuidString):\(ranking.groupID)",
+                id: sharedBurstID(job: job, groupID: ranking.groupID),
                 frameCount: ranking.fileIDs.count,
                 recommendedPhotoId: ranking.recommendedFileID.flatMap { photoIds[$0] },
                 alternatePhotoId: ranking.secondBestFileID.flatMap { photoIds[$0] },
@@ -856,19 +1060,19 @@ final class MCPAnalysisController {
     private func updateWithRetry(
         _ change: (AnalysisJob?) throws -> AnalysisJob?
     ) async throws {
-        try await withJobLockRetry { try jobs.updateLocked(change) }
+        try await withJobLockRetry { _ = try jobs.updateLocked(change) }
     }
 
     private func withJobLockRetry(_ operation: () throws -> Void) async throws {
         try await retryStorage { try jobs.withLock(operation) }
     }
 
-    private func retryStorage(_ operation: () throws -> Void) async throws {
+    @discardableResult
+    private func retryStorage<Result>(_ operation: () throws -> Result) async throws -> Result {
         let deadline = ContinuousClock.now + .seconds(2)
         while true {
             do {
-                try operation()
-                return
+                return try operation()
             } catch where AnalysisJobStore.StoreError.isRetryable(error) && ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(50))
             }

@@ -169,6 +169,26 @@ struct ToolHandlerTests {
         }
     }
 
+    @Test func assessmentRejectsUnsupportedRubricAndRequiresConsentBeforeLaunching() async throws {
+        let store = try makeStore()
+        defer { removeStore(store) }
+        let catalogID = try authorizePhotos(in: store)
+        var args: [String: Value] = [
+            "requestId": .string(UUID().uuidString), "catalogId": .string(catalogID.uuidString),
+            "sourceJobId": .string(UUID().uuidString), "photoIds": .array([.string("photo")]),
+            "rubric": .array([.string("expression")])
+        ]
+        let invalid = try await callKnownTool(.init(name: "start_photo_assessment", arguments: args), grantStore: store)
+        #expect(invalid.isError == true)
+        #expect(invalid.structuredContent?.objectValue?["errorCode"] == .string("invalidRequest"))
+
+        args["rubric"] = .array([.string("composition")])
+        let denied = try await callKnownTool(.init(name: "start_photo_assessment", arguments: args), grantStore: store)
+        #expect(denied.isError == true)
+        #expect(denied.structuredContent?.objectValue?["errorCode"] == .string("permissionRequired"))
+        #expect(try AnalysisJobStore(directory: store.directory).queuedFollowUp() == nil)
+    }
+
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {
         .init(name: "request_catalog_setup", arguments: [
             "requestId": .string(id.uuidString), "catalogHint": .string(hint), "jobType": .string("burstAnalysis"),

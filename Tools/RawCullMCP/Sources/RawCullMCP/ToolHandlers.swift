@@ -51,7 +51,7 @@ let listPhotosTool = Tool(
     ]),
     annotations: catalogReadAnnotations
 )
-let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all
+let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all + AnalysisTools.followUpTools
 
 func catalogMetadataText(_ value: String) -> String {
     String(String.UnicodeScalarView(value.unicodeScalars.prefix(512).map { scalar in
@@ -77,6 +77,9 @@ func requireCatalog(_ id: UUID, in grantStore: CatalogGrantStore) throws -> Cata
 func callKnownTool(
     _ params: CallTool.Parameters, grantStore: CatalogGrantStore
 ) async throws -> CallTool.Result {
+    if AnalysisTools.followUpTools.contains(where: { $0.name == params.name }) {
+        return try await AnalysisTools.callFollowUp(params, store: .init(directory: grantStore.directory))
+    }
     if AnalysisTools.all.contains(where: { $0.name == params.name }) {
         return try await AnalysisTools.call(params, grantStore: grantStore)
     }

@@ -7,15 +7,18 @@ struct MCPSettingsTab: View {
     let selectedCatalogName: String?
     let selectedCatalogURL: URL?
     let canAuthorizeAnalysis: Bool
-    let authorizeCatalog: (Bool, Bool) throws -> CatalogGrant
+    let authorizeCatalog: (Bool, Bool, Bool) throws -> CatalogGrant
 
     @State private var allowAnalysis = false
     @State private var recurringFolder = false
+    @State private var allowFollowUp = false
     @State private var grant: CatalogGrant?
     @State private var storageError: LocalizedStringResource?
     @State private var grantReadFailed = false
     @State private var sharedResult: SharedResult?
     @State private var resultReadFailed = false
+    @State private var assessments: [AnalysisJobStore.FollowUpRecord] = []
+    @State private var assessmentError = false
     @State private var clearError: LocalizedStringResource?
 
     var body: some View {
@@ -28,6 +31,9 @@ struct MCPSettingsTab: View {
                     } else if grant.analysisEnabled == true {
                         Text("Catalog analysis is authorized.")
                     }
+                    if grant.followUpEnabled == true {
+                        Text("Follow-up photo analysis is authorized.")
+                    }
                 } else if !grantReadFailed {
                     Text("No catalog is authorized.")
                 }
@@ -36,6 +42,9 @@ struct MCPSettingsTab: View {
                     LabeledContent("Selected catalog", value: selectedCatalogName)
                     Toggle("Allow MCP to start burst analysis", isOn: $allowAnalysis)
                     if allowAnalysis {
+                        Toggle("Allow MCP follow-up photo analysis", isOn: $allowFollowUp)
+                        Text("Follow-up analysis uses photo previews locally and shares text findings with the MCP client when supported.")
+                            .font(.footnote)
                         Toggle("Allow analysis of future photos in this folder", isOn: $recurringFolder)
                         if recurringFolder {
                             Text("MCP can start analysis without asking again. RawCull rescans this folder for each new job and shares the updated photo list and ranked bursts with the MCP client.")
@@ -72,12 +81,79 @@ struct MCPSettingsTab: View {
                 Text("An MCP client can read saved catalog metadata while RawCull is closed. If you allow analysis, it can also open RawCull to scan this catalog and read ranked bursts. Revoking access removes the saved authorization and the current job, including any shared result.")
             }
             SharedResultSection(result: sharedResult, readFailed: resultReadFailed, error: clearError, clear: clearResult)
+            if !assessments.isEmpty || assessmentError {
+                Section("Photo assessments") {
+                    ForEach(assessments, id: \.request.id) { record in
+                        assessmentRow(record)
+                    }
+                    if assessmentError {
+                        Text("RawCull could not update the assessment. Try again.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .onChange(of: selectedCatalogURL) {
             recurringFolder = false
+            allowFollowUp = false
         }
         .task { await observeSharing() }
+    }
+
+    private func assessmentRow(_ record: AnalysisJobStore.FollowUpRecord) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                if case let .photos(ids) = record.request.target {
+                    Text("Photos assessed or requested: \(ids.count)")
+                }
+                Text(record.createdAt, format: .dateTime.month().day().hour().minute())
+                Text(record.request.rubric.map { field in
+                    switch field {
+                    case "composition": String(localized: "Composition")
+                    case "exposure": String(localized: "Exposure")
+                    default: String(localized: "Subject visibility")
+                    }
+                }.formatted(.list(type: .and)))
+                Text(assessmentState(record))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if record.state == .running || record.state == .queued {
+                Button("Cancel") { updateAssessment(record.request.id, clear: false) }
+                    .disabled(record.cancellationRequested)
+            } else if record.state == .completed || record.state == .failed {
+                Button("Clear") { updateAssessment(record.request.id, clear: true) }
+            }
+        }
+    }
+
+    private func assessmentState(_ record: AnalysisJobStore.FollowUpRecord) -> LocalizedStringResource {
+        if record.cancellationRequested, record.state == .running { return "Cancelling" }
+        switch record.state {
+        case .queued: return "Queued"
+        case .running: return "Analyzing photo previews"
+        case .completed: return "Shared with MCP"
+        case .cancelled: return "Cancelled"
+        case .interrupted: return "Interrupted"
+        case .failed: return "Failed"
+        }
+    }
+
+    private func updateAssessment(_ id: UUID, clear: Bool) {
+        let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
+        do {
+            if clear { try jobs.clearFollowUpResult(id) }
+            else { try jobs.cancelFollowUp(id) }
+            assessmentError = false
+            refreshAssessments(jobs)
+        } catch {
+            assessmentError = true
+        }
+    }
+
+    private func refreshAssessments(_ jobs: AnalysisJobStore) {
+        if let latest = try? jobs.recentFollowUps(), latest != assessments { assessments = latest }
     }
 
     private func observeSharing() async {
@@ -87,6 +163,7 @@ struct MCPSettingsTab: View {
         var jobRevision = jobs.revision()
         refreshGrant()
         refreshResult()
+        refreshAssessments(jobs)
         while !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             let nextGrant = grants.revision()
@@ -94,6 +171,7 @@ struct MCPSettingsTab: View {
             let grantChanged = nextGrant != grantRevision || grantReadFailed
             if grantChanged { refreshGrant() }
             if grantChanged || nextJob != jobRevision || resultReadFailed { refreshResult() }
+            refreshAssessments(jobs)
             grantRevision = nextGrant
             jobRevision = nextJob
         }
@@ -105,6 +183,7 @@ struct MCPSettingsTab: View {
             if current?.id != grant?.id {
                 allowAnalysis = current?.analysisEnabled == true
                 recurringFolder = false
+                allowFollowUp = false
             }
             grant = current
             grantReadFailed = false
@@ -144,7 +223,7 @@ struct MCPSettingsTab: View {
 
     private func authorize() {
         do {
-            grant = try authorizeCatalog(allowAnalysis, allowAnalysis && recurringFolder)
+            grant = try authorizeCatalog(allowAnalysis, allowAnalysis && recurringFolder, allowAnalysis && allowFollowUp)
             storageError = nil
             refreshGrant()
             refreshResult()

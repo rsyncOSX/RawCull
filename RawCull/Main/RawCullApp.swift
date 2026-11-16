@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.viewModel = viewModel
         mcpAnalysis.start(
             viewModel: viewModel,
+            qwen: runtime.modelRuntime.qwenInference as? QwenInferenceRuntime,
             prepare: { [weak viewModel] in
                 await viewModel?.applyStoredScoringSettings()
                 await runtime.settingsModel.refresh()

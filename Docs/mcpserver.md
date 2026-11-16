@@ -691,3 +691,70 @@ The initial submission returned `pendingApproval` for request `A2F87E1D-C954-4B0
 Validation ran on 2026-11-15 with RawCull 3.4.6 (452) and MCP helper 0.7.0 over `stdio`. **About RawCull** and the installed app’s `Info.plist` both reported build 452. Codex used the helper bundled in `/Applications/RawCull.app`.
 
 **Ready for release.** The build 451 cold-launch and quit-and-resume failures both passed on TestFlight build 452. The release accepts the observed `appBuild: null`. The last-window-close variant and automated quit-versus-deny coverage remain open follow-ups.
+
+## Follow-up AI plan — Step 1 baseline
+
+This is the release log for [Step 1 of the follow-up AI plan](aiandmcp.md#step-1--establish-the-burst-baseline). The first live run used installed RawCull 3.4.6 (452) with the bundled MCP helper 0.7.0 over stdio. The source branch targets 3.4.7 (453). The helper responded and exposed the ten expected tools. A separate strict signature check of the installed helper returned `CSSMERR_TP_NOT_TRUSTED`; see the Step 1 verdict below.
+
+### Vision run
+
+After the user confirmed RawCull had quit, MCP returned the same coverage and all 50 burst records matched the pre-quit results.
+
+- Fixture folder `100MSDCF`, containing 275 ARW photos.
+- One-time setup request `7A5DD305-3B5F-4772-969F-992DF959214E`, catalog `F2B84769-59F5-410D-9CC1-AC9B302D6E75`, and job `7D108208-EFB2-4E23-8BE5-59A9B7CB62E3`.
+- The setup moved from `pendingApproval` to `queued`. The job completed with 275 scanned, 275 analyzed, 0 unevaluated, 50 bursts, 144 singletons, and `vision-feature-print` for all 275 photos.
+- Pagination at limit 1 returned distinct entries on two consecutive pages. Pagination at limit 25 returned 50 unique burst IDs. Limit 26 returned “limit must be an integer between 1 and 25.”
+- MCP group ID 29 appeared as Burst 30 in the app. The user confirmed the reported recommendation and alternate in the app. MCP reported seven frames and shared evidence for five. The low-confidence pick was `_DSC7727.ARW` (0.29589) and the alternate was `_DSC7728.ARW` (0.29287). RawCull cited the sharpest candidate leading and stable exposure, with cautions for a wider similarity spread and close top two. Both candidates carried a high-ISO noise caution.
+
+**Repeatable follow-up prompt**
+
+> Using only RawCull MCP, read the completed burst job using the catalog and job IDs from this chat. Page through all rankings. Find a low-confidence burst with at least six frames where the top two are close. Report both filenames, the score difference, and the recorded evidence and cautions. Suggest what to inspect visually based on that evidence.
+
+After the user cleared the shared Vision result, both status and burst reads returned “That job was cleared, replaced, or revoked.”
+
+### CLIP run
+
+- One-time setup request `1650BD12-7771-4C43-BD49-F5B8F696B90E`, catalog `2A02C9EC-1828-4337-B645-BA2A92CD1E62`, and job `893AFAAC-E1F9-468B-81EE-F26792BB0D71`.
+- The job completed with 275 scanned, 275 analyzed, 0 unevaluated, 72 bursts, 58 singletons, and `clip` for all 275 photos.
+- Limit 1 returned distinct entries on consecutive pages. Limit 25 returned three pages of 25, 25, and 22 bursts, with 72 unique IDs. Limit 26 returned “limit must be an integer between 1 and 25.”
+- The follow-up prompt located the same seven-frame pair under MCP group ID 19. The user confirmed the pair appeared as Burst 20 in the app. The low-confidence pick was `_DSC7727.ARW` (0.31989) and the alternate was `_DSC7728.ARW` (0.31687). RawCull reported stable exposure and subject, a close top two, and high-ISO noise risk for both. Compare detail on the main subject at the same zoom and check whether noise accounts for the apparent difference.
+
+After the user confirmed RawCull had quit, MCP returned all 72 CLIP burst records and coverage unchanged.
+
+After the user cleared the shared CLIP result, status and burst reads both returned “That job was cleared, replaced, or revoked.” `list_catalogs` returned an empty list after the two one-time approvals.
+
+### Vision cold-start retest
+
+The user confirmed RawCull had fully quit before the MCP request. RawCull reopened for one-time approval. Request `DAE0C660-051C-4FB0-9693-88EA86B22275` queued job `E3718D6C-B41D-4E7A-BD18-BFE6CDBCA58B` for catalog `85C70AA5-AD98-4384-BAA7-A5B114D17221`. Build 452 analyzed all 275 photos with `vision-feature-print` and zero unevaluated. Both pages returned 50 unique bursts in total, including the same seven-frame recommendation and alternate.
+
+**Step 1 verdict — accepted.** The functional baseline passed on TestFlight 3.4.6 (452), including the Vision cold-start retest. The user accepted build 452 as the Step 1 baseline on 2026-11-16. The development branch targets 3.4.7 (453). The separate strict helper signature check returned `CSSMERR_TP_NOT_TRUSTED` during preflight. Acceptance closes the Step 1 gate for the tested build.
+
+## Follow-up AI plan — Step 2 test progress
+
+Tested the source-snapshot changes at commit `662efb02` on 2026-11-16.
+
+- **PASS**. Nine MCP job lifecycle tests ran against the production store sources in an isolated Release harness. The tests cover source visibility after publication, current consent, wrong job IDs, legacy Clear, retaining membership and ranks beyond five frames, changed files, and symlink escape. Existing worker ownership and recovery tests also passed.
+- **PASS**. All 18 MCP helper package tests passed, covering the existing tool handlers and setup store.
+- **OPEN**. The full Xcode Release build could not be verified. Reusing the package graph hit restricted Xcode cache writes, and a fresh graph with cached repositories could not update a dependency submodule.
+- **OPEN**. Signed-candidate testing is pending the in-app consent control, follow-up request and result storage, and shared worker admission. The automated passes above do not close the Step 2 gate.
+
+### Step 2 implementation retest
+
+- Added explicit follow-up consent in MCP Settings. Recurring grant refreshes preserve the existing consent.
+- The shared kernel worker lock excludes burst and follow-up workers. The current burst remains readable during follow-up. A follow-up result becomes visible only after its terminal request record is written. Cancellation, Clear, and Revoke prevent late publication. A staged result from an exited worker is discarded on recovery.
+- **PASS**. `make test-mcp-release` combines the helper suite and the isolated production-store Release harness. The suites passed individually with 18 helper tests and 15 lifecycle tests. The lifecycle harness also verified Unicode file resolution, catalog identity, recurring consent, and worker-lock recovery after killing a subprocess.
+- **PASS**. Xcode built the app and bundled helper in Release with signing disabled. Running the full app test target in Release hit existing test code that depends on Debug-only cache and thumbnail hooks. The isolated Release harness exercises the shared production stores without those dependencies.
+- **PASS**. The locally signed Release candidate, RawCull 3.4.7 (453), and its bundled helper passed strict signature verification with access to the Mac keychain. Its helper reported build 453 and read the completed legacy Vision job from build 452, including its coverage and a page of rankings.
+- **PASS**. After a saved analysis grant for `100MSDCF` was created in TestFlight build 452, build 453’s bundled helper read it and launched build 453 from a full quit. Vision job `6F763D73-81AC-42F1-AAB6-E9D97967552F` analyzed all 275 photos with `vision-feature-print`, with 50 bursts and zero unevaluated photos. The bundled helper returned both pages with 50 unique bursts and matched the seven-frame reference pair.
+- The first recurring job, `F834805D-BAD0-4C8F-B858-14DE4EEF5198`, reported Vision. Both application versions were subsequently found open. The retest targeted the signed build 453 explicitly and confirmed DataComp CLIP was active in its AI settings before submission.
+- **PASS**. Recurring job `BACAF949-BC17-44FB-A906-9E4FEEA093B4` analyzed all 275 photos with `clip`, with 72 bursts, 58 singletons, and zero unevaluated photos. All 72 unique bursts were read in three pages. The seven-frame reference pick and alternate matched.
+- **PASS**. Build 453’s MCP settings still showed “Follow-up photo analysis is authorized” after the CLIP refresh. Snapshot contents and lookup were verified in the isolated production-store harness. Direct inspection of the signed app’s on-disk snapshot from a separate process was unavailable.
+
+**Step 2 verdict — passed.** The production-store Release harness and helper tests passed, and signed build 453 passed legacy grant and ranking compatibility and the live Vision and CLIP baseline.
+
+## Follow-up AI plan — Step 3 test progress
+
+- **PASS**. The bundled candidate implements `start_photo_assessment`, `get_photo_assessment_status`, `get_photo_assessment_result`, and `cancel_photo_assessment`. The helper suite passed 19 tests. The isolated Release harness passed 18 lifecycle and projection tests.
+- **PASS**. Signed build 453 assessed the two reference frames with Qwen3-VL-2B. Request `61AD5B25-E2C6-43BF-BD79-27727027A752` completed in about 77 seconds from cold start with composition and subject-visibility findings for both photos. Request `8F357E7C-EACD-4926-B1E3-D5666956A7BC` assessed exposure on the same frames and had completed at the first status check after 90 seconds without polling. Both identical replays returned the original terminal state. Conflicting replay was rejected. The returned result passed the preview, projection, size, and privacy-field checks.
+- **PASS**. The MCP settings showed the active assessment and a Cancel control. The app’s visible catalog selection stayed empty during assessment.
+- **OPEN**. A rapid overlap test accepted both submissions and the first request reported interruption. Storage-lock retries were added to assessment startup and failure publication. Verify the overlap and cancellation behavior on the rebuilt candidate. Missing-model, unreadable-photo, and diagnostic-capture checks remain open. The execution timeout and batch limits remain provisional. Step 3 has not passed its release gate.
