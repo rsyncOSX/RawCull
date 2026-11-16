@@ -3,7 +3,7 @@ import Foundation
 nonisolated struct CatalogGrant: Codable {
     let id: UUID
     let displayName: String
-    let summary: CatalogSummary?
+    var summary: CatalogSummary?
     let analysisEnabled: Bool?
     var recurringFolder: Bool?
     var followUpEnabled: Bool?
@@ -76,6 +76,16 @@ nonisolated struct CatalogGrantStore: Sendable {
     // Caller must hold the job lock.
     func writeLocked(_ grant: CatalogGrant) throws {
         try JSONEncoder().encode(grant).write(to: manifestURL(), options: .atomic)
+    }
+
+    // Caller must hold the job lock. Preserve all permissions on the current grant.
+    func refreshRecurringLocked(catalogID: UUID, summary: CatalogSummary) throws {
+        guard var current = try authorizedCatalog(), current.id == catalogID,
+              current.analysisEnabled == true, current.recurringFolder == true else {
+            throw StoreError.unavailable
+        }
+        current.summary = summary
+        try writeLocked(current)
     }
 
     func revoke() throws {

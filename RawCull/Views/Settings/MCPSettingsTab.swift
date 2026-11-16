@@ -7,10 +7,11 @@ struct MCPSettingsTab: View {
     let selectedCatalogName: String?
     let selectedCatalogURL: URL?
     let canAuthorizeAnalysis: Bool
-    let authorizeCatalog: (Bool, Bool) throws -> CatalogGrant
+    let authorizeCatalog: (Bool, Bool, Bool) throws -> CatalogGrant
 
     @State private var allowAnalysis = false
     @State private var recurringFolder = false
+    @State private var allowFollowUp = false
     @State private var grant: CatalogGrant?
     @State private var storageError: LocalizedStringResource?
     @State private var grantReadFailed = false
@@ -28,6 +29,9 @@ struct MCPSettingsTab: View {
                     } else if grant.analysisEnabled == true {
                         Text("Catalog analysis is authorized.")
                     }
+                    if grant.followUpEnabled == true {
+                        Text("Follow-up photo analysis is authorized.")
+                    }
                 } else if !grantReadFailed {
                     Text("No catalog is authorized.")
                 }
@@ -36,6 +40,9 @@ struct MCPSettingsTab: View {
                     LabeledContent("Selected catalog", value: selectedCatalogName)
                     Toggle("Allow MCP to start burst analysis", isOn: $allowAnalysis)
                     if allowAnalysis {
+                        Toggle("Allow MCP follow-up photo analysis", isOn: $allowFollowUp)
+                        Text("Follow-up analysis uses photo previews locally and shares text findings with the MCP client when supported.")
+                            .font(.footnote)
                         Toggle("Allow analysis of future photos in this folder", isOn: $recurringFolder)
                         if recurringFolder {
                             Text("MCP can start analysis without asking again. RawCull rescans this folder for each new job and shares the updated photo list and ranked bursts with the MCP client.")
@@ -76,6 +83,7 @@ struct MCPSettingsTab: View {
         .formStyle(.grouped)
         .onChange(of: selectedCatalogURL) {
             recurringFolder = false
+            allowFollowUp = false
         }
         .task { await observeSharing() }
     }
@@ -105,6 +113,7 @@ struct MCPSettingsTab: View {
             if current?.id != grant?.id {
                 allowAnalysis = current?.analysisEnabled == true
                 recurringFolder = false
+                allowFollowUp = false
             }
             grant = current
             grantReadFailed = false
@@ -144,7 +153,7 @@ struct MCPSettingsTab: View {
 
     private func authorize() {
         do {
-            grant = try authorizeCatalog(allowAnalysis, allowAnalysis && recurringFolder)
+            grant = try authorizeCatalog(allowAnalysis, allowAnalysis && recurringFolder, allowAnalysis && allowFollowUp)
             storageError = nil
             refreshGrant()
             refreshResult()

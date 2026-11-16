@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 @testable import RawCull
 import Testing
@@ -179,6 +180,205 @@ struct MCPJobLifecycleTests {
                 try entry.resolve(in: catalog)
             }
         }
+    }
+
+    @Test func followUpResolutionPreservesUnicodePathAndCatalogIdentity() throws {
+        try withStore { store, jobFile in
+            let request = try seedFollowUpSource(in: store)
+            let root = jobFile.deletingLastPathComponent()
+            let catalog = root.appendingPathComponent("catalog")
+            let otherCatalog = root.appendingPathComponent("other-catalog")
+            try FileManager.default.createDirectory(at: otherCatalog, withIntermediateDirectories: false)
+            let original = catalog.appendingPathComponent("Cafe\u{301}.ARW")
+            let sameName = otherCatalog.appendingPathComponent(original.lastPathComponent)
+            try FileManager.default.copyItem(at: original, to: sameName)
+            let worker = try startFollowUp(request, in: store)
+            #expect(try worker.resolveTargets(in: catalog).map(\.path) == [
+                original.resolvingSymlinksInPath().path
+            ])
+            #expect(throws: FollowUpSourceSnapshot.SourceError.unavailable) {
+                try store.readFollowUpSource(catalogID: UUID(), jobID: request.sourceJobID)
+            }
+        }
+    }
+
+    @Test func followUpReservationExcludesOtherWorkersAndKeepsSourceReadable() throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            let worker = try startFollowUp(request, in: store)
+            #expect(try store.acquireWorkerLease() == nil)
+            #expect(try store.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID).jobID
+                    == request.sourceJobID)
+            let replacement = AnalysisJob(jobId: UUID(), catalogId: request.catalogID, createdAt: now, updatedAt: now)
+            #expect(throws: AnalysisJobStore.StoreError.busy) {
+                try store.update { _ in replacement }
+            }
+            guard case .replay(let active) = try store.beginFollowUp(request, now: now) else {
+                Issue.record("An identical request started a second worker.")
+                return
+            }
+            #expect(active.state == .running)
+            let result = Data("{}".utf8)
+            try store.finishFollowUp(worker, result: result, now: now)
+            #expect(try store.readFollowUpResult(request.id, now: now) == result)
+            #expect(throws: AnalysisJobStore.FollowUpError.expiredResult) {
+                try store.readFollowUpResult(request.id, now: now + 24 * 60 * 60)
+            }
+        }
+    }
+
+    @Test(arguments: ["clear", "revoke", "cancel"])
+    func followUpInvalidationPreventsLatePublication(_ action: String) throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            let worker = try startFollowUp(request, in: store)
+            switch action {
+            case "clear":
+                #expect(try store.clearResult(expectedJobID: request.sourceJobID))
+            case "revoke":
+                try CatalogGrantStore(directory: store.directory).revoke()
+            default:
+                try store.cancelFollowUp(request.id)
+            }
+            let result = Data("{}".utf8)
+            if action == "cancel" {
+                try store.finishFollowUp(worker, result: result, now: now)
+            } else {
+                #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                    try store.finishFollowUp(worker, result: result, now: now)
+                }
+            }
+            #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                try store.readFollowUpResult(request.id, now: now)
+            }
+        }
+    }
+
+    @Test func abandonedFollowUpDoesNotPublishStagedResult() throws {
+        try withStore { store, jobFile in
+            let request = try seedFollowUpSource(in: store)
+            do {
+                let worker = try startFollowUp(request, in: store)
+                let stagedResult = jobFile.deletingLastPathComponent()
+                    .appendingPathComponent("follow-up-requests")
+                    .appendingPathComponent(request.id.uuidString)
+                    .appendingPathComponent("result.json")
+                try Data("{}".utf8).write(to: stagedResult)
+                #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                    try store.readFollowUpResult(request.id, now: now)
+                }
+                withExtendedLifetime(worker) {}
+            }
+            guard case .replay(let recovered) = try store.beginFollowUp(request, now: now + 1) else {
+                Issue.record("An interrupted request should have returned its original record.")
+                return
+            }
+            #expect(recovered.state == .interrupted)
+            #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                try store.readFollowUpResult(request.id, now: now + 1)
+            }
+        }
+    }
+
+    @Test func processExitReleasesFollowUpWorkerLock() throws {
+        try withStore { store, jobFile in
+            let request = try seedFollowUpSource(in: store)
+            do {
+                let worker = try startFollowUp(request, in: store)
+                withExtendedLifetime(worker) {}
+            }
+            let lock = jobFile.deletingLastPathComponent().appendingPathComponent("analysis-worker.lock")
+            let process = Process()
+            let ready = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+            process.arguments = ["-MFcntl=:flock", "-e", """
+                open(my $lock, "+<", $ARGV[0]) or die $!;
+                flock($lock, LOCK_EX | LOCK_NB) or die $!;
+                $| = 1;
+                print "R";
+                sleep while 1;
+                """, lock.path]
+            process.standardOutput = ready
+            try process.run()
+            defer {
+                if process.isRunning {
+                    kill(process.processIdentifier, SIGKILL)
+                    process.waitUntilExit()
+                }
+            }
+            let received = try ready.fileHandleForReading.read(upToCount: 1)
+            try #require(received == Data([82]))
+            #expect(try store.acquireWorkerLease() == nil)
+            kill(process.processIdentifier, SIGKILL)
+            process.waitUntilExit()
+            #expect(process.terminationReason == .uncaughtSignal)
+            guard case .replay(let recovered) = try store.beginFollowUp(request, now: now) else {
+                Issue.record("Recovery must recognize the existing request.")
+                return
+            }
+            #expect(recovered.state == .interrupted)
+        }
+    }
+
+    @Test func recurringRefreshPreservesFollowUpConsent() throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            let grants = CatalogGrantStore(directory: store.directory)
+            let scanID = UUID()
+            let updated = CatalogSummary(
+                photoCount: 1, earliestCaptureDate: nil, latestCaptureDate: nil, cameraCounts: [:],
+                snapshotAt: "2026-11-16", photos: [], scanId: scanID
+            )
+            try store.withLock {
+                try grants.refreshRecurringLocked(catalogID: request.catalogID, summary: updated)
+            }
+            let grant = try #require(try grants.authorizedCatalog())
+            #expect(grant.followUpEnabled == true)
+            #expect(grant.summary?.scanId == scanID)
+        }
+    }
+
+    private func seedFollowUpSource(in store: AnalysisJobStore) throws -> AnalysisJobStore.FollowUpRequest {
+        let catalogID = UUID()
+        let jobID = UUID()
+        let request = AnalysisJobStore.FollowUpRequest(
+            id: UUID(), catalogID: catalogID, sourceJobID: jobID, target: .photos(["photo"]), rubric: ["composition"]
+        )
+        let grants = CatalogGrantStore(directory: store.directory)
+        try grants.authorize(.init(
+            id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true,
+            recurringFolder: true, followUpEnabled: true
+        ))
+        var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: now, updatedAt: now)
+        job.claim()
+        try store.update { _ in job }
+        job.coverage = .init(photoCount: 1, burstCount: 0, singletonCount: 1,
+                             unevaluatedCount: 0, skippedByReason: [:], similarityBackends: [:])
+        job.bursts = []
+        job.finish(.completed)
+        let directory = try #require(store.directory)
+        let catalog = directory.appendingPathComponent("catalog")
+        try FileManager.default.createDirectory(at: catalog, withIntermediateDirectories: false)
+        let file = catalog.appendingPathComponent("Cafe\u{301}.ARW")
+        try Data([1]).write(to: file)
+        let modified = try #require(try file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+        try store.withLock {
+            try store.stageFollowUpSourceLocked(.init(jobID: jobID, catalogID: catalogID, photos: [
+                "photo": .init(relativePath: file.lastPathComponent, size: 1, modified: modified)
+            ], bursts: [:]))
+            _ = try store.updateLocked { _ in job }
+        }
+        return request
+    }
+
+    private func startFollowUp(
+        _ request: AnalysisJobStore.FollowUpRequest, in store: AnalysisJobStore
+    ) throws -> AnalysisJobStore.FollowUpWorker {
+        let admission = try store.beginFollowUp(request, now: now)
+        guard case .started(let worker) = admission else {
+            throw AnalysisJobStore.FollowUpError.conflict
+        }
+        return worker
     }
 
     private func withStore(_ test: (AnalysisJobStore, URL) throws -> Void) throws {

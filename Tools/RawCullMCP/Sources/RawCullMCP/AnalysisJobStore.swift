@@ -157,8 +157,10 @@ nonisolated struct FollowUpSourceSnapshot: Codable, Sendable {
 
             let root = catalog.resolvingSymlinksInPath().standardizedFileURL
             let file = root.appendingPathComponent(relativePath).resolvingSymlinksInPath().standardizedFileURL
-            guard file.pathComponents.count > root.pathComponents.count,
-                  file.pathComponents.starts(with: root.pathComponents) else {
+            let rootComponents = root.pathComponents
+            let fileComponents = file.pathComponents
+            guard fileComponents.count > rootComponents.count,
+                  fileComponents.starts(with: rootComponents, by: { $0.utf8.elementsEqual($1.utf8) }) else {
                 throw SourceError.invalidTarget
             }
             let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey])
@@ -277,29 +279,31 @@ nonisolated struct AnalysisJobStore: Sendable {
     }
 
     func readFollowUpSource(catalogID: UUID, jobID: UUID) throws -> FollowUpSourceSnapshot {
-        try withLock {
-            let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
-            guard grant?.id == catalogID, grant?.analysisEnabled == true, grant?.followUpEnabled == true,
-                  let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
-                  !job.usesSetupApproval, job.hasShareableResult, job.resultCleared != true else {
+        try withLock { try readFollowUpSourceLocked(catalogID: catalogID, jobID: jobID) }
+    }
+
+    private func readFollowUpSourceLocked(catalogID: UUID, jobID: UUID) throws -> FollowUpSourceSnapshot {
+        let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
+        guard grant?.id == catalogID, grant?.analysisEnabled == true, grant?.followUpEnabled == true,
+              let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
+              !job.usesSetupApproval, job.hasShareableResult, job.resultCleared != true else {
+            throw FollowUpSourceSnapshot.SourceError.unavailable
+        }
+        do {
+            let data = try Data(contentsOf: sourceSnapshotURL())
+            guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
                 throw FollowUpSourceSnapshot.SourceError.unavailable
             }
-            do {
-                let data = try Data(contentsOf: sourceSnapshotURL())
-                guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
-                    throw FollowUpSourceSnapshot.SourceError.unavailable
-                }
-                let snapshot = try JSONDecoder().decode(FollowUpSourceSnapshot.self, from: data)
-                guard snapshot.version == FollowUpSourceSnapshot.currentVersion,
-                      snapshot.catalogID == catalogID, snapshot.jobID == jobID else {
-                    throw FollowUpSourceSnapshot.SourceError.unavailable
-                }
-                return snapshot
-            } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-                throw FollowUpSourceSnapshot.SourceError.unavailable
-            } catch is DecodingError {
+            let snapshot = try JSONDecoder().decode(FollowUpSourceSnapshot.self, from: data)
+            guard snapshot.version == FollowUpSourceSnapshot.currentVersion,
+                  snapshot.catalogID == catalogID, snapshot.jobID == jobID else {
                 throw FollowUpSourceSnapshot.SourceError.unavailable
             }
+            return snapshot
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            throw FollowUpSourceSnapshot.SourceError.unavailable
+        } catch is DecodingError {
+            throw FollowUpSourceSnapshot.SourceError.unavailable
         }
     }
 
@@ -355,19 +359,29 @@ nonisolated struct AnalysisJobStore: Sendable {
 
     // The caller must hold the job lock.
     func updateLocked(_ change: (AnalysisJob?) throws -> AnalysisJob?) throws -> AnalysisJob? {
-        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         let current = try readRecoveringLocked()
-        if var next = try change(current) {
-            if next.jobId != current?.jobId || (next.state != .running && !next.hasShareableResult) {
-                try removeFollowUpSourceLocked()
+        if let next = try change(current) {
+            if let current, current.hasShareableResult, current.jobId != next.jobId {
+                guard let lease = try acquireWorkerLease() else { throw StoreError.busy }
+                return try withExtendedLifetime(lease) { try writeLocked(next, replacing: current) }
             }
-            next.updatedAt = .now
-            try JSONEncoder().encode(next).write(
-                to: directory.appendingPathComponent("analysis-job.json"), options: .atomic
-            )
-            return next
+            return try writeLocked(next, replacing: current)
         }
         return current
+    }
+
+    private func writeLocked(_ next: AnalysisJob, replacing current: AnalysisJob?) throws -> AnalysisJob {
+        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        var next = next
+        if next.jobId != current?.jobId || (next.state != .running && !next.hasShareableResult) {
+            try removeFollowUpSourceLocked()
+            try removeFollowUpRequestsLocked()
+        }
+        next.updatedAt = .now
+        try JSONEncoder().encode(next).write(
+            to: directory.appendingPathComponent("analysis-job.json"), options: .atomic
+        )
+        return next
     }
 
     func readRecovering() throws -> AnalysisJob? {
@@ -392,6 +406,7 @@ nonisolated struct AnalysisJobStore: Sendable {
     // The caller must hold the job lock.
     func removeLocked() throws {
         try removeFollowUpSourceLocked()
+        try removeFollowUpRequestsLocked()
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         do {
             try FileManager.default.removeItem(at: directory.appendingPathComponent("analysis-job.json"))
@@ -439,6 +454,263 @@ nonisolated struct AnalysisJobStore: Sendable {
             }
             return current
         }
+    }
+}
+
+/// Internal follow-up storage. The request record is the publication marker for its result.
+nonisolated extension AnalysisJobStore {
+    struct FollowUpRequest: Codable, Equatable, Sendable {
+        enum Target: Codable, Equatable, Sendable {
+            case photos([String])
+            case burst(String)
+        }
+
+        let id: UUID
+        let catalogID: UUID
+        let sourceJobID: UUID
+        let target: Target
+        let rubric: [String]
+
+        init(id: UUID, catalogID: UUID, sourceJobID: UUID, target: Target, rubric: [String]) {
+            self.id = id
+            self.catalogID = catalogID
+            self.sourceJobID = sourceJobID
+            self.target = target
+            self.rubric = rubric.sorted()
+        }
+    }
+
+    struct FollowUpRecord: Codable, Sendable {
+        enum State: String, Codable, Sendable {
+            case running, completed, cancelled, interrupted
+        }
+
+        var version = 1
+        var kind = "photoAssessment"
+        let request: FollowUpRequest
+        let snapshotVersion: Int
+        let createdAt: Date
+        var finishedAt: Date?
+        var state = State.running
+        var cancellationRequested = false
+    }
+
+    final class FollowUpWorker: Sendable {
+        let request: FollowUpRequest
+        let source: FollowUpSourceSnapshot
+        fileprivate let lease: WorkerLease
+
+        func resolveTargets(in catalog: URL) throws -> [URL] {
+            try request.target.photoIDs(in: source).map { try source.resolve(photoID: $0, in: catalog) }
+        }
+
+        fileprivate init(request: FollowUpRequest, source: FollowUpSourceSnapshot, lease: WorkerLease) {
+            self.request = request
+            self.source = source
+            self.lease = lease
+        }
+    }
+
+    enum FollowUpAdmission {
+        case started(FollowUpWorker)
+        case replay(FollowUpRecord)
+    }
+
+    enum FollowUpError: Error {
+        case conflict
+        case invalidRequest
+        case capacity
+        case unavailable
+        case expiredResult
+        case resultTooLarge
+    }
+
+    func beginFollowUp(_ request: FollowUpRequest, now: Date = .now) throws -> FollowUpAdmission {
+        try withLock {
+            let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
+            _ = try request.target.photoIDs(in: source)
+            let supportedRubric = Set(["composition", "exposure", "subjectVisibility"])
+            guard !request.rubric.isEmpty, request.rubric.count <= supportedRubric.count,
+                  Set(request.rubric).count == request.rubric.count,
+                  Set(request.rubric).isSubset(of: supportedRubric) else { throw FollowUpError.invalidRequest }
+            if let existing = try readFollowUpRecordLocked(request.id),
+               existing.finishedAt.map({ now.timeIntervalSince($0) < Self.followUpReceiptLifetime }) ?? true {
+                guard existing.request == request, existing.snapshotVersion == source.version else {
+                    throw FollowUpError.conflict
+                }
+                if existing.state != .running { return .replay(existing) }
+                guard let lease = try acquireWorkerLease() else { return .replay(existing) }
+                return try withExtendedLifetime(lease) {
+                    try .replay(interruptFollowUpLocked(existing, now: now))
+                }
+            }
+
+            guard let lease = try acquireWorkerLease() else { throw StoreError.busy }
+            try maintainFollowUpsLocked(source: source, now: now)
+            let folder = try followUpDirectory()
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let records = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+            guard records.count < 128 else { throw FollowUpError.capacity }
+            try writeFollowUpRecordLocked(.init(request: request, snapshotVersion: source.version, createdAt: now))
+            return .started(FollowUpWorker(request: request, source: source, lease: lease))
+        }
+    }
+
+    func cancelFollowUp(_ requestID: UUID) throws {
+        try withLock {
+            var record = try authorizedFollowUpRecordLocked(requestID)
+            guard record.state == .running else { return }
+            record.cancellationRequested = true
+            try writeFollowUpRecordLocked(record)
+        }
+    }
+
+    func finishFollowUp(_ worker: FollowUpWorker, result: Data?, now: Date = .now) throws {
+        try withLock {
+            let request = worker.request
+            var record = try authorizedFollowUpRecordLocked(request.id)
+            guard record.request == request, record.snapshotVersion == worker.source.version,
+                  record.state == .running else { throw FollowUpError.unavailable }
+
+            if let result, !record.cancellationRequested {
+                guard result.count <= 16 * 1024 else { throw FollowUpError.resultTooLarge }
+                try result.write(to: followUpResultURL(request.id), options: .atomic)
+                record.state = .completed
+            } else {
+                try removeFollowUpFile(try followUpResultURL(request.id))
+                record.state = .cancelled
+            }
+            record.finishedAt = now
+            try writeFollowUpRecordLocked(record)
+            withExtendedLifetime(worker.lease) {}
+        }
+    }
+
+    func readFollowUpResult(_ requestID: UUID, now: Date = .now) throws -> Data {
+        try withLock {
+            let record = try authorizedFollowUpRecordLocked(requestID)
+            guard record.state == .completed, let finishedAt = record.finishedAt else {
+                throw FollowUpError.unavailable
+            }
+            guard now.timeIntervalSince(finishedAt) < Self.followUpResultLifetime else {
+                throw FollowUpError.expiredResult
+            }
+            let data = try Data(contentsOf: followUpResultURL(requestID))
+            guard data.count <= 16 * 1024 else { throw FollowUpError.resultTooLarge }
+            return data
+        }
+    }
+
+    private static let followUpResultLifetime: TimeInterval = 24 * 60 * 60
+    private static let followUpReceiptLifetime: TimeInterval = 7 * 24 * 60 * 60
+
+    private func authorizedFollowUpRecordLocked(_ requestID: UUID) throws -> FollowUpRecord {
+        guard let record = try readFollowUpRecordLocked(requestID) else { throw FollowUpError.unavailable }
+        let request = record.request
+        let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
+        guard source.version == record.snapshotVersion else { throw FollowUpError.unavailable }
+        return record
+    }
+
+    private func interruptFollowUpLocked(_ record: FollowUpRecord, now: Date) throws -> FollowUpRecord {
+        var record = record
+        try removeFollowUpFile(try followUpResultURL(record.request.id))
+        record.state = record.cancellationRequested ? .cancelled : .interrupted
+        record.finishedAt = now
+        try writeFollowUpRecordLocked(record)
+        return record
+    }
+
+    // The worker lock is held here, so a running record belongs to an exited process.
+    private func maintainFollowUpsLocked(source: FollowUpSourceSnapshot, now: Date) throws {
+        let folder = try followUpDirectory()
+        let entries: [URL]
+        do {
+            entries = try FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: nil
+            )
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return
+        }
+        for entry in entries {
+            guard let id = UUID(uuidString: entry.lastPathComponent),
+                  let record = try readFollowUpRecordLocked(id),
+                  record.request.sourceJobID == source.jobID, record.request.catalogID == source.catalogID,
+                  record.snapshotVersion == source.version else {
+                try removeFollowUpFile(entry)
+                continue
+            }
+            if record.state == .running {
+                _ = try interruptFollowUpLocked(record, now: now)
+            } else if let finishedAt = record.finishedAt {
+                let age = now.timeIntervalSince(finishedAt)
+                if age >= Self.followUpReceiptLifetime {
+                    try removeFollowUpFile(entry)
+                } else if age >= Self.followUpResultLifetime {
+                    try removeFollowUpFile(try followUpResultURL(id))
+                }
+            }
+        }
+    }
+
+    private func followUpDirectory() throws -> URL {
+        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        return directory.appendingPathComponent("follow-up-requests", isDirectory: true)
+    }
+
+    private func followUpRecordURL(_ id: UUID) throws -> URL {
+        try followUpDirectory().appendingPathComponent(id.uuidString, isDirectory: true)
+            .appendingPathComponent("request.json")
+    }
+
+    private func followUpResultURL(_ id: UUID) throws -> URL {
+        try followUpRecordURL(id).deletingLastPathComponent().appendingPathComponent("result.json")
+    }
+
+    private func readFollowUpRecordLocked(_ id: UUID) throws -> FollowUpRecord? {
+        do {
+            let record = try JSONDecoder().decode(FollowUpRecord.self, from: Data(contentsOf: followUpRecordURL(id)))
+            guard record.version == 1, record.kind == "photoAssessment", record.request.id == id else {
+                throw StoreError.unsupportedFormat
+            }
+            return record
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
+    }
+
+    private func writeFollowUpRecordLocked(_ record: FollowUpRecord) throws {
+        let url = try followUpRecordURL(record.request.id)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(record).write(to: url, options: .atomic)
+    }
+
+    private func removeFollowUpRequestsLocked() throws {
+        try removeFollowUpFile(try followUpDirectory())
+    }
+
+    private func removeFollowUpFile(_ url: URL) throws {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {}
+    }
+}
+
+nonisolated extension AnalysisJobStore.FollowUpRequest.Target {
+    fileprivate func photoIDs(in source: FollowUpSourceSnapshot) throws -> [String] {
+        let ids: [String]
+        switch self {
+        case let .photos(selected):
+            ids = selected
+        case let .burst(id):
+            let burst = try source.burst(id: id)
+            ids = [burst.recommendedPhotoID, burst.alternatePhotoID].compactMap { $0 }.reduce(into: []) { ids, id in
+                if !ids.contains(id) { ids.append(id) }
+            }
+        }
+        guard (1 ... 4).contains(ids.count), Set(ids).count == ids.count,
+              ids.allSatisfy({ source.photos[$0] != nil }) else { throw AnalysisJobStore.FollowUpError.invalidRequest }
+        return ids
     }
 }
 

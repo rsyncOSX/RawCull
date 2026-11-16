@@ -737,3 +737,17 @@ Tested the source-snapshot changes at commit `662efb02` on 2026-11-16.
 - **PASS**. All 18 MCP helper package tests passed, covering the existing tool handlers and setup store.
 - **OPEN**. The full Xcode Release build could not be verified. Reusing the package graph hit restricted Xcode cache writes, and a fresh graph with cached repositories could not update a dependency submodule.
 - **OPEN**. Signed-candidate testing is pending the in-app consent control, follow-up request and result storage, and shared worker admission. The automated passes above do not close the Step 2 gate.
+
+### Step 2 implementation retest
+
+- Added explicit follow-up consent in MCP Settings. Recurring grant refreshes preserve the existing consent.
+- The shared kernel worker lock excludes burst and follow-up workers. The current burst remains readable during follow-up. A follow-up result becomes visible only after its terminal request record is written. Cancellation, Clear, and Revoke prevent late publication. A staged result from an exited worker is discarded on recovery.
+- **PASS**. `make test-mcp-release` combines the helper suite and the isolated production-store Release harness. The suites passed individually with 18 helper tests and 15 lifecycle tests. The lifecycle harness also verified Unicode file resolution, catalog identity, recurring consent, and worker-lock recovery after killing a subprocess.
+- **PASS**. Xcode built the app and bundled helper in Release with signing disabled. Running the full app test target in Release hit existing test code that depends on Debug-only cache and thumbnail hooks. The isolated Release harness exercises the shared production stores without those dependencies.
+- **PASS**. The locally signed Release candidate, RawCull 3.4.7 (453), and its bundled helper passed strict signature verification with access to the Mac keychain. Its helper reported build 453 and read the completed legacy Vision job from build 452, including its coverage and a page of rankings.
+- **PASS**. After a saved analysis grant for `100MSDCF` was created in TestFlight build 452, build 453’s bundled helper read it and launched build 453 from a full quit. Vision job `6F763D73-81AC-42F1-AAB6-E9D97967552F` analyzed all 275 photos with `vision-feature-print`, with 50 bursts and zero unevaluated photos. The bundled helper returned both pages with 50 unique bursts and matched the seven-frame reference pair.
+- The first recurring job, `F834805D-BAD0-4C8F-B858-14DE4EEF5198`, reported Vision. Both application versions were subsequently found open. The retest targeted the signed build 453 explicitly and confirmed DataComp CLIP was active in its AI settings before submission.
+- **PASS**. Recurring job `BACAF949-BC17-44FB-A906-9E4FEEA093B4` analyzed all 275 photos with `clip`, with 72 bursts, 58 singletons, and zero unevaluated photos. All 72 unique bursts were read in three pages. The seven-frame reference pick and alternate matched.
+- **PASS**. Build 453’s MCP settings still showed “Follow-up photo analysis is authorized” after the CLIP refresh. Snapshot contents and lookup were verified in the isolated production-store harness. Direct inspection of the signed app’s on-disk snapshot from a separate process was unavailable.
+
+**Step 2 verdict — passed.** The production-store Release harness and helper tests passed, and signed build 453 passed legacy grant and ranking compatibility and the live Vision and CLIP baseline.

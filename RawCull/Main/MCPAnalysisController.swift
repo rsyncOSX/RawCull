@@ -345,6 +345,31 @@ final class MCPAnalysisController {
         return (grant, url)
     }
 
+    /// Resolves the saved bookmark independently of the visible workspace.
+    func resolveFollowUpTargets(
+        for worker: AnalysisJobStore.FollowUpWorker
+    ) throws -> (photos: [URL], access: RawCullCatalogGrant) {
+        _ = try jobs.readFollowUpSource(catalogID: worker.request.catalogID, jobID: worker.request.sourceJobID)
+        guard let saved = try savedCatalog(), saved.grant.id == worker.request.catalogID,
+              saved.grant.followUpEnabled == true else {
+            throw FollowUpCatalogError.reauthorizationRequired
+        }
+        if let existing = RawCullCatalogAccess.shared.retainAccess(for: [saved.url]).first {
+            return (try worker.resolveTargets(in: saved.url), existing)
+        }
+        guard saved.url.startAccessingSecurityScopedResource() else {
+            throw FollowUpCatalogError.reauthorizationRequired
+        }
+        let access = RawCullCatalogGrant(url: saved.url) { $0.stopAccessingSecurityScopedResource() }
+        let photos = try worker.resolveTargets(in: access.url)
+        RawCullCatalogAccess.shared.register(access)
+        return (photos, access)
+    }
+
+    enum FollowUpCatalogError: Error {
+        case reauthorizationRequired
+    }
+
     private func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
         lhs.standardizedFileURL.path == rhs.standardizedFileURL.path
     }
@@ -556,7 +581,7 @@ final class MCPAnalysisController {
             try await waitForCatalog(job, target: target, viewModel: viewModel)
         }
         let photoIds: [UUID: String]
-        let refreshedGrant: CatalogGrant?
+        let refreshedSummary: CatalogSummary?
         if let grant, grant.recurringFolder == true {
             guard let summary = viewModel.mcpCatalogSummary(scanId: job.jobId) else {
                 throw JobError("No supported photos were found in the authorized folder.")
@@ -565,15 +590,12 @@ final class MCPAnalysisController {
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(prefix)\(offset)")
             })
-            refreshedGrant = CatalogGrant(
-                id: grant.id, displayName: grant.displayName, summary: summary,
-                analysisEnabled: true, recurringFolder: true, followUpEnabled: grant.followUpEnabled
-            )
+            refreshedSummary = summary
         } else if let photos = grant?.summary?.photos, let authorization {
-            refreshedGrant = nil
+            refreshedSummary = nil
             photoIds = try snapshotPhotoIds(files: viewModel.files, photos: photos, authorization: authorization)
         } else {
-            refreshedGrant = nil
+            refreshedSummary = nil
             photoIds = Dictionary(uniqueKeysWithValues: viewModel.files.enumerated().map { offset, file in
                 (file.id, "\(job.catalogId.uuidString):\(offset)")
             })
@@ -616,13 +638,11 @@ final class MCPAnalysisController {
         try await updateWithRetry { current in
             try Task.checkCancellation()
             guard var current, current.canPublish(for: job), try isAuthorized(job) else { throw CancellationError() }
-            let currentGrant = try grants.authorizedCatalog()
-            if let refreshedGrant {
-                var refreshedGrant = refreshedGrant
-                refreshedGrant.followUpEnabled = currentGrant?.followUpEnabled
-                try grants.writeLocked(refreshedGrant)
+            if let refreshedSummary {
+                try grants.refreshRecurringLocked(catalogID: job.catalogId, summary: refreshedSummary)
             }
-            if let source, currentGrant?.id == job.catalogId, currentGrant?.followUpEnabled == true {
+            if let source, let grant = try grants.authorizedCatalog(),
+               grant.id == job.catalogId, grant.followUpEnabled == true {
                 do {
                     try jobs.stageFollowUpSourceLocked(source)
                 } catch {
