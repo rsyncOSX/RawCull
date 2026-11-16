@@ -31,6 +31,7 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     var bursts: [Burst]?
     var setupRequestId: UUID?
     var usesSavedGrant: Bool?
+    var allowsJobPhotoAccess: Bool?
     var usesSetupApproval: Bool { setupRequestId != nil && usesSavedGrant != true }
     var hasShareableResult: Bool { state == .completed && coverage != nil && bursts != nil }
     var catalogDisplayName: String?
@@ -283,13 +284,17 @@ nonisolated struct AnalysisJobStore: Sendable {
     }
 
     private func readFollowUpSourceLocked(catalogID: UUID, jobID: UUID) throws -> FollowUpSourceSnapshot {
-        let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
-        guard grant?.id == catalogID, grant?.analysisEnabled == true, grant?.followUpEnabled == true,
-              let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
-              !job.usesSetupApproval, job.hasShareableResult, job.resultCleared != true else {
+        guard let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
+              job.hasShareableResult, job.resultCleared != true else {
             throw FollowUpSourceSnapshot.SourceError.unavailable
         }
         do {
+            if !job.usesSetupApproval || job.allowsJobPhotoAccess != true {
+                let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
+                guard grant?.id == catalogID, grant?.analysisEnabled == true else {
+                    throw FollowUpSourceSnapshot.SourceError.unavailable
+                }
+            }
             let data = try Data(contentsOf: sourceSnapshotURL())
             guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
                 throw FollowUpSourceSnapshot.SourceError.unavailable
@@ -680,8 +685,11 @@ nonisolated extension AnalysisJobStore {
 
     private func validateFollowUpRequestLocked(_ request: FollowUpRequest) throws -> FollowUpSourceSnapshot {
         let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
-        guard grant?.id == request.catalogID, grant?.followUpEnabled == true else {
-            throw FollowUpError.permissionRequired
+        if grant?.id != request.catalogID || grant?.analysisEnabled != true {
+            guard let job = try read(), job.catalogId == request.catalogID, job.jobId == request.sourceJobID,
+                  job.usesSetupApproval, job.allowsJobPhotoAccess == true else {
+                throw FollowUpError.permissionRequired
+            }
         }
         let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
         _ = try request.target.photoIDs(in: source)
