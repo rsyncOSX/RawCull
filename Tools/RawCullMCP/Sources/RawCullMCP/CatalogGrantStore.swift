@@ -1,14 +1,15 @@
 import Foundation
 
-struct CatalogGrant: Codable {
+nonisolated struct CatalogGrant: Codable {
     let id: UUID
     let displayName: String
     let summary: CatalogSummary?
     let analysisEnabled: Bool?
     var recurringFolder: Bool?
+    var followUpEnabled: Bool?
 }
 
-struct CatalogSummary: Codable {
+nonisolated struct CatalogSummary: Codable {
     let photoCount: Int
     let earliestCaptureDate: String?
     let latestCaptureDate: String?
@@ -23,13 +24,13 @@ struct CatalogSummary: Codable {
     }
 }
 
-struct CatalogPhoto: Codable {
+nonisolated struct CatalogPhoto: Codable {
     let name: String
     let captureDate: String?
     let camera: String?
 }
 
-struct CatalogGrantStore: Sendable {
+nonisolated struct CatalogGrantStore: Sendable {
     static let applicationGroup = "93M47F4H9T.no.blogspot.RawCull.mcp"
 
     let directory: URL?

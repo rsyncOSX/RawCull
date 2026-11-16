@@ -133,6 +133,68 @@ nonisolated struct AnalysisJob: Codable, Sendable {
     }
 }
 
+/// Private source evidence. The public burst result remains the publication marker.
+nonisolated struct FollowUpSourceSnapshot: Codable, Sendable {
+    static let currentVersion = 1
+    static let maximumBytes = 16 * 1024 * 1024
+
+    var version = Self.currentVersion
+    let jobID: UUID
+    let catalogID: UUID
+    let photos: [String: Photo]
+    let bursts: [String: Burst]
+
+    struct Photo: Codable, Sendable {
+        let relativePath: String
+        let size: Int64
+        let modified: Date
+
+        func resolve(in catalog: URL) throws -> URL {
+            let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+            guard !components.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
+                throw SourceError.invalidTarget
+            }
+
+            let root = catalog.resolvingSymlinksInPath().standardizedFileURL
+            let file = root.appendingPathComponent(relativePath).resolvingSymlinksInPath().standardizedFileURL
+            guard file.pathComponents.count > root.pathComponents.count,
+                  file.pathComponents.starts(with: root.pathComponents) else {
+                throw SourceError.invalidTarget
+            }
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey])
+            guard values.isRegularFile == true, values.fileSize.map(Int64.init) == size,
+                  values.contentModificationDate == modified else {
+                throw SourceError.changedFile
+            }
+            return file
+        }
+    }
+
+    struct Burst: Codable, Sendable {
+        let photoIDs: [String]
+        let ranks: [String: Int]
+        let recommendedPhotoID: String?
+        let alternatePhotoID: String?
+    }
+
+    enum SourceError: Error {
+        case unavailable
+        case invalidTarget
+        case changedFile
+    }
+
+    // The caller retains the authorized catalog's security-scoped access.
+    func resolve(photoID: String, in catalog: URL) throws -> URL {
+        guard let photo = photos[photoID] else { throw SourceError.invalidTarget }
+        return try photo.resolve(in: catalog)
+    }
+
+    func burst(id: String) throws -> Burst {
+        guard let burst = bursts[id] else { throw SourceError.invalidTarget }
+        return burst
+    }
+}
+
 /// One job slot shared by the app and any number of helper processes. The lock
 /// file is never replaced. Every state transition replaces the JSON atomically.
 nonisolated struct AnalysisJobStore: Sendable {
@@ -198,6 +260,55 @@ nonisolated struct AnalysisJobStore: Sendable {
         }
     }
 
+    private func sourceSnapshotURL() throws -> URL {
+        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        return directory.appendingPathComponent("follow-up-source.json")
+    }
+
+    // Stage the snapshot before publishing the completed burst result under the job lock.
+    // An interrupted publication leaves a snapshot that cannot be read as a source.
+    func stageFollowUpSourceLocked(_ snapshot: FollowUpSourceSnapshot) throws {
+        let data = try JSONEncoder().encode(snapshot)
+        guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
+            try removeFollowUpSourceLocked()
+            return
+        }
+        try data.write(to: sourceSnapshotURL(), options: .atomic)
+    }
+
+    func readFollowUpSource(catalogID: UUID, jobID: UUID) throws -> FollowUpSourceSnapshot {
+        try withLock {
+            let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
+            guard grant?.id == catalogID, grant?.analysisEnabled == true, grant?.followUpEnabled == true,
+                  let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
+                  !job.usesSetupApproval, job.hasShareableResult, job.resultCleared != true else {
+                throw FollowUpSourceSnapshot.SourceError.unavailable
+            }
+            do {
+                let data = try Data(contentsOf: sourceSnapshotURL())
+                guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
+                    throw FollowUpSourceSnapshot.SourceError.unavailable
+                }
+                let snapshot = try JSONDecoder().decode(FollowUpSourceSnapshot.self, from: data)
+                guard snapshot.version == FollowUpSourceSnapshot.currentVersion,
+                      snapshot.catalogID == catalogID, snapshot.jobID == jobID else {
+                    throw FollowUpSourceSnapshot.SourceError.unavailable
+                }
+                return snapshot
+            } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+                throw FollowUpSourceSnapshot.SourceError.unavailable
+            } catch is DecodingError {
+                throw FollowUpSourceSnapshot.SourceError.unavailable
+            }
+        }
+    }
+
+    private func removeFollowUpSourceLocked() throws {
+        do {
+            try FileManager.default.removeItem(at: sourceSnapshotURL())
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {}
+    }
+
     /// The update returns a new record only when it needs to change the slot.
     @discardableResult
     func update(_ change: (AnalysisJob?) throws -> AnalysisJob?) throws -> AnalysisJob? {
@@ -247,6 +358,9 @@ nonisolated struct AnalysisJobStore: Sendable {
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         let current = try readRecoveringLocked()
         if var next = try change(current) {
+            if next.jobId != current?.jobId || (next.state != .running && !next.hasShareableResult) {
+                try removeFollowUpSourceLocked()
+            }
             next.updatedAt = .now
             try JSONEncoder().encode(next).write(
                 to: directory.appendingPathComponent("analysis-job.json"), options: .atomic
@@ -277,6 +391,7 @@ nonisolated struct AnalysisJobStore: Sendable {
 
     // The caller must hold the job lock.
     func removeLocked() throws {
+        try removeFollowUpSourceLocked()
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
         do {
             try FileManager.default.removeItem(at: directory.appendingPathComponent("analysis-job.json"))

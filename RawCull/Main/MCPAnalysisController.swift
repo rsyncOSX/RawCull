@@ -567,7 +567,7 @@ final class MCPAnalysisController {
             })
             refreshedGrant = CatalogGrant(
                 id: grant.id, displayName: grant.displayName, summary: summary,
-                analysisEnabled: true, recurringFolder: true
+                analysisEnabled: true, recurringFolder: true, followUpEnabled: grant.followUpEnabled
             )
         } else if let photos = grant?.summary?.photos, let authorization {
             refreshedGrant = nil
@@ -610,10 +610,25 @@ final class MCPAnalysisController {
         }
 
         let output = makeResults(result, job: job, photoIds: photoIds, viewModel: viewModel)
+        let source = grant?.followUpEnabled == true
+            ? makeFollowUpSource(result, job: job, catalog: url, files: orderedFiles, photoIDs: photoIds)
+            : nil
         try await updateWithRetry { current in
             try Task.checkCancellation()
             guard var current, current.canPublish(for: job), try isAuthorized(job) else { throw CancellationError() }
-            if let refreshedGrant { try grants.writeLocked(refreshedGrant) }
+            let currentGrant = try grants.authorizedCatalog()
+            if let refreshedGrant {
+                var refreshedGrant = refreshedGrant
+                refreshedGrant.followUpEnabled = currentGrant?.followUpEnabled
+                try grants.writeLocked(refreshedGrant)
+            }
+            if let source, currentGrant?.id == job.catalogId, currentGrant?.followUpEnabled == true {
+                do {
+                    try jobs.stageFollowUpSourceLocked(source)
+                } catch {
+                    Logger.process.error("Could not save the MCP follow-up source snapshot.")
+                }
+            }
             current.catalogDisplayName = name
             current.coverage = output.coverage
             current.bursts = output.bursts
@@ -726,6 +741,45 @@ final class MCPAnalysisController {
         return ids
     }
 
+    private func makeFollowUpSource(
+        _ result: BurstAnalysisPipelineResult, job: AnalysisJob, catalog: URL,
+        files: [FileItem], photoIDs: [UUID: String]
+    ) -> FollowUpSourceSnapshot? {
+        let root = catalog.standardizedFileURL.pathComponents
+        var photos: [String: FollowUpSourceSnapshot.Photo] = [:]
+        for file in files {
+            guard let photoID = photoIDs[file.id] else { continue }
+            let path = file.url.standardizedFileURL.pathComponents
+            guard path.count > root.count, path.starts(with: root) else { return nil }
+            photos[photoID] = .init(
+                relativePath: path.dropFirst(root.count).joined(separator: "/"),
+                size: file.size,
+                modified: file.dateModified
+            )
+        }
+        var bursts: [String: FollowUpSourceSnapshot.Burst] = [:]
+        for ranking in result.rankings {
+            let members = ranking.fileIDs.compactMap { photoIDs[$0] }
+            guard members.count == ranking.fileIDs.count,
+                  members.allSatisfy({ photos[$0] != nil }) else { return nil }
+            var ranks: [String: Int] = [:]
+            for (index, candidate) in ranking.candidates.enumerated() {
+                if let photoID = photoIDs[candidate.fileID] { ranks[photoID] = index + 1 }
+            }
+            bursts[sharedBurstID(job: job, groupID: ranking.groupID)] = .init(
+                photoIDs: members,
+                ranks: ranks,
+                recommendedPhotoID: ranking.recommendedFileID.flatMap { photoIDs[$0] },
+                alternatePhotoID: ranking.secondBestFileID.flatMap { photoIDs[$0] }
+            )
+        }
+        return .init(jobID: job.jobId, catalogID: job.catalogId, photos: photos, bursts: bursts)
+    }
+
+    private func sharedBurstID(job: AnalysisJob, groupID: Int) -> String {
+        "\(job.catalogId.uuidString):\(job.jobId.uuidString):\(groupID)"
+    }
+
     private func makeResults(
         _ result: BurstAnalysisPipelineResult, job: AnalysisJob,
         photoIds: [UUID: String], viewModel: RawCullViewModel
@@ -759,7 +813,7 @@ final class MCPAnalysisController {
             let candidates = preferred.compactMap { byId[$0] }
                 + ranking.candidates.lazy.filter { !preferredSet.contains($0.fileID) }.prefix(5)
             return AnalysisJob.Burst(
-                id: "\(job.catalogId.uuidString):\(job.jobId.uuidString):\(ranking.groupID)",
+                id: sharedBurstID(job: job, groupID: ranking.groupID),
                 frameCount: ranking.fileIDs.count,
                 recommendedPhotoId: ranking.recommendedFileID.flatMap { photoIds[$0] },
                 alternatePhotoId: ranking.secondBestFileID.flatMap { photoIds[$0] },
