@@ -158,9 +158,20 @@ struct MCPJobLifecycleTests {
 
             let assessment = AnalysisJobStore.FollowUpRequest(
                 id: UUID(), catalogID: catalogID, sourceJobID: jobID,
-                target: .photos([memberIDs[6]]), rubric: ["exposure"]
+                target: .burst("burst"), rubric: ["exposure"]
             )
             #expect(try store.enqueueFollowUp(assessment).state == .queued)
+            #expect(try store.replayFollowUp(assessment)?.state == .queued)
+            let other = AnalysisJobStore.FollowUpRequest(
+                id: UUID(), catalogID: catalogID, sourceJobID: jobID,
+                target: .burst("burst"), rubric: ["composition"]
+            )
+            #expect(throws: AnalysisJobStore.StoreError.busy) {
+                try store.enqueueFollowUp(other)
+            }
+            let worker = try startFollowUp(assessment, in: store)
+            #expect(try worker.request.target.photoIDs(in: worker.source) == [memberIDs[6]])
+            try store.finishFollowUp(worker, result: nil, errorCode: "fixture")
 
             // Simulate an older app clearing the result without removing the snapshot.
             var cleared = job
@@ -173,6 +184,51 @@ struct MCPJobLifecycleTests {
             #expect(try store.clearResult(expectedJobID: jobID))
             let snapshotFile = jobFile.deletingLastPathComponent().appendingPathComponent("follow-up-source.json")
             #expect(!FileManager.default.fileExists(atPath: snapshotFile.path))
+        }
+    }
+
+    @Test(arguments: [
+        (0, 6), (0, nil), (nil, 6), (0, 0), (nil, nil)
+    ] as [(Int?, Int?)])
+    func burstTargetUsesOnlySavedPicks(recommendation: Int?, alternate: Int?) throws {
+        let ids = (0 ..< 7).map { "photo-\($0)" }
+        let photos = Dictionary(uniqueKeysWithValues: ids.map {
+            ($0, FollowUpSourceSnapshot.Photo(relativePath: "\($0).ARW", size: 1, modified: now))
+        })
+        let burstID = "current-burst"
+        let source = FollowUpSourceSnapshot(
+            jobID: UUID(), catalogID: UUID(), photos: photos,
+            bursts: [burstID: .init(photoIDs: ids, ranks: [ids[0]: 1, ids[6]: 2],
+                                   recommendedPhotoID: recommendation.map { ids[$0] },
+                                   alternatePhotoID: alternate.map { ids[$0] })]
+        )
+        let target = AnalysisJobStore.FollowUpRequest.Target.burst(burstID)
+        let expected = [recommendation, recommendation == alternate ? nil : alternate].compactMap { $0 }
+        if expected.isEmpty {
+            #expect(throws: AnalysisJobStore.FollowUpError.invalidRequest) {
+                try target.photoIDs(in: source)
+            }
+        } else {
+            #expect(try target.photoIDs(in: source) == expected.map { ids[$0] })
+        }
+        #expect(throws: FollowUpSourceSnapshot.SourceError.invalidTarget) {
+            try AnalysisJobStore.FollowUpRequest.Target.burst("previous-job-burst").photoIDs(in: source)
+        }
+    }
+
+    @Test func burstAssessmentRequiresHostSupportWhileExplicitPhotosAcceptLegacyHost() throws {
+        try withStore { store, jobFile in
+            let bundlePath = "/fixture/RawCull.app"
+            let hostFile = jobFile.deletingLastPathComponent().appendingPathComponent("follow-up-host.json")
+            let legacyHost = AnalysisJobStore.FollowUpHost(
+                version: 1, pid: getpid(), bundlePath: bundlePath, timestamp: .now, supportsBurstAssessment: nil
+            )
+            try JSONEncoder().encode(legacyHost).write(to: hostFile)
+            #expect(store.hasFollowUpHost(bundlePath: bundlePath))
+            #expect(!store.hasFollowUpHost(bundlePath: bundlePath, requiresBurstAssessment: true))
+
+            try store.publishFollowUpHost(bundlePath: bundlePath)
+            #expect(store.hasFollowUpHost(bundlePath: bundlePath, requiresBurstAssessment: true))
         }
     }
 
@@ -423,6 +479,18 @@ struct MCPJobLifecycleTests {
         #expect(json.contains("unreadablePhoto"))
         #expect(!json.contains("private"))
         #expect(!json.contains("subjectVisibility"))
+        #expect(!json.contains("burstId"))
+        #expect(!json.contains("sourceRank"))
+
+        let burst = MCPPhotoAssessmentResult(
+            requestId: output.requestId, sourceJobId: output.sourceJobId, model: output.model,
+            assessedCount: 0, failedCount: 1, photos: [.init(photoId: "unreadable", errorCode: "unreadablePhoto", sourceRank: 2)],
+            burstId: "fixture-burst", burstFrameCount: 7
+        )
+        let burstJSON = String(decoding: try JSONEncoder().encode(burst), as: UTF8.self)
+        #expect(burstJSON.contains("\"burstId\":\"fixture-burst\""))
+        #expect(burstJSON.contains("\"burstFrameCount\":7"))
+        #expect(burstJSON.contains("\"sourceRank\":2"))
     }
 
     private func seedFollowUpSource(in store: AnalysisJobStore) throws -> AnalysisJobStore.FollowUpRequest {

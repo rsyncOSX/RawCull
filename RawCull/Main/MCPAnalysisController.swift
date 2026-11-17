@@ -245,22 +245,25 @@ final class MCPAnalysisController {
         let access = try await retryStorage { try followUpCatalogAccess(for: worker) }
         defer { withExtendedLifetime(access) {} }
         let ids = try worker.request.target.photoIDs(in: worker.source)
+        let burstID = worker.request.target.burstID
+        let burst = try burstID.map { try worker.source.burst(id: $0) }
         var outcomes: [MCPPhotoAssessmentResult.Photo] = []
         for id in ids {
             try Task.checkCancellation()
+            let sourceRank = burst?.ranks[id]
             guard let url = try? worker.source.resolve(photoID: id, in: access.url),
                   let image = await RawParserKitImageLoader.shared.thumbnailCGImage(for: url, maxPixelSize: 2048) else {
-                outcomes.append(.init(photoId: id, errorCode: "unreadablePhoto"))
+                outcomes.append(.init(photoId: id, errorCode: "unreadablePhoto", sourceRank: sourceRank))
                 continue
             }
             do {
                 let assessment = try await qwen.assessForMCP(rubric: worker.request.rubric, image: image, identity: identity)
                 outcomes.append(.init(
                     photoId: id, assessedImage: .init(width: image.width, height: image.height),
-                    findings: assessment.mcpFindings(for: worker.request.rubric)
+                    findings: assessment.mcpFindings(for: worker.request.rubric), sourceRank: sourceRank
                 ))
             } catch QwenModelError.invalidStructuredResponse {
-                outcomes.append(.init(photoId: id, errorCode: "invalidAssessment"))
+                outcomes.append(.init(photoId: id, errorCode: "invalidAssessment", sourceRank: sourceRank))
             } catch is CancellationError {
                 guard await qwen.assessmentIdentity() == identity else {
                     throw QwenInferenceRuntime.MCPAssessmentError.modelChanged
@@ -269,7 +272,7 @@ final class MCPAnalysisController {
             } catch let error as QwenInferenceRuntime.MCPAssessmentError {
                 throw error
             } catch {
-                outcomes.append(.init(photoId: id, errorCode: "inferenceFailed"))
+                outcomes.append(.init(photoId: id, errorCode: "inferenceFailed", sourceRank: sourceRank))
             }
         }
         try Task.checkCancellation()
@@ -277,7 +280,8 @@ final class MCPAnalysisController {
         let assessed = outcomes.filter { $0.findings != nil }.count
         return .init(
             requestId: worker.request.id, sourceJobId: worker.request.sourceJobID, model: identity.name,
-            assessedCount: assessed, failedCount: outcomes.count - assessed, photos: outcomes
+            assessedCount: assessed, failedCount: outcomes.count - assessed, photos: outcomes,
+            burstId: burstID, burstFrameCount: burst?.photoIDs.count
         )
     }
 

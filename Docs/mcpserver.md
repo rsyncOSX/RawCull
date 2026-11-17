@@ -811,3 +811,13 @@ For the live rerun, **File → Add Catalog** opened the disposable folder. With 
 | Individual and source Clear | Clearing the mixed result returned `completed` with `resultCleared: true`. Its result became `unavailable` and the rankings remained readable. Clearing the shared burst blocked rankings and prior assessment results. A fresh assessment returned `permissionRequired`. The saved DCIM grant remained authorized. |
 
 **Step 3 verdict — open.** The missing-model check needs a test profile without Qwen. Fresh **Approve and Remember** and live **Revoke** need a disposable profile because the app stores one saved MCP catalog grant. The Release harness verifies publication invalidation on revocation. File-capture suppression needs a verified writable destination. The no-polling test established completion without client reads. The process activity assertion was not independently observed. The four-photo cap and 180-second timeout remain provisional pending retry-heavy timing. The runner uses the platform generation defaults with a 512-token response cap per attempt and up to one structured-validation retry per photo.
+
+### Step 4 release gate
+
+On 2026-11-17, all 20 helper tests and all 20 isolated Release lifecycle tests passed. The fixtures covered either saved pick missing, both missing, duplicate picks, a seven-frame burst, a wrong-job burst ID, both selectors or neither, result coverage and rank encoding, overlap rejection, replay, and compatibility with the previous app handshake for explicit photo requests.
+
+Xcode built local Release build 455. The app and bundled helper both passed strict signature verification.
+
+The bundled helper analyzed a disposable catalog of ten RAW files and returned one low-confidence seven-frame CLIP burst. The smoke test selected the burst from `list_bursts` and submitted it by ID against source job `A11E96D0-DF73-4D29-857C-B5E488DEF0DD`. Request `683A8F6C-BE30-44C8-B3FA-C87238ACEFC2` completed in 60.4 seconds. Qwen returned all three rubric fields for the saved recommendation and alternate at source ranks 1 and 2, with 2 assessed, 0 failed, and `burstFrameCount: 7`. Replay returned `completed` and the source rankings remained readable. Both selectors returned `invalidRequest`, a wrong-job burst ID returned `invalidTarget`, and a competing request returned `busy`.
+
+The signed TestFlight gate remains open. In one fresh chat, run [Analyze a new catalog](prompts.md#analyze-a-new-catalog) and then [Compare the recommendation and alternate](prompts.md#compare-the-recommendation-and-alternate). Confirm the client carries the source IDs across turns and reports the saved picks, original ranks, and burst frame count.

@@ -45,6 +45,14 @@ Use the new job’s results for each shoot. A successful recurring run refreshes
 
 Use this follow-up in the same chat by referring to “the job you just completed” in place of the two IDs.
 
+## Compare the recommendation and alternate
+
+Run [Analyze a new catalog](#analyze-a-new-catalog) first. Then send this prompt in the same chat with a build that advertises `burstId` on `start_photo_assessment`.
+
+> Use the burst analysis you just completed. Follow every `list_bursts` page. Choose the lowest-confidence burst with a recommendation and alternate. Order known confidence as low, medium, then high, preserving source order for ties. Leave unknown confidence unclassified. Call `start_photo_assessment` with that burst's `burstId`, the catalog and source job IDs from this chat, a fresh request UUID, and rubric `["composition", "exposure", "subjectVisibility"]`. Poll until terminal, then retrieve the result. Check that the assessed IDs match the saved recommendation and alternate. Compare their findings, preserving unknown scores and reporting any failed frame. Show which frames were assessed and how many frames the burst contained.
+
+For a shortlist, ask for one request per burst and wait for each to reach a terminal state before starting the next. Competing requests can return `busy`. Replaying a request with its original ID and arguments returns the existing state. Changing the selector or rubric requires a fresh request ID.
+
 ## Assess photos from a completed burst job
 
 > Use `rawcull` to call `start_photo_assessment` with catalogId `<catalog ID>`, sourceJobId `<job ID>`, a fresh requestId UUID, photoIds `["<first photo ID>", "<second photo ID>"]`, and rubric `["exposure"]`. Poll `get_photo_assessment_status` with the requestId until it completes or fails. If it completes, fetch `get_photo_assessment_result` and show each returned score and its evidence. Preserve any unknown scores.

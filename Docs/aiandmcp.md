@@ -131,7 +131,11 @@ The candidate accepts four photos, one retry per photo, and up to 16 KiB of seri
 2. Return the assessed photo IDs, their source ranks, per-frame findings, and coverage. Let the client synthesize the comparison from those findings and identify which frames were assessed.
 3. Support a shortlist of bursts by letting the client page the rankings and submit one request per selected burst through the follow-up start tool. Sort known burst decision confidence from `low` to `medium` to `high`. Treat unknown values as unclassified and retain source order for ties. Verify the one-worker constraint when requests arrive together.
 
+The candidate accepts exactly one of `photoIds` and `burstId`. Use the burst ID from `list_bursts` with the same catalog and source job IDs. Burst results add `burstId`, `burstFrameCount`, and each selected frame's one-based `sourceRank`, including failed frames. The existing assessed and failed counts describe the selected frames. A burst with neither saved pick, or an ID from a different job, returns `invalidTarget`. Supplying both selectors or omitting both returns `invalidRequest`. A running app must advertise burst assessment support before the helper can queue a new burst request.
+
 **Release gate.** Run the two-prompt flow in one chat without manually copying IDs. Ask for the lowest-confidence burst, then compare its recommended frame and alternate. Verify the client uses the completed job and that both assessed IDs match the ranking. Exercise a missing recommendation, a missing alternate, both missing, a request with both selectors, and a burst over five frames. Verify a wrong-job burst ID fails and concurrent submissions produce the documented busy or replay response.
+
+Use the [same-chat comparison prompt](prompts.md#compare-the-recommendation-and-alternate) and record the outcome in the [Step 4 release gate](mcpserver.md#step-4-release-gate).
 
 ### Step 5 — Validate the release workflow
 
