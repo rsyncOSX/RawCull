@@ -14,6 +14,8 @@ struct ToolHandlerTests {
         #expect(page.count == 1)
         #expect(page.first?.objectValue?["name"] == .string("First Frame.raw"))
         #expect(page.first?.objectValue?["camera"] == .string("Camera Model"))
+        #expect(page.first?.objectValue?["captureDate"] == .null)
+        #expect(first["snapshotAt"] == .string("2026-11-14"))
         let cursor = try #require(first["nextCursor"]?.stringValue)
         let second = try await photos(in: store, catalogId: catalogId, options: ["cursor": .string(cursor)])
         #expect(second["photos"]?.arrayValue?.first?.objectValue?["name"] == .string("Second.raw"))
@@ -245,6 +247,12 @@ struct ToolHandlerTests {
         #expect(replay["requestId"] == .string(requestID.uuidString))
         #expect(try await submit(photos)["errorCode"] == .string("conflictingReplay"))
 
+        let admission = try jobs.beginFollowUp(request)
+        guard case let .started(worker) = admission else {
+            Issue.record("Expected the assessment worker to start.")
+            return
+        }
+        try jobs.finishFollowUp(worker, result: Data("{}".utf8))
         let grant = try #require(try grants.authorizedCatalog())
         let directory = try #require(grants.directory)
         // Leave the assessment and source records in place to exercise the authorization check directly.
@@ -258,7 +266,18 @@ struct ToolHandlerTests {
             #expect(response.structuredContent?.objectValue?["errorCode"] == .string("staleSource"), "\(tool)")
         }
         try jobs.withLock { try grants.writeLocked(grant) }
-        #expect(try jobs.followUpStatus(requestID).state == .queued)
+        #expect(try jobs.followUpStatus(requestID).state == .completed)
+
+        let resultURL = directory.appendingPathComponent("follow-up-requests/\(requestID.uuidString)/result.json")
+        let lookup = CallTool.Parameters(name: "get_photo_assessment_result", arguments: [
+            "requestId": .string(requestID.uuidString)
+        ])
+        for (contents, code) in [(Data("{".utf8), "invalidResult"),
+                                 (Data(repeating: 0, count: 16 * 1024 + 1), "resultTooLarge")] {
+            try contents.write(to: resultURL, options: .atomic)
+            let response = try await callKnownTool(lookup, grantStore: grants)
+            #expect(response.structuredContent?.objectValue?["errorCode"] == .string(code))
+        }
 
         try jobs.setFollowUpsEnabled(false)
         #expect(try await submit(burst)["errorCode"] == .string("assessmentDisabled"))
@@ -268,6 +287,36 @@ struct ToolHandlerTests {
             "catalogId": .string(catalogID.uuidString), "jobId": .string(jobID.uuidString)
         ]), grantStore: grants)
         #expect(rankings.isError != true)
+    }
+
+    @Test func damagedJobRecoveryPreservesOriginalBytes() async throws {
+        let grants = try makeStore()
+        defer { removeStore(grants) }
+        let catalogID = try authorizePhotos(in: grants)
+        let directory = try #require(grants.directory)
+        let jobs = AnalysisJobStore(directory: directory)
+        let jobURL = directory.appendingPathComponent("analysis-job.json")
+        let damagedURL = directory.appendingPathComponent("analysis-job.damaged")
+        let contents = Data("{".utf8)
+        try contents.write(to: jobURL)
+
+        let summary = try await callKnownTool(.init(name: "catalog_summary", arguments: [
+            "catalogId": .string(catalogID.uuidString)
+        ]), grantStore: grants)
+        #expect(summary.structuredContent?.objectValue?["analysisCoverageError"]?.stringValue != nil)
+        #expect(throws: AnalysisJobStore.StoreError.recoveredDamagedJob) {
+            try jobs.readRecovering()
+        }
+        #expect(try Data(contentsOf: damagedURL) == contents)
+        #expect(try jobs.read() == nil)
+
+        try Data(#"{"formatVersion":999}"#.utf8).write(to: jobURL)
+        #expect(throws: AnalysisJobStore.StoreError.unsupportedFormat) {
+            try jobs.readRecovering()
+        }
+        #expect(FileManager.default.fileExists(atPath: jobURL.path))
+        try grants.revoke()
+        #expect(!FileManager.default.fileExists(atPath: damagedURL.path))
     }
 
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {
@@ -290,7 +339,7 @@ struct ToolHandlerTests {
         in store: CatalogGrantStore, catalogId: UUID = UUID(), recurringFolder: Bool? = nil,
     ) throws -> UUID {
         let photos = [
-            CatalogPhoto(name: "First\u{2028}Frame.raw", captureDate: nil, camera: "Camera\u{2029}Model"),
+            CatalogPhoto(name: "First\u{2028}Frame.raw", captureDate: "invalid metadata", camera: "Camera\u{2029}Model"),
             CatalogPhoto(name: "Second.raw", captureDate: nil, camera: nil)
         ]
         let summary = CatalogSummary(
