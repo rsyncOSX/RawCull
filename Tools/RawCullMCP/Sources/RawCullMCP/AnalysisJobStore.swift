@@ -225,6 +225,7 @@ nonisolated struct AnalysisJobStore: Sendable {
         case unsupportedFormat
         case busy
         case damagedActiveJob
+        case recoveredDamagedJob
 
         static func isRetryable(_ error: Error) -> Bool {
             if case busy = error {
@@ -428,16 +429,26 @@ nonisolated struct AnalysisJobStore: Sendable {
             return try read()
         } catch is DecodingError {
             // The writer may have replaced the record before we acquired the lock.
-            return try withLock { try readRecoveringLocked() }
+            return try withLock { try readRecoveringLocked(reportRecovery: true) }
         }
     }
 
-    private func readRecoveringLocked() throws -> AnalysisJob? {
+    private func readRecoveringLocked(reportRecovery: Bool = false) throws -> AnalysisJob? {
         do {
             return try read()
         } catch is DecodingError {
             guard let lease = try acquireWorkerLease() else { throw StoreError.damagedActiveJob }
-            try withExtendedLifetime(lease) { try removeLocked() }
+            try withExtendedLifetime(lease) {
+                guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+                try removeFollowUpSourceLocked()
+                try removeFollowUpRequestsLocked()
+                let job = directory.appendingPathComponent("analysis-job.json")
+                let damagedJob = directory.appendingPathComponent("analysis-job.damaged")
+                guard rename(job.path, damagedJob.path) == 0 else {
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                }
+            }
+            if reportRecovery { throw StoreError.recoveredDamagedJob }
             return nil
         }
     }
@@ -447,6 +458,7 @@ nonisolated struct AnalysisJobStore: Sendable {
         try removeFollowUpSourceLocked()
         try removeFollowUpRequestsLocked()
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        try removeFollowUpFile(directory.appendingPathComponent("analysis-job.damaged"))
         do {
             try FileManager.default.removeItem(at: directory.appendingPathComponent("analysis-job.json"))
         } catch let error as CocoaError where error.code == .fileNoSuchFile {}

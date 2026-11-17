@@ -421,7 +421,9 @@ enum AnalysisTools {
         } catch AnalysisJobStore.StoreError.busy {
             throw MCPError.internalError("RawCull MCP job storage is busy. Retry this call.")
         } catch AnalysisJobStore.StoreError.damagedActiveJob {
-            throw MCPError.internalError("The active RawCull job record could not be decoded. Retry after the worker exits.")
+            throw MCPError.internalError("The active RawCull MCP job record is damaged. Retry after RawCull releases it.")
+        } catch AnalysisJobStore.StoreError.recoveredDamagedJob {
+            throw MCPError.internalError("The damaged RawCull MCP job record was set aside. Start a new analysis.")
         } catch {
             throw MCPError.internalError("The RawCull analysis job could not be read or updated.")
         }
