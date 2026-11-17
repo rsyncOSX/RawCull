@@ -91,9 +91,9 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         let frameCount: Int
         let recommendedPhotoId: String?
         let alternatePhotoId: String?
-        let confidence: String
-        let reasons: [String]
-        let cautions: [String]
+        var confidence: String
+        var reasons: [String]
+        var cautions: [String]
         var candidates: [Candidate]
     }
 
@@ -101,9 +101,9 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         let photoId: String
         var name: String
         let score: Double?
-        let confidence: String
-        let reasons: [String]
-        let cautions: [String]
+        var confidence: String
+        var reasons: [String]
+        var cautions: [String]
     }
 
     mutating func finish(_ state: State, message: String? = nil) {
@@ -225,6 +225,7 @@ nonisolated struct AnalysisJobStore: Sendable {
         case unsupportedFormat
         case busy
         case damagedActiveJob
+        case recoveredDamagedJob
 
         static func isRetryable(_ error: Error) -> Bool {
             if case busy = error {
@@ -356,9 +357,8 @@ nonisolated struct AnalysisJobStore: Sendable {
         let descriptor = open(lock.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         defer { close(descriptor) }
-        // UI callers must never wait for a separate helper process to release the lock.
-        let flags = LOCK_EX | (Thread.isMainThread ? LOCK_NB : 0)
-        guard flock(descriptor, flags) == 0 else {
+        // Callers can retry without blocking the UI or a cooperative executor thread.
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
             let code = errno
             if code == EWOULDBLOCK {
                 throw StoreError.busy
@@ -429,16 +429,26 @@ nonisolated struct AnalysisJobStore: Sendable {
             return try read()
         } catch is DecodingError {
             // The writer may have replaced the record before we acquired the lock.
-            return try withLock { try readRecoveringLocked() }
+            return try withLock { try readRecoveringLocked(reportRecovery: true) }
         }
     }
 
-    private func readRecoveringLocked() throws -> AnalysisJob? {
+    private func readRecoveringLocked(reportRecovery: Bool = false) throws -> AnalysisJob? {
         do {
             return try read()
         } catch is DecodingError {
             guard let lease = try acquireWorkerLease() else { throw StoreError.damagedActiveJob }
-            try withExtendedLifetime(lease) { try removeLocked() }
+            try withExtendedLifetime(lease) {
+                guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+                try removeFollowUpSourceLocked()
+                try removeFollowUpRequestsLocked()
+                let job = directory.appendingPathComponent("analysis-job.json")
+                let damagedJob = directory.appendingPathComponent("analysis-job.damaged")
+                guard rename(job.path, damagedJob.path) == 0 else {
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                }
+            }
+            if reportRecovery { throw StoreError.recoveredDamagedJob }
             return nil
         }
     }
@@ -448,6 +458,7 @@ nonisolated struct AnalysisJobStore: Sendable {
         try removeFollowUpSourceLocked()
         try removeFollowUpRequestsLocked()
         guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        try removeFollowUpFile(directory.appendingPathComponent("analysis-job.damaged"))
         do {
             try FileManager.default.removeItem(at: directory.appendingPathComponent("analysis-job.json"))
         } catch let error as CocoaError where error.code == .fileNoSuchFile {}
@@ -887,6 +898,8 @@ nonisolated extension AnalysisJobStore {
             throw FollowUpError.unavailable
         }
         let request = record.request
+        // Every receipt operation rechecks the current source and its saved grant
+        // or one-time job approval under the same lock as revocation.
         let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
         guard source.version == record.snapshotVersion else { throw FollowUpError.unavailable }
         return record

@@ -1164,6 +1164,9 @@ final class MCPAnalysisController {
         case AnalysisJobStore.StoreError.damagedActiveJob:
             "The active MCP job record is damaged. Start a new request after RawCull releases it."
 
+        case AnalysisJobStore.StoreError.recoveredDamagedJob:
+            "The damaged MCP job record was set aside. Start a new request."
+
         default:
             "RawCull could not read or save the MCP job. Start a new request."
         }
