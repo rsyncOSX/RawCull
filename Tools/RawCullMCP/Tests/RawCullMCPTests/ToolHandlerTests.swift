@@ -244,6 +244,15 @@ struct ToolHandlerTests {
         #expect(replay["state"] == .string("queued"))
         #expect(replay["requestId"] == .string(requestID.uuidString))
         #expect(try await submit(photos)["errorCode"] == .string("conflictingReplay"))
+
+        try jobs.setFollowUpsEnabled(false)
+        #expect(try await submit(burst)["errorCode"] == .string("assessmentDisabled"))
+        let status = try await callKnownTool(.init(name: "rawcull_status"), grantStore: grants)
+        #expect(status.structuredContent?.objectValue?["photoAssessmentsEnabled"] == .bool(false))
+        let rankings = try await callKnownTool(.init(name: "list_bursts", arguments: [
+            "catalogId": .string(catalogID.uuidString), "jobId": .string(jobID.uuidString)
+        ]), grantStore: grants)
+        #expect(rankings.isError != true)
     }
 
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {

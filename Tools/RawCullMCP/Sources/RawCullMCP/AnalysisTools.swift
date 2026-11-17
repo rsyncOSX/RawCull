@@ -208,6 +208,8 @@ enum AnalysisTools {
             default:
                 return failure("invalidRequest", "Unknown photo assessment tool.")
             }
+        } catch AnalysisJobStore.FollowUpError.disabled {
+            return failure("assessmentDisabled", "Enable MCP photo assessments in RawCull Settings to start or read an assessment.")
         } catch AnalysisJobStore.FollowUpError.conflict {
             return failure("conflictingReplay", "That request ID was used with different arguments.")
         } catch AnalysisJobStore.FollowUpError.permissionRequired {

@@ -300,6 +300,13 @@ struct MCPJobLifecycleTests {
             #expect(throws: AnalysisJobStore.FollowUpError.expiredResult) {
                 try store.readFollowUpResult(request.id, now: now + 24 * 60 * 60)
             }
+            #expect(throws: AnalysisJobStore.FollowUpError.expiredResult) {
+                try store.replayFollowUp(request, now: now + 24 * 60 * 60)
+            }
+            #expect(throws: AnalysisJobStore.FollowUpError.expiredResult) {
+                try store.enqueueFollowUp(request, now: now + 24 * 60 * 60)
+            }
+            #expect(try store.replayFollowUp(request, now: now + 7 * 24 * 60 * 60) == nil)
         }
     }
 
@@ -345,13 +352,55 @@ struct MCPJobLifecycleTests {
                 }
                 withExtendedLifetime(worker) {}
             }
-            guard case .replay(let recovered) = try store.beginFollowUp(request, now: now + 1) else {
-                Issue.record("An interrupted request should have returned its original record.")
-                return
-            }
+            let recovered = try store.followUpStatus(request.id)
             #expect(recovered.state == .interrupted)
+            #expect(recovered.finishedAt != nil)
+            #expect(try store.replayFollowUp(request) == recovered)
             #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
                 try store.readFollowUpResult(request.id, now: now + 1)
+            }
+        }
+    }
+
+    @Test(arguments: ["queued", "running", "completed"])
+    func disablingAssessmentsInvalidatesRequestsAndPreservesBurst(state: String) throws {
+        try withStore { store, _ in
+            let request = try seedFollowUpSource(in: store)
+            let source = try store.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID)
+            let worker: AnalysisJobStore.FollowUpWorker?
+            if state == "queued" {
+                _ = try store.enqueueFollowUp(request)
+                worker = nil
+            } else {
+                worker = try startFollowUp(request, in: store)
+                if state == "completed", let worker {
+                    try store.finishFollowUp(worker, result: Data("{}".utf8))
+                }
+            }
+
+            try store.setFollowUpsEnabled(false)
+            #expect(try !store.followUpsEnabled())
+            #expect(try store.queuedFollowUp() == nil)
+            #expect(try store.recentFollowUps().isEmpty)
+            #expect(try store.read()?.hasShareableResult == true)
+            #expect(try CatalogGrantStore(directory: store.directory).authorizedCatalog()?.id == request.catalogID)
+            #expect(throws: AnalysisJobStore.FollowUpError.disabled) { try store.enqueueFollowUp(request) }
+            #expect(throws: AnalysisJobStore.FollowUpError.disabled) { try store.followUpStatus(request.id) }
+            #expect(throws: AnalysisJobStore.FollowUpError.disabled) { try store.readFollowUpResult(request.id) }
+            if let worker {
+                #expect(throws: AnalysisJobStore.FollowUpError.disabled) {
+                    try store.finishFollowUp(worker, result: Data("{}".utf8))
+                }
+            }
+
+            try store.withLock { try store.stageFollowUpSourceLocked(source) }
+            try store.setFollowUpsEnabled(true)
+            #expect(try store.followUpsEnabled())
+            #expect(throws: FollowUpSourceSnapshot.SourceError.unavailable) { try store.enqueueFollowUp(request) }
+            if let worker {
+                #expect(throws: AnalysisJobStore.FollowUpError.unavailable) {
+                    try store.finishFollowUp(worker, result: Data("{}".utf8))
+                }
             }
         }
     }

@@ -200,11 +200,14 @@ func callKnownTool(
 
     let capabilities = availableTools.map(\.name)
     let appBuild = AnalysisTools.bundledRawCullBuild()
+    let jobs = AnalysisJobStore(directory: grantStore.directory)
+    let assessmentEnabled = try? jobs.followUpsEnabled()
     return try structuredReply(
         "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
         value: .object([
             "version": .string(version),
             "appBuild": appBuild.map(Value.string) ?? .null,
+            "photoAssessmentsEnabled": assessmentEnabled.map(Value.bool) ?? .null,
             "capabilities": .array(capabilities.map(Value.string)),
             "transport": .string("stdio"),
         ])

@@ -271,6 +271,7 @@ nonisolated struct AnalysisJobStore: Sendable {
     // Stage the snapshot before publishing the completed burst result under the job lock.
     // An interrupted publication leaves a snapshot that cannot be read as a source.
     func stageFollowUpSourceLocked(_ snapshot: FollowUpSourceSnapshot) throws {
+        guard try followUpsEnabled() else { return }
         let data = try JSONEncoder().encode(snapshot)
         guard data.count <= FollowUpSourceSnapshot.maximumBytes else {
             try removeFollowUpSourceLocked()
@@ -284,6 +285,7 @@ nonisolated struct AnalysisJobStore: Sendable {
     }
 
     private func readFollowUpSourceLocked(catalogID: UUID, jobID: UUID) throws -> FollowUpSourceSnapshot {
+        guard try followUpsEnabled() else { throw FollowUpError.disabled }
         guard let job = try read(), job.catalogId == catalogID, job.jobId == jobID,
               job.hasShareableResult, job.resultCleared != true else {
             throw FollowUpSourceSnapshot.SourceError.unavailable
@@ -530,6 +532,7 @@ nonisolated extension AnalysisJobStore {
     }
 
     enum FollowUpError: Error {
+        case disabled
         case conflict
         case permissionRequired
         case invalidRequest
@@ -537,6 +540,35 @@ nonisolated extension AnalysisJobStore {
         case unavailable
         case expiredResult
         case resultTooLarge
+    }
+
+    private func followUpDisabledURL() throws -> URL {
+        guard let directory else { throw CatalogGrantStore.StoreError.unavailable }
+        return directory.appendingPathComponent("follow-up-disabled")
+    }
+
+    func followUpsEnabled() throws -> Bool {
+        do {
+            _ = try FileManager.default.attributesOfItem(atPath: followUpDisabledURL().path)
+            return false
+        } catch let error as CocoaError where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+            return true
+        }
+    }
+
+    func setFollowUpsEnabled(_ enabled: Bool) throws {
+        try withLock {
+            guard try followUpsEnabled() != enabled else { return }
+            let marker = try followUpDisabledURL()
+            // Removing the source also blocks helpers that predate this setting.
+            try removeFollowUpSourceLocked()
+            try removeFollowUpRequestsLocked()
+            if enabled {
+                try removeFollowUpFile(marker)
+            } else {
+                try Data().write(to: marker, options: .atomic)
+            }
+        }
     }
 
     struct FollowUpHost: Codable, Sendable {
@@ -582,6 +614,7 @@ nonisolated extension AnalysisJobStore {
             if let existing = try readFollowUpRecordLocked(request.id),
                existing.finishedAt.map({ now.timeIntervalSince($0) < Self.followUpReceiptLifetime }) ?? true {
                 guard existing.request == request else { throw FollowUpError.conflict }
+                try checkFollowUpReplayLifetime(existing, now: now)
                 return existing
             }
             var expired: FollowUpRecord?
@@ -616,21 +649,22 @@ nonisolated extension AnalysisJobStore {
         }
     }
 
-    func replayFollowUp(_ request: FollowUpRequest) throws -> FollowUpRecord? {
+    func replayFollowUp(_ request: FollowUpRequest, now: Date = .now) throws -> FollowUpRecord? {
         try withLock {
             _ = try validateFollowUpRequestLocked(request)
             let record = try readFollowUpRecordLocked(request.id) ?? queuedFollowUp()
             guard var record, record.request.id == request.id else { return nil }
-            if let finalized = record.finishedAt, Date.now.timeIntervalSince(finalized) >= Self.followUpReceiptLifetime {
+            if let finalized = record.finishedAt, now.timeIntervalSince(finalized) >= Self.followUpReceiptLifetime {
                 return nil
             }
             guard record.request == request else { throw FollowUpError.conflict }
-            if record.state == .queued, Date.now.timeIntervalSince(record.createdAt) >= 120 {
+            try checkFollowUpReplayLifetime(record, now: now)
+            if record.state == .queued, now.timeIntervalSince(record.createdAt) >= 120 {
                 record.state = .failed
                 record.errorCode = "pickupTimeout"
             } else if record.state == .running, let lease = try acquireWorkerLease() {
-                withExtendedLifetime(lease) {
-                    record.state = record.cancellationRequested ? .cancelled : .interrupted
+                return try withExtendedLifetime(lease) {
+                    try interruptFollowUpLocked(record, now: now)
                 }
             }
             return record
@@ -639,11 +673,13 @@ nonisolated extension AnalysisJobStore {
 
     func followUpStatus(_ requestID: UUID) throws -> FollowUpRecord {
         try withLock {
+            guard try followUpsEnabled() else { throw FollowUpError.disabled }
             if try readFollowUpRecordLocked(requestID) != nil {
-                var record = try authorizedFollowUpRecordLocked(requestID)
+                let record = try authorizedFollowUpRecordLocked(requestID)
                 if record.state == .running, let lease = try acquireWorkerLease() {
-                    record.state = record.cancellationRequested ? .cancelled : .interrupted
-                    withExtendedLifetime(lease) {}
+                    return try withExtendedLifetime(lease) {
+                        try interruptFollowUpLocked(record, now: .now)
+                    }
                 }
                 return record
             }
@@ -692,6 +728,7 @@ nonisolated extension AnalysisJobStore {
     }
 
     private func validateFollowUpRequestLocked(_ request: FollowUpRequest) throws -> FollowUpSourceSnapshot {
+        guard try followUpsEnabled() else { throw FollowUpError.disabled }
         let grant = try CatalogGrantStore(directory: directory).authorizedCatalog()
         if grant?.id != request.catalogID || grant?.analysisEnabled != true {
             guard let job = try read(), job.catalogId == request.catalogID, job.jobId == request.sourceJobID,
@@ -783,7 +820,7 @@ nonisolated extension AnalysisJobStore {
 
     func readFollowUpResult(_ requestID: UUID, now: Date = .now) throws -> Data {
         try withLock {
-            let record = try authorizedFollowUpRecordLocked(requestID)
+            let record = try authorizedFollowUpRecordLocked(requestID, now: now)
             guard (record.state == .completed || record.state == .failed), record.resultCleared != true,
                   let finishedAt = record.finishedAt else {
                 throw FollowUpError.unavailable
@@ -800,8 +837,18 @@ nonisolated extension AnalysisJobStore {
     private static let followUpResultLifetime: TimeInterval = 24 * 60 * 60
     private static let followUpReceiptLifetime: TimeInterval = 7 * 24 * 60 * 60
 
-    private func authorizedFollowUpRecordLocked(_ requestID: UUID) throws -> FollowUpRecord {
-        guard let record = try readFollowUpRecordLocked(requestID) else { throw FollowUpError.unavailable }
+    private func checkFollowUpReplayLifetime(_ record: FollowUpRecord, now: Date) throws {
+        if let finishedAt = record.finishedAt, now.timeIntervalSince(finishedAt) >= Self.followUpResultLifetime {
+            throw FollowUpError.expiredResult
+        }
+    }
+
+    private func authorizedFollowUpRecordLocked(_ requestID: UUID, now: Date = .now) throws -> FollowUpRecord {
+        guard try followUpsEnabled() else { throw FollowUpError.disabled }
+        guard let record = try readFollowUpRecordLocked(requestID),
+              record.finishedAt.map({ now.timeIntervalSince($0) < Self.followUpReceiptLifetime }) ?? true else {
+            throw FollowUpError.unavailable
+        }
         let request = record.request
         let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
         guard source.version == record.snapshotVersion else { throw FollowUpError.unavailable }
