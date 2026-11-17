@@ -12,26 +12,13 @@ Design proposal for review. Start implementation after the current MCP release c
 
 In build 456, the preview model rated both frames 4/5 for subject visibility and reported foliage and shadow occlusion on one. The photos should dominate the view so the photographer can inspect where the foliage overlaps the subject. The text provides a reason to look. It cannot locate an obstruction precisely enough to draw a box or identify the species reliably.
 
+The macOS mockups use embedded photo previews from the 26 September 2026 shoot. The burst memberships, review states, and findings shown are illustrative. The build 456 example used `_DSC7198.ARW` and `_DSC7197.ARW`.
+
 ## Sketch 1 · Burst list
 
 Extend the existing Burst Groups results. Keep the current review filters and add an independent **AI findings** filter so photographers can combine it with **Needs review** or **Completed**. Keep AI summaries short and show selected findings in the workspace.
 
-```text
-Burst Groups                         [ All bursts ▾ ] [ AI findings: Any ▾ ]
-100MSDCF
-
-[thumb] Burst 01 · 2 frames          AI assessed · 2 of 2 frames
-        Low confidence               [View assessment]  [Open burst]
-
-[thumb] Burst 02 · 7 frames          AI assessed · 2 of 7 frames
-        Low confidence · Reviewed    [View assessment]  [Open burst]
-
-[thumb] Burst 03 · 4 frames          Assessment running
-        Medium confidence           [Open burst]
-
-[thumb] Burst 04 · 3 frames
-        Medium confidence           [Open burst]
-```
+![Burst Groups with separate review and AI filters, showing fully assessed, partially covered, running, and unassessed bursts](nextstep-mockups/01-burst-list.png)
 
 - Show assessed coverage against the full burst. A two-photo run on a seven-frame burst covers two frames, even if both requested frames succeeded.
 - Show failure or partial coverage where it affects a row, for example **1 assessed · 1 failed** with full counts in the result. Leave unassessed rows uncluttered. Offer **With findings** as the initial additional filter. A running result can still appear in the unfiltered burst list.
@@ -43,28 +30,7 @@ Burst Groups                         [ All bursts ▾ ] [ AI findings: Any ▾ ]
 
 Use the existing compare image panes and burst filmstrip where they fit. Both panes start at the same fit setting. Offer linked zoom and pan if supported by the viewport model, with independent inspection available. On narrow windows, collapse detailed findings behind a disclosure or move them into a lower pane before squeezing both previews.
 
-```text
-[‹ Burst list]   Burst 01 · 2 frames · Low confidence        [Mark Reviewed]
-[Fit] [Zoom] [Link zoom]       [Assessment ▾]                    [Next burst]
-
-┌────────────────────────────────┬────────────────────────────────┐
-│ _DSC7198.ARW                   │ _DSC7197.ARW                   │
-│ Saved recommendation · Rank 1 │ Saved alternate · Rank 2       │
-│ [Tag]                          │ [Tag]                          │
-│                                │                                │
-│          PHOTO A               │          PHOTO B               │
-│                                │                                │
-├────────────────────────────────┼────────────────────────────────┤
-│ Composition  3/5               │ Composition  3/5               │
-│ Centered, framed by trees.      │ Centered, framed by trees.      │
-│ Exposure  2/5                  │ Exposure  2/5                  │
-│ Underexposed, low contrast.     │ Underexposed, deep shadows.     │
-│ Subject visibility  4/5        │ Subject visibility  4/5        │
-│ Head and antlers visible.       │ Partial foliage occlusion.     │
-└────────────────────────────────┴────────────────────────────────┘
-Qwen3-VL-2B · Assessed preview, 1616 × 1080 · [Assessment details]
-Filmstrip     [1 · Left]   [2 · Right]                 [Reset to saved pair]
-```
+![The saved recommendation and alternate at the same fit setting, with independent Tag buttons and findings below each photo](nextstep-mockups/02-assessed-pair.png)
 
 The example findings paraphrase the build 456 log. The UI displays the actual preview type and dimensions from the assessment result. If the photographer displays a developed RAW, keep the assessment’s preview provenance visible. **Assessment details** shows the request time, requested criteria, model and revision when supplied, and source identity. Treat returned evidence as plain text. A collapsed card can show scores, with full evidence available on demand. Suppress rubric fields the request omitted. Display **Unknown** for a requested field with no score and retain any evidence the result supplies. Show per-photo errors separately from preview-display errors.
 
@@ -74,18 +40,9 @@ The example findings paraphrase the build 456 log. The UI displays the actual pr
 
 A seven-frame example shows how to look past the two assessed picks. The photographer chooses a pane, then chooses a filmstrip frame to place in it. The other pane stays pinned. Provide explicit **Show on left** and **Show on right** commands for keyboard and pointer users. Changing panes preserves the original assessment and leaves the filmstrip in source order. Frame labels show original source rank when available.
 
-```text
-Burst 02 · 7 frames                           [Reset to saved pair]
+![A seven-frame comparison with the tagged recommendation pinned left and an unassessed frame on the right](nextstep-mockups/03-compare-another-frame.png)
 
-┌───────────────────────────────┬────────────────────────────────┐
-│ Saved recommendation · Rank 1 │ Frame at original rank 4       │
-│ [Tagged · Untag]              │ [Tag]                          │
-│           PHOTO A             │          PHOTO D               │
-│ Subject visibility  4/5       │ No AI assessment in this run  │
-└───────────────────────────────┴────────────────────────────────┘
-Filmstrip [1 Left] [2 Assessed] [3] [4 Right] [5] [6] [7]
-                                          [Show on left] [Show on right]
-```
+The blue outline identifies the right pane as the target. The left pane stays pinned.
 
 The filmstrip labels in the sketch are abbreviated. Use a clear tag icon with **Untag** as the action for a tagged frame. For an unassessed frame, retain ordinary burst evidence if it exists and label its source. A failed assessment has its own error state. Do not launch a new model request when the photographer changes the frame. An explicit **Assess this frame** action can be considered later once the result viewer is proven.
 
@@ -93,21 +50,17 @@ The filmstrip labels in the sketch are abbreviated. Use a clear tag icon with **
 
 Keep the result available from the burst list and add a **View result** action to recent assessments in **Settings → MCP**. A completion notice in RawCull can offer the same action while the app is open. Keep it lightweight. A successful background request does not take over the window.
 
-```text
-Assessment completed · 2 frames assessed                       [View result]
+**Completion notice in RawCull**
 
-Settings → MCP → Recent assessments
-100MSDCF · Burst 01 · Composition, exposure, visibility        [View result]
-Completed · 2 assessed · 0 failed                              [Clear]
-```
+![A completion notice with View result above the active burst list](nextstep-mockups/04a-completion-notice.png)
+
+**Recent assessments in Settings → MCP**
+
+![Recent assessments in MCP Settings with View result and Clear actions](nextstep-mockups/04b-mcp-settings.png)
 
 If the saved result belongs to another catalog or the original group was replaced by regrouping, open a contextual **Saved assessment** presentation with the source catalog label and original frames. Use the same image and findings layout. Return to the previous workspace on close. Show a **Tag** action only when RawCull can resolve the photo to a loaded catalog through the normal tagging workflow. Otherwise explain that the photographer can open the catalog through its regular UI to tag. One-time analysis permission authorizes reading the source previews. It never stands in for permission to modify a catalog.
 
-```text
-Saved assessment · 100MSDCF · Original burst                    [Close]
-The result uses the burst membership from the source analysis.
-[Compare original picks]                  [Open catalog to tag…]
-```
+![A saved assessment with the original pair, the source catalog, and an Open catalog to tag action](nextstep-mockups/04c-saved-assessment.png)
 
 If photos have moved or changed, show an unavailable preview in the relevant pane and explain why. Display a still-authorized finding only as evidence from the original preview. Once a shared result is cleared, expires, is superseded, or loses consent, remove its findings from an already-open view and offer a return to the burst list. Never fall back to another result with the same filename.
 
