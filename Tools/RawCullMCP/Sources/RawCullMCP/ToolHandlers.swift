@@ -158,13 +158,16 @@ func callKnownTool(
             "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
             "cameraCounts": .object(cameraCounts.mapValues(Value.int))
         ]
-        if catalog.analysisEnabled == true,
-           let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
-           job.catalogId == catalog.id, job.state == .completed, let coverage = job.coverage {
+        if catalog.analysisEnabled == true {
+            let job: AnalysisJob?
             do {
-                details["analysisCoverage"] = try Value(coverage)
+                job = try AnalysisJobStore(directory: grantStore.directory).read()
             } catch {
-                throw MCPError.internalError("The analysis coverage could not be encoded.")
+                job = nil
+                details["analysisCoverageError"] = .string("The saved analysis job could not be read.")
+            }
+            if let job, job.catalogId == catalog.id, job.state == .completed, let coverage = job.coverage {
+                details["analysisCoverage"] = try Value(coverage)
             }
         }
         return try structuredReply(
@@ -203,16 +206,21 @@ func callKnownTool(
     let capabilities = availableTools.map(\.name)
     let appBuild = AnalysisTools.bundledRawCullBuild()
     let jobs = AnalysisJobStore(directory: grantStore.directory)
-    let assessmentEnabled = try? jobs.followUpsEnabled()
+    var details: [String: Value] = [
+        "version": .string(version),
+        "appBuild": appBuild.map(Value.string) ?? .null,
+        "capabilities": .array(capabilities.map(Value.string)),
+        "transport": .string("stdio")
+    ]
+    do {
+        details["photoAssessmentsEnabled"] = .bool(try jobs.followUpsEnabled())
+    } catch {
+        details["photoAssessmentsEnabled"] = .null
+        details["photoAssessmentsSettingError"] = .string("The photo assessment setting could not be read.")
+    }
     return try structuredReply(
         "RawCull MCP helper \(version). Available capabilities: \(capabilities.joined(separator: ", ")). Transport: stdio.",
-        value: .object([
-            "version": .string(version),
-            "appBuild": appBuild.map(Value.string) ?? .null,
-            "photoAssessmentsEnabled": assessmentEnabled.map(Value.bool) ?? .null,
-            "capabilities": .array(capabilities.map(Value.string)),
-            "transport": .string("stdio")
-        ]),
+        value: .object(details),
     )
 }
 
