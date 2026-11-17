@@ -238,7 +238,9 @@ enum AnalysisTools {
             return failure("permissionRequired", "Approve a burst job for this catalog in RawCull before requesting photo assessments.")
         } catch AnalysisJobStore.FollowUpError.invalidRequest, FollowUpSourceSnapshot.SourceError.invalidTarget {
             return failure("invalidTarget", "Use distinct photo IDs or a burst with a saved recommendation or alternate from the source job, and supported rubric fields.")
-        } catch AnalysisJobStore.StoreError.busy, AnalysisJobStore.FollowUpError.capacity {
+        } catch AnalysisJobStore.StoreError.busy {
+            return failure("busy", "RawCull assessment storage is busy. Retry this call.")
+        } catch AnalysisJobStore.FollowUpError.capacity {
             return failure("busy", "RawCull cannot accept another assessment right now.")
         } catch AnalysisJobStore.FollowUpError.expiredResult {
             return failure("expiredResult", "The assessment result has expired.")
@@ -330,6 +332,8 @@ enum AnalysisTools {
                 )
             } catch CatalogSetupStore.StoreError.expiredRequest {
                 throw MCPError.invalidParams("That catalog setup request is outside the replay window. Use a fresh UUID for a new run.")
+            } catch AnalysisJobStore.StoreError.busy {
+                throw MCPError.internalError("RawCull MCP job storage is busy. Retry this call.")
             } catch let error as MCPError {
                 throw error
             } catch {

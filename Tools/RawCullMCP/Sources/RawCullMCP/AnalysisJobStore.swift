@@ -356,9 +356,8 @@ nonisolated struct AnalysisJobStore: Sendable {
         let descriptor = open(lock.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         defer { close(descriptor) }
-        // UI callers must never wait for a separate helper process to release the lock.
-        let flags = LOCK_EX | (Thread.isMainThread ? LOCK_NB : 0)
-        guard flock(descriptor, flags) == 0 else {
+        // Callers can retry without blocking the UI or a cooperative executor thread.
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
             let code = errno
             if code == EWOULDBLOCK {
                 throw StoreError.busy
