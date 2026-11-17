@@ -550,11 +550,7 @@ enum AnalysisTools {
         guard job.state == .completed, let bursts = job.bursts, let coverage = job.coverage else {
             throw MCPError.invalidParams("Bursts are available after the job completes. Check get_analysis_status.")
         }
-        guard let limit = (arguments["limit"] ?? .int(defaultLimit)).intValue,
-              (1 ... maximumLimit).contains(limit)
-        else {
-            throw MCPError.invalidParams("limit must be an integer between 1 and \(maximumLimit).")
-        }
+        let limit = try pageLimit(arguments["limit"], default: defaultLimit, maximum: maximumLimit)
         let prefix = job.burstCursorPrefix
         var start = 0
         if let cursor = arguments["cursor"] {

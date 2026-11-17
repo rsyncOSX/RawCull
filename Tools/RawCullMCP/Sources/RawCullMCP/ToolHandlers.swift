@@ -59,6 +59,13 @@ func catalogMetadataText(_ value: String) -> String {
     }))
 }
 
+func pageLimit(_ value: Value?, default defaultLimit: Int, maximum: Int) throws -> Int {
+    guard let limit = (value ?? .int(defaultLimit)).intValue, (1 ... maximum).contains(limit) else {
+        throw MCPError.invalidParams("limit must be an integer between 1 and \(maximum).")
+    }
+    return limit
+}
+
 func readCatalogGrant(_ grantStore: CatalogGrantStore) throws -> CatalogGrant? {
     do {
         return try grantStore.authorizedCatalog()
@@ -90,9 +97,7 @@ func callKnownTool(
               case let .string(id)? = arguments["catalogId"], let catalogID = UUID(uuidString: id)
         else { throw MCPError.invalidParams("list_photos requires a catalogId UUID and accepts limit and cursor.") }
 
-        guard case let .int(limit) = arguments["limit"] ?? .int(photoPageSize),
-              (1 ... maximumPhotoPageSize).contains(limit)
-        else { throw MCPError.invalidParams("limit must be an integer between 1 and \(maximumPhotoPageSize).") }
+        let limit = try pageLimit(arguments["limit"], default: photoPageSize, maximum: maximumPhotoPageSize)
 
         let catalog = try requireCatalog(catalogID, in: grantStore)
         guard let summary = catalog.summary, let photos = summary.photos else {
