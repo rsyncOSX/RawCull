@@ -131,49 +131,78 @@ struct AIAssessmentFilmstrip: View {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 10) {
                     ForEach(frames) { frame in
-                        Menu {
-                            Button("Show on left") { select(frame.id, .left) }
-                            Button("Show on right") { select(frame.id, .right) }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                AIAssessmentThumbnail(frame: frame, access: access)
-                                Text(verbatim: frame.name)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                HStack(spacing: 6) {
-                                    if let rank = frame.rank {
-                                        Text("Rank \(rank)")
-                                    }
-                                    if frame.id == leftID { Text("Left") }
-                                    if frame.id == rightID { Text("Right") }
-                                }
-                                .foregroundStyle(.secondary)
-                            }
-                            .frame(width: 104, alignment: .leading)
-                            .font(.caption)
-                            .padding(4)
-                            .background {
-                                if frame.id == leftID || frame.id == rightID {
-                                    RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.14))
-                                }
-                            }
-                        }
-                        .menuStyle(.borderlessButton)
-                        .menuIndicator(.hidden)
-                        .accessibilityLabel("Choose pane for \(frame.name)")
+                        AIAssessmentFilmstripItem(
+                            frame: frame, access: access, isLeft: frame.id == leftID, isRight: frame.id == rightID,
+                            select: select,
+                        )
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
             }
+            .fixedSize(horizontal: false, vertical: true)
+
             Button(action: reset) {
                 Label("Reset to saved pair", systemImage: "arrow.counterclockwise")
             }
             .disabled(!canReset)
             .padding(.trailing, 20)
         }
-        .frame(height: 130)
         .accessibilityLabel("Burst filmstrip")
+    }
+}
+
+private struct AIAssessmentFilmstripItem: View {
+    let frame: AIAssessmentEntry.Frame
+    let access: RawCullCatalogGrant?
+    let isLeft: Bool
+    let isRight: Bool
+    let select: (String, AIAssessmentSide) -> Void
+
+    @State private var showsPaneChoices = false
+
+    var body: some View {
+        Button {
+            showsPaneChoices = true
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                AIAssessmentThumbnail(frame: frame, access: access)
+                Text(verbatim: frame.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    if let rank = frame.rank {
+                        Text("Rank \(rank)")
+                    }
+                    if isLeft { Text("Left") }
+                    if isRight { Text("Right") }
+                }
+                .foregroundStyle(.secondary)
+            }
+            .frame(width: 104, alignment: .leading)
+            .font(.caption)
+            .padding(4)
+            .background {
+                if isLeft || isRight {
+                    RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.14))
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose pane for \(frame.name)")
+        .popover(isPresented: $showsPaneChoices, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button("Show on left") { choose(.left) }
+                Button("Show on right") { choose(.right) }
+            }
+            .padding()
+        }
+    }
+
+    private func choose(_ side: AIAssessmentSide) {
+        showsPaneChoices = false
+        select(frame.id, side)
     }
 }
 #endif
