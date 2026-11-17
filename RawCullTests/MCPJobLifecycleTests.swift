@@ -59,7 +59,7 @@ struct MCPJobLifecycleTests {
         #expect(!current.canPublish(for: replacement))
     }
 
-    @Test @MainActor func `lock contention is retryable`() throws {
+    @Test func `lock contention is retryable`() throws {
         try withStore { store, _ in
             _ = try store.withLock {
                 #expect(throws: AnalysisJobStore.StoreError.busy) {
@@ -81,8 +81,10 @@ struct MCPJobLifecycleTests {
                 #expect(FileManager.default.fileExists(atPath: file.path))
                 withExtendedLifetime(lease) {}
             }
-            #expect(try store.readRecovering() == nil)
+            #expect(throws: AnalysisJobStore.StoreError.recoveredDamagedJob) { try store.readRecovering() }
             #expect(!FileManager.default.fileExists(atPath: file.path))
+            let damaged = file.deletingLastPathComponent().appendingPathComponent("analysis-job.damaged")
+            #expect(try Data(contentsOf: damaged) == Data("{".utf8))
         }
     }
 
