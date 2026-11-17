@@ -130,14 +130,14 @@ nonisolated struct QwenBatchProgress: Equatable, Sendable {
     let currentFileName: String?
 }
 
-nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
-    struct Image: Encodable, Sendable {
-        let kind = "preview"
+nonisolated struct MCPPhotoAssessmentResult: Codable, Equatable, Sendable {
+    struct Image: Codable, Equatable, Sendable {
+        private(set) var kind = "preview"
         let width: Int
         let height: Int
     }
 
-    struct Finding: Encodable, Sendable {
+    struct Finding: Codable, Equatable, Sendable {
         let score: Int?
         let evidence: String?
 
@@ -150,7 +150,7 @@ nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
         }
     }
 
-    struct Photo: Encodable, Sendable {
+    struct Photo: Codable, Equatable, Sendable {
         let photoId: String
         var assessedImage: Image?
         var findings: [String: Finding]?
@@ -161,9 +161,9 @@ nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
     let requestId: UUID
     let sourceJobId: UUID
     let model: String
-    let promptTemplateVersion = 1
-    let resultSchemaVersion = 1
-    let untrustedModelText = true
+    private(set) var promptTemplateVersion = 1
+    private(set) var resultSchemaVersion = 1
+    private(set) var untrustedModelText = true
     let assessedCount: Int
     let failedCount: Int
     let photos: [Photo]

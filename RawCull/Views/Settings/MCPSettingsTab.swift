@@ -9,6 +9,11 @@ struct MCPSettingsTab: View {
     let canAuthorizeAnalysis: Bool
     let authorizeCatalog: (Bool, Bool) throws -> CatalogGrant
 
+    #if DEBUG
+    @Environment(\.openWindow) private var openWindow
+    @Environment(AIAssessmentNavigation.self) private var assessmentNavigation: AIAssessmentNavigation?
+    #endif
+
     @State private var allowAnalysis = false
     @State private var recurringFolder = false
     @State private var grant: CatalogGrant?
@@ -85,6 +90,15 @@ struct MCPSettingsTab: View {
                                       setEnabled: setFollowUpsEnabled)
             if !assessments.isEmpty || assessmentError {
                 Section("Photo assessments") {
+                    #if DEBUG
+                    if let assessmentNavigation,
+                       assessments.contains(where: { $0.state == .completed && $0.request.target.burstID != nil }) {
+                        Button("Open AI Assessments") {
+                            assessmentNavigation.destination = .list
+                            openWindow(id: AIAssessmentNavigation.windowID)
+                        }
+                    }
+                    #endif
                     ForEach(assessments, id: \.request.id) { record in
                         assessmentRow(record)
                     }
@@ -124,6 +138,14 @@ struct MCPSettingsTab: View {
                 Button("Cancel") { updateAssessment(record.request.id, clear: false) }
                     .disabled(record.cancellationRequested)
             } else if record.state == .completed || record.state == .failed {
+                #if DEBUG
+                if let assessmentNavigation, record.state == .completed, record.request.target.burstID != nil {
+                    Button("View result") {
+                        assessmentNavigation.destination = .result(record.request.id)
+                        openWindow(id: AIAssessmentNavigation.windowID)
+                    }
+                }
+                #endif
                 Button("Clear") { updateAssessment(record.request.id, clear: true) }
             }
         }

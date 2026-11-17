@@ -2,7 +2,7 @@
 
 ## Culling workflow
 
-Start with **Analyze a new catalog**, then use any of the three follow-ups in the same Codex chat. Codex can reuse the catalog and job IDs from the first prompt. Run the follow-ups before starting another burst job, which can replace the shared result.
+Run **Analyze a new catalog**, then **Assess the top two picks in every burst** in the same Codex chat. The second prompt uses the catalog and burst job IDs returned by the first. The other follow-ups cover narrower reviews. Finish the follow-ups before starting another burst job, which can replace the shared result.
 
 Use Codex on your Mac with the `rawcull` MCP server connected to the helper bundled with your installed app. Replace text in angle brackets before sending a prompt. RawCull processes photos locally. The MCP client receives ranking metadata and assessment findings, which it may send to its model provider. See the [MCP setup instructions](mcpserver.md#connect-codex-to-the-bundled-helper).
 
@@ -27,13 +27,35 @@ Scans one folder, groups similar frames into bursts, and ranks the frames so you
 
 For example, use `/Users/you/Pictures/LatestShoot` as the full folder path. Choose **Approve This Job** for a one-time run or **Approve and Remember** to save an analysis grant for the same photo set. RawCull keeps one saved MCP catalog grant.
 
+### Assess the top two picks in every burst
+
+Compares the saved recommendation and alternate in every burst with both picks. Install Qwen3-VL-2B in **Settings → AI**, turn on **Enable MCP photo assessments** in **Settings → MCP**, and use the bundled helper with `burstId` support. See [assessment requirements and controls](mcpserver.md#follow-up-photo-assessments).
+
+> Use RawCull MCP to assess the saved recommendation and alternate in every eligible burst from the completed **Analyze a new catalog** run in this chat. Use the exact **Catalog ID** and **Burst job ID** from that run’s **Reuse in follow-ups** section. Use only `list_bursts`, `start_photo_assessment`, `get_photo_assessment_status`, and `get_photo_assessment_result`. If the IDs are missing, ambiguous, or rejected, report the problem and stop. Do not set up a catalog, open a folder chooser, or start a new burst job.
+>
+> Call `list_bursts` with `limit: 25`, passing each `nextCursor` as `cursor` until it is null. Record each burst’s ID, confidence, total frame count, and the saved picks’ photo IDs, filenames, and original ranks. A burst is eligible when it has both a saved recommendation and a distinct alternate. Process all eligible bursts in low, medium, then high confidence order, keeping source order within each group. Process unknown confidence afterward in source order and label it unclassified.
+>
+> For each eligible burst, call `start_photo_assessment` with `catalogId`, `sourceJobId` set to the burst job ID, a fresh UUID as `requestId`, `burstId` as the only selector, and `rubric: ["composition", "exposure", "subjectVisibility"]`. Poll `get_photo_assessment_status` about every two seconds until terminal. If completed, fetch `get_photo_assessment_result` before starting the next burst. Use the same UUID for an identical retry. Record request errors and continue with the remaining eligible bursts unless the source job or catalog becomes inaccessible.
+>
+> Match the returned photo IDs to the saved picks. For each burst, show its ID, confidence, and total frame count. For each pick, show its filename, original rank, findings, and rubric scores out of 5. Keep missing scores as unknown. Include any reported occlusion and flag failed, missing, or unmatched frames. Compare the evidence and say which frame you would keep when it supports a choice. If the evidence is inconclusive, say so.
+>
+> Finish the assessments and deliver the full report in this turn. Give counts for bursts listed, eligible pairs, pairs with both picks assessed, incomplete or failed assessments, and bursts without an eligible pair. Identify every skipped or incomplete burst and its reason. If no eligible pair exists, say so. If pagination fails, report that coverage of the source job could not be verified. End with **Reuse in follow-ups**, listing the catalog ID and source burst job ID once, then each attempted burst ID with its **Burst comparison** request ID.
+
+### Check the full-burst assessment status
+
+Checks progress for a full-burst assessment, including after an interrupted turn. Run it in the same Codex chat so the assessment request IDs are available in the tool history.
+
+> Check the status of **Assess the top two picks in every burst** in this chat. Recover the total eligible burst count from that run’s listing and the burst IDs and request UUIDs from its `start_photo_assessment` tool calls. Use the tool arguments even if the chat never produced a final report. Use only `get_photo_assessment_status` and `get_photo_assessment_result` to check RawCull. Check requests one at a time. For each completed request, fetch its result and count the pair as fully assessed only if both saved picks succeeded. If a burst has multiple attempts, count the burst once.
+>
+> Report the total eligible bursts and the counts for pairs fully assessed, queued or running, failed or incomplete, never submitted, and unknown. Count a pair as never submitted only when the submission history is complete. Explain any gaps in the available history or results. Give the latest assessment request ID and its current state, and identify any queued, running, or failed requests by burst ID and request ID. Report the current snapshot in this turn. Do not wait for running requests to finish, resume the run, submit new assessments, start a burst job, or create files or folders.
+
 ### Review the closest calls
 
 Turns the existing rankings into a short list of decisions worth reviewing by hand. This uses the evidence from the completed burst job and needs no Qwen model.
 
 > Use RawCull MCP to read every page of ranked bursts from the job you just completed. Call `list_bursts` with a limit of 25 and pass each `nextCursor` into the next call as `cursor` until it is null. Find up to five low-confidence bursts where there is both a recommendation and an alternate. Put ties and the closest recorded scores first where the scores are available. For each pair, show the burst ID, the two filenames, confidence, and the reasons and cautions RawCull returned. Tell me what to inspect in each pair. If you find fewer than five, report the actual count. End with **Reuse in follow-ups** and list the catalog ID and burst job ID for this shortlist.
 
-The next two prompts require Qwen3-VL-2B to be available in **Settings → AI** and **Enable MCP photo assessments** to be on in **Settings → MCP**. Use the bundled helper from the build you are running. The direct burst comparison needs a helper that advertises `burstId`. See [assessment requirements and controls](mcpserver.md#follow-up-photo-assessments).
+The next two prompts use the same Qwen and MCP assessment settings as the full-burst review.
 
 If an assessment submission is rejected, check the tool's argument schema and correct the request before retrying. Use a fresh request UUID for changed arguments and reuse the original UUID for an identical retry.
 

@@ -32,6 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    #if DEBUG
+    func assessmentPhotoAccess(for request: AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant {
+        try mcpAnalysis.followUpCatalogAccess(for: request)
+    }
+    #endif
+
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminateAfterLastWindowClosed()")
         return true
@@ -127,6 +133,9 @@ struct RawCullApp: App {
 
     @State private var viewModel: RawCullViewModel
     @State private var intelligenceRuntime: RawCullIntelligenceRuntime
+    #if DEBUG
+    @State private var assessmentNavigation = AIAssessmentNavigation()
+    #endif
 
     init() {
         Logger.process.debugMessageOnly("RawCullApp.init()")
@@ -178,7 +187,20 @@ struct RawCullApp: App {
         Settings {
             SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .environment(viewModel)
+                #if DEBUG
+                .environment(assessmentNavigation)
+                #endif
         }
+
+        #if DEBUG
+        Window("AI Assessments", id: AIAssessmentNavigation.windowID) {
+            AIAssessmentsWindow(
+                navigation: assessmentNavigation, viewModel: viewModel, photoAccess: appDelegate.assessmentPhotoAccess,
+            )
+        }
+        .defaultSize(width: 1120, height: 800)
+        .defaultLaunchBehavior(.suppressed)
+        #endif
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()

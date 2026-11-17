@@ -89,6 +89,15 @@ A later MCP increment can offer an explicit presentation operation, tentatively 
 
 The release review should include a fully assessed pair, an exact score tie, an exposure-only run, a requested field with an unknown score, a partially failed batch, a frame beyond the first five, and a result cleared while open. Verify manual tags survive ordinary navigation through the existing tag implementation. Verify marking Reviewed never tags a frame or changes the assessment, and a new assessment never changes Reviewed. Check that loading covers only visible previews and nearby thumbnails when scrolling a large catalog.
 
+## Xcode pilot for Sketches 1 and 2
+
+1. Use the installed TestFlight build to complete a burst assessment through MCP. Keep the source job current and note the request ID.
+2. Quit TestFlight RawCull and run the RawCull scheme in Xcode with the Debug configuration. Open **Settings → MCP → Photo assessments**. Choose **Open AI Assessments** for the results list or **View result** beside the completed run to open its saved pair.
+3. Check the source catalog, request ID, assessed-frame count, and source ranks against the MCP result. Use the filmstrip to put another frame in either pane, then use **Reset to saved pair** to return to the original recommendation and alternate. Tag and review controls use the open catalog when the corresponding photo or burst can be verified.
+4. Return to the results list and reopen the same run. Use **Clear** in MCP Settings to verify that the open comparison loses access to the findings.
+
+The Debug viewer uses the existing shared result and its 24-hour lifetime. The TestFlight-to-Xcode check should also confirm that the development build can use the saved source bookmark to display both previews.
+
 ## Code to inspect during implementation
 
 - [Burst workspace](../RawCull/Views/ComparisonGridView/BurstCullingWorkspaceView.swift), [header](../RawCull/Views/ComparisonGridView/BurstWorkspaceHeader.swift), and [filmstrip](../RawCull/Views/ComparisonGridView/BurstWorkspaceFilmstrip.swift) for burst navigation patterns and the existing review action.

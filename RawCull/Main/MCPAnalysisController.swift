@@ -269,7 +269,7 @@ final class MCPAnalysisController {
         _ worker: AnalysisJobStore.FollowUpWorker, qwen: QwenInferenceRuntime,
     ) async throws -> MCPPhotoAssessmentResult {
         guard let identity = await qwen.assessmentIdentity() else { throw QwenModelError.modelUnavailable }
-        let access = try await retryStorage { try followUpCatalogAccess(for: worker) }
+        let access = try await retryStorage { try followUpCatalogAccess(for: worker.request) }
         defer { withExtendedLifetime(access) {} }
         let ids = try worker.request.target.photoIDs(in: worker.source)
         let burstID = worker.request.target.burstID
@@ -558,14 +558,14 @@ final class MCPAnalysisController {
     func resolveFollowUpTargets(
         for worker: AnalysisJobStore.FollowUpWorker,
     ) throws -> (photos: [URL], access: RawCullCatalogGrant) {
-        let access = try followUpCatalogAccess(for: worker)
+        let access = try followUpCatalogAccess(for: worker.request)
         return try (worker.resolveTargets(in: access.url), access)
     }
 
-    private func followUpCatalogAccess(for worker: AnalysisJobStore.FollowUpWorker) throws -> RawCullCatalogGrant {
-        _ = try jobs.readFollowUpSource(catalogID: worker.request.catalogID, jobID: worker.request.sourceJobID)
+    func followUpCatalogAccess(for request: AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant {
+        _ = try jobs.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID)
         let url: URL
-        if let jobAccess = MCPJobPhotoAccess.saved, jobAccess.jobID == worker.request.sourceJobID {
+        if let jobAccess = MCPJobPhotoAccess.saved, jobAccess.jobID == request.sourceJobID {
             var stale = false
             guard let resolved = try? URL(
                 resolvingBookmarkData: jobAccess.bookmark,
@@ -574,7 +574,7 @@ final class MCPAnalysisController {
             ), !stale else { throw FollowUpCatalogError.reauthorizationRequired }
             url = resolved
         } else {
-            guard let saved = try savedCatalog(), saved.grant.id == worker.request.catalogID else {
+            guard let saved = try savedCatalog(), saved.grant.id == request.catalogID else {
                 throw FollowUpCatalogError.reauthorizationRequired
             }
             url = saved.url
