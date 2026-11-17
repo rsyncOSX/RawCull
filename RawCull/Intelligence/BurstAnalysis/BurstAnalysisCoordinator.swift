@@ -24,7 +24,9 @@ final class BurstAnalysisCoordinator {
     var progress = BurstAnalysisProgress()
     var generation = 0
     @ObservationIgnored var cancelTask: (() -> Void)?
-    var hasActiveTask: Bool { cancelTask != nil }
+    var hasActiveTask: Bool {
+        cancelTask != nil
+    }
 
     init(
         sharpnessModel: SharpnessScoringModel,
@@ -123,7 +125,9 @@ final class BurstAnalysisCoordinator {
             guard callbacks.isCurrent() else { return nil }
             let saved = await cacheRepository.save(snapshot, catalog: request.catalogIdentity)
             diagnostics.append(.cacheSaveRequested)
-            if !saved { diagnostics.append(.cacheSaveFailed) }
+            if !saved {
+                diagnostics.append(.cacheSaveFailed)
+            }
         }
         return BurstAnalysisPipelineResult(
             groups: appliedResult.groups,

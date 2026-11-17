@@ -82,6 +82,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         case folderAccess
         case noPhotos
     }
+
     var files: [FileItem] = [] {
         didSet {
             catalogContentRevision &+= 1

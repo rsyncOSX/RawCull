@@ -4,7 +4,9 @@ import MCP
 
 actor StatusStdioTransport: Transport {
     private let stdio = StdioTransport()
-    nonisolated var logger: Logger { stdio.logger }
+    nonisolated var logger: Logger {
+        stdio.logger
+    }
 
     func connect() async throws {
         try await stdio.connect()
@@ -19,7 +21,7 @@ actor StatusStdioTransport: Transport {
     }
 
     func receive() -> AsyncThrowingStream<Data, Error> {
-        return AsyncThrowingStream { continuation in
+        AsyncThrowingStream { continuation in
             let task = Task {
                 let messages = await stdio.receive()
                 do {

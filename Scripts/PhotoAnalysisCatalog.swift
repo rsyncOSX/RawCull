@@ -23,7 +23,7 @@ struct Item: Decodable, Sendable {
     let calibration: Bool
 }
 
-func json<T>(_ value: T?) -> Any {
+func json(_ value: (some Any)?) -> Any {
     value.map { $0 as Any } ?? NSNull()
 }
 
@@ -77,26 +77,28 @@ func analysis(_ result: PhotoAnalysisResult?) -> [String: Any] {
     return row
 }
 
-func encoded<T: Encodable>(_ value: T) throws -> Any {
+func encoded(_ value: some Encodable) throws -> Any {
     try JSONSerialization.jsonObject(with: JSONEncoder().encode(value))
 }
 
 @MainActor
 func outcome(_ operation: () async throws -> Any) async -> [String: Any] {
-    do { return ["status": "ok", "value": try await operation()] }
-    catch { return ["status": "error", "error": String(describing: error)] }
+    do { return try await ["status": "ok", "value": operation()] } catch { return ["status": "error", "error": String(describing: error)] }
 }
 
 func jsonSafe(_ value: Any) -> Any {
     switch value {
     case let object as [String: Any]:
-        return object.mapValues(jsonSafe)
+        object.mapValues(jsonSafe)
+
     case let array as [Any]:
-        return array.map(jsonSafe)
+        array.map(jsonSafe)
+
     case let number as NSNumber where !number.doubleValue.isFinite:
-        return String(describing: number)
+        String(describing: number)
+
     default:
-        return value
+        value
     }
 }
 
@@ -130,7 +132,7 @@ struct PhotoAnalysisCatalog {
         let calibrationItems = zip(catalog.images, requests).filter { $0.0.calibration }.map { $0.1 }
         let calibration = await analyzer.calibrate(
             from: calibrationItems, baseConfiguration: configuration,
-            minimumSuccessfulImages: min(5, max(1, calibrationItems.count)), maximumConcurrentTasks: 1
+            minimumSuccessfulImages: min(5, max(1, calibrationItems.count)), maximumConcurrentTasks: 1,
         )
         let calibrationResult: [String: Any] = calibration.map {
             ["status": "ok", "threshold": $0.threshold, "sampleCount": $0.sampleCount,
@@ -161,7 +163,7 @@ struct PhotoAnalysisCatalog {
                 row["preview"] = preview
             }
 
-            row["scalar"] = analysis(await analyzer.analyze(decoded, configuration: configuration))
+            row["scalar"] = await analysis(analyzer.analyze(decoded, configuration: configuration))
             let start = ContinuousClock.now
             let result = await analyzer.analyzeWithFocusMask(decoded, configuration: configuration)
             row["combinedMilliseconds"] = elapsed(start)
@@ -192,21 +194,23 @@ struct PhotoAnalysisCatalog {
             do {
                 let feature = try await features.featurePrint(for: decoded.image)
                 let reference = burstReferences[item.burst] ?? (item.id, feature)
-                if !item.burst.isEmpty { burstReferences[item.burst] = reference }
-                row["featurePrint"] = [
+                if !item.burst.isEmpty {
+                    burstReferences[item.burst] = reference
+                }
+                row["featurePrint"] = try [
                     "status": "ok", "revision": feature.revision,
                     "representationVersion": feature.representationVersion,
                     "payloadBytes": feature.payload.count,
                     "reference": reference.id,
-                    "distance": json(try features.distance(from: reference.print, to: feature))
+                    "distance": json(features.distance(from: reference.print, to: feature))
                 ]
             } catch {
                 row["featurePrint"] = ["status": "error", "error": String(describing: error)]
             }
             rows.append(row)
         }
-        let report: [String: Any] = [
-            "descriptor": try encoded(PhotoAnalyzer.sharpnessDescriptor(for: configuration)),
+        let report: [String: Any] = try [
+            "descriptor": encoded(PhotoAnalyzer.sharpnessDescriptor(for: configuration)),
             "batchStatus": batch == nil ? "unavailable" : "ok",
             "batchMilliseconds": batchMilliseconds,
             "calibration": calibrationResult, "images": rows
@@ -228,7 +232,7 @@ func breakdown(_ b: SharpnessBreakdown) -> [String: Any] {
         "focusFailureKind": b.focusFailureKind.rawValue,
         "focusMaskRegionSource": json(b.focusMaskRegionSource?.rawValue),
         "focusMaskVisualThreshold": json(b.focusMaskVisualThreshold),
-        "focusEvidence": json(b.focusEvidence.map(focusEvidence)),
+        "focusEvidence": json(b.focusEvidence.map(focusEvidence))
     ]
 }
 
@@ -254,7 +258,7 @@ func focusEvidence(_ e: FocusEvidence) -> [String: Any] {
         "scoringLocalDetailScore": json(e.scoringLocalDetailScore),
         "saliencyCandidateCount": e.saliencyCandidateCount,
         "winningSaliencyRect": rect(e.winningSaliencyRect),
-        "saliencySelectionReason": json(e.saliencySelectionReason),
+        "saliencySelectionReason": json(e.saliencySelectionReason)
     ]
 }
 
@@ -272,6 +276,6 @@ func patch(_ p: FocusPatchRanking) -> [String: Any] {
         "belowAFPenalty": p.belowAFPenalty,
         "eyeHeadHeuristicAdjustment": p.eyeHeadHeuristicAdjustment,
         "compositeScore": p.compositeScore,
-        "containsAFPoint": p.containsAFPoint,
+        "containsAFPoint": p.containsAFPoint
     ]
 }

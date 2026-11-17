@@ -111,11 +111,13 @@ actor QwenInferenceRuntime: QwenInferenceServing {
             do {
                 let response = try await respond(to: .init(
                     instruction: Self.assessmentInstruction(criteria: criteria + retry),
-                    image: image, maximumResponseTokens: 512, captureDiagnostics: false
+                    image: image, maximumResponseTokens: 512, captureDiagnostics: false,
                 ))
                 try Task.checkCancellation()
                 guard assessmentIdentity() == identity else { throw MCPAssessmentError.modelChanged }
-                if let result = try? QwenPhotoAssessment.decodeResponse(response) { return result }
+                if let result = try? QwenPhotoAssessment.decodeResponse(response) {
+                    return result
+                }
             } catch QwenModelError.emptyResponse {
                 // Apply the same single retry as for invalid JSON.
             }

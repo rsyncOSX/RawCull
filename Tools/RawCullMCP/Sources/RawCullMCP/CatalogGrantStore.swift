@@ -37,7 +37,7 @@ nonisolated struct CatalogGrantStore: Sendable {
 
     static func shared() -> Self {
         Self(directory: FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: applicationGroup
+            forSecurityApplicationGroupIdentifier: applicationGroup,
         ))
     }
 
@@ -73,15 +73,16 @@ nonisolated struct CatalogGrantStore: Sendable {
         }
     }
 
-    // Caller must hold the job lock.
+    /// Caller must hold the job lock.
     func writeLocked(_ grant: CatalogGrant) throws {
         try JSONEncoder().encode(grant).write(to: manifestURL(), options: .atomic)
     }
 
-    // Caller must hold the job lock. Preserve all permissions on the current grant.
+    /// Caller must hold the job lock. Preserve all permissions on the current grant.
     func refreshRecurringLocked(catalogID: UUID, summary: CatalogSummary) throws {
         guard var current = try authorizedCatalog(), current.id == catalogID,
-              current.analysisEnabled == true, current.recurringFolder == true else {
+              current.analysisEnabled == true, current.recurringFolder == true
+        else {
             throw StoreError.unavailable
         }
         current.summary = summary

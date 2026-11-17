@@ -5,9 +5,9 @@ import Testing
 
 @Suite("MCP job lifecycle")
 struct MCPJobLifecycleTests {
-    private let now = Date(timeIntervalSince1970: 1_000)
+    private let now = Date(timeIntervalSince1970: 1000)
 
-    @Test func liveWorkerSurvivesStaleHeartbeatAndOwnsCancellation() throws {
+    @Test func `live worker survives stale heartbeat and owns cancellation`() throws {
         try withStore { store, _ in
             var lease: AnalysisJobStore.WorkerLease? = try #require(try store.acquireWorkerLease())
             var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
@@ -27,7 +27,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func interruptedWorkerFailsImmediately() throws {
+    @Test func `interrupted worker fails immediately`() throws {
         try withStore { store, _ in
             var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
             job.claim()
@@ -38,7 +38,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func legacyHeartbeatUsesAwakeUptimeAndFallsBackOnReboot() {
+    @Test func `legacy heartbeat uses awake uptime and falls back on reboot`() {
         var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
         job.state = .running
         job.heartbeatAt = now
@@ -48,7 +48,7 @@ struct MCPJobLifecycleTests {
         #expect(job.isExpired(at: now + 120, uptime: 12_000_000_000, bootID: "reboot"))
     }
 
-    @Test func publicationChecksOwnershipAndCancellation() {
+    @Test func `publication checks ownership and cancellation`() {
         var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
         job.claim()
         var current = job
@@ -59,7 +59,7 @@ struct MCPJobLifecycleTests {
         #expect(!current.canPublish(for: replacement))
     }
 
-    @Test @MainActor func lockContentionIsRetryable() throws {
+    @Test @MainActor func `lock contention is retryable`() throws {
         try withStore { store, _ in
             _ = try store.withLock {
                 #expect(throws: AnalysisJobStore.StoreError.busy) {
@@ -72,7 +72,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func malformedRecordIsProtectedWhileWorkerOwnsSlot() throws {
+    @Test func `malformed record is protected while worker owns slot`() throws {
         try withStore { store, file in
             try Data("{".utf8).write(to: file)
             do {
@@ -86,7 +86,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func unsupportedFormatAndIOFailureArePreserved() throws {
+    @Test func `unsupported format and IO failure are preserved`() throws {
         try withStore { store, file in
             let future = Data(#"{"formatVersion":999}"#.utf8)
             try future.write(to: file)
@@ -100,7 +100,7 @@ struct MCPJobLifecycleTests {
     }
 
     @Test(arguments: [false, true])
-    func followUpSourceRequiresPublishedResultAndCurrentConsent(oneTimeApproval: Bool) throws {
+    func `follow up source requires published result and current consent`(oneTimeApproval: Bool) throws {
         try withStore { store, jobFile in
             let catalogID = UUID()
             let jobID = UUID()
@@ -108,7 +108,7 @@ struct MCPJobLifecycleTests {
             if !oneTimeApproval {
                 // Existing analysis grants may predate the follow-up consent flag.
                 try grantStore.authorize(CatalogGrant(
-                    id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true
+                    id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true,
                 ))
             }
             var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: now, updatedAt: now)
@@ -158,13 +158,13 @@ struct MCPJobLifecycleTests {
 
             let assessment = AnalysisJobStore.FollowUpRequest(
                 id: UUID(), catalogID: catalogID, sourceJobID: jobID,
-                target: .burst("burst"), rubric: ["exposure"]
+                target: .burst("burst"), rubric: ["exposure"],
             )
             #expect(try store.enqueueFollowUp(assessment).state == .queued)
             #expect(try store.replayFollowUp(assessment)?.state == .queued)
             let other = AnalysisJobStore.FollowUpRequest(
                 id: UUID(), catalogID: catalogID, sourceJobID: jobID,
-                target: .burst("burst"), rubric: ["composition"]
+                target: .burst("burst"), rubric: ["composition"],
             )
             #expect(throws: AnalysisJobStore.StoreError.busy) {
                 try store.enqueueFollowUp(other)
@@ -190,7 +190,7 @@ struct MCPJobLifecycleTests {
     @Test(arguments: [
         (0, 6), (0, nil), (nil, 6), (0, 0), (nil, nil)
     ] as [(Int?, Int?)])
-    func burstTargetUsesOnlySavedPicks(recommendation: Int?, alternate: Int?) throws {
+    func `burst target uses only saved picks`(recommendation: Int?, alternate: Int?) throws {
         let ids = (0 ..< 7).map { "photo-\($0)" }
         let photos = Dictionary(uniqueKeysWithValues: ids.map {
             ($0, FollowUpSourceSnapshot.Photo(relativePath: "\($0).ARW", size: 1, modified: now))
@@ -199,8 +199,8 @@ struct MCPJobLifecycleTests {
         let source = FollowUpSourceSnapshot(
             jobID: UUID(), catalogID: UUID(), photos: photos,
             bursts: [burstID: .init(photoIDs: ids, ranks: [ids[0]: 1, ids[6]: 2],
-                                   recommendedPhotoID: recommendation.map { ids[$0] },
-                                   alternatePhotoID: alternate.map { ids[$0] })]
+                                    recommendedPhotoID: recommendation.map { ids[$0] },
+                                    alternatePhotoID: alternate.map { ids[$0] })],
         )
         let target = AnalysisJobStore.FollowUpRequest.Target.burst(burstID)
         let expected = [recommendation, recommendation == alternate ? nil : alternate].compactMap { $0 }
@@ -216,12 +216,12 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func burstAssessmentRequiresHostSupportWhileExplicitPhotosAcceptLegacyHost() throws {
+    @Test func `burst assessment requires host support while explicit photos accept legacy host`() throws {
         try withStore { store, jobFile in
             let bundlePath = "/fixture/RawCull.app"
             let hostFile = jobFile.deletingLastPathComponent().appendingPathComponent("follow-up-host.json")
             let legacyHost = AnalysisJobStore.FollowUpHost(
-                version: 1, pid: getpid(), bundlePath: bundlePath, timestamp: .now, supportsBurstAssessment: nil
+                version: 1, pid: getpid(), bundlePath: bundlePath, timestamp: .now, supportsBurstAssessment: nil,
             )
             try JSONEncoder().encode(legacyHost).write(to: hostFile)
             #expect(store.hasFollowUpHost(bundlePath: bundlePath))
@@ -232,7 +232,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func followUpPhotoResolutionRejectsChangesAndSymlinkEscape() throws {
+    @Test func `follow up photo resolution rejects changes and symlink escape`() throws {
         try withStore { _, jobFile in
             let directory = jobFile.deletingLastPathComponent()
             let catalog = directory.appendingPathComponent("catalog")
@@ -258,7 +258,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func followUpResolutionPreservesUnicodePathAndCatalogIdentity() throws {
+    @Test func `follow up resolution preserves unicode path and catalog identity`() throws {
         try withStore { store, jobFile in
             let request = try seedFollowUpSource(in: store)
             let root = jobFile.deletingLastPathComponent()
@@ -278,18 +278,18 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func followUpReservationExcludesOtherWorkersAndKeepsSourceReadable() throws {
+    @Test func `follow up reservation excludes other workers and keeps source readable`() throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             let worker = try startFollowUp(request, in: store)
             #expect(try store.acquireWorkerLease() == nil)
             #expect(try store.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID).jobID
-                    == request.sourceJobID)
+                == request.sourceJobID)
             let replacement = AnalysisJob(jobId: UUID(), catalogId: request.catalogID, createdAt: now, updatedAt: now)
             #expect(throws: AnalysisJobStore.StoreError.busy) {
                 try store.update { _ in replacement }
             }
-            guard case .replay(let active) = try store.beginFollowUp(request, now: now) else {
+            guard case let .replay(active) = try store.beginFollowUp(request, now: now) else {
                 Issue.record("An identical request started a second worker.")
                 return
             }
@@ -311,15 +311,17 @@ struct MCPJobLifecycleTests {
     }
 
     @Test(arguments: ["clear", "revoke", "cancel"])
-    func followUpInvalidationPreventsLatePublication(_ action: String) throws {
+    func `follow up invalidation prevents late publication`(_ action: String) throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             let worker = try startFollowUp(request, in: store)
             switch action {
             case "clear":
                 #expect(try store.clearResult(expectedJobID: request.sourceJobID))
+
             case "revoke":
                 try CatalogGrantStore(directory: store.directory).revoke()
+
             default:
                 try store.cancelFollowUp(request.id)
             }
@@ -337,7 +339,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func abandonedFollowUpDoesNotPublishStagedResult() throws {
+    @Test func `abandoned follow up does not publish staged result`() throws {
         try withStore { store, jobFile in
             let request = try seedFollowUpSource(in: store)
             do {
@@ -363,7 +365,7 @@ struct MCPJobLifecycleTests {
     }
 
     @Test(arguments: ["queued", "running", "completed"])
-    func disablingAssessmentsInvalidatesRequestsAndPreservesBurst(state: String) throws {
+    func `disabling assessments invalidates requests and preserves burst`(state: String) throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             let source = try store.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID)
@@ -405,7 +407,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func processExitReleasesFollowUpWorkerLock() throws {
+    @Test func `process exit releases follow up worker lock`() throws {
         try withStore { store, jobFile in
             let request = try seedFollowUpSource(in: store)
             do {
@@ -417,12 +419,12 @@ struct MCPJobLifecycleTests {
             let ready = Pipe()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
             process.arguments = ["-MFcntl=:flock", "-e", """
-                open(my $lock, "+<", $ARGV[0]) or die $!;
-                flock($lock, LOCK_EX | LOCK_NB) or die $!;
-                $| = 1;
-                print "R";
-                sleep while 1;
-                """, lock.path]
+            open(my $lock, "+<", $ARGV[0]) or die $!;
+            flock($lock, LOCK_EX | LOCK_NB) or die $!;
+            $| = 1;
+            print "R";
+            sleep while 1;
+            """, lock.path]
             process.standardOutput = ready
             try process.run()
             defer {
@@ -437,7 +439,7 @@ struct MCPJobLifecycleTests {
             kill(process.processIdentifier, SIGKILL)
             process.waitUntilExit()
             #expect(process.terminationReason == .uncaughtSignal)
-            guard case .replay(let recovered) = try store.beginFollowUp(request, now: now) else {
+            guard case let .replay(recovered) = try store.beginFollowUp(request, now: now) else {
                 Issue.record("Recovery must recognize the existing request.")
                 return
             }
@@ -445,14 +447,14 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func recurringRefreshPreservesFollowUpConsent() throws {
+    @Test func `recurring refresh preserves follow up consent`() throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             let grants = CatalogGrantStore(directory: store.directory)
             let scanID = UUID()
             let updated = CatalogSummary(
                 photoCount: 1, earliestCaptureDate: nil, latestCaptureDate: nil, cameraCounts: [:],
-                snapshotAt: "2026-11-16", photos: [], scanId: scanID
+                snapshotAt: "2026-11-16", photos: [], scanId: scanID,
             )
             try store.withLock {
                 try grants.refreshRecurringLocked(catalogID: request.catalogID, summary: updated)
@@ -463,7 +465,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func queuedAssessmentReplaysAndClaimsExactlyOnce() throws {
+    @Test func `queued assessment replays and claims exactly once`() throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             let queued = try store.enqueueFollowUp(request)
@@ -471,7 +473,7 @@ struct MCPJobLifecycleTests {
             #expect(try store.replayFollowUp(request) == queued)
             let conflicting = AnalysisJobStore.FollowUpRequest(
                 id: request.id, catalogID: request.catalogID, sourceJobID: request.sourceJobID,
-                target: request.target, rubric: ["exposure"]
+                target: request.target, rubric: ["exposure"],
             )
             #expect(throws: AnalysisJobStore.FollowUpError.conflict) {
                 try store.replayFollowUp(conflicting)
@@ -495,7 +497,7 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func cancellingQueuedAssessmentLeavesReplayReceipt() throws {
+    @Test func `cancelling queued assessment leaves replay receipt`() throws {
         try withStore { store, _ in
             let request = try seedFollowUpSource(in: store)
             _ = try store.enqueueFollowUp(request)
@@ -506,22 +508,22 @@ struct MCPJobLifecycleTests {
         }
     }
 
-    @Test func assessmentProjectionPreservesUnknownsAndExcludesUnrequestedFields() throws {
+    @Test func `assessment projection preserves unknowns and excludes unrequested fields`() throws {
         let assessment = try QwenPhotoAssessment.decodeResponse("""
-            {"schemaVersion":2,"subject":"private subject","compositionScore":3,
-             "compositionEvidence":"Useful framing\\nDetail","exposureScore":null,"exposureEvidence":null,
-             "subjectVisibilityScore":4,"subjectVisibilityEvidence":"private evidence","eyesOpen":null,
-             "problems":[],"strengths":[],"confidence":0.5}
-            """)
+        {"schemaVersion":2,"subject":"private subject","compositionScore":3,
+         "compositionEvidence":"Useful framing\\nDetail","exposureScore":null,"exposureEvidence":null,
+         "subjectVisibilityScore":4,"subjectVisibilityEvidence":"private evidence","eyesOpen":null,
+         "problems":[],"strengths":[],"confidence":0.5}
+        """)
         let output = MCPPhotoAssessmentResult(
             requestId: UUID(), sourceJobId: UUID(), model: "Qwen fixture", assessedCount: 1, failedCount: 1,
             photos: [
                 .init(photoId: "supported", assessedImage: .init(width: 2048, height: 1365),
                       findings: assessment.mcpFindings(for: ["composition", "exposure"])),
                 .init(photoId: "unreadable", errorCode: "unreadablePhoto")
-            ]
+            ],
         )
-        let json = String(decoding: try JSONEncoder().encode(output), as: UTF8.self)
+        let json = try String(decoding: JSONEncoder().encode(output), as: UTF8.self)
         #expect(json.contains("Useful framing Detail"))
         #expect(json.contains("\"score\":null"))
         #expect(json.contains("\"evidence\":null"))
@@ -534,9 +536,9 @@ struct MCPJobLifecycleTests {
         let burst = MCPPhotoAssessmentResult(
             requestId: output.requestId, sourceJobId: output.sourceJobId, model: output.model,
             assessedCount: 0, failedCount: 1, photos: [.init(photoId: "unreadable", errorCode: "unreadablePhoto", sourceRank: 2)],
-            burstId: "fixture-burst", burstFrameCount: 7
+            burstId: "fixture-burst", burstFrameCount: 7,
         )
-        let burstJSON = String(decoding: try JSONEncoder().encode(burst), as: UTF8.self)
+        let burstJSON = try String(decoding: JSONEncoder().encode(burst), as: UTF8.self)
         #expect(burstJSON.contains("\"burstId\":\"fixture-burst\""))
         #expect(burstJSON.contains("\"burstFrameCount\":7"))
         #expect(burstJSON.contains("\"sourceRank\":2"))
@@ -546,12 +548,12 @@ struct MCPJobLifecycleTests {
         let catalogID = UUID()
         let jobID = UUID()
         let request = AnalysisJobStore.FollowUpRequest(
-            id: UUID(), catalogID: catalogID, sourceJobID: jobID, target: .photos(["photo"]), rubric: ["composition"]
+            id: UUID(), catalogID: catalogID, sourceJobID: jobID, target: .photos(["photo"]), rubric: ["composition"],
         )
         let grants = CatalogGrantStore(directory: store.directory)
         try grants.authorize(.init(
             id: catalogID, displayName: "Fixture", summary: nil, analysisEnabled: true,
-            recurringFolder: true, followUpEnabled: true
+            recurringFolder: true, followUpEnabled: true,
         ))
         var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: now, updatedAt: now)
         job.claim()
@@ -576,10 +578,10 @@ struct MCPJobLifecycleTests {
     }
 
     private func startFollowUp(
-        _ request: AnalysisJobStore.FollowUpRequest, in store: AnalysisJobStore
+        _ request: AnalysisJobStore.FollowUpRequest, in store: AnalysisJobStore,
     ) throws -> AnalysisJobStore.FollowUpWorker {
         let admission = try store.beginFollowUp(request, now: now)
-        guard case .started(let worker) = admission else {
+        guard case let .started(worker) = admission else {
             throw AnalysisJobStore.FollowUpError.conflict
         }
         return worker

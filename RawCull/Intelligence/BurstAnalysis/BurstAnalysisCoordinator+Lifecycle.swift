@@ -10,7 +10,7 @@ extension BurstAnalysisCoordinator {
         return generation
     }
 
-    func register<Success>(_ task: Task<Success, Never>, generation: Int) {
+    func register(_ task: Task<some Any, Never>, generation: Int) {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.register()")
         guard self.generation == generation else {
             task.cancel()

@@ -4,7 +4,7 @@ import Testing
 
 @Suite("MCP Settings result visibility")
 struct MCPSettingsTests {
-    @Test func oneTimeResultIsVisibleWithoutGrantUntilCleared() throws {
+    @Test func `one time result is visible without grant until cleared`() throws {
         var job = completedJob()
         job.setupRequestId = UUID()
         job.catalogDisplayName = "One-time folder"
@@ -17,7 +17,7 @@ struct MCPSettingsTests {
         #expect(SharedResult(job: job, grant: nil) == nil)
     }
 
-    @Test func savedGrantResultRequiresCurrentMatchingAuthorization() {
+    @Test func `saved grant result requires current matching authorization`() {
         let job = completedJob()
         let matching = CatalogGrant(id: job.catalogId, displayName: "Saved folder", summary: nil, analysisEnabled: true)
         let disabled = CatalogGrant(id: job.catalogId, displayName: "Saved folder", summary: nil, analysisEnabled: false)

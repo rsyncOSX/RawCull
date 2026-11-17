@@ -122,7 +122,7 @@ struct PeopleRankingPreviewTests {
                 algorithmVersion: signature.algorithmVersion,
                 detectorRevision: signature.detectorRevision,
                 faces: [FaceFixture(normalizedBounds: CGRect(x: 0.3, y: 0.3, width: width, height: 0.25),
-                                    localDetail: detail)]
+                                    localDetail: detail)],
             )
             let evidence = try JSONDecoder().decode(FaceEvidenceResult.self, from: JSONEncoder().encode(fixture))
             try cache.save(evidence, for: url, signature: signature)
