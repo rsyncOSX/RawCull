@@ -5,8 +5,9 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from AssessBursts import StopRun, run
+from AssessBursts import MCPBusyError, StopRun, heartbeat, run
 
 
 class FakeClient:
@@ -82,6 +83,26 @@ class AssessBurstsTests(unittest.TestCase):
             run(next_client, self.path, json.loads(self.path.read_text()), limit=1)
         replay = next(args for name, args in next_client.calls if name == 'start_photo_assessment')
         self.assertEqual(replay, client.submitted)
+
+    def test_heartbeat_retries_transient_storage_busy(self):
+        class BusyThenReady:
+            def __init__(self):
+                self.attempts = 0
+
+            def check_time(self):
+                pass
+
+            def call(self, name, **arguments):
+                self.attempts += 1
+                if self.attempts == 1:
+                    raise MCPBusyError('busy')
+                return {'state': 'completed'}
+
+        client = BusyThenReady()
+        with patch('AssessBursts.time.sleep'):
+            self.assertEqual(heartbeat(client, 'get_photo_assessment_status',
+                                       requestId='request')['state'], 'completed')
+        self.assertEqual(client.attempts, 2)
 
 
 if __name__ == '__main__':
