@@ -1,5 +1,7 @@
 # RawCull MCP Step 3 TestFlight prompts
 
+The seven populated logs below record the original build 454 run. See the [verification and rerun results](mcpserver.md#build-454-verification) for what was independently checked.
+
 Install the new TestFlight build and configure the MCP client to use the helper bundled with that installation. In the first prompt, verify the reported build number against the one you installed. Run the prompts in the same chat where possible, and use the IDs from a fresh burst job on the new build. Keep RawCull’s AI settings closed except during the model-refresh test.
 
 Use a disposable catalog for tests that change files, clear results, or revoke access. A new burst job replaces the current shared result, so complete the tests that depend on the reference job before starting a different catalog.
@@ -56,7 +58,7 @@ Assessment completed
 
 ## 3. Change the rubric and test completion without polling
 
-> Use only RawCull MCP. Assess the same two photo IDs and source job with a fresh request ID and rubric `["exposure"]`. Report the request ID and initial state. Wait 80 seconds before the first status check, with no status or result calls during that interval. If you can’t wait without polling, give me the request ID and stop so I can resume after 80 seconds. On the first check, report whether it already completed. If it is still running, poll until terminal. Fetch the result and report each exposure score and its evidence, plus the exact top-level and per-photo fields RawCull returned. Preserve nulls.
+> Use RawCull MCP for app calls. Assess the same two photo IDs and source job with a fresh request ID and rubric `["exposure"]`. Report the request ID and initial state. Use a local timer to wait 80 seconds before the first status check, with no status or result calls during that interval. If you can’t time the wait, give me the request ID and stop so I can resume after 80 seconds. On the first check, report the elapsed time and whether it already completed. If it is still running, poll until terminal. Fetch the result and report each exposure score and its evidence, plus the exact top-level and per-photo fields RawCull returned. Preserve nulls.
 
 If the client stops after queueing, send this after 80 seconds:
 
@@ -113,7 +115,9 @@ Pass
 
 Fully quit RawCull before the cold run. Keep the source catalog accessible and use the same four distinct IDs for both runs.
 
-> Use only RawCull MCP. Run a four-photo assessment on the completed source job with rubric `["composition", "exposure", "subjectVisibility"]`. Use a fresh request ID and record elapsed time from submission to the first observed terminal state. After it finishes, repeat the same four photos and rubric with a new request ID while RawCull is still open. For each run, report elapsed time, terminal state, any error code, assessed and failed counts, and whether each successful photo returned all three fields. Report the serialized result size in bytes if you can measure it. Check that the source rankings are still readable after both runs.
+Use a stopwatch or client clock from submission to the first terminal status. Record the polling interval. Measure bytes from the compact UTF-8 encoding of the structured result.
+
+> Use RawCull MCP for app calls and a local clock for timing. Run a four-photo assessment on the completed source job with rubric `["composition", "exposure", "subjectVisibility"]`. Use a fresh request ID and record elapsed time from submission to the first observed terminal state. After it finishes, repeat the same four photos and rubric with a new request ID while RawCull is still open. For each run, report elapsed time, terminal state, any error code, assessed and failed counts, and whether each successful photo returned all three fields. Measure the compact structured JSON result in UTF-8 bytes. Check that the source rankings are still readable after both runs.
 
 ```bash
 list_bursts (MCP: rawcull-mcp) · catalogId: "82354B94-D8B3-4B7E-AFDE-806A92A1E0C5", jobId: "41A75EB4-6… Returned 1 of 72 ranked bursts.{"bursts":[{"id":"82354B94-D8B3-4B7E-AFDE-80...
@@ -166,19 +170,21 @@ The source rankings remain readable: list_bursts returned 1 of 72 for the comple
 
 Use a catalog without a saved analysis grant so RawCull shows the approval choices. Choose **Approve This Job**. After the burst completes and the client records the IDs, fully quit RawCull.
 
+If the MCP folder picker stays disabled, add the disposable catalog from **File → Add Catalog** first. Leave that catalog active and repeat the setup request using its exact path.
+
 > Use only RawCull MCP. Request burst setup for `<disposable catalog path>`. Wait for me to choose **Approve This Job**, then use the returned catalog and job IDs to wait for burst completion. Find two explicit photo IDs in the ranked results and report them with the source job ID. Stop there so I can fully quit RawCull.
 
 After quitting:
 
 > Use only RawCull MCP. Start an exposure assessment for the two photo IDs from the one-time job, using its catalog ID and source job ID and a fresh request ID. Wait for completion and retrieve the result. Report whether RawCull reopened, whether it required another approval, and whether both photo IDs were assessed. Leave the AI settings tab closed. I’ll verify that the visible workspace selection stays where it was after launch.
 
-To test fresh **Approve and Remember**, use a different disposable catalog:
+To test fresh **Approve and Remember**, use a different disposable catalog in a test profile. This action replaces the profile’s saved MCP catalog authorization.
 
 > Use only RawCull MCP. Request burst setup for `<second disposable catalog path>`. Wait for me to choose **Approve and Remember**, then wait for the burst job to complete. Find two explicit photo IDs from its rankings and run an exposure assessment with a fresh request ID. After it finishes, request setup again for the same folder with a new request ID. Verify that the second burst queues without another approval. Use photo IDs from that second job to confirm its result also supports an exposure assessment. Report both source job IDs, assessment IDs, and terminal states.
 
 ## 9. Test mixed and all-unreadable results
 
-Use copies of RAW files in a disposable catalog. Complete the source burst and record two ranked photo IDs. Then replace one of those **copies** with an unreadable placeholder at the same pathname. Use the original source job and IDs from before the change.
+Use copies of RAW files in a disposable catalog. Complete the source burst and record two ranked photo IDs. Then replace one of those **copies** with an unreadable placeholder at the same pathname. Use the original source job and IDs from before the change. This exercises file identity validation if the size or modification time changes. To exercise the preview decoder, preserve both while corrupting the copy's contents.
 
 > Use only RawCull MCP. Assess the two recorded photo IDs from the disposable source job with `["exposure"]` and a fresh request ID. One copy is now unreadable. Report the terminal state, assessed and failed counts, and each photo’s findings or error. Then submit a new request for only the unreadable photo ID. Report whether the mixed batch completed with one successful photo and one `unreadablePhoto`, and whether the unreadable-only batch failed with `allPhotosFailed` and retained the per-photo error. Do not start a replacement burst job.
 
