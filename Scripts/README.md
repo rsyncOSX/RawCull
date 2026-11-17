@@ -43,6 +43,63 @@ See the [development summary](../Docs/summary.md) for recorded benchmark and val
 
 ## Local AI and review evidence
 
+### Assess bursts without a cloud AI client
+
+Run the interactive Python 3.9+ runner from the repository root:
+
+```sh
+python3 Scripts/AssessBursts.py
+```
+
+After an interruption or time limit, use the command printed by the runner:
+
+```sh
+python3 Scripts/AssessBursts.py --continue ~/RawCullBurstResults.json
+```
+
+`--continue` requires an existing file and runs without prompts. Add
+`--max-bursts 5` and/or `--minutes 15` to bound that invocation; omitted limits
+mean unlimited. The same limit flags also work with the interactive runner.
+Continuation recovers this script's saved requests; it cannot discover work
+previously done by another client without that client's IDs and records.
+
+`AssessBursts.py` uses only Python's standard library and connects directly to
+the signed helper at `/Applications/RawCull.app/Contents/MacOS/rawcull-mcp`.
+Use `--helper /absolute/path/to/rawcull-mcp` for a different installation.
+It uses RawCull's local Qwen assessments and does not invoke Codex, Copilot,
+Ollama, or a cloud model. Wait until any other RawCull client has finished
+before running it; RawCull shares a single analysis worker and source result.
+
+The prompts ask for:
+
+- A JSON progress/results file (default `~/RawCullBurstResults.json`). Choose
+  the same file to resume, or a different file for a new run.
+- An absolute catalog folder path for a new progress file.
+- Optional existing catalog and completed source job IDs from the MCP log.
+  Supply both to reuse that source. The IDs determine the source; the folder
+  path is only a label in this mode. Leaving both blank requests a **new burst
+  analysis**, which replaces the shared source result and dependent assessments.
+  RawCull may ask for folder selection and approval.
+- A maximum number of additional bursts per invocation, and a maximum runtime
+  in minutes including setup and burst analysis. Zero means unlimited.
+
+Install Qwen and enable MCP photo assessments in RawCull first. The script
+assesses the saved recommendation and alternate (at most two frames) for each
+burst in source order, using composition, exposure, and subject visibility.
+It prints progress and saves full findings and errors in the JSON file. It
+does not independently pick a new winner or assess every frame in a burst.
+
+Requests are checkpointed before submission and replayed with their original
+IDs after interruption. Finished entries are skipped on resume. The time limit
+and Ctrl+C stop this runner, **not** work already admitted by RawCull; that work
+may finish afterward. Resume promptly with the same file to retrieve it. Shared
+assessment results expire after 24 hours and become unavailable if the source
+is replaced, access is revoked, or results are cleared. Errors stop the runner
+and retain progress for inspection; it does not automatically retry failed
+assessments with fresh IDs. A separate `.lock` file prevents two runners from
+using the same progress file simultaneously. JSON writes are atomic and new
+files use private permissions. Keep results outside the repository.
+
 `RunAIAnalysis.py` runs SAM 3 + CLIP, Qwen Vision, and Objects sequentially.
 `RunCombinedReviewSix.py` runs the Combined Review regression; despite its name,
 it selects all filename-sorted ARWs by default. `--frozen` selects the original
@@ -100,6 +157,7 @@ matters: unittest's default lowercase `test*.py` pattern does not find these fil
 
 | Test file | Coverage |
 |---|---|
+| `TestAssessBursts.py` | Interrupted and lost-response request replay, skipping finished bursts, and additional-burst limits using a fake MCP client. |
 | `TestCompareAFSharpness.py` | Pair labels, direction, ties, missing scores, duplicate pairs and burst IDs; optional crop integration. |
 | `TestFreezeCombinedReviewBaseline.py` | Read-only inventory, identity, hashes, decoded payloads, absent exports and PNG headers. |
 | `TestModelProvenance.py` | Current release evidence and rejection of malformed, missing, blocked or inconsistent provenance. |
