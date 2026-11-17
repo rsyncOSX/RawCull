@@ -155,6 +155,7 @@ nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
         var assessedImage: Image?
         var findings: [String: Finding]?
         var errorCode: String?
+        var sourceRank: Int?
     }
 
     let requestId: UUID
@@ -166,6 +167,8 @@ nonisolated struct MCPPhotoAssessmentResult: Encodable, Sendable {
     let assessedCount: Int
     let failedCount: Int
     let photos: [Photo]
+    var burstId: String?
+    var burstFrameCount: Int?
 }
 
 nonisolated extension QwenPhotoAssessment {

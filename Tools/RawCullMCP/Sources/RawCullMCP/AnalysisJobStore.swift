@@ -469,6 +469,11 @@ nonisolated extension AnalysisJobStore {
         enum Target: Codable, Equatable, Sendable {
             case photos([String])
             case burst(String)
+
+            var burstID: String? {
+                guard case let .burst(id) = self else { return nil }
+                return id
+            }
         }
 
         let id: UUID
@@ -539,17 +544,20 @@ nonisolated extension AnalysisJobStore {
         let pid: Int32
         let bundlePath: String
         let timestamp: Date
+        let supportsBurstAssessment: Bool?
     }
 
     func publishFollowUpHost(bundlePath: String) throws {
-        let host = FollowUpHost(version: 1, pid: getpid(), bundlePath: bundlePath, timestamp: .now)
+        let host = FollowUpHost(version: 1, pid: getpid(), bundlePath: bundlePath, timestamp: .now,
+                                supportsBurstAssessment: true)
         try JSONEncoder().encode(host).write(to: followUpHostURL(), options: .atomic)
     }
 
-    func hasFollowUpHost(bundlePath: String) -> Bool {
+    func hasFollowUpHost(bundlePath: String, requiresBurstAssessment: Bool = false) -> Bool {
         guard let host = try? JSONDecoder().decode(FollowUpHost.self, from: Data(contentsOf: followUpHostURL())),
               host.version == 1, host.pid > 0, host.bundlePath == bundlePath,
-              abs(host.timestamp.timeIntervalSinceNow) < 10 else { return false }
+              abs(host.timestamp.timeIntervalSinceNow) < 10,
+              !requiresBurstAssessment || host.supportsBurstAssessment == true else { return false }
         return kill(host.pid, 0) == 0 || errno == EPERM
     }
 
@@ -892,8 +900,10 @@ nonisolated extension AnalysisJobStore.FollowUpRequest.Target {
             ids = selected
         case let .burst(id):
             let burst = try source.burst(id: id)
-            ids = [burst.recommendedPhotoID, burst.alternatePhotoID].compactMap { $0 }.reduce(into: []) { ids, id in
-                if !ids.contains(id) { ids.append(id) }
+            ids = [burst.recommendedPhotoID,
+                   burst.alternatePhotoID == burst.recommendedPhotoID ? nil : burst.alternatePhotoID].compactMap { $0 }
+            guard ids.allSatisfy({ burst.photoIDs.contains($0) && (burst.ranks[$0] ?? 0) > 0 }) else {
+                throw FollowUpSourceSnapshot.SourceError.invalidTarget
             }
         }
         guard (1 ... 4).contains(ids.count), Set(ids).count == ids.count,

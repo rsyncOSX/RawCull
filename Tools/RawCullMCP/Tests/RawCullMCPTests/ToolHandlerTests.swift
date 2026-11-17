@@ -195,6 +195,57 @@ struct ToolHandlerTests {
         #expect(try AnalysisJobStore(directory: store.directory).queuedFollowUp() == nil)
     }
 
+    @Test func burstAssessmentValidatesSelectorsAndReplaysQueuedRequest() async throws {
+        let grants = try makeStore()
+        defer { removeStore(grants) }
+        let catalogID = try authorizePhotos(in: grants)
+        let jobs = AnalysisJobStore(directory: grants.directory)
+        let jobID = UUID()
+        let burstID = "\(catalogID):\(jobID):0"
+        var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: .now, updatedAt: .now)
+        job.claim()
+        try jobs.update { _ in job }
+        job.coverage = .init(photoCount: 1, burstCount: 1, singletonCount: 0,
+                             unevaluatedCount: 0, skippedByReason: [:], similarityBackends: [:])
+        job.bursts = []
+        job.finish(.completed)
+        try jobs.withLock {
+            try jobs.stageFollowUpSourceLocked(.init(jobID: jobID, catalogID: catalogID, photos: [
+                "photo": .init(relativePath: "fixture.ARW", size: 1, modified: .now)
+            ], bursts: [
+                burstID: .init(photoIDs: ["photo"], ranks: ["photo": 1],
+                               recommendedPhotoID: "photo", alternatePhotoID: nil)
+            ]))
+            _ = try jobs.updateLocked { _ in job }
+        }
+        let requestID = UUID()
+        let common: [String: Value] = [
+            "requestId": .string(requestID.uuidString), "catalogId": .string(catalogID.uuidString),
+            "sourceJobId": .string(jobID.uuidString), "rubric": .array([.string("exposure")])
+        ]
+        func submit(_ selectors: [String: Value]) async throws -> [String: Value] {
+            let args = common.merging(selectors) { _, selected in selected }
+            let reply = try await callKnownTool(.init(name: "start_photo_assessment", arguments: args), grantStore: grants)
+            return try #require(reply.structuredContent?.objectValue)
+        }
+        let photos = ["photoIds": Value.array([.string("photo")])]
+        let burst = ["burstId": Value.string(burstID)]
+        #expect(try await submit([:])["errorCode"] == .string("invalidRequest"))
+        #expect(try await submit(photos.merging(burst) { first, _ in first })["errorCode"] == .string("invalidRequest"))
+        #expect(try await submit(["burstId": .int(1)])["errorCode"] == .string("invalidRequest"))
+        #expect(try await submit(["burstId": .string("")])["errorCode"] == .string("invalidRequest"))
+        #expect(try await submit(["burstId": .string("\(catalogID):\(UUID()):0")])["errorCode"] == .string("invalidTarget"))
+        #expect(try jobs.queuedFollowUp() == nil)
+
+        let request = AnalysisJobStore.FollowUpRequest(id: requestID, catalogID: catalogID, sourceJobID: jobID,
+                                                       target: .burst(burstID), rubric: ["exposure"])
+        _ = try jobs.enqueueFollowUp(request)
+        let replay = try await submit(burst)
+        #expect(replay["state"] == .string("queued"))
+        #expect(replay["requestId"] == .string(requestID.uuidString))
+        #expect(try await submit(photos)["errorCode"] == .string("conflictingReplay"))
+    }
+
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {
         .init(name: "request_catalog_setup", arguments: [
             "requestId": .string(id.uuidString), "catalogHint": .string(hint), "jobType": .string("burstAnalysis"),

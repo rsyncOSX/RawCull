@@ -13,14 +13,20 @@ enum AnalysisTools {
 
     private static func tool(
         _ name: String, _ description: String, required: [String: Value], optional: [String: Value] = [:],
-        annotations: Tool.Annotations = jobAnnotations, outputSchema: Value? = nil
+        annotations: Tool.Annotations = jobAnnotations, outputSchema: Value? = nil,
+        exactlyOneOf selectors: [String] = []
     ) -> Tool {
-        Tool(name: name, description: description, inputSchema: .object([
+        var input: [String: Value] = [
             "type": .string("object"),
             "properties": .object(required.merging(optional) { first, _ in first }),
             "required": .array(required.keys.sorted().map(Value.string)),
             "additionalProperties": .bool(false),
-        ]), annotations: annotations, outputSchema: outputSchema)
+        ]
+        if !selectors.isEmpty {
+            input["oneOf"] = .array(selectors.map { .object(["required": .array([.string($0)])]) })
+        }
+        return Tool(name: name, description: description, inputSchema: .object(input),
+                    annotations: annotations, outputSchema: outputSchema)
     }
 
     static let start = tool(
@@ -39,7 +45,7 @@ enum AnalysisTools {
         annotations: .init(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false)
     )
     static let bursts = tool(
-        "list_bursts", "List ranked bursts from a completed analysis. Pass nextCursor for the next page.",
+        "list_bursts", "List ranked bursts from a completed analysis. Pass nextCursor for the next page. For a confidence shortlist, order low, medium, then high, preserving source order within ties and leaving unknown confidence unclassified.",
         required: ["catalogId": uuid, "jobId": uuid],
         optional: [
             "limit": .object([
@@ -89,8 +95,12 @@ enum AnalysisTools {
                                                  optional: [
                                                     "assessedImage": .object(["type": .string("object")]),
                                                     "findings": .object(["type": .string("object")]),
-                                                    "errorCode": .object(["type": .string("string")])
+                                                    "errorCode": .object(["type": .string("string")]),
+                                                    "sourceRank": .object(["type": .string("integer"), "minimum": .int(1)])
                                                  ])])
+    ], optional: [
+        "burstId": .object(["type": .string("string")]),
+        "burstFrameCount": .object(["type": .string("integer"), "minimum": .int(1)])
     ])
 
     private static func objectSchema(required: [String: Value], optional: [String: Value] = [:]) -> Value {
@@ -99,11 +109,13 @@ enum AnalysisTools {
     }
 
     static let startFollowUp = tool(
-        "start_photo_assessment", "Queue local Qwen assessment of up to four photo IDs from a completed burst job. Supply photoIds and rubric only as arrays. Use a fresh requestId UUID for changed arguments and reuse it for identical retries.",
+        "start_photo_assessment", "Queue local Qwen assessment from a completed burst job. Supply exactly one of photoIds (up to four IDs) or burstId (the saved recommendation and alternate, at most two frames). Use one request per burst and wait for it to finish before starting another. Use a fresh requestId UUID for changed arguments and reuse it for identical retries.",
         required: ["catalogId": uuid, "sourceJobId": uuid, "requestId": uuid,
-                   "photoIds": stringList(maximum: 4),
                    "rubric": stringList(maximum: 3, values: ["composition", "exposure", "subjectVisibility"])],
-        outputSchema: followUpStateSchema
+        optional: ["photoIds": stringList(maximum: 4),
+                   "burstId": .object(["type": .string("string"), "minLength": .int(1), "maxLength": .int(128)])],
+        outputSchema: followUpStateSchema,
+        exactlyOneOf: ["photoIds", "burstId"]
     )
     static let followUpStatus = tool(
         "get_photo_assessment_status", "Read the assessment state and any failure code. Poll every two seconds.",
@@ -140,32 +152,45 @@ enum AnalysisTools {
         }
         do {
             if params.name == startFollowUp.name {
-                guard Set(args.keys) == Set(["requestId", "catalogId", "sourceJobId", "photoIds", "rubric"]),
+                let selectors = Set(args.keys).subtracting(["requestId", "catalogId", "sourceJobId", "rubric"])
+                guard selectors == ["photoIds"] || selectors == ["burstId"],
                       let catalog = args["catalogId"]?.stringValue.flatMap(UUID.init(uuidString:)),
                       let source = args["sourceJobId"]?.stringValue.flatMap(UUID.init(uuidString:)),
-                      case let .array(photos)? = args["photoIds"], (1 ... 4).contains(photos.count),
                       case let .array(fields)? = args["rubric"], (1 ... 3).contains(fields.count),
-                      photos.allSatisfy({ ($0.stringValue?.utf8.count ?? 0) > 0 && ($0.stringValue?.utf8.count ?? 0) <= 128 }),
                       fields.allSatisfy({ [ "composition", "exposure", "subjectVisibility" ].contains($0.stringValue ?? "") }) else {
-                    return failure("invalidRequest", "Provide only requestId, catalogId, sourceJobId, photoIds (one to four IDs), and rubric (composition, exposure, or subjectVisibility).")
+                    return failure("invalidRequest", "Provide requestId, catalogId, sourceJobId, rubric, and exactly one of photoIds or burstId.")
+                }
+                let target: AnalysisJobStore.FollowUpRequest.Target
+                if selectors == ["burstId"] {
+                    guard let burstID = args["burstId"]?.stringValue, (1 ... 128).contains(burstID.utf8.count) else {
+                        return failure("invalidRequest", "Provide a nonempty burstId from list_bursts.")
+                    }
+                    target = .burst(burstID)
+                } else {
+                    guard case let .array(photos)? = args["photoIds"], (1 ... 4).contains(photos.count),
+                          photos.allSatisfy({ (1 ... 128).contains($0.stringValue?.utf8.count ?? 0) }) else {
+                        return failure("invalidRequest", "Provide one to four photo IDs in the photoIds array.")
+                    }
+                    target = .photos(photos.compactMap(\.stringValue))
                 }
                 let request = AnalysisJobStore.FollowUpRequest(
                     id: id, catalogID: catalog, sourceJobID: source,
-                    target: .photos(photos.compactMap(\.stringValue)), rubric: fields.compactMap(\.stringValue)
+                    target: target, rubric: fields.compactMap(\.stringValue)
                 )
                 if let existing = try store.replayFollowUp(request) { return try reply(existing) }
                 guard let application = bundledRawCullURL() else {
                     return failure("incompatibleApp", "Use the MCP helper bundled with RawCull.")
                 }
                 let path = application.resolvingSymlinksInPath().standardizedFileURL.path
-                if !store.hasFollowUpHost(bundlePath: path) {
+                let requiresBurst = target.burstID != nil
+                if !store.hasFollowUpHost(bundlePath: path, requiresBurstAssessment: requiresBurst) {
                     _ = await openBundledRawCull(at: application)
                     for _ in 0 ..< 24 {
-                        if store.hasFollowUpHost(bundlePath: path) { break }
+                        if store.hasFollowUpHost(bundlePath: path, requiresBurstAssessment: requiresBurst) { break }
                         try await Task.sleep(for: .milliseconds(250))
                     }
                 }
-                guard store.hasFollowUpHost(bundlePath: path) else {
+                guard store.hasFollowUpHost(bundlePath: path, requiresBurstAssessment: requiresBurst) else {
                     return failure("incompatibleApp", "Quit other RawCull versions and reopen the app bundled with this helper.")
                 }
                 return try reply(store.enqueueFollowUp(request))
@@ -188,7 +213,7 @@ enum AnalysisTools {
         } catch AnalysisJobStore.FollowUpError.permissionRequired {
             return failure("permissionRequired", "Approve a burst job for this catalog in RawCull before requesting photo assessments.")
         } catch AnalysisJobStore.FollowUpError.invalidRequest, FollowUpSourceSnapshot.SourceError.invalidTarget {
-            return failure("invalidTarget", "Use distinct photo IDs from the source job and supported rubric fields.")
+            return failure("invalidTarget", "Use distinct photo IDs or a burst with a saved recommendation or alternate from the source job, and supported rubric fields.")
         } catch AnalysisJobStore.StoreError.busy, AnalysisJobStore.FollowUpError.capacity {
             return failure("busy", "RawCull cannot accept another assessment right now.")
         } catch AnalysisJobStore.FollowUpError.expiredResult {
