@@ -145,6 +145,8 @@ Use the [same-chat comparison prompt](prompts.md#compare-the-recommendation-and-
 
 **Release gate.** Install the signed candidate over the previous supported release and use its bundled helper in a fresh chat. Run the baseline with both similarity backends and complete the second prompt for both a burst and specific photos. Quit and reopen at the documented points. During an active follow-up, exercise cancellation and revocation separately and verify no result is subsequently published under that request. Verify clear behavior, dead-worker recovery, the one-time approval message, missing models, and continued access to existing tools. Record the release verdict before enabling further review modes.
 
+See [photo assessment controls and lifetime](mcpserver.md#follow-up-photo-assessments) and the [Step 5 TestFlight checklist](mcpserver.md#step-5-release-gate).
+
 ### Step 6 — Add Deep AI Review and Object Analysis as separate increments
 
 1. Route a burst and explicit preset to the existing Deep AI Review pipeline. Build candidates from the persisted membership and ranks. Verify the resolved files match the source snapshot before adding available sharpness, subject label, and AF-point evidence. Return job-scoped results and coverage. Key any reused results to source identity, model, and preset.

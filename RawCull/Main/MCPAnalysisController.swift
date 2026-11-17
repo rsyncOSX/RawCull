@@ -160,6 +160,10 @@ final class MCPAnalysisController {
         qwen: QwenInferenceRuntime, viewModel: RawCullViewModel, prepare: @escaping @MainActor () async -> Void,
         canStart: @MainActor () -> Bool
     ) throws {
+        guard try jobs.followUpsEnabled() else {
+            followUp?.cancel()
+            return
+        }
         if !isTerminationPending, Date.now >= nextHostPublication {
             let path = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path
             try jobs.publishFollowUpHost(bundlePath: path)
@@ -168,7 +172,8 @@ final class MCPAnalysisController {
         if let followUpID {
             let status: AnalysisJobStore.FollowUpRecord
             do { status = try jobs.followUpStatus(followUpID) }
-            catch FollowUpSourceSnapshot.SourceError.unavailable, AnalysisJobStore.FollowUpError.unavailable {
+            catch FollowUpSourceSnapshot.SourceError.unavailable, AnalysisJobStore.FollowUpError.unavailable,
+                  AnalysisJobStore.FollowUpError.disabled {
                 followUp?.cancel()
                 return
             }
@@ -442,7 +447,12 @@ final class MCPAnalysisController {
             let confirmation = NSAlert()
             let existingGrant = try grants.authorizedCatalog()
             confirmation.messageText = String(localized: "Approve burst analysis?")
-            let sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share the ranked bursts with the MCP client. This also allows local assessment of photos from this job and shares text findings. The job and its photo access stay available after you quit, until you clear the result, revoke access, or replace the job.")
+            let sharing: String
+            if try jobs.followUpsEnabled() {
+                sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share the ranked bursts with the MCP client. This also allows local assessment of photos from this job and shares text findings. The job and its photo access stay available after you quit, until you clear the result, revoke access, or replace the job.")
+            } else {
+                sharing = String(localized: "RawCull will analyze \(url.path(percentEncoded: false)) and share the ranked bursts with the MCP client. The rankings stay available after you quit, until you clear the result, revoke access, or replace the job. MCP photo assessments are off.")
+            }
             let remembering: String
             if let existingGrant {
                 remembering = String(localized: "Approve and Remember also replaces the saved authorization for \(existingGrant.displayName) and allows future analysis of the newly approved catalog.")

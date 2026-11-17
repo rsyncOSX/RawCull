@@ -18,6 +18,8 @@ struct MCPSettingsTab: View {
     @State private var resultReadFailed = false
     @State private var assessments: [AnalysisJobStore.FollowUpRecord] = []
     @State private var assessmentError = false
+    @State private var followUpsEnabled: Bool?
+    @State private var followUpSettingError = false
     @State private var clearError: LocalizedStringResource?
 
     var body: some View {
@@ -30,7 +32,7 @@ struct MCPSettingsTab: View {
                     } else if grant.analysisEnabled == true {
                         Text("Catalog analysis is authorized.")
                     }
-                    if grant.analysisEnabled == true {
+                    if grant.analysisEnabled == true, followUpsEnabled == true {
                         Text("Follow-up photo analysis is authorized.")
                     }
                 } else if !grantReadFailed {
@@ -79,6 +81,8 @@ struct MCPSettingsTab: View {
                 Text("An MCP client can read saved catalog metadata while RawCull is closed. If you allow analysis, it can also open RawCull to scan this catalog and read ranked bursts. Revoking access removes the saved authorization and the current job, including any shared result.")
             }
             SharedResultSection(result: sharedResult, readFailed: resultReadFailed, error: clearError, clear: clearResult)
+            MCPPhotoAssessmentSetting(enabled: followUpsEnabled, failed: followUpSettingError,
+                                      setEnabled: setFollowUpsEnabled)
             if !assessments.isEmpty || assessmentError {
                 Section("Photo assessments") {
                     ForEach(assessments, id: \.request.id) { record in
@@ -153,6 +157,19 @@ struct MCPSettingsTab: View {
         if let latest = try? jobs.recentFollowUps(), latest != assessments { assessments = latest }
     }
 
+    private func setFollowUpsEnabled(_ enabled: Bool) {
+        let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
+        do {
+            try jobs.setFollowUpsEnabled(enabled)
+            followUpsEnabled = enabled
+            followUpSettingError = false
+            refreshAssessments(jobs)
+        } catch {
+            followUpsEnabled = try? jobs.followUpsEnabled()
+            followUpSettingError = true
+        }
+    }
+
     private func observeSharing() async {
         let grants = CatalogGrantStore.shared()
         let jobs = AnalysisJobStore(directory: grants.directory)
@@ -161,6 +178,8 @@ struct MCPSettingsTab: View {
         refreshGrant()
         refreshResult()
         refreshAssessments(jobs)
+        followUpsEnabled = try? jobs.followUpsEnabled()
+        followUpSettingError = followUpsEnabled == nil
         while !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             let nextGrant = grants.revision()
@@ -247,6 +266,25 @@ struct MCPSettingsTab: View {
             storageError = "MCP job storage is busy. Try revoking access again."
         } catch {
             storageError = "MCP access could not be revoked."
+        }
+    }
+}
+
+private struct MCPPhotoAssessmentSetting: View {
+    let enabled: Bool?
+    let failed: Bool
+    let setEnabled: (Bool) -> Void
+
+    var body: some View {
+        Section {
+            Toggle("Enable MCP photo assessments", isOn: Binding(get: { enabled == true }, set: setEnabled))
+                .disabled(enabled == nil)
+            if failed {
+                Text("RawCull could not update the photo assessment setting. Try again.")
+                    .foregroundStyle(.secondary)
+            }
+        } footer: {
+            Text("Turning this off cancels current assessments and clears their shared findings. Catalog access and burst rankings remain available. Run a new burst analysis after turning assessments back on.")
         }
     }
 }

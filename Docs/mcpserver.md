@@ -50,7 +50,7 @@ Start a fresh Codex session and ask it to call `rawcull_status` on `rawcull`. Ve
 
 | Tool | Arguments and result |
 | --- | --- |
-| `rawcull_status` | Helper version, transport, and available capabilities. |
+| `rawcull_status` | Helper version, bundled app build, transport, available capabilities, and the photo assessment switch state. |
 | `list_catalogs` | Saved catalog ID, display name, and analysis permissions when a grant exists. |
 | `catalog_summary` | Takes `catalogId`. Returns scan status, supported photo count, capture date range, and available camera breakdown. |
 | `list_photos` | Takes `catalogId`. Returns photo IDs, filenames, capture dates, and camera models. Defaults to 50 photos per page and accepts a limit of 1–100. Pass `nextCursor` as `cursor` until it is null. |
@@ -60,16 +60,30 @@ Start a fresh Codex session and ask it to call `rawcull_status` on `rawcull`. Ve
 | `list_bursts` | Takes `catalogId` and `jobId` for a completed job. Defaults to 10 bursts per page and accepts a limit of 1–25. Pass `nextCursor` as `cursor`. Each burst includes the recommendation, alternate, confidence, and available evidence for up to five frames. Photo IDs match `list_photos`. |
 | `request_catalog_setup` | Takes a catalog name or absolute path as `catalogHint` (up to 512 Unicode scalars), `jobType: "burstAnalysis"`, and a client-generated `requestId` UUID. Reuses an eligible saved grant or opens RawCull for folder selection and approval. |
 | `get_catalog_setup_status` | Takes `requestId`. Reports setup state and returns catalog and job IDs when analysis is queued. |
+| `start_photo_assessment` | Takes `catalogId`, `sourceJobId`, a fresh `requestId`, a `rubric` array, and exactly one of `burstId` or `photoIds`. |
+| `get_photo_assessment_status` | Takes `requestId`. Reports state, cancellation, and any failure code. |
+| `get_photo_assessment_result` | Takes `requestId`. Returns findings and per-photo errors. Burst requests include the selected IDs, original ranks, and full burst frame count. |
+| `cancel_photo_assessment` | Takes `requestId`. Cancels queued work or requests cancellation of running work. Poll until terminal. |
 
 ### Catalog access and analysis
 
-In **Settings → MCP**, choose **Authorize Selected Catalog** after the photos finish loading to save a metadata snapshot. Enable **Allow MCP to start burst analysis** before authorizing if you want the client to start jobs. Enable **Allow analysis of future photos in this folder** for a recurring folder. A successful recurring run refreshes the saved photo list and its pagination cursors. The helper can read the saved snapshot while RawCull is closed.
+In **Settings → MCP**, choose **Authorize Selected Catalog** after the photos finish loading to save a metadata snapshot. Enable **Allow MCP burst analysis and photo assessments** before authorizing if you want the client to start jobs. Enable **Allow analysis of future photos in this folder** for a recurring folder. A successful recurring run refreshes the saved photo list and its pagination cursors. The helper can read the saved snapshot while RawCull is closed.
 
 Prompt-driven setup can launch RawCull to resolve a catalog and ask for permission. **Approve This Job** queues a one-time analysis. **Approve and Remember** saves an analysis-enabled grant. RawCull keeps one saved grant and runs one MCP analysis job at a time.
 
 Use a fresh request UUID for each new run and the original UUID and arguments for a retry. Pending setup expires after ten minutes. If RawCull quits while setup is pending, replaying the original request before expiry can reopen the same setup. The setup receipt replay window is 24 hours.
 
 A completed job's rankings and coverage remain available after RawCull quits. **Clear Last Shared Result** removes the shared result and keeps the saved grant and metadata. **Revoke Access** removes the grant and current job. A setup replay can still return the original IDs after clearing or revoking. Reading rankings requires a current shared result.
+
+### Follow-up photo assessments
+
+Install Qwen3-VL-2B in **Settings → AI** and verify that RawCull reports it available. Follow-ups use Qwen with either Vision or CLIP burst rankings. Run a burst job using the [catalog prompt](prompts.md#analyze-a-new-catalog), then ask to [compare one burst](prompts.md#compare-the-recommendation-and-alternate) or [assess specific photos](prompts.md#assess-photos-from-a-completed-burst-job). Both approval choices cover assessments from their completed job. **Approve This Job** provides read-only access for the current shared job. **Approve and Remember** also saves authorization for later eligible jobs. Older shared results may need a fresh burst run to supply the assessment snapshot.
+
+RawCull loads previews locally. The MCP client receives photo IDs, preview dimensions, model and schema information, requested scores and text evidence, and typed errors. An assessment response excludes image bytes, photo paths, and filenames. The client may send findings to its model provider. Earlier ranking calls can share filenames and capture metadata separately. Treat model-generated evidence as untrusted data.
+
+Use the original request UUID to revisit a result with `get_photo_assessment_result`, including after RawCull quits. Results are readable for up to 24 hours while the original job and approval are current. During the seven-day replay window, an identical request reuses its original identity and returns `expiredResult` once the result has expired. Use a fresh UUID for new work. **Settings → MCP** shows up to five recent assessments with **Cancel** and **Clear** where applicable. Clearing an assessment removes its findings and keeps the source rankings. Clearing the source, revoking access, or replacing the shared job removes its dependent assessments.
+
+Turn off **Enable MCP photo assessments** in **Settings → MCP** to cancel active assessments, clear shared findings, and block new assessment requests and reads. Saved catalog access and burst rankings remain available. Turn the setting back on and run a fresh burst job to resume. The helper returns `assessmentDisabled` while the switch is off.
 
 ## TestFlight tests
 
@@ -821,3 +835,29 @@ Xcode built local Release build 455. The app and bundled helper both passed stri
 The bundled helper analyzed a disposable catalog of ten RAW files and returned one low-confidence seven-frame CLIP burst. The smoke test selected the burst from `list_bursts` and submitted it by ID against source job `A11E96D0-DF73-4D29-857C-B5E488DEF0DD`. Request `683A8F6C-BE30-44C8-B3FA-C87238ACEFC2` completed in 60.4 seconds. Qwen returned all three rubric fields for the saved recommendation and alternate at source ranks 1 and 2, with 2 assessed, 0 failed, and `burstFrameCount: 7`. Replay returned `completed` and the source rankings remained readable. Both selectors returned `invalidRequest`, a wrong-job burst ID returned `invalidTarget`, and a competing request returned `busy`.
 
 The signed TestFlight gate remains open. In one fresh chat, run [Analyze a new catalog](prompts.md#analyze-a-new-catalog) and then [Compare the recommendation and alternate](prompts.md#compare-the-recommendation-and-alternate). Confirm the client carries the source IDs across turns and reports the saved picks, original ranks, and burst frame count.
+
+### Step 5 release gate
+
+On 2026-11-17, the preflight passed 20 helper tests and 21 Release lifecycle tests. The local Release candidate and its bundled helper passed strict signature verification. Automated coverage includes disabling queued, running, and completed requests while preserving rankings and grants, preventing late publication even after re-enabling, the 24-hour result and seven-day receipt boundaries, and persisting interrupted-worker recovery.
+
+In the local build 454 → 455 transition, the updated helper read the existing saved grant and completed one-time CLIP source `8275A0C3-33B6-4ABD-9195-4643F5A34983` with the same ranked IDs. Cross-pairing the two helpers and app processes from separate bundle paths returned `incompatibleApp` in both directions with no job admitted. The isolated compatibility test covered the previous handshake at the same bundle path.
+
+On the updated app, the switch was turned off while assessment `AA8B40CE-FDEF-4975-95AE-9DF1A8C6B144` was running. The helper reported `photoAssessmentsEnabled: false` and returned `assessmentDisabled` for start, status, and result. The source rankings and saved grant stayed readable. After re-enabling, a new request against the old source returned `staleSource` and the discarded request remained unavailable.
+
+After a fresh one-time burst run, quitting normally during assessment `1CA4B9A8-87AA-49F4-B22D-CA80D3717BD8` produced `cancelled` and an unavailable assessment result. Rankings remained readable after the app exited. The bundled helper cold-launched RawCull and completed explicit-photo request `7DFD5B63-6AB4-46EB-994F-115285A95EEF` on the same source with one assessed and zero failed. The launch required no further approval and the workspace stayed at **No Catalog Selected**.
+
+Use a disposable macOS profile and copied RAWs for the signed upgrade, missing-model, and saved-grant replacement and revocation checks. RawCull stores one saved catalog grant and one current burst result. Record the installed build, helper version, approval choice, backend, job and request IDs, and exact outcomes.
+
+| Check | Procedure and expected result |
+| --- | --- |
+| Upgrade with an existing grant and result | On the previous TestFlight build, save an analysis-enabled grant and finish a burst job. Record the grant ID, job ID, coverage, and first ranked pair. Install the candidate over that app. In a fresh Codex chat, use the candidate's bundled helper to read those same records before starting a new job. Repeat from a full quit. |
+| Previous app process after in-place upgrade | If the previous process is still running after installation, use the updated helper to try a valid `burstId` from the completed source. A process without burst assessment support returns `incompatibleApp` before admission. Verify the request ID has no assessment and baseline reads still work. Quit and reopen the installed candidate, then retry. |
+| Previous helper against the updated app | Compare tool discovery with the old helper and verify catalog metadata and ranking reads. The previous helper rejects `burstId` with `invalidRequest`. Explicit-photo assessment remains compatible when the helper and its bundled running app support the original handshake. Use the updated bundled helper for burst requests. |
+| Both similarity backends and both selectors | Run a fresh burst analysis with Vision selected, then with CLIP selected. Verify the backend reported by the source. In each chat use [Compare the recommendation and alternate](prompts.md#compare-the-recommendation-and-alternate) and [Assess photos from a completed burst job](prompts.md#assess-photos-from-a-completed-burst-job). Check frame identities, ranks for the burst selector, rubric fields, result coverage, and continued ranking access. Include a catalog with multiple burst pages and a confidence tie. |
+| Cold launch and one-time approval | Choose **Approve This Job**, complete the source, then fully quit. Start a follow-up using the bundled helper. Check relaunch, the unchanged authorization, and successful result retrieval. Quit again and retrieve the assessment using its original request ID. |
+| Disable switch | Open **Settings → MCP** before starting the request so opening Settings cannot refresh the model during inference. When the assessment is running, turn off **Enable MCP photo assessments**. Confirm `rawcull_status` reports `photoAssessmentsEnabled: false`, assessment calls return `assessmentDisabled`, and the baseline rankings and grant are readable. Re-enable, check that the old assessment stays unavailable, and run a new burst and assessment. |
+| Cancel, quit, and process death | Use separate requests. Cancel a running request and confirm `cancelled` with no result. Quit normally during inference and confirm the same after quit. Force-quit a worker during another inference, then query status for `interrupted`. Confirm no result, the original source is still readable, and a new request can run after relaunch. |
+| Clear and revoke | Clear an individual assessment and verify `resultCleared`, inaccessible findings, and readable rankings. Clear the last shared burst and verify dependent assessments disappear. In a separate run with a saved disposable grant, revoke during inference. Verify the grant disappears, source and assessment become inaccessible, and fresh assessment returns `permissionRequired`. |
+| Missing Qwen and diagnostic privacy | In a profile without Qwen, run a valid assessment and confirm `modelUnavailable`, no findings, and readable source rankings. For private fixture markers and file capture, follow [the diagnostic prompts](test3prompts.md#11-check-diagnostic-privacy-clear-and-revoke). |
+
+**Step 5 verdict — open pending the signed TestFlight matrix.**
