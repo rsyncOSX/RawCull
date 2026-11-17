@@ -114,18 +114,19 @@ actor BurstDetectedFaceLoader {
                 return BurstDetectedCrop(evidence: target, animalKind: region.kind, crop: crop)
             }
         }
-        let status: BurstFaceStatus
-        switch result.faces.count {
+        let status: BurstFaceStatus = switch result.faces.count {
         case 0:
-            status = .noFace
+            .noFace
+
         case 1:
             if let detail = result.faces.first?.localDetail, detail.isFinite, detail > 0 {
-                status = .ready
+                .ready
             } else {
-                status = .detailUnavailable
+                .detailUnavailable
             }
+
         default:
-            status = .multipleFaces
+            .multipleFaces
         }
         return (faces, animals, status)
     }

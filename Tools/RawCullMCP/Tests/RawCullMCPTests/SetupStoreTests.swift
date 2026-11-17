@@ -6,7 +6,7 @@ import Testing
 struct SetupStoreTests {
     private let now = Date(timeIntervalSince1970: 1_000_000)
 
-    @Test func overlappingSubmissionAndReplay() throws {
+    @Test func `overlapping submission and replay`() throws {
         try withStore { store, _ in
             let request = proposal()
             #expect(try store.submit(request, now: now).wasAccepted)
@@ -20,7 +20,7 @@ struct SetupStoreTests {
     }
 
     @Test(arguments: [false, true])
-    func corruptPointerOrLinkedReceiptRecovers(corruptPointer: Bool) throws {
+    func `corrupt pointer or linked receipt recovers`(corruptPointer: Bool) throws {
         try withStore { store, root in
             let original = proposal()
             _ = try store.submit(original, now: now)
@@ -30,7 +30,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func reconstructsPublishedJobAndPreservesReplayAfterClearingAndRevocation() throws {
+    @Test func `reconstructs published job and preserves replay after clearing and revocation`() throws {
         try withStore { store, root in
             let request = proposal()
             _ = try store.submit(request, now: now)
@@ -56,7 +56,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func legacyHintsMigrateAndExpiredIDsAreRejectedThenPruned() throws {
+    @Test func `legacy hints migrate and expired I ds are rejected then pruned`() throws {
         try withStore { store, root in
             var original = proposal()
             original.state = .denied
@@ -71,14 +71,14 @@ struct SetupStoreTests {
             #expect(replay.request.catalogHint == nil)
             #expect(!FileManager.default.fileExists(atPath: corrupt.path))
             #expect(throws: CatalogSetupStore.StoreError.self) {
-                try store.submit(original, now: now + 86_401)
+                try store.submit(original, now: now + 86401)
             }
             try store.maintain(now: now + 604_801)
             #expect(!FileManager.default.fileExists(atPath: file.path))
         }
     }
 
-    @Test func legacyHintRetriesUseTheOriginalNormalization() {
+    @Test func `legacy hint retries use the original normalization`() {
         let hint = "/photos/One\u{202E}Two"
         var legacy = proposal()
         legacy.catalogHint = "/photos/One Two"
@@ -94,7 +94,7 @@ struct SetupStoreTests {
         #expect(!exact.matches(retry))
     }
 
-    @Test func capsLegacyStorageAndKeepsNewestReceipts() throws {
+    @Test func `caps legacy storage and keeps newest receipts`() throws {
         try withStore { store, root in
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             var newest = proposal()
@@ -112,7 +112,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func expiredReceiptsReleaseCapacityAndStillRejectReuse() throws {
+    @Test func `expired receipts release capacity and still reject reuse`() throws {
         try withStore { store, root in
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             let expiredAt = now + 24 * 60 * 60
@@ -132,7 +132,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func repeatedDenialsIncreaseCooldownThenReset() throws {
+    @Test func `repeated denials increase cooldown then reset`() throws {
         try withStore { store, _ in
             for offset in [0.0, 10.0, 30.0] {
                 let time = now + offset
@@ -157,7 +157,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func expiredPendingRequestFreesSlotAndRecordsFailure() throws {
+    @Test func `expired pending request frees slot and records failure`() throws {
         try withStore { store, _ in
             let original = proposal()
             _ = try store.submit(original, now: now)
@@ -169,7 +169,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func displayAndDenialCooldownPreserveMatchingAndAllowRetry() throws {
+    @Test func `display and denial cooldown preserve matching and allow retry`() throws {
         try withStore { store, _ in
             var request = proposal()
             request.catalogHint = "Choose this folder\u{2028}now\u{2029}please\u{202E}\u{200B}"
@@ -189,7 +189,7 @@ struct SetupStoreTests {
         }
     }
 
-    @Test func cursorBoundsAndDirectReplayWindow() {
+    @Test func `cursor bounds and direct replay window`() {
         var job = AnalysisJob(jobId: UUID(), catalogId: UUID(), createdAt: now, updatedAt: now)
         #expect(job.burstCursorOffset(job.burstCursorPrefix + "1", count: 2) == 1)
         for offset in ["", "-1", "0", "2", "99999999999999999999999999"] {

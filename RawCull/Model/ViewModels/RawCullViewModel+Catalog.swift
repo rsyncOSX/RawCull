@@ -38,20 +38,20 @@ extension RawCullViewModel {
     func authorizeMCPCatalog(allowAnalysis: Bool, recurringFolder: Bool) throws -> CatalogGrant {
         try authorizeMCPCatalog(
             allowAnalysis: allowAnalysis, catalogId: UUID(), preservingJob: false,
-            recurringFolder: recurringFolder
+            recurringFolder: recurringFolder,
         )
     }
 
     @discardableResult
     func authorizeMCPCatalog(
-        allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false
+        allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false,
     ) throws -> CatalogGrant {
         guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
         let summary = mcpCatalogSummary()
         let grant = CatalogGrant(
             id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis,
             recurringFolder: allowAnalysis && recurringFolder ? true : nil,
-            followUpEnabled: allowAnalysis ? true : nil
+            followUpEnabled: allowAnalysis ? true : nil,
         )
         let previous = MCPAnalysisAuthorization.savedData
         if allowAnalysis {
@@ -61,14 +61,14 @@ extension RawCullViewModel {
             let bookmark = try source.url.bookmarkData(
                 options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
                 includingResourceValuesForKeys: nil,
-                relativeTo: nil
+                relativeTo: nil,
             )
-            let authorization = MCPAnalysisAuthorization(
+            let authorization = try MCPAnalysisAuthorization(
                 catalogId: grant.id,
                 bookmark: bookmark,
-                fingerprint: try MCPAnalysisAuthorization.fingerprint(for: files)
+                fingerprint: MCPAnalysisAuthorization.fingerprint(for: files),
             )
-            MCPAnalysisAuthorization.save(try JSONEncoder().encode(authorization))
+            try MCPAnalysisAuthorization.save(JSONEncoder().encode(authorization))
         }
         do {
             let store = CatalogGrantStore.shared()
@@ -83,12 +83,14 @@ extension RawCullViewModel {
             MCPAnalysisAuthorization.save(previous)
             throw error
         }
-        if !allowAnalysis { MCPAnalysisAuthorization.save(nil) }
+        if !allowAnalysis {
+            MCPAnalysisAuthorization.save(nil)
+        }
         return grant
     }
 
     func startCatalogLoad(
-        for source: ARWSourceCatalog?, scopedURL: URL? = nil, retainedAccess: RawCullCatalogGrant? = nil
+        for source: ARWSourceCatalog?, scopedURL: URL? = nil, retainedAccess: RawCullCatalogGrant? = nil,
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if scopedURL == nil, let url = source?.url,
@@ -100,7 +102,9 @@ extension RawCullViewModel {
         // A view observing the same selection must not replace a queued
         // MCP reload with a transition that lacks its restored bookmark.
         if scopedURL == nil, catalogLifecycle.transitionTask != nil,
-           pendingCatalogTransitionSource == source { return }
+           pendingCatalogTransitionSource == source {
+            return
+        }
 
         let previousSource = catalogLifecycle.currentSource
         catalogLoadFailure = nil
@@ -119,7 +123,7 @@ extension RawCullViewModel {
     }
 
     private func beginCatalogLoad(
-        for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?
+        for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?,
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
         selectedFileID = nil

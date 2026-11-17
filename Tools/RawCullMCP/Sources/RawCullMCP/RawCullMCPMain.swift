@@ -7,7 +7,7 @@ enum RawCullMCPMain {
         let server = Server(
             name: "rawcull-mcp",
             version: version,
-            capabilities: .init(resources: .init(), tools: .init())
+            capabilities: .init(resources: .init(), tools: .init()),
         )
 
         await server.withMethodHandler(ListTools.self) { _ in
@@ -28,10 +28,10 @@ enum RawCullMCPMain {
             }
             do {
                 return try await callKnownTool(params, grantStore: grantStore)
-            } catch MCPError.invalidParams(let message) {
+            } catch let MCPError.invalidParams(message) {
                 return .init(
                     content: [.text(text: message ?? "Invalid tool arguments.", annotations: nil, _meta: nil)],
-                    isError: true
+                    isError: true,
                 )
             }
         }

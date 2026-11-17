@@ -112,7 +112,7 @@ struct BurstCullingWorkspaceView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
-                if groupID != -1 && !sortByAFPoint {
+                if groupID != -1, !sortByAFPoint {
                     peopleRankingButton
                         .padding(.trailing, 12)
                 }
@@ -274,7 +274,11 @@ struct BurstCullingWorkspaceView: View {
         }
         .alert("People ranking unavailable", isPresented: Binding(
             get: { peopleFailure != nil },
-            set: { if !$0 { peopleFailure = nil } },
+            set: {
+                if !$0 {
+                    peopleFailure = nil
+                }
+            },
         )) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -339,15 +343,15 @@ struct BurstCullingWorkspaceView: View {
         }
         .disabled(peopleProgress > 0 || currentPeopleRequest.urls.count < 2)
         .help(peopleCandidate == nil
-              ? "Use for bursts with the same person in every frame."
-              : "Return to the original Best Frame order.")
+            ? "Use for bursts with the same person in every frame."
+            : "Return to the original Best Frame order.")
         .controlSize(.small)
         .fixedSize()
     }
 
     private var files: [FileItem] {
         let baseline = bestFrameFiles
-        if groupID != -1 && sortByAFPoint {
+        if groupID != -1, sortByAFPoint {
             return viewModel.sharpnessModel.sortedByAFPointSharpness(baseline)
         }
         if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),

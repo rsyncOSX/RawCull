@@ -185,7 +185,7 @@ nonisolated extension QwenPhotoAssessment {
         let fields = [
             "composition": finding(compositionScore, compositionEvidence),
             "exposure": finding(exposureScore, exposureEvidence),
-            "subjectVisibility": finding(subjectVisibilityScore, subjectVisibilityEvidence),
+            "subjectVisibility": finding(subjectVisibilityScore, subjectVisibilityEvidence)
         ]
         return fields.filter { rubric.contains($0.key) }
     }

@@ -78,7 +78,7 @@ nonisolated struct FaceEvidenceCache: Sendable {
         let cutoff = now.addingTimeInterval(-30 * 24 * 60 * 60)
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
         guard let records = try? FileManager.default.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: Array(keys), options: .skipsHiddenFiles
+            at: directory, includingPropertiesForKeys: Array(keys), options: .skipsHiddenFiles,
         ) else { return }
 
         for record in records where record.pathExtension == "json" {

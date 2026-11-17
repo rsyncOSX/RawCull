@@ -5,20 +5,20 @@ let version = "0.7.0"
 let emptyArguments: Value = .object([
     "type": .string("object"),
     "properties": .object([:]),
-    "additionalProperties": .bool(false),
+    "additionalProperties": .bool(false)
 ])
 let catalogReadAnnotations = Tool.Annotations(readOnlyHint: true, openWorldHint: false)
 let statusTool = Tool(
     name: "rawcull_status",
     description: "Report the RawCull MCP helper version and available capabilities.",
     inputSchema: emptyArguments,
-    annotations: catalogReadAnnotations
+    annotations: catalogReadAnnotations,
 )
 let listCatalogsTool = Tool(
     name: "list_catalogs",
     description: "List the catalog RawCull has authorized for MCP access.",
     inputSchema: emptyArguments,
-    annotations: catalogReadAnnotations
+    annotations: catalogReadAnnotations,
 )
 let catalogSummaryTool = Tool(
     name: "catalog_summary",
@@ -27,9 +27,9 @@ let catalogSummaryTool = Tool(
         "type": .string("object"),
         "properties": .object(["catalogId": .object(["type": .string("string"), "format": .string("uuid")])]),
         "required": .array([.string("catalogId")]),
-        "additionalProperties": .bool(false),
+        "additionalProperties": .bool(false)
     ]),
-    annotations: catalogReadAnnotations
+    annotations: catalogReadAnnotations,
 )
 let photoPageSize = 50
 let maximumPhotoPageSize = 100
@@ -42,14 +42,14 @@ let listPhotosTool = Tool(
             "catalogId": .object(["type": .string("string"), "format": .string("uuid")]),
             "limit": .object([
                 "type": .string("integer"), "minimum": .int(1),
-                "maximum": .int(maximumPhotoPageSize), "default": .int(photoPageSize),
+                "maximum": .int(maximumPhotoPageSize), "default": .int(photoPageSize)
             ]),
-            "cursor": .object(["type": .string("string")]),
+            "cursor": .object(["type": .string("string")])
         ]),
         "required": .array([.string("catalogId")]),
-        "additionalProperties": .bool(false),
+        "additionalProperties": .bool(false)
     ]),
-    annotations: catalogReadAnnotations
+    annotations: catalogReadAnnotations,
 )
 let availableTools = [statusTool, listCatalogsTool, catalogSummaryTool, listPhotosTool] + AnalysisTools.all + AnalysisTools.followUpTools
 
@@ -75,7 +75,7 @@ func requireCatalog(_ id: UUID, in grantStore: CatalogGrantStore) throws -> Cata
 }
 
 func callKnownTool(
-    _ params: CallTool.Parameters, grantStore: CatalogGrantStore
+    _ params: CallTool.Parameters, grantStore: CatalogGrantStore,
 ) async throws -> CallTool.Result {
     if AnalysisTools.followUpTools.contains(where: { $0.name == params.name }) {
         return try await AnalysisTools.callFollowUp(params, store: .init(directory: grantStore.directory))
@@ -98,7 +98,7 @@ func callKnownTool(
         guard let summary = catalog.summary, let photos = summary.photos else {
             return try structuredReply(
                 "No saved photo list. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
-                value: .object(["catalogId": .string(catalogID.uuidString), "scanStatus": .string("unavailable")])
+                value: .object(["catalogId": .string(catalogID.uuidString), "scanStatus": .string("unavailable")]),
             )
         }
 
@@ -119,7 +119,7 @@ func callKnownTool(
                 "id": .string("\(cursorPrefix)\(index)"),
                 "name": .string(catalogMetadataText(photo.name)),
                 "captureDate": photo.captureDate.map(Value.string) ?? .null,
-                "camera": photo.camera.map { .string(catalogMetadataText($0)) } ?? .null,
+                "camera": photo.camera.map { .string(catalogMetadataText($0)) } ?? .null
             ])
         }
         return try structuredReply(
@@ -129,8 +129,8 @@ func callKnownTool(
                 "scanStatus": .string("saved_snapshot"),
                 "snapshotAt": .string(summary.snapshotAt),
                 "photos": .array(page),
-                "nextCursor": end < photos.count ? .string("\(cursorPrefix)\(end)") : .null,
-            ])
+                "nextCursor": end < photos.count ? .string("\(cursorPrefix)\(end)") : .null
+            ]),
         )
     }
 
@@ -143,7 +143,7 @@ func callKnownTool(
         guard let summary = catalog.summary else {
             return try structuredReply(
                 "No saved scan summary. Open the catalog in RawCull, wait for the photos to load, and authorize it again.",
-                value: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")])
+                value: .object(["catalogId": .string(id), "scanStatus": .string("unavailable")]),
             )
         }
         let cameraCounts = summary.cameraCounts.reduce(into: [String: Int]()) { counts, entry in
@@ -156,7 +156,7 @@ func callKnownTool(
             "photoCount": .int(summary.photoCount),
             "earliestCaptureDate": summary.earliestCaptureDate.map(Value.string) ?? .null,
             "latestCaptureDate": summary.latestCaptureDate.map(Value.string) ?? .null,
-            "cameraCounts": .object(cameraCounts.mapValues(Value.int)),
+            "cameraCounts": .object(cameraCounts.mapValues(Value.int))
         ]
         if catalog.analysisEnabled == true,
            let job = try? AnalysisJobStore(directory: grantStore.directory).read(),
@@ -169,7 +169,7 @@ func callKnownTool(
         }
         return try structuredReply(
             "RawCull's saved scan contains \(summary.photoCount) photos as of \(summary.snapshotAt).",
-            value: .object(details)
+            value: .object(details),
         )
     }
 
@@ -185,15 +185,17 @@ func callKnownTool(
                 "id": .string($0.id.uuidString),
                 "displayName": .string(catalogMetadataText($0.displayName)),
                 "analysisEnabled": .bool($0.analysisEnabled == true),
-                "recurringFolder": .bool($0.recurringFolder == true),
+                "recurringFolder": .bool($0.recurringFolder == true)
             ])]
         } ?? []
         return try structuredReply(
             catalog == nil ? "No catalog is authorized." : "RawCull has an authorized catalog.",
-            value: .object(["catalogs": .array(catalogs)])
+            value: .object(["catalogs": .array(catalogs)]),
         )
+
     case statusTool.name:
         break
+
     default:
         throw MCPError.invalidParams("Unknown tool: \(params.name)")
     }
@@ -209,18 +211,18 @@ func callKnownTool(
             "appBuild": appBuild.map(Value.string) ?? .null,
             "photoAssessmentsEnabled": assessmentEnabled.map(Value.bool) ?? .null,
             "capabilities": .array(capabilities.map(Value.string)),
-            "transport": .string("stdio"),
-        ])
+            "transport": .string("stdio")
+        ]),
     )
 }
 
 func structuredReply(_ summary: String, value: Value) throws -> CallTool.Result {
-    let json = String(decoding: try JSONEncoder().encode(value), as: UTF8.self)
+    let json = try String(decoding: JSONEncoder().encode(value), as: UTF8.self)
     return .init(
         content: [
             .text(text: summary, annotations: nil, _meta: nil),
-            .text(text: json, annotations: nil, _meta: nil),
+            .text(text: json, annotations: nil, _meta: nil)
         ],
-        structuredContent: Optional.some(value)
+        structuredContent: Optional.some(value),
     )
 }

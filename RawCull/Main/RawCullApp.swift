@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             canStart: {
                 !runtime.deepAIReviewController.isRunning && !runtime.qwenAnalysisFeature.isRunning
                     && !runtime.objectAnalysisFeature.isRunning && !runtime.combinedReviewFeature.isRunning
-            }
+            },
         )
     }
 

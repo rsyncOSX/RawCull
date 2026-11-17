@@ -130,7 +130,9 @@ struct MCPSettingsTab: View {
     }
 
     private func assessmentState(_ record: AnalysisJobStore.FollowUpRecord) -> LocalizedStringResource {
-        if record.cancellationRequested, record.state == .running { return "Cancelling" }
+        if record.cancellationRequested, record.state == .running {
+            return "Cancelling"
+        }
         switch record.state {
         case .queued: return "Queued"
         case .running: return "Analyzing photo previews"
@@ -144,8 +146,11 @@ struct MCPSettingsTab: View {
     private func updateAssessment(_ id: UUID, clear: Bool) {
         let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
         do {
-            if clear { try jobs.clearFollowUpResult(id) }
-            else { try jobs.cancelFollowUp(id) }
+            if clear {
+                try jobs.clearFollowUpResult(id)
+            } else {
+                try jobs.cancelFollowUp(id)
+            }
             assessmentError = false
             refreshAssessments(jobs)
         } catch {
@@ -154,7 +159,9 @@ struct MCPSettingsTab: View {
     }
 
     private func refreshAssessments(_ jobs: AnalysisJobStore) {
-        if let latest = try? jobs.recentFollowUps(), latest != assessments { assessments = latest }
+        if let latest = try? jobs.recentFollowUps(), latest != assessments {
+            assessments = latest
+        }
     }
 
     private func setFollowUpsEnabled(_ enabled: Bool) {
@@ -185,8 +192,12 @@ struct MCPSettingsTab: View {
             let nextGrant = grants.revision()
             let nextJob = jobs.revision()
             let grantChanged = nextGrant != grantRevision || grantReadFailed
-            if grantChanged { refreshGrant() }
-            if grantChanged || nextJob != jobRevision || resultReadFailed { refreshResult() }
+            if grantChanged {
+                refreshGrant()
+            }
+            if grantChanged || nextJob != jobRevision || resultReadFailed {
+                refreshResult()
+            }
             refreshAssessments(jobs)
             grantRevision = nextGrant
             jobRevision = nextJob

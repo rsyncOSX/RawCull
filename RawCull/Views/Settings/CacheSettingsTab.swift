@@ -111,7 +111,7 @@ struct CacheSettingsTab: View {
                     let cullingModel = viewModel.cullingModel
                     if await cullingModel.ensureLoaded() {
                         viewModel.clearAllCullingState()
-                        if !(await cullingModel.flushPersistence()) {
+                        if await !(cullingModel.flushPersistence()) {
                             savedFilesDeletionError = cullingModel.persistenceError
                         }
                     } else {

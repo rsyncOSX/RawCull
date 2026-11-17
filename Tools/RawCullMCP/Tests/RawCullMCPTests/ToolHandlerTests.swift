@@ -5,7 +5,7 @@ import Testing
 
 @Suite("MCP tool handlers")
 struct ToolHandlerTests {
-    @Test func photoPagesUseSnapshotCursorAndCleanMetadata() async throws {
+    @Test func `photo pages use snapshot cursor and clean metadata`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogId = try authorizePhotos(in: store)
@@ -26,7 +26,7 @@ struct ToolHandlerTests {
     }
 
     @Test(arguments: [Value.int(0), .int(101), .double(1.5), .string("1"), .null])
-    func rejectsInvalidPhotoLimit(_ limit: Value) async throws {
+    func `rejects invalid photo limit`(_ limit: Value) async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogId = try authorizePhotos(in: store)
@@ -36,7 +36,7 @@ struct ToolHandlerTests {
     }
 
     @Test(arguments: ["", "0", "-1", "2", "999999999999999999999999999999"])
-    func rejectsInvalidPhotoOffset(_ offset: String) async throws {
+    func `rejects invalid photo offset`(_ offset: String) async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogId = try authorizePhotos(in: store)
@@ -48,7 +48,7 @@ struct ToolHandlerTests {
         }
     }
 
-    @Test func pendingSetupRetryReopensAppAndResolvedRetryDoesNot() async throws {
+    @Test func `pending setup retry reopens app and resolved retry does not`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let app = URL(fileURLWithPath: "/Applications/RawCull.app")
@@ -84,7 +84,7 @@ struct ToolHandlerTests {
         #expect(opened == [app, app])
     }
 
-    @Test func oversizedSetupHintFailsWithoutLaunchingOrSaving() async throws {
+    @Test func `oversized setup hint fails without launching or saving`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let id = UUID()
@@ -101,7 +101,7 @@ struct ToolHandlerTests {
         #expect(try setup.request(id) == nil)
     }
 
-    @Test func analysisStatusRequiresTheCurrentJobAndGrant() async throws {
+    @Test func `analysis status requires the current job and grant`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogId = try authorizePhotos(in: store)
@@ -111,7 +111,7 @@ struct ToolHandlerTests {
         let jobs = AnalysisJobStore(directory: store.directory)
         try jobs.update { _ in job }
         let params = CallTool.Parameters(name: "get_analysis_status", arguments: [
-            "catalogId": .string(catalogId.uuidString), "jobId": .string(jobId.uuidString),
+            "catalogId": .string(catalogId.uuidString), "jobId": .string(jobId.uuidString)
         ])
         let result = try await callKnownTool(params, grantStore: store)
         #expect(result.structuredContent?.objectValue?["jobId"] == .string(jobId.uuidString))
@@ -122,7 +122,7 @@ struct ToolHandlerTests {
         }
     }
 
-    @Test func clearingRecurringResultPreservesCatalogUntilRevoked() async throws {
+    @Test func `clearing recurring result preserves catalog until revoked`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogId = try authorizePhotos(in: store, recurringFolder: true)
@@ -169,7 +169,7 @@ struct ToolHandlerTests {
         }
     }
 
-    @Test func assessmentRejectsUnsupportedRubricMissingSourceAndRevokedAccess() async throws {
+    @Test func `assessment rejects unsupported rubric missing source and revoked access`() async throws {
         let store = try makeStore()
         defer { removeStore(store) }
         let catalogID = try authorizePhotos(in: store)
@@ -195,7 +195,7 @@ struct ToolHandlerTests {
         #expect(try AnalysisJobStore(directory: store.directory).queuedFollowUp() == nil)
     }
 
-    @Test func burstAssessmentValidatesSelectorsAndReplaysQueuedRequest() async throws {
+    @Test func `burst assessment validates selectors and replays queued request`() async throws {
         let grants = try makeStore()
         defer { removeStore(grants) }
         let catalogID = try authorizePhotos(in: grants)
@@ -257,12 +257,12 @@ struct ToolHandlerTests {
 
     private func setupParameters(id: UUID, hint: String) -> CallTool.Parameters {
         .init(name: "request_catalog_setup", arguments: [
-            "requestId": .string(id.uuidString), "catalogHint": .string(hint), "jobType": .string("burstAnalysis"),
+            "requestId": .string(id.uuidString), "catalogHint": .string(hint), "jobType": .string("burstAnalysis")
         ])
     }
 
     private func photos(
-        in store: CatalogGrantStore, catalogId: UUID, options: [String: Value]
+        in store: CatalogGrantStore, catalogId: UUID, options: [String: Value],
     ) async throws -> [String: Value] {
         var arguments = options
         arguments["catalogId"] = .string(catalogId.uuidString)
@@ -272,15 +272,15 @@ struct ToolHandlerTests {
     }
 
     private func authorizePhotos(
-        in store: CatalogGrantStore, catalogId: UUID = UUID(), recurringFolder: Bool? = nil
+        in store: CatalogGrantStore, catalogId: UUID = UUID(), recurringFolder: Bool? = nil,
     ) throws -> UUID {
         let photos = [
             CatalogPhoto(name: "First\u{2028}Frame.raw", captureDate: nil, camera: "Camera\u{2029}Model"),
-            CatalogPhoto(name: "Second.raw", captureDate: nil, camera: nil),
+            CatalogPhoto(name: "Second.raw", captureDate: nil, camera: nil)
         ]
         let summary = CatalogSummary(
             photoCount: photos.count, earliestCaptureDate: nil, latestCaptureDate: nil,
-            cameraCounts: [:], snapshotAt: "2026-11-14", photos: photos, scanId: UUID()
+            cameraCounts: [:], snapshotAt: "2026-11-14", photos: photos, scanId: UUID(),
         )
         try store.authorize(.init(id: catalogId, displayName: "Photos", summary: summary,
                                   analysisEnabled: true, recurringFolder: recurringFolder))
@@ -294,6 +294,8 @@ struct ToolHandlerTests {
     }
 
     private func removeStore(_ store: CatalogGrantStore) {
-        if let directory = store.directory { try? FileManager.default.removeItem(at: directory) }
+        if let directory = store.directory {
+            try? FileManager.default.removeItem(at: directory)
+        }
     }
 }
