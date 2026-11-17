@@ -161,7 +161,7 @@ nonisolated struct FollowUpSourceSnapshot: Codable, Sendable {
     let photos: [String: Photo]
     let bursts: [String: Burst]
 
-    struct Photo: Codable, Sendable {
+    struct Photo: Codable, Equatable, Sendable {
         let relativePath: String
         let size: Int64
         let modified: Date
@@ -743,22 +743,44 @@ nonisolated extension AnalysisJobStore {
         return try withLock {
             guard let job = try read(),
                   let source = try? readFollowUpSourceLocked(catalogID: job.catalogId, jobID: job.jobId) else { return [] }
-            let entries = try FileManager.default.contentsOfDirectory(atPath: followUpDirectory().path)
-            var records = try entries.compactMap { name -> FollowUpRecord? in
-                guard let id = UUID(uuidString: name) else { return nil }
-                return try readFollowUpRecordLocked(id)
-            }
-            if let pending = try queuedFollowUp(), !records.contains(where: { $0.request.id == pending.request.id }),
-               now.timeIntervalSince(pending.createdAt) < 120 {
-                records.append(pending)
-            }
-            return Array(records.filter {
-                $0.request.sourceJobID == source.jobID && $0.request.catalogID == source.catalogID
-                    && $0.snapshotVersion == source.version && $0.resultCleared != true
-                    && ($0.finishedAt.map { now.timeIntervalSince($0) < Self.followUpResultLifetime } ?? true)
-            }.sorted { $0.createdAt > $1.createdAt }.prefix(5))
+            return Array(try recentFollowUpsLocked(source: source, now: now).prefix(5))
         }
     }
+
+    private func recentFollowUpsLocked(source: FollowUpSourceSnapshot, now: Date) throws -> [FollowUpRecord] {
+        let entries = try FileManager.default.contentsOfDirectory(atPath: followUpDirectory().path)
+        var records = try entries.compactMap { name -> FollowUpRecord? in
+            guard let id = UUID(uuidString: name) else { return nil }
+            return try readFollowUpRecordLocked(id)
+        }
+        if let pending = try queuedFollowUp(), !records.contains(where: { $0.request.id == pending.request.id }),
+           now.timeIntervalSince(pending.createdAt) < 120 {
+            records.append(pending)
+        }
+        return records.filter {
+            $0.request.sourceJobID == source.jobID && $0.request.catalogID == source.catalogID
+                && $0.snapshotVersion == source.version && $0.resultCleared != true
+                && ($0.finishedAt.map { now.timeIntervalSince($0) < Self.followUpResultLifetime } ?? true)
+        }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    #if DEBUG
+    func readBurstAssessmentResults(now: Date = .now) throws -> (
+        job: AnalysisJob, source: FollowUpSourceSnapshot, results: [(FollowUpRecord, Data)]
+    )? {
+        guard try FileManager.default.fileExists(atPath: followUpDirectory().path) else { return nil }
+        return try withLock {
+            guard let job = try read(), try followUpsEnabled() else { return nil }
+            let source = try readFollowUpSourceLocked(catalogID: job.catalogId, jobID: job.jobId)
+            let results = try recentFollowUpsLocked(source: source, now: now).compactMap { record -> (FollowUpRecord, Data)? in
+                guard record.state == .completed, record.request.target.burstID != nil,
+                      let data = try? readFollowUpResultLocked(record, now: now) else { return nil }
+                return (record, data)
+            }
+            return (job, source, results)
+        }
+    }
+    #endif
 
     func clearFollowUpResult(_ requestID: UUID) throws {
         try withLock {
@@ -867,18 +889,21 @@ nonisolated extension AnalysisJobStore {
     func readFollowUpResult(_ requestID: UUID, now: Date = .now) throws -> Data {
         try withLock {
             let record = try authorizedFollowUpRecordLocked(requestID, now: now)
-            guard record.state == .completed || record.state == .failed, record.resultCleared != true,
-                  let finishedAt = record.finishedAt
-            else {
-                throw FollowUpError.unavailable
-            }
-            guard now.timeIntervalSince(finishedAt) < Self.followUpResultLifetime else {
-                throw FollowUpError.expiredResult
-            }
-            let data = try Data(contentsOf: followUpResultURL(requestID))
-            guard data.count <= 16 * 1024 else { throw FollowUpError.resultTooLarge }
-            return data
+            return try readFollowUpResultLocked(record, now: now)
         }
+    }
+
+    private func readFollowUpResultLocked(_ record: FollowUpRecord, now: Date) throws -> Data {
+        guard record.state == .completed || record.state == .failed, record.resultCleared != true,
+              let finishedAt = record.finishedAt else {
+            throw FollowUpError.unavailable
+        }
+        guard now.timeIntervalSince(finishedAt) < Self.followUpResultLifetime else {
+            throw FollowUpError.expiredResult
+        }
+        let data = try Data(contentsOf: followUpResultURL(record.request.id))
+        guard data.count <= 16 * 1024 else { throw FollowUpError.resultTooLarge }
+        return data
     }
 
     private static let followUpResultLifetime: TimeInterval = 24 * 60 * 60
