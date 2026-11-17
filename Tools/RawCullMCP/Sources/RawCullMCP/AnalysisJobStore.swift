@@ -898,6 +898,8 @@ nonisolated extension AnalysisJobStore {
             throw FollowUpError.unavailable
         }
         let request = record.request
+        // Every receipt operation rechecks the current source and its saved grant
+        // or one-time job approval under the same lock as revocation.
         let source = try readFollowUpSourceLocked(catalogID: request.catalogID, jobID: request.sourceJobID)
         guard source.version == record.snapshotVersion else { throw FollowUpError.unavailable }
         return record

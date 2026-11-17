@@ -245,6 +245,21 @@ struct ToolHandlerTests {
         #expect(replay["requestId"] == .string(requestID.uuidString))
         #expect(try await submit(photos)["errorCode"] == .string("conflictingReplay"))
 
+        let grant = try #require(try grants.authorizedCatalog())
+        let directory = try #require(grants.directory)
+        // Leave the assessment and source records in place to exercise the authorization check directly.
+        try jobs.withLock {
+            try FileManager.default.removeItem(at: directory.appendingPathComponent("catalog-grant.json"))
+        }
+        for tool in ["get_photo_assessment_status", "get_photo_assessment_result", "cancel_photo_assessment"] {
+            let response = try await callKnownTool(.init(name: tool, arguments: [
+                "requestId": .string(requestID.uuidString)
+            ]), grantStore: grants)
+            #expect(response.structuredContent?.objectValue?["errorCode"] == .string("staleSource"), "\(tool)")
+        }
+        try jobs.withLock { try grants.writeLocked(grant) }
+        #expect(try jobs.followUpStatus(requestID).state == .queued)
+
         try jobs.setFollowUpsEnabled(false)
         #expect(try await submit(burst)["errorCode"] == .string("assessmentDisabled"))
         let status = try await callKnownTool(.init(name: "rawcull_status"), grantStore: grants)
