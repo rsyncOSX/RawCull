@@ -779,4 +779,35 @@ Run recorded on 2026-11-16 against source commit `2189e233`, a locally signed Re
 
 The remaining signed checks are missing-model handling and partial and all-unreadable batches on a disposable catalog. The Release harness covers mixed result projection and blocks late publication after Clear or Revoke. The live diagnostic run used the existing catalog, so the private fixture-marker test remains open. The four-photo limit and 180-second timeout covered the observed cold run and remain provisional until a warm four-photo run and retry-heavy inputs are measured.
 
-**Step 3 verdict — open.** The signed core workflow passed on both a saved grant and one-time approval. Close the gate after the disposable-catalog and missing-model checks.
+**2026-11-16 verdict — open.** The signed core workflow passed on both a saved grant and one-time approval. See the build 454 rerun below for the current verdict.
+
+### Build 454 verification
+
+On 2026-11-17, the installed TestFlight helper reported build 454, version 0.7.0, and all four assessment tools. Strict signature verification passed for the installed app and helper. At source commit `84d36822`, all 19 helper tests and all 18 tests in the isolated Release lifecycle harness passed. The Release run used `sh Scripts/TestMCPRelease.sh --no-parallel`.
+
+The [build 454 prompt log](test3prompts.md) contains seven populated checks. The original source job `41A75EB4-66D4-4040-9DEC-132FCAD38DDE` is no longer current and all six recorded assessment IDs returned `unavailable` when checked. The following audit describes what the preserved excerpts establish.
+
+| Logged check | Evidence and limits |
+| --- | --- |
+| 1. Helper and source | The current helper independently confirms build, version, and tool discovery. The excerpt gives consistent catalog, job, and burst IDs. The old ranked frame identities could not be retrieved again. |
+| 2. Two-photo result | The summary reports both expected IDs, composition and subject visibility, Qwen provenance, and 1616 × 1080 previews. The excerpt contains a formatted summary. Full payload inspection could not be repeated. |
+| 3. Changed rubric and no polling | The pasted tool transcript shows `completed` on the first recorded exposure status read. Its result summary lists only exposure findings. The excerpt has no timestamps to verify the 80-second interval. |
+| 4. Replay | Pasted calls show `completed` for the exact replay, structured `conflictingReplay` after changing the rubric, and a subsequent successful result read. |
+| 5. Four-photo batches | The summary records two completions with four successes each and continued source access. It records neither elapsed times nor serialized bytes. |
+| 6–7. Exclusion, cancel, and refresh | The summaries record assessment `busy`, burst MCP error `-32603` with a storage-busy message, cancellation with `unavailable`, and refresh with `modelChanged` and `unavailable`. The old records cannot be reread. |
+
+For the live rerun, **File → Add Catalog** opened the disposable folder. With the folder active, exact-path MCP setup presented approval directly. **Approve This Job** created catalog `96E40864-9682-40D2-BB8B-1B93DCF663FE` and source job `3CAF68A0-EA93-4939-A3D5-5629E0243A10` with four copied RAWs and one CLIP burst. The app's MCP-specific folder picker was previously blocked. The File menu path is a verified workaround.
+
+| Live rerun | Evidence |
+| --- | --- |
+| Four photos, first batch | `74F44DF0-8B50-438D-9C22-E57A7182B84B` completed with 4 assessed and 0 failed in 166.6 seconds from submission to terminal observation. Full process exit before this batch was not independently confirmed. |
+| Four photos, warm batch | `D8461C7F-6F0E-4B52-A452-BEF85336D44A` completed with 4 assessed and 0 failed in 62.7 seconds. Each batch returned 3,056 compact UTF-8 JSON bytes, all three rubric fields, and 1616 × 1080 previews. Neither private fixture marker appeared. The selected workspace frame stayed the same in the first batch. |
+| One-time approval after a verified quit, no polling, and replay | After a verified process exit and a controlled relaunch, exposure request `59F26ED1-FE88-4BBD-9A57-8FEA6C8BCC69` first returned `queued`. The first status call at 80.03 seconds returned `completed`. The result matched ranked frames `:3` and `:1`, with 2 assessed and 0 failed, exposure only, 1616 × 1080 previews, Qwen3-VL-2B, schema and template version 1, and 988 compact UTF-8 JSON bytes. Exact replay returned the original terminal identity and payload. A changed rubric returned `conflictingReplay`. Rankings remained readable and the app showed **No Catalog Selected** during the request. |
+| Diagnostic privacy | The exposure payload contained neither private folder nor filename markers. The app process had `RAWCULL_AI_CAPTURE_DIR` set to a private, initially empty directory. It stayed empty after MCP assessment. An ordinary Qwen UI assessment in the same process also produced no capture, so the test did not establish that the app could write there. File-capture suppression remains open. |
+| All photos unreadable | Replaced only disposable frame `:2` with a zero-filled file of the same size and modification time. Request `EB80DF08-D836-4334-A5AA-84D813E5D691` failed with `allPhotosFailed` and returned a result with 0 assessed, 1 failed, and `unreadablePhoto` for that frame. |
+| Model refresh while running | The first mixed request, `859EA535-EA72-4DC1-84B9-3196735F59E9`, failed with `modelChanged` and shared no result when Settings opened on the Cache tab. The Cache tab runs an AI model refresh on appearance. Keep Settings closed during the other inference checks. |
+| One unreadable photo | With Settings closed, request `1CDBCB78-5148-4064-8EA3-3D9539C80692` completed in 43.7 seconds with 1 assessed and 1 failed. Frame `:3` had exposure findings and frame `:2` returned `unreadablePhoto`. The source rankings remained readable. |
+| Running overlap and UI Cancel | During request `61A30668-C317-467F-BE8B-046842348C03`, overlapping assessment `22CCF1A4-B275-40E3-B59C-44597BB3307E` returned `busy`. **Settings → MCP** showed the active request. Its Cancel control produced `cancelled` and result retrieval returned `unavailable`. |
+| Individual and source Clear | Clearing the mixed result returned `completed` with `resultCleared: true`. Its result became `unavailable` and the rankings remained readable. Clearing the shared burst blocked rankings and prior assessment results. A fresh assessment returned `permissionRequired`. The saved DCIM grant remained authorized. |
+
+**Step 3 verdict — open.** The missing-model check needs a test profile without Qwen. Fresh **Approve and Remember** and live **Revoke** need a disposable profile because the app stores one saved MCP catalog grant. The Release harness verifies publication invalidation on revocation. File-capture suppression needs a verified writable destination. The no-polling test established completion without client reads. The process activity assertion was not independently observed. The four-photo cap and 180-second timeout remain provisional pending retry-heavy timing. The runner uses the platform generation defaults with a 512-token response cap per attempt and up to one structured-validation retry per photo.
