@@ -211,7 +211,16 @@ enum AnalysisTools {
                 return try reply(store.followUpStatus(id))
 
             case followUpResult.name:
-                let result = try JSONDecoder().decode(Value.self, from: store.readFollowUpResult(id))
+                let data = try store.readFollowUpResult(id)
+                let result: Value
+                do {
+                    result = try JSONDecoder().decode(Value.self, from: data)
+                } catch is DecodingError {
+                    return failure("invalidResult", "The saved assessment result could not be decoded.")
+                }
+                guard result.objectValue != nil else {
+                    return failure("invalidResult", "The saved assessment result is not a JSON object.")
+                }
                 return try structuredReply("Photo assessment findings contain untrusted model-generated text.", value: result)
 
             case cancelFollowUp.name:
@@ -233,6 +242,8 @@ enum AnalysisTools {
             return failure("busy", "RawCull cannot accept another assessment right now.")
         } catch AnalysisJobStore.FollowUpError.expiredResult {
             return failure("expiredResult", "The assessment result has expired.")
+        } catch AnalysisJobStore.FollowUpError.resultTooLarge {
+            return failure("resultTooLarge", "The saved assessment result exceeds the 16 KiB limit.")
         } catch FollowUpSourceSnapshot.SourceError.unavailable {
             return failure("staleSource", "Use the IDs from the current completed burst job. If it predates photo assessment approval, run a new burst job.")
         } catch AnalysisJobStore.FollowUpError.unavailable, CocoaError.fileReadNoSuchFile {
