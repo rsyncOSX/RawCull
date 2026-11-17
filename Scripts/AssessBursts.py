@@ -23,6 +23,10 @@ class StopRun(Exception):
     pass
 
 
+class MCPBusyError(RuntimeError):
+    pass
+
+
 class MCP:
     """Minimal newline-delimited JSON-RPC stdio client for the bundled helper."""
 
@@ -88,6 +92,9 @@ class MCP:
     def call(self, name, **arguments):
         reply = self.request('tools/call', {'name': name, 'arguments': arguments})
         if reply.get('isError'):
+            structured = reply.get('structuredContent')
+            if isinstance(structured, dict) and structured.get('errorCode') == 'busy':
+                raise MCPBusyError(f'{name}: {json.dumps(reply, ensure_ascii=False)}')
             raise RuntimeError(f'{name}: {json.dumps(reply, ensure_ascii=False)}')
         value = reply.get('structuredContent')
         if not isinstance(value, dict):
@@ -111,6 +118,22 @@ class MCP:
                 self.process.kill()
                 self.process.wait()
         self.process.stdout.close()
+
+
+def heartbeat(client, method, **arguments):
+    """Probe a status endpoint, tolerating the helper's transient storage lock."""
+    deadline = time.monotonic() + 30
+    delay = 0.5
+    while True:
+        try:
+            return client.call(method, **arguments)
+        except MCPBusyError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(f'{method}: assessment storage remained busy for 30 seconds.') from None
+            client.check_time()
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, 5)
 
 
 def save(path, state):
@@ -143,7 +166,8 @@ def run(client, path, state, limit):
         print('Catalog setup: approve or choose the folder in RawCull if prompted.', flush=True)
         while setup['state'] == 'pendingApproval':
             client.pause()
-            setup = client.call('get_catalog_setup_status', requestId=state['setupRequestId'])
+            setup = heartbeat(client, 'get_catalog_setup_status',
+                              requestId=state['setupRequestId'])
         if setup['state'] != 'queued':
             raise RuntimeError(f'Catalog setup did not queue analysis: {setup}')
         state.update(catalogId=setup['catalogId'], sourceJobId=setup['jobId'])
@@ -151,7 +175,8 @@ def run(client, path, state, limit):
 
     previous = None
     while True:
-        status = client.call('get_analysis_status', catalogId=state['catalogId'], jobId=state['sourceJobId'])
+        status = heartbeat(client, 'get_analysis_status',
+                           catalogId=state['catalogId'], jobId=state['sourceJobId'])
         message = (status.get('state'), status.get('stage'))
         if message != previous:
             print(f'Burst analysis: {message[0]} ({message[1]})', flush=True)
@@ -195,7 +220,8 @@ def run(client, path, state, limit):
         status = client.call('start_photo_assessment', **arguments)
         while status['state'] in ('queued', 'running'):
             client.pause()
-            status = client.call('get_photo_assessment_status', requestId=entry['requestId'])
+            status = heartbeat(client, 'get_photo_assessment_status',
+                               requestId=entry['requestId'])
         entry['status'] = status
         save(path, state)
         if status['state'] in ('completed', 'failed'):
