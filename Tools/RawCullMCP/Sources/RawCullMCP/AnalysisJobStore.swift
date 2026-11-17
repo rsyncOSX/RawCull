@@ -91,9 +91,9 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         let frameCount: Int
         let recommendedPhotoId: String?
         let alternatePhotoId: String?
-        let confidence: String
-        let reasons: [String]
-        let cautions: [String]
+        var confidence: String
+        var reasons: [String]
+        var cautions: [String]
         var candidates: [Candidate]
     }
 
@@ -101,9 +101,9 @@ nonisolated struct AnalysisJob: Codable, Sendable {
         let photoId: String
         var name: String
         let score: Double?
-        let confidence: String
-        let reasons: [String]
-        let cautions: [String]
+        var confidence: String
+        var reasons: [String]
+        var cautions: [String]
     }
 
     mutating func finish(_ state: State, message: String? = nil) {
