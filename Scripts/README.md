@@ -43,6 +43,43 @@ See the [development summary](../Docs/summary.md) for recorded benchmark and val
 
 ## Local AI and review evidence
 
+### Prepare bursts without photo assessments
+
+```sh
+python3 Scripts/PrepareBursts.py
+```
+
+Or supply paths without interactive prompts:
+
+```sh
+python3 Scripts/PrepareBursts.py --catalog /absolute/path/to/catalog --output ~/RawCullPreparedBursts.json
+python3 Scripts/PrepareBursts.py --continue ~/RawCullPreparedBursts.json
+```
+
+This Python 3.9+ standard-library runner reuses the MCP client in `AssessBursts.py`
+(keep both files together). RawCull loads the catalog, computes sharpness and
+similarity, groups and ranks bursts, and saves its normal analysis caches. The
+script exports **all pages of bursts**, including coverage, recommendations,
+alternates, confidence, reasons, cautions, and the ranked candidates exposed by
+MCP. Currently that API exposes at most five candidates per burst; `frameCount`
+reports the total membership. The export is not a list of every member photo.
+No Qwen photo assessments are requested; Qwen installation is unnecessary.
+RawCull's normal similarity models and analysis settings still apply.
+
+The default results path is `~/RawCullPreparedBursts.json`. A new output file
+starts new analysis, replacing RawCull's shared source result and dependent
+assessments. Wait for other RawCull clients to finish first. RawCull may prompt
+for catalog approval. An existing output file resumes its saved job and export
+cursor; choose a different file to start fresh. `--continue` requires an existing
+file and never prompts. `--minutes 15` limits this invocation (default unlimited);
+Ctrl+C and time limits leave admitted work running. Resume with the printed
+command. Completed exports can be reopened without rerunning analysis. Results
+and lock files are created with private permissions.
+
+Use `--helper /absolute/path/to/rawcull-mcp` for a different app installation.
+Run `python3 -m unittest discover -s Scripts -p 'TestPrepareBursts.py'` for the
+fake-client checks covering pagination, resume, setup replay, and failures.
+
 ### Assess bursts without a cloud AI client
 
 Run the interactive Python 3.9+ runner from the repository root:
