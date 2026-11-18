@@ -103,6 +103,23 @@ nonisolated struct ComparisonViewportInteractionState: Equatable, Sendable {
     var showFocusMask = false
     var showFocusPoints = false
 
+    mutating func zoomIn(policy: ImageReviewViewportPolicy = .comparison, resetOffsetWhenFitting: Bool = false) {
+        setZoomScale(policy.zoomedIn(from: scale), resetOffsetWhenFitting: resetOffsetWhenFitting)
+    }
+
+    mutating func zoomOut(policy: ImageReviewViewportPolicy = .comparison, resetOffsetWhenFitting: Bool = false) {
+        setZoomScale(policy.zoomedOut(from: scale), resetOffsetWhenFitting: resetOffsetWhenFitting)
+    }
+
+    mutating func setZoomScale(_ scale: CGFloat, resetOffsetWhenFitting: Bool = false) {
+        self.scale = scale
+        lastScale = scale
+        if resetOffsetWhenFitting, scale <= 1 {
+            offset = .zero
+            lastOffset = .zero
+        }
+    }
+
     mutating func resetTransform() {
         scale = 1.0
         lastScale = 1.0

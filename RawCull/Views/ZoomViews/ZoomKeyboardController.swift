@@ -33,12 +33,10 @@ struct ZoomKeyboardController {
             return .handled
 
         case .zoomIn:
-            increaseZoom()
-            return .handled
+            return zoomController.handle(.zoomIn)
 
         case .zoomOut:
-            decreaseZoom()
-            return .handled
+            return zoomController.handle(.zoomOut)
 
         case .toggleEmbeddedJPG:
             session.sourceSelection.toggleExtractionSource(.embeddedJPG)
@@ -64,5 +62,9 @@ struct ZoomKeyboardController {
         case let .rating(rating):
             return applyRating(rating)
         }
+    }
+
+    private var zoomController: ImageZoomKeyboardController {
+        ImageZoomKeyboardController(increaseZoom: increaseZoom, decreaseZoom: decreaseZoom)
     }
 }

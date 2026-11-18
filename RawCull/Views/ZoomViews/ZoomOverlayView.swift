@@ -389,10 +389,7 @@ struct ZoomOverlayView: View {
     // MARK: - Zoom helpers
 
     private func resetToFit() {
-        session.viewport.scale = 1.0
-        session.viewport.lastScale = 1.0
-        session.viewport.offset = .zero
-        session.viewport.lastOffset = .zero
+        session.viewport.resetTransform()
     }
 
     private func prepareForNavigatedImage() {
@@ -424,15 +421,13 @@ struct ZoomOverlayView: View {
 
     private func increaseZoom() {
         withAnimation(.spring()) {
-            session.viewport.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: session.viewport.scale)
-            session.viewport.lastScale = session.viewport.scale
+            session.viewport.zoomIn()
         }
     }
 
     private func decreaseZoom() {
         withAnimation(.spring()) {
-            session.viewport.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: session.viewport.scale)
-            session.viewport.lastScale = session.viewport.scale
+            session.viewport.zoomOut()
         }
     }
 }

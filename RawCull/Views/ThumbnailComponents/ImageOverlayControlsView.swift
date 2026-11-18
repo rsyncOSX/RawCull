@@ -118,47 +118,10 @@ struct ImageOverlayControlsView: View {
                 .accessibilityValue(inspectorIsPresented ? "Shown" : "Hidden")
             }
 
-            HStack {
-                Button {
-                    onZoomOut()
-                } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 12))
-                        .frame(width: buttonSize, height: buttonSize)
-                        .contentShape(Circle())
-                }
-                .disabled(!canZoomOut)
-                .help("Zoom out")
-                .accessibilityLabel("Zoom out")
-
-                Button {
-                    onZoomReset()
-                } label: {
-                    Text("Reset \(scale * 100, format: .number.precision(.fractionLength(0)))%")
-                        .font(.caption)
-                }
-                .disabled(!canReset)
-                .help("Reset zoom")
-                .accessibilityLabel("Reset zoom")
-                .accessibilityValue("\(scale * 100, format: .number.precision(.fractionLength(0))) percent")
-
-                Button {
-                    onZoomIn()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12))
-                        .frame(width: buttonSize, height: buttonSize)
-                        .contentShape(Circle())
-                }
-                .disabled(!canZoomIn)
-                .help("Zoom in")
-                .accessibilityLabel("Zoom in")
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, zoomHorizontalPadding)
-            .padding(.vertical, capsuleVerticalPadding)
-            .background(.regularMaterial)
-            .clipShape(.rect(cornerRadius: 20))
+            ImageZoomControlsView(
+                scale: scale, canZoomOut: canZoomOut, canZoomIn: canZoomIn, canReset: canReset,
+                onZoomOut: onZoomOut, onZoomReset: onZoomReset, onZoomIn: onZoomIn, density: density,
+            )
         }
     }
 
@@ -173,8 +136,64 @@ struct ImageOverlayControlsView: View {
     private var capsuleVerticalPadding: CGFloat {
         density == .compact ? 3 : 6
     }
+}
 
-    private var zoomHorizontalPadding: CGFloat {
-        density == .compact ? 7 : 12
+/// Shared zoom pill for image viewers, including AI Assessment previews.
+struct ImageZoomControlsView: View {
+    let scale: CGFloat
+    let canZoomOut: Bool
+    let canZoomIn: Bool
+    let canReset: Bool
+    let onZoomOut: () -> Void
+    let onZoomReset: () -> Void
+    let onZoomIn: () -> Void
+    var density: ImageOverlayControlDensity = .regular
+
+    var body: some View {
+        HStack {
+            Button {
+                onZoomOut()
+            } label: {
+                Image(systemName: "minus")
+                    .font(.system(size: 12))
+                    .frame(width: buttonSize, height: buttonSize)
+                    .contentShape(Circle())
+            }
+            .disabled(!canZoomOut)
+            .help("Zoom out")
+            .accessibilityLabel("Zoom out")
+
+            Button {
+                onZoomReset()
+            } label: {
+                Text("Reset \(scale * 100, format: .number.precision(.fractionLength(0)))%")
+                    .font(.caption)
+            }
+            .disabled(!canReset)
+            .help("Reset zoom")
+            .accessibilityLabel("Reset zoom")
+            .accessibilityValue("\(scale * 100, format: .number.precision(.fractionLength(0))) percent")
+
+            Button {
+                onZoomIn()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 12))
+                    .frame(width: buttonSize, height: buttonSize)
+                    .contentShape(Circle())
+            }
+            .disabled(!canZoomIn)
+            .help("Zoom in")
+            .accessibilityLabel("Zoom in")
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, zoomHorizontalPadding)
+        .padding(.vertical, capsuleVerticalPadding)
+        .background(.regularMaterial)
+        .clipShape(.rect(cornerRadius: 20))
     }
+
+    private var buttonSize: CGFloat { density == .compact ? 20 : 28 }
+    private var zoomHorizontalPadding: CGFloat { density == .compact ? 7 : 12 }
+    private var capsuleVerticalPadding: CGFloat { density == .compact ? 3 : 6 }
 }

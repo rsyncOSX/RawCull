@@ -13,6 +13,8 @@ struct AIAssessmentComparison: View {
     @State private var linked = true
     @State private var leftViewport = ComparisonViewportInteractionState()
     @State private var rightViewport = ComparisonViewportInteractionState()
+    @State private var activeSide = AIAssessmentSide.left
+    @FocusState private var hasKeyboardFocus: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -42,6 +44,15 @@ struct AIAssessmentComparison: View {
                 )
             }
         }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($hasKeyboardFocus)
+        .defaultFocus($hasKeyboardFocus, true)
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
+            guard access != nil,
+                  press.modifiers.intersection([.command, .control, .option]).isEmpty else { return .ignored }
+            return zoomKeyboardController.handle(ImageReviewKeyboardPolicy.action(for: press.characters))
+        }
         .onChange(of: linked) {
             if !linked { rightViewport = leftViewport }
         }
@@ -68,6 +79,18 @@ struct AIAssessmentComparison: View {
             toggleTag: { if let frame { toggleTag(frame) } }, viewport: viewport, height: height,
         )
         .frame(maxWidth: .infinity)
+        .simultaneousGesture(TapGesture().onEnded {
+            activeSide = side
+            hasKeyboardFocus = true
+        })
+    }
+
+    private var zoomKeyboardController: ImageZoomKeyboardController {
+        let viewport = activeSide == .left || linked || rightFrame == nil ? $leftViewport : $rightViewport
+        return ImageZoomKeyboardController(
+            increaseZoom: { viewport.wrappedValue.zoomIn(resetOffsetWhenFitting: true) },
+            decreaseZoom: { viewport.wrappedValue.zoomOut(resetOffsetWhenFitting: true) },
+        )
     }
 
     private func role(for id: String?) -> LocalizedStringResource {
