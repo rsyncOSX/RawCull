@@ -1,9 +1,30 @@
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import Testing
 
 @Suite("Image review policies")
 struct ImageReviewPoliciesTests {
+    @Test
+    func `shared viewport zoom synchronizes gesture scale and preserves viewer offset policy`() {
+        var viewport = ComparisonViewportInteractionState()
+        viewport.setZoomScale(4.8)
+        viewport.zoomIn()
+        #expect(viewport.scale == 5)
+        #expect(viewport.lastScale == 5)
+
+        viewport.setZoomScale(1.2)
+        viewport.offset = CGSize(width: 40, height: 20)
+        viewport.lastOffset = viewport.offset
+        viewport.zoomOut()
+        #expect(viewport.offset == CGSize(width: 40, height: 20))
+        viewport.zoomOut(resetOffsetWhenFitting: true)
+        #expect(viewport.scale == 0.5)
+        #expect(viewport.lastScale == 0.5)
+        #expect(viewport.offset == .zero)
+        #expect(viewport.lastOffset == .zero)
+    }
+
     @Test
     func `RAW failure restores the previous source and produces presentation inputs`() {
         var selection = ImageSourceSelectionState(initialSource: .embeddedJPG)

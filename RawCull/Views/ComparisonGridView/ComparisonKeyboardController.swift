@@ -179,8 +179,7 @@ struct ComparisonKeyboardController {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
             var state = session.viewportState(for: selectedID)
-            state.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: state.scale)
-            state.lastScale = state.scale
+            state.zoomIn()
             session.setViewportState(state, for: selectedID)
         }
         return .handled
@@ -190,8 +189,7 @@ struct ComparisonKeyboardController {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
             var state = session.viewportState(for: selectedID)
-            state.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: state.scale)
-            state.lastScale = state.scale
+            state.zoomOut()
             session.setViewportState(state, for: selectedID)
         }
         return .handled

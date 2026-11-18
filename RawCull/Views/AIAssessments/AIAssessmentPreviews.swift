@@ -73,7 +73,7 @@ struct AIAssessmentPreview: View {
                             .contentShape(Rectangle())
                             .onTapGesture(count: 2) { toggleZoom() }
                             .help("Double-click to zoom in or fit. Drag to pan when zoomed in.")
-                            .accessibilityAction(named: viewport.scale == 1 ? Text("Zoom in") : Text("Fit")) {
+                            .accessibilityAction(named: viewport.scale <= 1 ? Text("Zoom in") : Text("Fit")) {
                                 toggleZoom()
                             }
                             .gesture(DragGesture()
@@ -98,6 +98,12 @@ struct AIAssessmentPreview: View {
                         .padding(8)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if case .image = state, access != nil {
+                    zoomAdjustmentControls
+                        .padding(8)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .task(id: loadRequest) {
@@ -111,6 +117,18 @@ struct AIAssessmentPreview: View {
                   (try? frame.source.resolve(in: access.url)) == url else { return }
             supportsRAW9 = supported
         }
+    }
+
+    private var zoomAdjustmentControls: some View {
+        ImageZoomControlsView(
+            scale: viewport.scale,
+            canZoomOut: viewport.scale > ImageReviewViewportPolicy.comparison.minimumScale,
+            canZoomIn: viewport.scale < ImageReviewViewportPolicy.comparison.maximumScale,
+            canReset: viewport.scale != 1 || viewport.offset != .zero,
+            onZoomOut: { viewport.zoomOut(resetOffsetWhenFitting: true) },
+            onZoomReset: { viewport.resetTransform() },
+            onZoomIn: { viewport.zoomIn(resetOffsetWhenFitting: true) },
+        )
     }
 
     private var zoomControls: some View {
@@ -203,8 +221,8 @@ struct AIAssessmentPreview: View {
     }
 
     private func toggleZoom() {
-        if viewport.scale == 1 {
-            viewport.scale = 2
+        if viewport.scale <= 1 {
+            viewport.setZoomScale(2)
         } else {
             viewport.resetTransform()
         }

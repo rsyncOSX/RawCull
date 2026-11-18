@@ -6,6 +6,21 @@ import Testing
 @Suite("Zoom keyboard controller")
 struct ZoomKeyboardControllerTests {
     @Test
+    func `shared zoom controller dispatches zoom and leaves unrelated keys unhandled`() {
+        var zoomsIn = 0
+        var zoomsOut = 0
+        let controller = ImageZoomKeyboardController(
+            increaseZoom: { zoomsIn += 1 }, decreaseZoom: { zoomsOut += 1 },
+        )
+        #expect(controller.handle(ImageReviewKeyboardPolicy.action(for: "+")) == .handled)
+        #expect(controller.handle(ImageReviewKeyboardPolicy.action(for: "-")) == .handled)
+        #expect(controller.handle(.rating(.stars(5))) == .ignored)
+        #expect(controller.handle(nil) == .ignored)
+        #expect(zoomsIn == 1)
+        #expect(zoomsOut == 1)
+    }
+
+    @Test
     func `exposure inspection keeps navigation and rating disabled`() {
         let session = ZoomSessionModel()
         var navigations = 0

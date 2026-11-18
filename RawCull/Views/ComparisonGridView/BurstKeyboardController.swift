@@ -26,14 +26,12 @@ struct BurstKeyboardController {
 
         case .zoomIn:
             withAnimation(.spring()) {
-                session.viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: session.viewportState.scale)
-                session.viewportState.lastScale = session.viewportState.scale
+                session.viewportState.zoomIn()
             }
 
         case .zoomOut:
             withAnimation(.spring()) {
-                session.viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: session.viewportState.scale)
-                session.viewportState.lastScale = session.viewportState.scale
+                session.viewportState.zoomOut()
             }
 
         case .toggleEmbeddedJPG:
