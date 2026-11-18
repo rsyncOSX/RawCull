@@ -76,6 +76,7 @@ struct AIAssessmentComparison: View {
         return AIAssessmentPane(
             frame: frame, role: role(for: frame?.id), rubric: entry.request.rubric, access: access,
             accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
+            hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: { if let frame { toggleTag(frame) } }, viewport: viewport, height: height,
         )
         .frame(maxWidth: .infinity)
@@ -150,12 +151,16 @@ struct AIAssessmentComparison: View {
         return group.id
     }
 
+    private func hasDuplicateFilename(_ file: FileItem) -> Bool {
+        viewModel.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
+    }
+
     private func toggleTag(_ frame: AIAssessmentEntry.Frame) {
         Task {
             guard await entry.isAvailable(), let catalog = liveCatalog, let file = liveFile(frame),
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
-                  viewModel.files.lazy.filter({ $0.name == file.name }).prefix(2).count == 1 else { return }
+                  !hasDuplicateFilename(file) else { return }
             if viewModel.getRating(for: file) >= 2 {
                 viewModel.cullingModel.applyRatingStates([file.name: nil], in: catalog)
                 viewModel.refreshCullingDerivedState()
@@ -258,6 +263,7 @@ private struct AIAssessmentPane: View {
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
     let isTagged: Bool?
+    let hasDuplicateFilename: Bool
     let toggleTag: () -> Void
     @Binding var viewport: ComparisonViewportInteractionState
     let height: CGFloat
@@ -285,8 +291,15 @@ private struct AIAssessmentPane: View {
                         Button(action: toggleTag) {
                             Label(isTagged ? "Untag" : "Tag", systemImage: isTagged ? "tag.fill" : "tag")
                         }
+                        .disabled(hasDuplicateFilename)
                         .accessibilityLabel(isTagged ? Text("Untag \(frame.name)") : Text("Tag \(frame.name)"))
                     }
+                }
+
+                if hasDuplicateFilename {
+                    Text("Tagging is unavailable because more than one file in the open catalog has this filename.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 AIAssessmentPreview(frame: frame, access: access, accessChecked: accessChecked, viewport: $viewport)

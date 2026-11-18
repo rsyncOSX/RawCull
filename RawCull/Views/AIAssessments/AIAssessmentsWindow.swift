@@ -13,6 +13,12 @@ struct AIAssessmentsWindow: View {
     @State private var loadFailed = false
     @State private var access: RawCullCatalogGrant?
     @State private var accessJobID: UUID?
+    @State private var accessRetryID = UUID()
+
+    private struct AccessRequest: Equatable {
+        let sourceJobID: UUID?
+        let retryID: UUID
+    }
 
     var body: some View {
         ZStack {
@@ -41,6 +47,21 @@ struct AIAssessmentsWindow: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                     Divider()
+
+                    if currentAccess == nil, accessJobID != nil {
+                        HStack {
+                            Text("Catalog access failed. Restore access to the original catalog, then retry.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Retry Catalog Access") {
+                                accessJobID = nil
+                                accessRetryID = UUID()
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                    }
 
                     if let entry = entries.first(where: { $0.id == presentedID }) {
                         AIAssessmentComparison(
@@ -71,16 +92,23 @@ struct AIAssessmentsWindow: View {
             }
         }
         .task { await observeResults() }
-        .task(id: entries.first?.request.sourceJobID) {
+        .task(id: AccessRequest(sourceJobID: entries.first?.request.sourceJobID, retryID: accessRetryID)) {
             access = nil
             accessJobID = nil
             guard let request = entries.first?.request else { return }
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while !Task.isCancelled {
                 do {
                     access = try photoAccess(request)
                 } catch AnalysisJobStore.StoreError.busy {
-                    try? await Task.sleep(for: .milliseconds(150))
-                    continue
+                    if ContinuousClock.now < deadline {
+                        do {
+                            try await Task.sleep(for: .milliseconds(150))
+                        } catch {
+                            return
+                        }
+                        continue
+                    }
                 } catch {
                     access = nil
                 }
