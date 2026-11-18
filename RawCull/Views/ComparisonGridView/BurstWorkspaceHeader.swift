@@ -46,6 +46,14 @@ struct BurstWorkspaceHeader: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
 
+            #if DEBUG
+            BurstAssessmentButton(
+                viewModel: viewModel,
+                files: viewModel.files.filter { file in
+                    viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
+                }
+            )
+            #endif
             reviewButton
         }
         .padding(.horizontal, 16)
