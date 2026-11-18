@@ -207,6 +207,8 @@ private struct AIAssessmentRow: View {
             }
         }
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { open(entry.id) }
     }
 }
 
