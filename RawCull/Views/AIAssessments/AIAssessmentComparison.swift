@@ -279,15 +279,6 @@ private struct AIAssessmentPane: View {
                         }
                     }
                     Spacer()
-                    Button(viewport.scale == 1 ? "Zoom in" : "Fit") {
-                        if viewport.scale == 1 {
-                            viewport.scale = 2
-                        } else {
-                            viewport.resetTransform()
-                        }
-                    }
-                    .accessibilityLabel(viewport.scale == 1 ? Text("Zoom in on \(frame.name)") : Text("Fit \(frame.name)"))
-                    .disabled(access == nil)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
