@@ -36,11 +36,15 @@ struct AIAssessmentComparison: View {
                     .padding(20)
                 }
 
+                Text("Click an image to activate it · P/N frame · +/− zoom · 2–5 rate · 0 pick · X reject")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .padding(8)
                 Divider()
 
                 AIAssessmentFilmstrip(
                     frames: entry.frames, leftID: leftFrame?.id, rightID: rightFrame?.id,
-                    access: access, select: select, reset: resetPair, canReset: leftID != nil || rightID != nil,
+                    access: access, liveFile: liveFile, select: select, reset: resetPair, canReset: leftID != nil || rightID != nil,
                 )
             }
         }
@@ -48,9 +52,24 @@ struct AIAssessmentComparison: View {
         .focusEffectDisabled()
         .focused($hasKeyboardFocus)
         .defaultFocus($hasKeyboardFocus, true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
-            guard access != nil,
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-012345xXtTpPnN")) { press in
+            guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder), access != nil,
                   press.modifiers.intersection([.command, .control, .option]).isEmpty else { return .ignored }
+            if let action = BurstReviewKeyAction.resolve(characters: press.characters) {
+                let current = activeSide == .left ? leftFrame : rightFrame
+                guard let index = entry.frames.firstIndex(where: { $0.id == current?.id }) else { return .ignored }
+                let next = index + (action == .previousImage ? -1 : 1)
+                if entry.frames.indices.contains(next) { select(entry.frames[next].id, side: activeSide) }
+                return .handled
+            }
+            if case let .rating(value) = ZoomOverlayKeyAction.resolve(
+                characters: press.characters, keyCode: 0, navigationAxis: .horizontal
+            ) {
+                guard let frame = activeSide == .left ? leftFrame : rightFrame,
+                      let file = liveFile(frame), !hasDuplicateFilename(file) else { return .ignored }
+                applyRating(value, to: frame)
+                return .handled
+            }
             return zoomKeyboardController.handle(ImageReviewKeyboardPolicy.action(for: press.characters))
         }
         .onChange(of: linked) {
@@ -78,6 +97,10 @@ struct AIAssessmentComparison: View {
             accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: { if let frame { toggleTag(frame) } }, viewport: viewport, height: height,
+            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel) } ?? .unrated,
+            subjectLabel: file.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
+            entryRecommendation: entry.recommendation, isActive: activeSide == side,
+            activate: { activeSide = side; hasKeyboardFocus = true },
         )
         .frame(maxWidth: .infinity)
         .simultaneousGesture(TapGesture().onEnded {
@@ -101,6 +124,8 @@ struct AIAssessmentComparison: View {
     }
 
     private func select(_ id: String, side: AIAssessmentSide) {
+        activeSide = side
+        hasKeyboardFocus = true
         switch side {
         case .left: leftID = id
         case .right: rightID = id
@@ -117,7 +142,7 @@ struct AIAssessmentComparison: View {
     private var liveCatalog: URL? {
         guard let access, let url = viewModel.selectedSource?.url, !viewModel.scanning,
               viewModel.cullingModel.loadState == .ready, !viewModel.cullingModel.isTerminationPending,
-              url.standardizedFileURL == access.url else { return nil }
+              url.standardizedFileURL == access.url.standardizedFileURL else { return nil }
         return url
     }
 
@@ -153,6 +178,16 @@ struct AIAssessmentComparison: View {
 
     private func hasDuplicateFilename(_ file: FileItem) -> Bool {
         viewModel.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
+    }
+
+    private func applyRating(_ rating: Int, to frame: AIAssessmentEntry.Frame) {
+        Task {
+            guard await entry.isAvailable(), let catalog = liveCatalog, let file = liveFile(frame),
+                  let verified = try? frame.source.resolve(in: catalog),
+                  verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
+                  !hasDuplicateFilename(file) else { return }
+            viewModel.updateRating(for: file, rating: rating)
+        }
     }
 
     private func toggleTag(_ frame: AIAssessmentEntry.Frame) {
@@ -267,6 +302,12 @@ private struct AIAssessmentPane: View {
     let toggleTag: () -> Void
     @Binding var viewport: ComparisonViewportInteractionState
     let height: CGFloat
+    let file: FileItem?
+    let rating: RatingDisplay
+    let subjectLabel: String?
+    let entryRecommendation: String?
+    let isActive: Bool
+    let activate: () -> Void
 
     var body: some View {
         if let frame {
@@ -302,7 +343,10 @@ private struct AIAssessmentPane: View {
                         .foregroundStyle(.secondary)
                 }
 
-                AIAssessmentPreview(frame: frame, access: access, accessChecked: accessChecked, viewport: $viewport)
+                AIAssessmentPreview(
+                    frame: frame, access: access, accessChecked: accessChecked, viewport: $viewport,
+                    file: file, rating: rating, subjectLabel: subjectLabel, isSuggested: frame.id == entryRecommendation, activate: activate
+                )
                     .id(frame.id)
                     .frame(height: height)
 
@@ -323,6 +367,11 @@ private struct AIAssessmentPane: View {
             }
             .padding(12)
             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isActive ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isActive ? 2 : 1)
+                    .allowsHitTesting(false)
+            }
         }
     }
 }

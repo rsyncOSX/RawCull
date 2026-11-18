@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import RawCullCore
 
 private enum AssessmentPreviewState {
     case loading
@@ -22,6 +23,13 @@ struct AIAssessmentPreview: View {
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
     @Binding var viewport: ComparisonViewportInteractionState
+
+    let file: FileItem?
+    let rating: RatingDisplay
+    let subjectLabel: String?
+    let isSuggested: Bool
+    let activate: () -> Void
+    @State private var useThumbnailSource = true
 
     @State private var state = AssessmentPreviewState.loading
     @State private var fullSizeImage: CGImage?
@@ -63,24 +71,49 @@ struct AIAssessmentPreview: View {
                         let image = viewport.scale > 1
                             ? (usesRAW9 ? rawImage ?? fullSizeImage ?? thumbnail : fullSizeImage ?? thumbnail)
                             : thumbnail
-                        Image(decorative: image, scale: 1)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .scaleEffect(viewport.scale)
-                            .offset(clampedOffset(drag, in: geometry.size, image: image))
-                            .accessibilityLabel("Preview of \(frame.name)")
-                            .contentShape(Rectangle())
-                            .onTapGesture(count: 2) { toggleZoom() }
-                            .help("Double-click to zoom in or fit. Drag to pan when zoomed in.")
-                            .accessibilityAction(named: viewport.scale <= 1 ? Text("Zoom in") : Text("Fit")) {
-                                toggleZoom()
+                        if let file {
+                            ComparisonImagePaneView(
+                                file: file, state: ComparisonImageState(id: file.id, cgImage: image),
+                                focusPoints: nil, viewportState: $viewport,
+                                useThumbnailSource: $useThumbnailSource, isSelected: true,
+                                rating: rating, exifSummary: ExifSummary.make(from: file.exifData),
+                                saliencyLabel: subjectLabel, burstAnalysis: nil, burstCandidate: nil,
+                                burstRating: 0, sharpnessContext: nil, onSelect: activate, onRate: { _ in },
+                                onSourceChange: {}, showsChrome: false
+                            )
+                            .overlay(alignment: .topLeading) {
+                                WorkspaceImageBadges(
+                                    image: image, rating: rating, isSuggested: isSuggested, subjectLabel: subjectLabel
+                                )
+                                .padding(12)
+                                .allowsHitTesting(false)
                             }
-                            .gesture(DragGesture()
-                                .updating($drag) { value, drag, _ in drag = value.translation }
-                                .onEnded { value in
-                                    viewport.offset = clampedOffset(value.translation, in: geometry.size, image: image)
-                                }, isEnabled: viewport.scale > 1)
+                        } else {
+                            Image(decorative: image, scale: 1)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .scaleEffect(viewport.scale)
+                                .offset(clampedOffset(drag, in: geometry.size, image: image))
+                                .accessibilityLabel("Preview of \(frame.name)")
+                                .contentShape(Rectangle())
+                                .onTapGesture(count: 2) { toggleZoom() }
+                                .help("Double-click to zoom in or fit. Drag to pan when zoomed in.")
+                                .accessibilityAction(named: viewport.scale <= 1 ? Text("Zoom in") : Text("Fit")) {
+                                    toggleZoom()
+                                }
+                                .gesture(DragGesture()
+                                    .updating($drag) { value, drag, _ in drag = value.translation }
+                                    .onEnded { value in
+                                        viewport.offset = clampedOffset(value.translation, in: geometry.size, image: image)
+                                    }, isEnabled: viewport.scale > 1)
+                                .overlay(alignment: .topLeading) {
+                                    WorkspaceImageBadges(
+                                        image: image, rating: nil, isSuggested: isSuggested, subjectLabel: nil
+                                    )
+                                    .padding(12)
+                                }
+                        }
                     case .changed:
                         Text("The original photo moved or changed.")
                             .foregroundStyle(.white)
@@ -274,6 +307,7 @@ struct AIAssessmentFilmstrip: View {
     let leftID: String?
     let rightID: String?
     let access: RawCullCatalogGrant?
+    let liveFile: (AIAssessmentEntry.Frame) -> FileItem?
     let select: (String, AIAssessmentSide) -> Void
     let reset: () -> Void
     let canReset: Bool
@@ -284,7 +318,7 @@ struct AIAssessmentFilmstrip: View {
                 LazyHStack(alignment: .top, spacing: 10) {
                     ForEach(frames) { frame in
                         AIAssessmentFilmstripItem(
-                            frame: frame, access: access, isLeft: frame.id == leftID, isRight: frame.id == rightID,
+                            frame: frame, access: access, file: liveFile(frame), isLeft: frame.id == leftID, isRight: frame.id == rightID,
                             select: select,
                         )
                     }
@@ -307,6 +341,7 @@ struct AIAssessmentFilmstrip: View {
 private struct AIAssessmentFilmstripItem: View {
     let frame: AIAssessmentEntry.Frame
     let access: RawCullCatalogGrant?
+    let file: FileItem?
     let isLeft: Bool
     let isRight: Bool
     let select: (String, AIAssessmentSide) -> Void
@@ -314,34 +349,34 @@ private struct AIAssessmentFilmstripItem: View {
     @State private var showsPaneChoices = false
 
     var body: some View {
-        Button {
-            showsPaneChoices = true
-        } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                AIAssessmentThumbnail(frame: frame, access: access)
-                Text(verbatim: frame.name)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                HStack(spacing: 6) {
-                    if let rank = frame.rank {
-                        Text("Rank \(rank)")
+        VStack(alignment: .leading, spacing: 3) {
+            if let file {
+                BurstFilmstripThumbnail(
+                    file: file, isSelected: isLeft || isRight,
+                    isSuggested: false, isDeferred: false,
+                    action: { showsPaneChoices = true }
+                )
+            } else {
+                Button { showsPaneChoices = true } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        AIAssessmentThumbnail(frame: frame, access: access)
+                        Text(verbatim: frame.name)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    if isLeft { Text("Left") }
-                    if isRight { Text("Right") }
                 }
-                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
-            .frame(width: 104, alignment: .leading)
-            .font(.caption)
-            .padding(4)
-            .background {
-                if isLeft || isRight {
-                    RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.14))
-                }
+            HStack(spacing: 6) {
+                if let rank = frame.rank { Text("Rank \(rank)") }
+                if isLeft { Text("Left") }
+                if isRight { Text("Right") }
             }
-            .contentShape(Rectangle())
+            .foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
+        .frame(width: BurstFilmstripThumbnail.width, alignment: .leading)
+        .font(.caption)
+        .padding(4)
         .accessibilityLabel("Choose pane for \(frame.name)")
         .popover(isPresented: $showsPaneChoices, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 8) {

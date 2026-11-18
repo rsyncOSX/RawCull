@@ -162,6 +162,10 @@ struct RawCullApp: App {
             )
             .background(.windowBackground)
             .environment(viewModel)
+            #if DEBUG
+            .environment(assessmentNavigation)
+            .task { await assessmentNavigation.observeResults() }
+            #endif
             .task {
                 await viewModel.cullingModel.ensureLoaded()
             }

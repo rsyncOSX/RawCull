@@ -100,21 +100,10 @@ struct BurstImageStage: View {
     }
 
     private func tagStrip(for _: FileItem) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let image = imageState?.cgImage {
-                ImagePixelDimensionsBadgeView(width: image.width, height: image.height)
-            }
-
-            WorkspaceTag(title: rating.label, color: rating.color)
-
-            if isSuggested {
-                WorkspaceTag(title: "Suggested", color: .orange)
-            }
-
-            if let subject = subjectLabel {
-                WorkspaceTag(title: subject, color: .cyan)
-            }
-        }
+        WorkspaceImageBadges(
+            image: imageState?.cgImage, rating: rating,
+            isSuggested: isSuggested, subjectLabel: subjectLabel
+        )
     }
 
     private func navigationButton(systemImage: String, delta: Int) -> some View {

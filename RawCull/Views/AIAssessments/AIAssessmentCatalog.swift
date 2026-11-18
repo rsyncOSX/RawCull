@@ -1,5 +1,7 @@
 #if DEBUG
 import Foundation
+import RawCullCore
+import SwiftUI
 import Observation
 import OSLog
 
@@ -111,10 +113,51 @@ private actor AIAssessmentRejectionLog {
 final class AIAssessmentNavigation {
     static let windowID = "ai-assessments"
     enum Destination: Equatable {
-        case list
         case result(UUID)
     }
 
     var destination: Destination?
+    var entries: [AIAssessmentEntry] = []
+
+    func observeResults() async {
+        while !Task.isCancelled {
+            do { entries = try await AIAssessmentEntry.available() }
+            catch AnalysisJobStore.StoreError.busy { }
+            catch { entries = [] }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
+    }
+
+}
+struct BurstAssessmentButton: View {
+    let viewModel: RawCullViewModel
+    let files: [FileItem]
+    @Environment(AIAssessmentNavigation.self) private var navigation: AIAssessmentNavigation?
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        if let navigation, let catalog = viewModel.selectedSource?.url,
+           let entry = navigation.entries.first(where: { $0.matches(files: files, catalog: catalog) }) {
+            Button {
+                navigation.destination = .result(entry.id)
+                openWindow(id: AIAssessmentNavigation.windowID)
+            } label: {
+                Label("View AI Assessment", systemImage: "sparkles")
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+}
+
+extension AIAssessmentEntry {
+    func matches(files: [FileItem], catalog: URL) -> Bool {
+        guard !frames.isEmpty, files.count == frames.count else { return false }
+        let byURL = Dictionary(files.map { ($0.url.standardizedFileURL, $0) }, uniquingKeysWith: { first, _ in first })
+        return frames.allSatisfy { frame in
+            let url = catalog.appendingPathComponent(frame.source.relativePath).standardizedFileURL
+            guard let file = byURL[url] else { return false }
+            return file.size == frame.source.size && file.dateModified == frame.source.modified
+        }
+    }
 }
 #endif
