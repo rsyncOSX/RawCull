@@ -10,6 +10,8 @@ struct BurstEvidenceShelf: View {
     let frameCount: Int
     let sharpness: Float?
     let overallScore: Float?
+    let assessmentSummary: String?
+    let compareWithSharpest: (() -> Void)?
     let exif: ExifSummary
 
     var body: some View {
@@ -21,13 +23,16 @@ struct BurstEvidenceShelf: View {
                         .lineLimit(1)
 
                     evidenceBadge("#\(rank) / \(frameCount)", color: .secondary)
+                        .help("Position in the current burst order.")
                 }
 
                 Divider().frame(height: 34)
 
                 VStack(alignment: .trailing, spacing: 3) {
-                    scoreRow("Sharpness", value: sharpness)
-                    scoreRow("Overall", value: overallScore)
+                    scoreRow("Normalized sharpness", value: sharpness)
+                        .help("Measured sharpness scaled to the maximum used by the ranking.")
+                    scoreRow("Best Frame score", value: overallScore)
+                        .help("Weighted score using sharpness, focus-point availability, subject saliency, and capture metadata.")
                 }
                 .frame(minWidth: 108)
 
@@ -44,6 +49,25 @@ struct BurstEvidenceShelf: View {
                 .lineLimit(1)
                 .frame(maxWidth: 560, alignment: .trailing)
             }
+            if assessmentSummary != nil || compareWithSharpest != nil {
+                HStack {
+                    if let assessmentSummary {
+                        Label("AI note", systemImage: "sparkles")
+                            .font(.caption.weight(.semibold))
+                            .fixedSize()
+                        Text(verbatim: assessmentSummary)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .help(assessmentSummary)
+                    }
+                    Spacer(minLength: 0)
+                    if let compareWithSharpest {
+                        Button("Compare with sharpest", action: compareWithSharpest)
+                            .controlSize(.small)
+                            .help("Compare the saved recommendation with the frame that has the highest measured sharpness.")
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
@@ -56,7 +80,7 @@ struct BurstEvidenceShelf: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func scoreRow(_ title: String, value: Float?) -> some View {
+    private func scoreRow(_ title: LocalizedStringKey, value: Float?) -> some View {
         HStack(spacing: 6) {
             Text(title).foregroundStyle(.secondary)
             Text(value.map(percent) ?? "—")

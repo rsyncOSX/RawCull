@@ -14,6 +14,8 @@ struct BurstImageStage: View {
     let frameCount: Int
     let sharpness: Float?
     let overallScore: Float?
+    let assessmentSummary: String?
+    let compareWithSharpest: (() -> Void)?
     let showSubjectOutline: Bool
     let subjectOutlineFileID: FileItem.ID?
     let subjectOutline: CGImage?
@@ -71,6 +73,8 @@ struct BurstImageStage: View {
                         frameCount: frameCount,
                         sharpness: sharpness,
                         overallScore: overallScore,
+                        assessmentSummary: assessmentSummary,
+                        compareWithSharpest: compareWithSharpest,
                         exif: ExifSummary.make(from: selectedFile.exifData),
                     )
                     .padding(.top, 12)
