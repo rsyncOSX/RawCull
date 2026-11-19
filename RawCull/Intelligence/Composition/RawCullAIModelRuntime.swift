@@ -193,8 +193,8 @@ final class RawCullAIModelRuntime {
     /// its inference runtime and returns the status that Settings should publish.
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
-    ) async -> QwenModelStatus {
-        await CombinedReviewLease.shared.invalidateAndWait()
+    ) async throws -> QwenModelStatus {
+        try await CombinedReviewLease.shared.invalidateAndWait()
         objectSegmentation = nil
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
@@ -282,7 +282,7 @@ final class RawCullAIModelRuntime {
     }
 
     func refreshCapabilities() async throws -> RawCullAICapabilities {
-        await CombinedReviewLease.shared.invalidateAndWait()
+        try await CombinedReviewLease.shared.invalidateAndWait()
         async let sam3Load = sam3ModelResourceManager.load()
         async let clipDataCompLoad = clipDataCompModelResourceManager.load()
         async let clipOpenAILoad = clipOpenAIModelResourceManager.load()

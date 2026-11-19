@@ -195,7 +195,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             if let qwenURL = locations[.qwen3VL2B] {
                 applyQwenStatus(.checking(qwenURL.standardizedFileURL))
             }
-            let qwenStatus = await modelRuntime.applyManagedModelLocations(locations)
+            let qwenStatus = try await modelRuntime.applyManagedModelLocations(locations)
             try Task.checkCancellation()
             guard refreshGeneration == generation else { return }
             applyQwenStatus(qwenStatus)

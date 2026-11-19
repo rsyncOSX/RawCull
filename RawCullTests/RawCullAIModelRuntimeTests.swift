@@ -129,7 +129,7 @@ struct RawCullAIModelRuntimeTests {
             normalizationVersion: "l2-v1", configurationVersion: "fixture-config",
         )
         try JSONEncoder().encode(metadata).write(to: bundle.appendingPathComponent("metadata.json"))
-        _ = await modelRuntime.applyManagedModelLocations([.clipDataComp: bundle])
+        _ = try await modelRuntime.applyManagedModelLocations([.clipDataComp: bundle])
         _ = try await modelRuntime.refreshCapabilities()
         let input = try #require(modelRuntime.clipInputCapabilities()[.dataComp])
         #expect(input.configuredWidth == 256 && input.configuredHeight == 256)
@@ -144,7 +144,7 @@ struct RawCullAIModelRuntimeTests {
         #expect(input.modelFingerprint == modelRuntime.similarityService(
             prefersCLIP: true, clipModel: .dataComp,
         ).backendDescriptor.modelFingerprint)
-        _ = await modelRuntime.applyManagedModelLocations([:])
+        _ = try await modelRuntime.applyManagedModelLocations([:])
         _ = try await modelRuntime.refreshCapabilities()
         #expect(modelRuntime.clipInputCapabilities().isEmpty)
     }

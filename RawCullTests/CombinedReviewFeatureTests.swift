@@ -369,6 +369,27 @@ struct CombinedReviewFeatureTests {
         lease.release(id); #expect(!lease.isHeld)
     }
 
+    @Test(.timeLimit(.minutes(1))) @MainActor func `lease waiter resumes on release and a cancelled waiter returns at once`() async throws {
+        let lease = CombinedReviewLease(), id = UUID()
+        try lease.acquire(id)
+        var invalidations = 0
+        lease.invalidateOwner = { invalidations += 1 }
+
+        let cancelled = Task { @MainActor in try await lease.invalidateAndWait() }
+        cancelled.cancel()
+        let started = ContinuousClock.now
+        await #expect(throws: CancellationError.self) { try await cancelled.value }
+        #expect(ContinuousClock.now - started < .milliseconds(500))
+        #expect(lease.isHeld)
+
+        let waiter = Task { @MainActor in try await lease.invalidateAndWait() }
+        try await Task.sleep(for: .milliseconds(50))
+        lease.release(id)
+        try await waiter.value
+        #expect(!lease.isHeld)
+        #expect(invalidations == 2)
+    }
+
     @Test @MainActor func `source refusal explains preview rerun and resume keeps saved source`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let backend = ReviewFakeBackend()

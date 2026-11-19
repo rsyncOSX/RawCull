@@ -37,7 +37,7 @@ struct AIAnalysisRealModelTests {
         let qwen = try URL(fileURLWithPath: #require(env["RAWCULL_ANALYSIS_QWEN"]))
         let sam = try URL(fileURLWithPath: #require(env["RAWCULL_ANALYSIS_SAM3"]))
         let clipURL = try URL(fileURLWithPath: #require(env["RAWCULL_ANALYSIS_CLIP"]))
-        let status = await runtime.applyManagedModelLocations([.sam3: sam, .clipDataComp: clipURL, .qwen3VL2B: qwen])
+        let status = try await runtime.applyManagedModelLocations([.sam3: sam, .clipDataComp: clipURL, .qwen3VL2B: qwen])
         let capabilities = try await runtime.refreshCapabilities()
         try writeDump(capabilities, to: root.appendingPathComponent("models.txt"))
         var summary: [[String: String]] = []

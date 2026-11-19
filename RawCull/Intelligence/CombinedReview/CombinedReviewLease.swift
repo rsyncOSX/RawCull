@@ -17,19 +17,41 @@ final class CombinedReviewLease {
         owner = id
     }
 
+    @ObservationIgnored private var releaseWaiters: [UUID: CheckedContinuation<Void, any Error>] = [:]
+
     func release(_ id: UUID) {
         guard owner == id else { return }
         owner = nil; invalidateOwner = nil
+        let waiters = releaseWaiters
+        releaseWaiters = [:]
+        waiters.values.forEach { $0.resume() }
     }
 
     func invalidate() {
         invalidateOwner?()
     }
 
-    func invalidateAndWait() async {
+    /// Ask the owner to stop and suspend until it releases the lease.
+    /// Throws `CancellationError` promptly if the caller is cancelled, so a
+    /// cancelled caller neither spins nor goes on to mutate model resources.
+    func invalidateAndWait() async throws {
         invalidate()
-        while isHeld {
-            try? await Task.sleep(for: .milliseconds(10))
+        guard isHeld else { return }
+        let id = UUID()
+        try await withTaskCancellationHandler { () async throws in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else if !isHeld {
+                    continuation.resume()
+                } else {
+                    releaseWaiters[id] = continuation
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.releaseWaiters.removeValue(forKey: id)?.resume(throwing: CancellationError())
+            }
         }
     }
 }
