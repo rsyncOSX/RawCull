@@ -37,7 +37,7 @@ struct AIAssessmentComparison: View {
                     .padding(20)
                 }
 
-                Text("Click an image to activate it · P/N frame · +/− zoom · 2–5 rate · 0 pick · X reject")
+                Text("Click an image to activate it · R burst list · P/N assessment · +/− zoom · 2–5 rate · 0 pick · X reject")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .padding(8)
@@ -53,18 +53,12 @@ struct AIAssessmentComparison: View {
         .focusEffectDisabled()
         .focused($hasKeyboardFocus)
         .defaultFocus($hasKeyboardFocus, true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-012345xXtTpPnN")) { press in
+        .onAppear { hasKeyboardFocus = true }
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-012345xXtT")) { press in
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder), access != nil,
                   press.modifiers.intersection([.command, .control, .option]).isEmpty else { return .ignored }
-            if let action = BurstReviewKeyAction.resolve(characters: press.characters) {
-                let current = activeSide == .left ? leftFrame : rightFrame
-                guard let index = entry.frames.firstIndex(where: { $0.id == current?.id }) else { return .ignored }
-                let next = index + (action == .previousImage ? -1 : 1)
-                if entry.frames.indices.contains(next) { select(entry.frames[next].id, side: activeSide) }
-                return .handled
-            }
             if case let .rating(value) = ZoomOverlayKeyAction.resolve(
-                characters: press.characters, keyCode: 0, navigationAxis: .horizontal
+                characters: press.characters, keyCode: 0, navigationAxis: .horizontal,
             ) {
                 guard let frame = activeSide == .left ? leftFrame : rightFrame,
                       let file = liveFile(frame), !hasDuplicateFilename(file) else { return .ignored }
@@ -74,7 +68,9 @@ struct AIAssessmentComparison: View {
             return zoomKeyboardController.handle(ImageReviewKeyboardPolicy.action(for: press.characters))
         }
         .onChange(of: linked) {
-            if !linked { rightViewport = leftViewport }
+            if !linked {
+                rightViewport = leftViewport
+            }
         }
     }
 
@@ -97,7 +93,11 @@ struct AIAssessmentComparison: View {
             frame: frame, role: role(for: frame?.id), rubric: entry.request.rubric, access: access,
             accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
-            toggleTag: { if let frame { toggleTag(frame) } }, viewport: viewport, height: height,
+            toggleTag: {
+                if let frame {
+                    toggleTag(frame)
+                }
+            }, viewport: viewport, height: height,
             file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel) } ?? .unrated,
             subjectLabel: file.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
             entryRecommendation: entry.recommendation, isActive: activeSide == side,
@@ -119,8 +119,12 @@ struct AIAssessmentComparison: View {
     }
 
     private func role(for id: String?) -> LocalizedStringResource {
-        if id == entry.recommendation { return "Recommendation" }
-        if id == entry.alternate { return "Alternate" }
+        if id == entry.recommendation {
+            return "Recommendation"
+        }
+        if id == entry.alternate {
+            return "Alternate"
+        }
         return "Burst frame"
     }
 
@@ -242,7 +246,9 @@ private struct AIAssessmentComparisonHeader: View {
                     }
                     HStack {
                         Text("\(entry.result.assessedCount) of \(entry.frames.count) frames assessed")
-                        if let confidence = entry.burstConfidence { Text(assessmentConfidence(confidence)) }
+                        if let confidence = entry.burstConfidence {
+                            Text(assessmentConfidence(confidence))
+                        }
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -353,10 +359,10 @@ private struct AIAssessmentPane: View {
 
                 AIAssessmentPreview(
                     frame: frame, access: access, accessChecked: accessChecked, viewport: $viewport,
-                    file: file, rating: rating, subjectLabel: subjectLabel, isSuggested: frame.id == entryRecommendation, activate: activate
+                    file: file, rating: rating, subjectLabel: subjectLabel, isSuggested: frame.id == entryRecommendation, activate: activate,
                 )
-                    .id(frame.id)
-                    .frame(height: height)
+                .id(frame.id)
+                .frame(height: height)
 
                 HStack {
                     if let image = frame.outcome?.assessedImage {
@@ -387,6 +393,7 @@ private struct AIAssessmentPane: View {
 private struct AIAssessmentFindings: View {
     let outcome: MCPPhotoAssessmentResult.Photo?
     let rubric: [String]
+    @State private var isExpanded = true
 
     var body: some View {
         if let findings = outcome?.findings {
@@ -402,7 +409,7 @@ private struct AIAssessmentFindings: View {
                         Text(assessmentCriterion(field))
                     }
                 }
-                DisclosureGroup("Findings") {
+                DisclosureGroup("Findings", isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(rubric, id: \.self) { field in
                             if let evidence = findings[field]?.evidence, !evidence.isEmpty {

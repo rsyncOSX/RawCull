@@ -9,7 +9,6 @@ struct MCPSettingsTab: View {
     let canAuthorizeAnalysis: Bool
     let authorizeCatalog: (Bool, Bool) throws -> CatalogGrant
 
-
     @State private var allowAnalysis = false
     @State private var recurringFolder = false
     @State private var grant: CatalogGrant?
@@ -285,7 +284,7 @@ struct MCPSettingsTab: View {
 private struct MCPPhotoAssessmentSetting: View {
     let enabled: Bool?
     let failed: Bool
-    let setEnabled: (Bool) -> Void
+    let setEnabled: @MainActor @Sendable (Bool) -> Void
 
     var body: some View {
         Section {

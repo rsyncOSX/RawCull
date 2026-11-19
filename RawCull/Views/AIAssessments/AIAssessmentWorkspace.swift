@@ -1,18 +1,13 @@
-import SwiftUI
 import RawCullCore
+import SwiftUI
 
-struct AIAssessmentsWindow: View {
+struct AIAssessmentWorkspace: View {
     let navigation: AIAssessmentNavigation
     let viewModel: RawCullViewModel
     let photoAccess: (AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant
 
-    @Environment(\.openWindow) private var openWindow
-    @Environment(\.dismissWindow) private var dismissWindow
-
-    @State private var entries: [AIAssessmentEntry] = []
-    @State private var presentedID: UUID?
-    @State private var isLoading = true
-    @State private var loadFailed = false
+    @State private var keyboardScope = ReviewKeyboardScope()
+    @State private var keyMonitor = ReviewKeyMonitor()
     @State private var access: RawCullCatalogGrant?
     @State private var accessJobID: UUID?
     @State private var accessRetryID = UUID()
@@ -28,11 +23,18 @@ struct AIAssessmentsWindow: View {
                 Button(action: returnToBursts) {
                     Label("Burst list", systemImage: "chevron.left")
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .help("Return to Burst list (R)")
                 Spacer()
-                Button("Next Assessment", systemImage: "chevron.right") {
-                    if let presentedID { advance(after: presentedID) }
+                Button("Previous Assessment", systemImage: "chevron.left") {
+                    navigate(by: -1)
                 }
-                .disabled(nextAssessmentID == nil)
+                .disabled(neighborID(by: -1) == nil)
+                Button("Next Assessment", systemImage: "chevron.right") {
+                    navigate(by: 1)
+                }
+                .disabled(neighborID(by: 1) == nil)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -53,21 +55,21 @@ struct AIAssessmentsWindow: View {
                 .padding(.vertical, 8)
             }
 
-            if let entry = entries.first(where: { $0.id == presentedID }) {
+            if let entry = navigation.entries.first(where: { $0.id == navigation.presentedID }) {
                 catalogContext(for: entry)
                 AIAssessmentComparison(
                     entry: entry, viewModel: viewModel, access: currentAccess,
                     accessChecked: accessJobID == entry.request.sourceJobID,
-                    onMarkedReviewed: { advance(after: entry.id) },
+                    onMarkedReviewed: {
+                        guard navigation.presentedID == entry.id else { return }
+                        navigate(by: 1)
+                    },
                 )
                 .id(entry.id)
-            } else if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ContentUnavailableView(
                     "Assessment unavailable", systemImage: "photo.badge.exclamationmark",
-                    description: Text(loadFailed
+                    description: Text(navigation.loadFailed
                         ? "Couldn’t load the saved assessment. Return to the burst list and try again."
                         : "The saved result expired or is no longer shared. Return to the burst list to choose a burst."),
                 )
@@ -75,14 +77,23 @@ struct AIAssessmentsWindow: View {
         }
         .background(.windowBackground)
         .frame(minWidth: 620, minHeight: 520)
-        .onChange(of: navigation.destination, initial: true) {
-            guard let destination = navigation.destination else { return }
-            navigation.destination = nil
-            switch destination {
-            case let .result(id): open(id)
+        .background(ReviewKeyboardScopeReader(scope: keyboardScope))
+        .onAppear {
+            keyMonitor.install { event in
+                guard !viewModel.zoomOverlayVisible, keyboardScope.accepts(event) else { return .ignored }
+                if event.charactersIgnoringModifiers?.lowercased() == "r" {
+                    returnToBursts()
+                    return .handled
+                }
+                switch BurstReviewKeyAction.resolve(characters: event.charactersIgnoringModifiers) {
+                case .previousImage: navigate(by: -1)
+                case .nextImage: navigate(by: 1)
+                default: return .ignored
+                }
+                return .handled
             }
         }
-        .task { await observeResults() }
+        .onDisappear { keyMonitor.remove() }
         .task(id: currentAccess?.url) {
             guard let access = currentAccess,
                   viewModel.selectedSource?.url.standardizedFileURL == access.url.standardizedFileURL else { return }
@@ -91,10 +102,10 @@ struct AIAssessmentsWindow: View {
                 viewModel.loadPersistedScoringandSaliency()
             }
         }
-        .task(id: AccessRequest(sourceJobID: entries.first?.request.sourceJobID, retryID: accessRetryID)) {
+        .task(id: AccessRequest(sourceJobID: navigation.entries.first?.request.sourceJobID, retryID: accessRetryID)) {
             access = nil
             accessJobID = nil
-            guard let request = entries.first?.request else { return }
+            guard let request = navigation.entries.first?.request else { return }
             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while !Task.isCancelled {
                 do {
@@ -169,52 +180,26 @@ struct AIAssessmentsWindow: View {
     }
 
     private var currentAccess: RawCullCatalogGrant? {
-        guard accessJobID == entries.first?.request.sourceJobID else { return nil }
+        guard accessJobID == navigation.entries.first?.request.sourceJobID else { return nil }
         return access
     }
 
-    private func open(_ id: UUID) {
-        presentedID = id
+    private func neighborID(by offset: Int) -> UUID? {
+        let entries = navigation.entries
+        guard let index = entries.firstIndex(where: { $0.id == navigation.presentedID }),
+              entries.indices.contains(index + offset) else { return nil }
+        return entries[index + offset].id
     }
 
-    private var nextAssessmentID: UUID? {
-        guard let index = entries.firstIndex(where: { $0.id == presentedID }) else { return nil }
-        return entries.dropFirst(index + 1).first?.id
-    }
-
-    private func advance(after id: UUID) {
-        guard presentedID == id, let nextAssessmentID else { return }
-        open(nextAssessmentID)
+    private func navigate(by offset: Int) {
+        if let id = neighborID(by: offset) {
+            navigation.presentedID = id
+        }
     }
 
     private func returnToBursts() {
         viewModel.returnToActiveBurstGroupView()
-        openWindow(id: "main-window")
-        dismissWindow(id: AIAssessmentNavigation.windowID)
-    }
-
-    private func observeResults() async {
-        while !Task.isCancelled {
-            do {
-                let latest = try await AIAssessmentEntry.available()
-                guard !Task.isCancelled else { return }
-                if latest != entries { entries = latest }
-                if latest != navigation.entries { navigation.entries = latest }
-                isLoading = false
-                loadFailed = false
-            } catch AnalysisJobStore.StoreError.busy {
-                // The writer still owns the store. Retry without changing selection.
-            } catch FollowUpSourceSnapshot.SourceError.unavailable {
-                entries = []
-                isLoading = false
-                loadFailed = false
-            } catch {
-                entries = []
-                isLoading = false
-                loadFailed = true
-            }
-            try? await Task.sleep(for: .seconds(1))
-        }
+        navigation.presentedID = nil
     }
 }
 

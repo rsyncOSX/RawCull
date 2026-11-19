@@ -193,7 +193,15 @@ struct ImageZoomControlsView: View {
         .clipShape(.rect(cornerRadius: 20))
     }
 
-    private var buttonSize: CGFloat { density == .compact ? 20 : 28 }
-    private var zoomHorizontalPadding: CGFloat { density == .compact ? 7 : 12 }
-    private var capsuleVerticalPadding: CGFloat { density == .compact ? 3 : 6 }
+    private var buttonSize: CGFloat {
+        density == .compact ? 20 : 28
+    }
+
+    private var zoomHorizontalPadding: CGFloat {
+        density == .compact ? 7 : 12
+    }
+
+    private var capsuleVerticalPadding: CGFloat {
+        density == .compact ? 3 : 6
+    }
 }

@@ -230,7 +230,7 @@ struct BurstCullingWorkspaceView: View {
             viewModel.returnToActiveBurstGroupView()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpPnNgG012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFsSaAxXpPnNgG012345tT")) { press in
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
             return keyboardController.handle(press.characters)
         }
@@ -490,9 +490,13 @@ struct BurstCullingWorkspaceView: View {
             guard !viewModel.zoomOverlayVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
-                  let characters = event.characters,
-                  ["s", "S", "f", "F"].contains(characters)
+                  let characters = event.characters
             else { return .ignored }
+            if characters.lowercased() == "r" {
+                viewModel.returnToActiveBurstGroupView()
+                return .handled
+            }
+            guard ["s", "S", "f", "F"].contains(characters) else { return .ignored }
             return keyboardController.handle(characters)
         }
     }

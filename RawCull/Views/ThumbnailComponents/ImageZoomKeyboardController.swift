@@ -10,8 +10,10 @@ struct ImageZoomKeyboardController {
         switch action {
         case .zoomIn:
             increaseZoom()
+
         case .zoomOut:
             decreaseZoom()
+
         default:
             return .ignored
         }
