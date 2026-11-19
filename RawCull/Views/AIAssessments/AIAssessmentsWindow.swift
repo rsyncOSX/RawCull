@@ -29,6 +29,10 @@ struct AIAssessmentsWindow: View {
                     Label("Burst list", systemImage: "chevron.left")
                 }
                 Spacer()
+                Button("Next Assessment", systemImage: "chevron.right") {
+                    if let presentedID { advance(after: presentedID) }
+                }
+                .disabled(nextAssessmentID == nil)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -54,6 +58,7 @@ struct AIAssessmentsWindow: View {
                 AIAssessmentComparison(
                     entry: entry, viewModel: viewModel, access: currentAccess,
                     accessChecked: accessJobID == entry.request.sourceJobID,
+                    onMarkedReviewed: { advance(after: entry.id) },
                 )
                 .id(entry.id)
             } else if isLoading {
@@ -170,6 +175,16 @@ struct AIAssessmentsWindow: View {
 
     private func open(_ id: UUID) {
         presentedID = id
+    }
+
+    private var nextAssessmentID: UUID? {
+        guard let index = entries.firstIndex(where: { $0.id == presentedID }) else { return nil }
+        return entries.dropFirst(index + 1).first?.id
+    }
+
+    private func advance(after id: UUID) {
+        guard presentedID == id, let nextAssessmentID else { return }
+        open(nextAssessmentID)
     }
 
     private func returnToBursts() {
