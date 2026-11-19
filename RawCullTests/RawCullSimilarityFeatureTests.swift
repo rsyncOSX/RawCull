@@ -128,6 +128,33 @@ struct RawCullSimilarityFeatureTests {
         #expect(model.burstGroups.map(\.fileIDs) == [files.map(\.id)])
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func `Superseded indexing request still returns with its files indexed`() async throws {
+        let gate = SequencedIndexGate()
+        let model = makeModel(service: SequencedIndexService(gate: gate))
+        let catalog = (0 ..< 6).map { makeCoordinatorFile("I\($0).raw") }
+        let burstFiles = Array(catalog.prefix(3))
+
+        let burst = Task { () -> Bool in
+            await model.indexFiles(burstFiles)
+            return model.hasCompleteSimilarityIndex(for: burstFiles)
+        }
+        try await gate.waitForCalls(1)
+        // The user starts Index Similarity for the whole catalog meanwhile.
+        let full = Task { await model.indexFiles(catalog) }
+        try await gate.waitForCalls(2)
+        // The superseded burst request finishes first; the catalog request
+        // is still running when the burst caller resumes.
+        await gate.release(call: 1)
+        try await Task.sleep(for: .milliseconds(50))
+        await gate.release(call: 2)
+
+        #expect(await burst.value)
+        await full.value
+        #expect(model.hasCompleteSimilarityIndex(for: catalog))
+        #expect(!model.isIndexing)
+    }
+
     private func makeModel(
         service: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
     ) -> SimilarityScoringModel {
@@ -258,5 +285,61 @@ private nonisolated struct BlockingDistanceService: RawCullSimilarityServicing {
     ) throws -> Float? {
         gate.recordCall()
         return 0.01
+    }
+}
+
+private actor SequencedIndexGate {
+    private var calls = 0
+    private var released: Set<Int> = []
+    private var waiters: [Int: CheckedContinuation<Void, Never>] = [:]
+
+    func enter() async {
+        calls += 1
+        let call = calls
+        guard !released.contains(call) else { return }
+        await withCheckedContinuation { waiters[call] = $0 }
+    }
+
+    func waitForCalls(_ count: Int) async throws {
+        while calls < count {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
+    func release(call: Int) {
+        released.insert(call)
+        waiters.removeValue(forKey: call)?.resume()
+    }
+}
+
+/// Each `index` call waits for its own release, then indexes every source.
+private nonisolated struct SequencedIndexService: RawCullSimilarityServicing {
+    let backendDescriptor = featureTestBackend
+    let gate: SequencedIndexGate
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress _: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        await gate.enter()
+        let artifacts = Dictionary(uniqueKeysWithValues: sources.map { source in
+            (
+                source.id,
+                SimilarityArtifact(
+                    descriptor: SimilarityArtifactDescriptor(
+                        backend: backendDescriptor,
+                        dimensions: 1,
+                        sourceFingerprint: SourceFingerprint(source: source),
+                    ),
+                    payload: Data([0]),
+                ),
+            )
+        })
+        return RawCullSimilarityIndexingOutput(artifacts: artifacts, failures: [])
+    }
+
+    func distance(from _: SimilarityArtifact, to _: SimilarityArtifact) throws -> Float? {
+        0.01
     }
 }

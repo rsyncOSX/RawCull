@@ -223,6 +223,10 @@ final class SimilarityScoringModel {
 
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
+    /// Bumped only by explicit cancellation/reset, never by a newer request,
+    /// so a superseded caller can tell "replaced" from "abandoned".
+    @ObservationIgnored private var _indexingCancellationEpoch = 0
+    @ObservationIgnored private var _indexingIdleWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
     @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
     @ObservationIgnored private let artifactStore: any SimilarityArtifactStoring
     @ObservationIgnored private var _artifactHydrationGeneration = 0
@@ -304,12 +308,14 @@ final class SimilarityScoringModel {
         _indexingTask?.cancel()
         _indexingTask = nil
         _indexingGeneration &+= 1
+        _indexingCancellationEpoch &+= 1
         _indexingStartedAt = nil
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
         indexingPhase = .idle
+        resumeIndexingIdleWaiters()
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {
@@ -475,6 +481,7 @@ final class SimilarityScoringModel {
         _indexingTask?.cancel()
         _indexingGeneration &+= 1
         let generation = _indexingGeneration
+        let cancellationEpoch = _indexingCancellationEpoch
         isIndexing = true
         indexingProgress = 0
         indexingTotal = files.count
@@ -515,6 +522,7 @@ final class SimilarityScoringModel {
             indexingProgress = files.count
             isIndexing = false
             indexingPhase = .idle
+            resumeIndexingIdleWaiters()
             return
         }
         indexingTotal = toIndex.count
@@ -604,7 +612,17 @@ final class SimilarityScoringModel {
         } onCancel: {
             workTask.cancel()
         }
-        guard _indexingGeneration == generation else { return }
+        guard _indexingGeneration == generation else {
+            // A newer request cancelled this one. Its caller still needs these
+            // files indexed, so coalesce instead of returning empty-handed.
+            await indexAfterSupersedingRequest(
+                files,
+                thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                forceRefresh: forceRefresh,
+                cancellationEpoch: cancellationEpoch,
+            )
+            return
+        }
         _indexingTask = nil
         _indexingStartedAt = nil
 
@@ -878,12 +896,62 @@ final class SimilarityScoringModel {
 
     // MARK: - Private state helpers
 
+    /// Wait for the request(s) that superseded this one, then index whatever
+    /// they did not cover. Explicit cancellation or reset abandons the request.
+    private func indexAfterSupersedingRequest(
+        _ files: [FileItem],
+        thumbnailMaxPixelSize: Int,
+        forceRefresh: Bool,
+        cancellationEpoch: Int,
+    ) async {
+        while isIndexing, !Task.isCancelled, _indexingCancellationEpoch == cancellationEpoch {
+            await waitForIndexingIdle()
+        }
+        guard !Task.isCancelled, _indexingCancellationEpoch == cancellationEpoch else { return }
+        let remaining = forceRefresh ? files : files.filter { embeddings[$0.id] == nil }
+        guard !remaining.isEmpty else { return }
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.indexFiles(): indexing \(remaining.count) files left by a superseding request",
+        )
+        await indexFiles(
+            remaining,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            forceRefresh: forceRefresh,
+        )
+    }
+
+    private func waitForIndexingIdle() async {
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled || !isIndexing {
+                    continuation.resume()
+                } else {
+                    _indexingIdleWaiters[id] = continuation
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?._indexingIdleWaiters.removeValue(forKey: id)?.resume()
+            }
+        }
+    }
+
+    private func resumeIndexingIdleWaiters() {
+        let waiters = _indexingIdleWaiters
+        _indexingIdleWaiters = [:]
+        for continuation in waiters.values {
+            continuation.resume()
+        }
+    }
+
     private func finishIndexing() {
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
         indexingPhase = .idle
+        resumeIndexingIdleWaiters()
     }
 
     private nonisolated static func isUsable(

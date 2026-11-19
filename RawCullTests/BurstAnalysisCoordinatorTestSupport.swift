@@ -224,22 +224,22 @@ func makeCoordinatorSnapshot(
     )
 }
 
-/// Suspends the first `index` call until released.
+/// Suspends every `index` call until released.
 actor CoordinatorIndexGate {
     private(set) var hasStarted = false
     private var released = false
-    private var waiter: CheckedContinuation<Void, Never>?
+    private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func enter() async {
         hasStarted = true
         guard !released else { return }
-        await withCheckedContinuation { waiter = $0 }
+        await withCheckedContinuation { waiters.append($0) }
     }
 
     func release() {
         released = true
-        waiter?.resume()
-        waiter = nil
+        waiters.forEach { $0.resume() }
+        waiters = []
     }
 }
 
