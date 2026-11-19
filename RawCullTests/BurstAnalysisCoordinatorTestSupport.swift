@@ -1,4 +1,6 @@
+import CoreGraphics
 import Foundation
+import PhotoAnalysisKit
 import PhotoAIContracts
 @testable import RawCull
 import RawCullCore
@@ -60,13 +62,14 @@ func makeCoordinatorComputeHarness(
 func makeCoordinatorHarness(
     catalog: URL,
     files: [FileItem],
+    sharpnessAdapter: RawCullPhotoAnalysisAdapter? = nil,
 ) -> CoordinatorComputeHarness {
     let model = SimilarityScoringModel(
         artifactStore: makeIsolatedSimilarityArtifactStore(),
     )
     let feature = RawCullSimilarityFeature(similarityModel: model)
     let repository = CoordinatorCacheRepository()
-    let sharpnessModel = SharpnessScoringModel()
+    let sharpnessModel = SharpnessScoringModel(analysisAdapterOverride: sharpnessAdapter)
     let coordinator = BurstAnalysisCoordinator(
         sharpnessModel: sharpnessModel,
         similarityFeature: feature,
@@ -100,6 +103,56 @@ func makeCoordinatorHarness(
         request: request,
         sharpnessModel: sharpnessModel,
     )
+}
+
+extension BurstAnalysisPipelineRequest {
+    func withSharpnessSignature(_ signature: BurstSharpnessSignature) -> BurstAnalysisPipelineRequest {
+        BurstAnalysisPipelineRequest(
+            catalogIdentity: catalogIdentity,
+            orderedFiles: orderedFiles,
+            sharpnessSignature: signature,
+            similaritySignature: similaritySignature,
+            generation: generation,
+            configuration: configuration,
+        )
+    }
+}
+
+/// Synthetic adapter that returns a checkerboard for every file, so scoring
+/// runs without touching the file system.
+nonisolated func makeCoordinatorSharpnessAdapter() -> RawCullPhotoAnalysisAdapter {
+    RawCullPhotoAnalysisAdapter(inputLoaderOverride: { file, _, _ in
+        guard let image = makeCoordinatorCheckerboard() else { return nil }
+        return PhotoAnalysisInput(
+            image: image,
+            iso: file.iso,
+            aperture: file.aperture,
+            normalizedAFPoint: file.normalizedAFPoint,
+        )
+    })
+}
+
+nonisolated func makeCoordinatorCheckerboard(size: Int = 128) -> CGImage? {
+    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(
+              data: nil,
+              width: size,
+              height: size,
+              bitsPerComponent: 8,
+              bytesPerRow: size * 4,
+              space: colorSpace,
+              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+          )
+    else { return nil }
+    context.setFillColor(gray: 0.08, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+    context.setFillColor(gray: 0.92, alpha: 1)
+    for y in stride(from: 0, to: size, by: 8) {
+        for x in stride(from: 0, to: size, by: 8) where (x / 8 + y / 8).isMultiple(of: 2) {
+            context.fill(CGRect(x: x, y: y, width: 8, height: 8))
+        }
+    }
+    return context.makeImage()
 }
 
 nonisolated func makeCoordinatorFile(_ name: String) -> FileItem {

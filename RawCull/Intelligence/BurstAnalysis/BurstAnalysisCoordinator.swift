@@ -71,7 +71,11 @@ final class BurstAnalysisCoordinator {
             )
         }
 
-        await diagnostics.append(prepareSharpness(files: files, callbacks: callbacks))
+        await diagnostics.append(prepareSharpness(
+            files: files,
+            signature: request.sharpnessSignature,
+            callbacks: callbacks,
+        ))
         guard callbacks.isCurrent() else { return nil }
         await diagnostics.append(prepareSimilarity(files: files, callbacks: callbacks))
 
@@ -166,10 +170,13 @@ final class BurstAnalysisCoordinator {
 
     private func prepareSharpness(
         files: [FileItem],
+        signature: BurstSharpnessSignature,
         callbacks: BurstAnalysisRunCallbacks,
     ) async -> BurstAnalysisDiagnostic {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.prepareSharpness()")
-        guard files.contains(where: { sharpnessModel.scores[$0.id] == nil }) else {
+        // Scores from another configuration must never be stamped with this
+        // request's signature in the saved snapshot.
+        guard !sharpnessModel.hasScores(for: files, signature: signature) else {
             return .reusedSharpnessScores
         }
 
@@ -299,6 +306,7 @@ final class BurstAnalysisCoordinator {
             files,
             preloadedScores: snapshot.sharpnessScores,
             preloadedSaliency: snapshot.saliencyInfo,
+            signature: snapshot.sharpnessSignature,
         )
     }
 

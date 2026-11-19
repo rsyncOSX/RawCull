@@ -178,8 +178,11 @@ extension RawCullViewModel {
         }
         // One publication computes normalization once, rather than sorting after
         // every insertion. Empty results also remove stale restored evidence.
-        sharpnessModel.scores = scores
-        sharpnessModel.afPointScores = afScores
-        sharpnessModel.saliencyInfo = saliency
+        sharpnessModel.restoreScores(
+            scores,
+            afPointScores: afScores,
+            saliency: saliency,
+            signature: signature,
+        )
     }
 }

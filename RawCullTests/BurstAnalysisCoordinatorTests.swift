@@ -247,6 +247,56 @@ struct BurstAnalysisCoordinatorTests {
     }
 
     @Test
+    func `scores from another sharpness configuration are rescored, not reused`() async {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let file = makeCoordinatorFile("A.raw")
+        let harness = makeCoordinatorHarness(
+            catalog: catalog,
+            files: [file],
+            sharpnessAdapter: makeCoordinatorSharpnessAdapter(),
+        )
+        // Scores produced under the default (.fast) configuration.
+        harness.sharpnessModel.applyPreloadedScores(
+            [file],
+            preloadedScores: [file.id: 42],
+            preloadedSaliency: [:],
+        )
+        // The user changes scoring parameters before running Analyze Bursts.
+        harness.sharpnessModel.scoringQuality = .highPrecision
+        let newSignature = harness.sharpnessModel.scoringSignature
+        #expect(newSignature != harness.request.sharpnessSignature)
+        let request = harness.request.withSharpnessSignature(newSignature)
+        var migration = makeCoordinatorSnapshot(request: request)
+        migration.embeddings = [
+            file.id: makeCoordinatorArtifact(
+                file: file,
+                backend: request.similaritySignature.backendDescriptor,
+            )
+        ]
+        harness.repository.migrationCandidate = migration
+
+        let result = await harness.coordinator.run(
+            request: request,
+            initialReviewStates: [:],
+            fullCatalogFileIDs: Set([file.id]),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { true },
+                updateProgress: { _ in },
+                didScoreSharpness: { _ in },
+                applyResult: { $0 },
+            ),
+        )
+
+        #expect(result?.diagnostics.contains(.scoredMissingSharpness) == true)
+        #expect(result?.diagnostics.contains(.reusedSharpnessScores) == false)
+        let saved = harness.repository.savedSnapshots.first
+        #expect(saved?.sharpnessSignature == newSignature)
+        #expect(saved?.sharpnessScores[file.id] != 42)
+        #expect(saved?.sharpnessScores == harness.sharpnessModel.scores)
+        #expect(harness.sharpnessModel.scoresSignature == newSignature)
+    }
+
+    @Test
     func `stale generation cannot apply or save a computed result`() async {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let harness = makeCoordinatorComputeHarness(catalog: catalog, files: [])
