@@ -764,7 +764,6 @@ nonisolated extension AnalysisJobStore {
         }.sorted { $0.createdAt > $1.createdAt }
     }
 
-    #if DEBUG
     func readBurstAssessmentResults(now: Date = .now) throws -> (
         job: AnalysisJob, source: FollowUpSourceSnapshot, results: [(FollowUpRecord, Data)]
     )? {
@@ -780,7 +779,6 @@ nonisolated extension AnalysisJobStore {
             return (job, source, results)
         }
     }
-    #endif
 
     func clearFollowUpResult(_ requestID: UUID) throws {
         try withLock {

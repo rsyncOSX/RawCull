@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import RawCullCore
 import SwiftUI
@@ -160,4 +159,3 @@ extension AIAssessmentEntry {
         }
     }
 }
-#endif

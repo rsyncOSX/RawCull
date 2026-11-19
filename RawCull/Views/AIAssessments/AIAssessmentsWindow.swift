@@ -1,4 +1,3 @@
-#if DEBUG
 import SwiftUI
 import RawCullCore
 
@@ -212,4 +211,3 @@ func assessmentConfidence(_ confidence: String) -> LocalizedStringResource {
     default: "Confidence unavailable"
     }
 }
-#endif

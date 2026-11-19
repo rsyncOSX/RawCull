@@ -32,11 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    #if DEBUG
     func assessmentPhotoAccess(for request: AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant {
         try mcpAnalysis.followUpCatalogAccess(for: request)
     }
-    #endif
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminateAfterLastWindowClosed()")
@@ -133,9 +131,7 @@ struct RawCullApp: App {
 
     @State private var viewModel: RawCullViewModel
     @State private var intelligenceRuntime: RawCullIntelligenceRuntime
-    #if DEBUG
     @State private var assessmentNavigation = AIAssessmentNavigation()
-    #endif
 
     init() {
         Logger.process.debugMessageOnly("RawCullApp.init()")
@@ -162,10 +158,8 @@ struct RawCullApp: App {
             )
             .background(.windowBackground)
             .environment(viewModel)
-            #if DEBUG
             .environment(assessmentNavigation)
             .task { await assessmentNavigation.observeResults() }
-            #endif
             .task {
                 await viewModel.cullingModel.ensureLoaded()
             }
@@ -191,12 +185,8 @@ struct RawCullApp: App {
         Settings {
             SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .environment(viewModel)
-                #if DEBUG
-                .environment(assessmentNavigation)
-                #endif
         }
 
-        #if DEBUG
         Window("AI Assessments", id: AIAssessmentNavigation.windowID) {
             AIAssessmentsWindow(
                 navigation: assessmentNavigation, viewModel: viewModel, photoAccess: appDelegate.assessmentPhotoAccess,
@@ -204,7 +194,6 @@ struct RawCullApp: App {
         }
         .defaultSize(width: 1120, height: 800)
         .defaultLaunchBehavior(.suppressed)
-        #endif
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()

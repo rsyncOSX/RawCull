@@ -1,4 +1,3 @@
-#if DEBUG
 import SwiftUI
 import RawCullCore
 
@@ -392,4 +391,3 @@ private struct AIAssessmentFilmstripItem: View {
         select(frame.id, side)
     }
 }
-#endif

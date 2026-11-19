@@ -1,4 +1,3 @@
-#if DEBUG
 import RawCullCore
 import SwiftUI
 
@@ -439,4 +438,3 @@ private func assessmentCriterion(_ field: String) -> LocalizedStringResource {
     default: "Custom criterion"
     }
 }
-#endif
