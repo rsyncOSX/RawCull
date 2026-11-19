@@ -7,6 +7,7 @@ struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
     let groupID: Int
     let onCompare: () -> Void
+    @Environment(AIAssessmentNavigation.self) private var assessmentNavigation: AIAssessmentNavigation?
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = BurstWorkspaceSessionModel()
     @State private var sortByAFPoint = false
@@ -109,6 +110,17 @@ struct BurstCullingWorkspaceView: View {
     }
 
     var body: some View {
+        let displayedFiles = files
+        let catalog = viewModel.selectedSource?.url
+        let assessment = catalog.flatMap { assessmentNavigation?.entry(matching: displayedFiles, catalog: $0) }
+        let assessedFrame = selectedFile.flatMap { file in catalog.flatMap { assessment?.frame(for: file, in: $0) } }
+        let assessedURLs = catalog.map { url in
+            Set((assessment?.frames ?? []).compactMap { frame in
+                frame.outcome?.findings == nil ? nil : url.appendingPathComponent(frame.source.relativePath).standardizedFileURL
+            })
+        } ?? []
+        let sharpest = sharpnessLeader(in: displayedFiles)
+        let sharpestFrame = sharpest.flatMap { file in catalog.flatMap { assessment?.frame(for: file, in: $0) } }
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
@@ -149,6 +161,8 @@ struct BurstCullingWorkspaceView: View {
                         ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
                         metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
                         sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
+                        assessmentSummary: assessment.flatMap { assessedFrame?.summary(for: $0.request.rubric) },
+                        compareWithSharpest: comparisonAction(assessment: assessment, sharpest: sharpestFrame),
                         showSubjectOutline: showSubjectOutline, subjectOutlineFileID: subjectOutlineFileID,
                         subjectOutline: subjectOutline,
                         isSuggested: selectedFile.map { analysis?.recommendedFileID == $0.id } ?? false,
@@ -193,6 +207,8 @@ struct BurstCullingWorkspaceView: View {
                     navigate: navigate,
                     closeUpSelection: Set(closeUpFiles.map(\.url)),
                     mostFaceDetail: mostFaceDetail,
+                    sharpestID: sharpest?.id,
+                    assessedURLs: assessedURLs,
                     faceSizesVary: faceSizesVary,
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
@@ -320,6 +336,30 @@ struct BurstCullingWorkspaceView: View {
         }
     }
 
+    private func sharpnessLeader(in files: [FileItem]) -> FileItem? {
+        guard groupID != -1 else { return nil }
+        let scores = viewModel.sharpnessModel.scores
+        let measured = files.compactMap { file -> (FileItem, Float)? in
+            guard let score = scores[file.id], score.isFinite else { return nil }
+            return (file, score)
+        }
+        guard measured.count > 1, let best = measured.max(by: { $0.1 < $1.1 }),
+              measured.count(where: { $0.1 == best.1 }) == 1 else { return nil }
+        return best.0
+    }
+
+    private func comparisonAction(
+        assessment: AIAssessmentEntry?, sharpest: AIAssessmentEntry.Frame?,
+    ) -> (() -> Void)? {
+        guard let assessmentNavigation, let assessment, let sharpest,
+              let recommended = assessment.recommendation, recommended != sharpest.id,
+              assessment.frames.contains(where: { $0.id == recommended && $0.outcome?.findings != nil })
+        else { return nil }
+        return {
+            assessmentNavigation.compareSharpness(in: assessment, recommended: recommended, sharpest: sharpest.id)
+        }
+    }
+
     private var peopleRankingButton: some View {
         Button {
             if peopleCandidate != nil {
@@ -355,7 +395,8 @@ struct BurstCullingWorkspaceView: View {
             return viewModel.sharpnessModel.sortedByAFPointSharpness(baseline)
         }
         if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
-           let peopleCandidate {
+           let peopleCandidate
+        {
             let byURL = Dictionary(uniqueKeysWithValues: baseline.map { ($0.url, $0) })
             return peopleCandidate.compactMap { byURL[$0] }
         }

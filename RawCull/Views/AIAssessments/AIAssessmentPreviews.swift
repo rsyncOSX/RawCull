@@ -325,11 +325,18 @@ struct AIAssessmentFilmstrip: View {
     let reset: () -> Void
     let canReset: Bool
 
+    @State private var sortByRank = false
+
+    private var orderedFrames: [AIAssessmentEntry.Frame] {
+        guard sortByRank else { return frames }
+        return frames.sorted { ($0.rank ?? Int.max) < ($1.rank ?? Int.max) }
+    }
+
     var body: some View {
         HStack {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 10) {
-                    ForEach(frames) { frame in
+                    ForEach(orderedFrames) { frame in
                         AIAssessmentFilmstripItem(
                             frame: frame, access: access, file: liveFile(frame), isLeft: frame.id == leftID, isRight: frame.id == rightID,
                             select: select,
@@ -341,10 +348,15 @@ struct AIAssessmentFilmstrip: View {
             }
             .fixedSize(horizontal: false, vertical: true)
 
-            Button(action: reset) {
-                Label("Reset to saved pair", systemImage: "arrow.counterclockwise")
+            VStack(alignment: .trailing, spacing: 8) {
+                Toggle("Sort by Best Frame rank", isOn: $sortByRank)
+                    .toggleStyle(.checkbox)
+                Button(action: reset) {
+                    Label("Reset to saved pair", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!canReset)
             }
-            .disabled(!canReset)
+            .controlSize(.small)
             .padding(.trailing, 20)
         }
         .accessibilityLabel("Burst filmstrip")
@@ -380,15 +392,19 @@ private struct AIAssessmentFilmstripItem: View {
                 }
                 .buttonStyle(.plain)
             }
+            if let rank = frame.rank {
+                Text("Best Frame #\(rank)").foregroundStyle(.secondary)
+            }
             HStack(spacing: 6) {
-                if let rank = frame.rank {
-                    Text("Rank \(rank)")
+                if frame.outcome?.findings != nil {
+                    Label("Assessed", systemImage: "sparkles")
                 }
-                if isLeft {
-                    Text("Left")
-                }
-                if isRight {
-                    Text("Right")
+                if isLeft, isRight {
+                    Text("Both panes")
+                } else if isLeft {
+                    Text("Left pane")
+                } else if isRight {
+                    Text("Right pane")
                 }
             }
             .foregroundStyle(.secondary)

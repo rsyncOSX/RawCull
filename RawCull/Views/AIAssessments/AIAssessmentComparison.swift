@@ -6,10 +6,12 @@ struct AIAssessmentComparison: View {
     let viewModel: RawCullViewModel
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
+    var initialPair: (recommended: String, sharpest: String)?
     let onMarkedReviewed: () -> Void
 
     @State private var leftID: String?
     @State private var rightID: String?
+    @State private var usesInitialPair = true
     @State private var linked = true
     @State private var leftViewport = ComparisonViewportInteractionState()
     @State private var rightViewport = ComparisonViewportInteractionState()
@@ -21,17 +23,28 @@ struct AIAssessmentComparison: View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
                         AIAssessmentComparisonHeader(
                             entry: entry, linked: $linked, isReviewed: verifiedGroupID.map {
                                 viewModel.burstGroupReviewState(groupID: $0) == .reviewed
                             }, isUpdatingReview: isUpdatingReview, toggleReviewed: toggleReviewed,
                         )
-                        HStack(alignment: .top, spacing: 12) {
-                            pane(for: leftFrame, side: .left, height: max(210, geometry.size.height * 0.52))
-                            if let rightFrame {
-                                pane(for: rightFrame, side: .right, height: max(210, geometry.size.height * 0.52))
+                        Section {
+                            HStack(alignment: .top, spacing: 12) {
+                                pane(for: leftFrame, side: .left, height: max(180, geometry.size.height * 0.48))
+                                if let rightFrame {
+                                    pane(for: rightFrame, side: .right, height: max(180, geometry.size.height * 0.48))
+                                }
                             }
+                        } header: {
+                            HStack(alignment: .top, spacing: 12) {
+                                AIAssessmentFrameHeader(frame: leftFrame, role: role(for: leftFrame?.id))
+                                if let rightFrame {
+                                    AIAssessmentFrameHeader(frame: rightFrame, role: role(for: rightFrame.id))
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            .background(.windowBackground)
                         }
                     }
                     .padding(20)
@@ -45,7 +58,7 @@ struct AIAssessmentComparison: View {
 
                 AIAssessmentFilmstrip(
                     frames: entry.frames, leftID: leftFrame?.id, rightID: rightFrame?.id,
-                    access: access, liveFile: liveFile, select: select, reset: resetPair, canReset: leftID != nil || rightID != nil,
+                    access: access, liveFile: liveFile, select: select, reset: resetPair, canReset: leftID != nil || rightID != nil || activeInitialPair != nil,
                 )
             }
         }
@@ -74,12 +87,16 @@ struct AIAssessmentComparison: View {
         }
     }
 
+    private var activeInitialPair: (recommended: String, sharpest: String)? {
+        usesInitialPair ? initialPair : nil
+    }
+
     private var leftFrame: AIAssessmentEntry.Frame? {
-        frame(leftID ?? entry.recommendation ?? entry.alternate)
+        frame(leftID ?? activeInitialPair?.recommended ?? entry.recommendation ?? entry.alternate)
     }
 
     private var rightFrame: AIAssessmentEntry.Frame? {
-        frame(rightID ?? (entry.recommendation == nil ? nil : entry.alternate))
+        frame(rightID ?? activeInitialPair?.sharpest ?? (entry.recommendation == nil ? nil : entry.alternate))
     }
 
     private func frame(_ id: String?) -> AIAssessmentEntry.Frame? {
@@ -90,7 +107,7 @@ struct AIAssessmentComparison: View {
         let viewport = side == .left || linked ? $leftViewport : $rightViewport
         let file = frame.flatMap(liveFile)
         return AIAssessmentPane(
-            frame: frame, role: role(for: frame?.id), rubric: entry.request.rubric, access: access,
+            frame: frame, rubric: entry.request.rubric, access: access,
             accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: {
@@ -119,10 +136,13 @@ struct AIAssessmentComparison: View {
     }
 
     private func role(for id: String?) -> LocalizedStringResource {
-        if id == entry.recommendation {
+        if let id, id == initialPair?.sharpest {
+            return "Sharpest measured"
+        }
+        if let id, id == entry.recommendation {
             return "Recommendation"
         }
-        if id == entry.alternate {
+        if let id, id == entry.alternate {
             return "Alternate"
         }
         return "Burst frame"
@@ -138,6 +158,7 @@ struct AIAssessmentComparison: View {
     }
 
     private func resetPair() {
+        usesInitialPair = false
         leftID = nil
         rightID = nil
         leftViewport.resetTransform()
@@ -305,9 +326,34 @@ private struct AIAssessmentDetails: View {
     }
 }
 
-private struct AIAssessmentPane: View {
+private struct AIAssessmentFrameHeader: View {
     let frame: AIAssessmentEntry.Frame?
     let role: LocalizedStringResource
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let frame {
+                Text(verbatim: frame.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack {
+                    Text(role)
+                    if let rank = frame.rank {
+                        Text("Best Frame #\(rank)")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AIAssessmentPane: View {
+    let frame: AIAssessmentEntry.Frame?
     let rubric: [String]
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
@@ -326,22 +372,14 @@ private struct AIAssessmentPane: View {
     var body: some View {
         if let frame {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(role)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(verbatim: frame.name)
-                            .font(.headline)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        if let rank = frame.rank {
-                            Text("Source rank \(rank)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                HStack(alignment: .top) {
+                    if let summary = frame.summary(for: rubric) {
+                        Text(verbatim: summary)
+                            .font(.callout)
+                            .lineLimit(2)
+                            .help(summary)
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
                     if let isTagged {
                         Button(action: toggleTag) {
                             Label(isTagged ? "Untag" : "Tag", systemImage: isTagged ? "tag.fill" : "tag")
@@ -350,6 +388,7 @@ private struct AIAssessmentPane: View {
                         .accessibilityLabel(isTagged ? Text("Untag \(frame.name)") : Text("Tag \(frame.name)"))
                     }
                 }
+                .frame(minHeight: 36, alignment: .topLeading)
 
                 if hasDuplicateFilename {
                     Text("Tagging is unavailable because more than one file in the open catalog has this filename.")
@@ -378,6 +417,7 @@ private struct AIAssessmentPane: View {
                 .foregroundStyle(.secondary)
 
                 AIAssessmentFindings(outcome: frame.outcome, rubric: rubric)
+                    .id(frame.id)
             }
             .padding(12)
             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
@@ -393,36 +433,30 @@ private struct AIAssessmentPane: View {
 private struct AIAssessmentFindings: View {
     let outcome: MCPPhotoAssessmentResult.Photo?
     let rubric: [String]
-    @State private var isExpanded = true
 
     var body: some View {
         if let findings = outcome?.findings {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(rubric, id: \.self) { field in
-                    LabeledContent {
-                        if let score = findings[field]?.score {
-                            Text("\(score)/5").monospacedDigit()
-                        } else {
-                            Text("Unknown")
-                        }
-                    } label: {
-                        Text(assessmentCriterion(field))
-                    }
-                }
-                DisclosureGroup("Findings", isExpanded: $isExpanded) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(rubric, id: \.self) { field in
-                            if let evidence = findings[field]?.evidence, !evidence.isEmpty {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(assessmentCriterion(field)).font(.subheadline.bold())
-                                    Text(verbatim: evidence)
-                                        .textSelection(.enabled)
+            DisclosureGroup("AI findings and scores") {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(rubric, id: \.self) { field in
+                        VStack(alignment: .leading, spacing: 3) {
+                            LabeledContent {
+                                if let score = findings[field]?.score {
+                                    Text("\(score)/5").monospacedDigit()
+                                } else {
+                                    Text("Unknown")
                                 }
+                            } label: {
+                                Text(assessmentCriterion(field)).font(.subheadline.bold())
+                            }
+                            if let evidence = findings[field]?.evidence, !evidence.isEmpty {
+                                Text(verbatim: evidence)
+                                    .textSelection(.enabled)
                             }
                         }
                     }
-                    .padding(.vertical, 6)
                 }
+                .padding(.vertical, 6)
             }
         } else if let error = outcome?.errorCode {
             Label {

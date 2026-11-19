@@ -116,7 +116,25 @@ private actor AIAssessmentRejectionLog {
 
 @MainActor @Observable
 final class AIAssessmentNavigation {
-    var presentedID: UUID?
+    var presentedID: UUID? {
+        didSet {
+            if presentedID != oldValue {
+                initialPair = nil
+            }
+        }
+    }
+
+    private(set) var initialPair: (recommended: String, sharpest: String)?
+
+    func compareSharpness(in entry: AIAssessmentEntry, recommended: String, sharpest: String) {
+        presentedID = entry.id
+        initialPair = (recommended, sharpest)
+    }
+
+    func entry(matching files: [FileItem], catalog: URL) -> AIAssessmentEntry? {
+        entries.first { $0.matches(files: files, catalog: catalog) }
+    }
+
     private(set) var entries: [AIAssessmentEntry] = []
     private(set) var loadFailed = false
 
@@ -150,7 +168,8 @@ struct BurstAssessmentButton: View {
 
     var body: some View {
         if let navigation, let catalog = viewModel.selectedSource?.url,
-           let entry = navigation.entries.first(where: { $0.matches(files: files, catalog: catalog) }) {
+           let entry = navigation.entry(matching: files, catalog: catalog)
+        {
             Button {
                 navigation.presentedID = entry.id
             } label: {
@@ -161,7 +180,24 @@ struct BurstAssessmentButton: View {
     }
 }
 
+extension AIAssessmentEntry.Frame {
+    func summary(for rubric: [String]) -> String? {
+        guard let findings = outcome?.findings else { return nil }
+        let fields = ["composition"] + rubric.filter { $0 != "composition" }
+        return fields.lazy.compactMap { field in
+            findings[field]?.evidence?.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        }.first { !$0.isEmpty }
+    }
+}
+
 extension AIAssessmentEntry {
+    func frame(for file: FileItem, in catalog: URL) -> Frame? {
+        frames.first {
+            catalog.appendingPathComponent($0.source.relativePath).standardizedFileURL == file.url.standardizedFileURL
+                && $0.source.size == file.size && $0.source.modified == file.dateModified
+        }
+    }
+
     func matches(files: [FileItem], catalog: URL) -> Bool {
         guard !frames.isEmpty, files.count == frames.count else { return false }
         let byURL = Dictionary(files.map { ($0.url.standardizedFileURL, $0) }, uniquingKeysWith: { first, _ in first })

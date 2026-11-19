@@ -14,6 +14,8 @@ struct BurstWorkspaceFilmstrip: View {
 
     var closeUpSelection: Set<URL> = []
     var mostFaceDetail: URL?
+    var sharpestID: FileItem.ID?
+    var assessedURLs: Set<URL> = []
     var faceSizesVary = false
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
 
@@ -51,6 +53,8 @@ struct BurstWorkspaceFilmstrip: View {
                                         isSuggested: analysis?.recommendedFileID == file.id,
                                         isDeferred: analysis?.reviewState == .deferred,
                                         isIncludedInCloseUps: closeUpSelection.contains(file.url),
+                                        isSharpest: file.id == sharpestID,
+                                        hasAIAssessment: assessedURLs.contains(file.url.standardizedFileURL),
                                     ) {
                                         selectCloseUp(file.url, NSEvent.modifierFlags)
                                         viewModel.selectedFileID = file.id

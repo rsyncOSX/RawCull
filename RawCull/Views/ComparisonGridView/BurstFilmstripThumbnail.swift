@@ -9,6 +9,8 @@ struct BurstFilmstripThumbnail: View {
     let isSuggested: Bool
     let isDeferred: Bool
     var isIncludedInCloseUps = false
+    var isSharpest = false
+    var hasAIAssessment = false
     let action: () -> Void
 
     var body: some View {
@@ -30,12 +32,30 @@ struct BurstFilmstripThumbnail: View {
                             .padding(7)
                     }
                 }
-                Text(file.name)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 5)
+                .overlay(alignment: .topLeading) {
+                    if isSharpest {
+                        Text("Sharpest")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(.regularMaterial, in: .rect(cornerRadius: 4))
+                            .padding(5)
+                            .help("Highest measured sharpness in this burst.")
+                    }
+                }
+                HStack(spacing: 4) {
+                    Text(file.name)
+                        .lineLimit(1)
+                    if hasAIAssessment {
+                        Image(systemName: "sparkles")
+                            .accessibilityLabel("AI assessed")
+                            .help("Saved AI assessment available")
+                    }
+                }
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
             }
             .frame(width: Self.width)
             .contentShape(.rect)
