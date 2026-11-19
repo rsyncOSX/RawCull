@@ -448,7 +448,9 @@ nonisolated struct AnalysisJobStore: Sendable {
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
                 }
             }
-            if reportRecovery { throw StoreError.recoveredDamagedJob }
+            if reportRecovery {
+                throw StoreError.recoveredDamagedJob
+            }
             return nil
         }
     }
@@ -743,7 +745,7 @@ nonisolated extension AnalysisJobStore {
         return try withLock {
             guard let job = try read(),
                   let source = try? readFollowUpSourceLocked(catalogID: job.catalogId, jobID: job.jobId) else { return [] }
-            return Array(try recentFollowUpsLocked(source: source, now: now).prefix(5))
+            return try Array(recentFollowUpsLocked(source: source, now: now).prefix(5))
         }
     }
 
@@ -765,7 +767,7 @@ nonisolated extension AnalysisJobStore {
     }
 
     func readBurstAssessmentResults(now: Date = .now) throws -> (
-        job: AnalysisJob, source: FollowUpSourceSnapshot, results: [(FollowUpRecord, Data)]
+        job: AnalysisJob, source: FollowUpSourceSnapshot, results: [(FollowUpRecord, Data)],
     )? {
         guard try FileManager.default.fileExists(atPath: followUpDirectory().path) else { return nil }
         return try withLock {
@@ -893,7 +895,8 @@ nonisolated extension AnalysisJobStore {
 
     private func readFollowUpResultLocked(_ record: FollowUpRecord, now: Date) throws -> Data {
         guard record.state == .completed || record.state == .failed, record.resultCleared != true,
-              let finishedAt = record.finishedAt else {
+              let finishedAt = record.finishedAt
+        else {
             throw FollowUpError.unavailable
         }
         guard now.timeIntervalSince(finishedAt) < Self.followUpResultLifetime else {

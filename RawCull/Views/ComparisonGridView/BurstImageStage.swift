@@ -102,7 +102,7 @@ struct BurstImageStage: View {
     private func tagStrip(for _: FileItem) -> some View {
         WorkspaceImageBadges(
             image: imageState?.cgImage, rating: rating,
-            isSuggested: isSuggested, subjectLabel: subjectLabel
+            isSuggested: isSuggested, subjectLabel: subjectLabel,
         )
     }
 

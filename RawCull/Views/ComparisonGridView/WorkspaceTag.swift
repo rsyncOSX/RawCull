@@ -29,9 +29,15 @@ struct WorkspaceImageBadges: View {
             if let image {
                 ImagePixelDimensionsBadgeView(width: image.width, height: image.height)
             }
-            if let rating { WorkspaceTag(title: rating.label, color: rating.color) }
-            if isSuggested { WorkspaceTag(title: "Suggested", color: .orange) }
-            if let subjectLabel { WorkspaceTag(title: subjectLabel, color: .cyan) }
+            if let rating {
+                WorkspaceTag(title: rating.label, color: rating.color)
+            }
+            if isSuggested {
+                WorkspaceTag(title: "Suggested", color: .orange)
+            }
+            if let subjectLabel {
+                WorkspaceTag(title: subjectLabel, color: .cyan)
+            }
         }
         .allowsHitTesting(false)
     }

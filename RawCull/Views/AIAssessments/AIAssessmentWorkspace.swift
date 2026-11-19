@@ -1,5 +1,5 @@
-import SwiftUI
 import RawCullCore
+import SwiftUI
 
 struct AIAssessmentWorkspace: View {
     let navigation: AIAssessmentNavigation

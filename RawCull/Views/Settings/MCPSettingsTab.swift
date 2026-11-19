@@ -9,7 +9,6 @@ struct MCPSettingsTab: View {
     let canAuthorizeAnalysis: Bool
     let authorizeCatalog: (Bool, Bool) throws -> CatalogGrant
 
-
     @State private var allowAnalysis = false
     @State private var recurringFolder = false
     @State private var grant: CatalogGrant?

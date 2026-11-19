@@ -58,7 +58,7 @@ struct AIAssessmentComparison: View {
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder), access != nil,
                   press.modifiers.intersection([.command, .control, .option]).isEmpty else { return .ignored }
             if case let .rating(value) = ZoomOverlayKeyAction.resolve(
-                characters: press.characters, keyCode: 0, navigationAxis: .horizontal
+                characters: press.characters, keyCode: 0, navigationAxis: .horizontal,
             ) {
                 guard let frame = activeSide == .left ? leftFrame : rightFrame,
                       let file = liveFile(frame), !hasDuplicateFilename(file) else { return .ignored }
@@ -68,7 +68,9 @@ struct AIAssessmentComparison: View {
             return zoomKeyboardController.handle(ImageReviewKeyboardPolicy.action(for: press.characters))
         }
         .onChange(of: linked) {
-            if !linked { rightViewport = leftViewport }
+            if !linked {
+                rightViewport = leftViewport
+            }
         }
     }
 
@@ -91,7 +93,11 @@ struct AIAssessmentComparison: View {
             frame: frame, role: role(for: frame?.id), rubric: entry.request.rubric, access: access,
             accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
-            toggleTag: { if let frame { toggleTag(frame) } }, viewport: viewport, height: height,
+            toggleTag: {
+                if let frame {
+                    toggleTag(frame)
+                }
+            }, viewport: viewport, height: height,
             file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel) } ?? .unrated,
             subjectLabel: file.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
             entryRecommendation: entry.recommendation, isActive: activeSide == side,
@@ -113,8 +119,12 @@ struct AIAssessmentComparison: View {
     }
 
     private func role(for id: String?) -> LocalizedStringResource {
-        if id == entry.recommendation { return "Recommendation" }
-        if id == entry.alternate { return "Alternate" }
+        if id == entry.recommendation {
+            return "Recommendation"
+        }
+        if id == entry.alternate {
+            return "Alternate"
+        }
         return "Burst frame"
     }
 
@@ -236,7 +246,9 @@ private struct AIAssessmentComparisonHeader: View {
                     }
                     HStack {
                         Text("\(entry.result.assessedCount) of \(entry.frames.count) frames assessed")
-                        if let confidence = entry.burstConfidence { Text(assessmentConfidence(confidence)) }
+                        if let confidence = entry.burstConfidence {
+                            Text(assessmentConfidence(confidence))
+                        }
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -347,10 +359,10 @@ private struct AIAssessmentPane: View {
 
                 AIAssessmentPreview(
                     frame: frame, access: access, accessChecked: accessChecked, viewport: $viewport,
-                    file: file, rating: rating, subjectLabel: subjectLabel, isSuggested: frame.id == entryRecommendation, activate: activate
+                    file: file, rating: rating, subjectLabel: subjectLabel, isSuggested: frame.id == entryRecommendation, activate: activate,
                 )
-                    .id(frame.id)
-                    .frame(height: height)
+                .id(frame.id)
+                .frame(height: height)
 
                 HStack {
                     if let image = frame.outcome?.assessedImage {

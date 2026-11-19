@@ -1,5 +1,5 @@
-import SwiftUI
 import RawCullCore
+import SwiftUI
 
 private enum AssessmentPreviewState {
     case loading
@@ -66,6 +66,7 @@ struct AIAssessmentPreview: View {
                     switch state {
                     case .loading:
                         ProgressView().tint(.white)
+
                     case let .image(thumbnail):
                         let image = viewport.scale > 1
                             ? (usesRAW9 ? rawImage ?? fullSizeImage ?? thumbnail : fullSizeImage ?? thumbnail)
@@ -78,11 +79,11 @@ struct AIAssessmentPreview: View {
                                 rating: rating, exifSummary: ExifSummary.make(from: file.exifData),
                                 saliencyLabel: subjectLabel, burstAnalysis: nil, burstCandidate: nil,
                                 burstRating: 0, sharpnessContext: nil, onSelect: activate, onRate: { _ in },
-                                onSourceChange: {}, showsChrome: false
+                                onSourceChange: {}, showsChrome: false,
                             )
                             .overlay(alignment: .topLeading) {
                                 WorkspaceImageBadges(
-                                    image: image, rating: rating, isSuggested: isSuggested, subjectLabel: subjectLabel
+                                    image: image, rating: rating, isSuggested: isSuggested, subjectLabel: subjectLabel,
                                 )
                                 .padding(12)
                                 .allowsHitTesting(false)
@@ -108,15 +109,17 @@ struct AIAssessmentPreview: View {
                                     }, isEnabled: viewport.scale > 1)
                                 .overlay(alignment: .topLeading) {
                                     WorkspaceImageBadges(
-                                        image: image, rating: nil, isSuggested: isSuggested, subjectLabel: nil
+                                        image: image, rating: nil, isSuggested: isSuggested, subjectLabel: nil,
                                     )
                                     .padding(12)
                                 }
                         }
+
                     case .changed:
                         Text("The original photo moved or changed.")
                             .foregroundStyle(.white)
                             .padding()
+
                     case .unreadable:
                         Text("RawCull couldn’t load the photo preview.")
                             .foregroundStyle(.white)
@@ -212,19 +215,21 @@ struct AIAssessmentPreview: View {
         switch state {
         case .image:
             break
+
         default:
             let result = await AssessmentPreviewState.load(frame, access: access, size: 2048)
             guard !Task.isCancelled, activeLoadID == loadID else { return }
             state = result
         }
-        guard viewport.scale > 1 else { return }
-        guard case .image = state else { return }
+        guard viewport.scale > 1, case .image = state else { return }
 
         let raw = usesRAW9
         guard raw ? rawImage == nil : fullSizeImage == nil else { return }
         isLoadingZoom = true
         defer {
-            if activeLoadID == loadID { isLoadingZoom = false }
+            if activeLoadID == loadID {
+                isLoadingZoom = false
+            }
         }
         let image: CGImage?
         if raw {
@@ -246,7 +251,11 @@ struct AIAssessmentPreview: View {
             return
         }
         if let image {
-            if raw { rawImage = image } else { fullSizeImage = image }
+            if raw {
+                rawImage = image
+            } else {
+                fullSizeImage = image
+            }
         } else {
             zoomError = raw ? "Couldn’t develop RAW 9. Showing the JPEG preview." : "Couldn’t load the full-size JPG. Showing the smaller preview."
         }
@@ -285,8 +294,10 @@ struct AIAssessmentThumbnail: View {
                 Image(decorative: image, scale: 1)
                     .resizable()
                     .scaledToFit()
+
             case .loading where access != nil:
                 ProgressView().controlSize(.small)
+
             default:
                 Image(systemName: "photo").foregroundStyle(.secondary)
             }
@@ -297,10 +308,13 @@ struct AIAssessmentThumbnail: View {
             state = .loading
             guard let access else { return }
             let result = await AssessmentPreviewState.load(frame, access: access, size: 224)
-            if !Task.isCancelled { state = result }
+            if !Task.isCancelled {
+                state = result
+            }
         }
     }
 }
+
 struct AIAssessmentFilmstrip: View {
     let frames: [AIAssessmentEntry.Frame]
     let leftID: String?
@@ -353,7 +367,7 @@ private struct AIAssessmentFilmstripItem: View {
                 BurstFilmstripThumbnail(
                     file: file, isSelected: isLeft || isRight,
                     isSuggested: false, isDeferred: false,
-                    action: { showsPaneChoices = true }
+                    action: { showsPaneChoices = true },
                 )
             } else {
                 Button { showsPaneChoices = true } label: {
@@ -367,9 +381,15 @@ private struct AIAssessmentFilmstripItem: View {
                 .buttonStyle(.plain)
             }
             HStack(spacing: 6) {
-                if let rank = frame.rank { Text("Rank \(rank)") }
-                if isLeft { Text("Left") }
-                if isRight { Text("Right") }
+                if let rank = frame.rank {
+                    Text("Rank \(rank)")
+                }
+                if isLeft {
+                    Text("Left")
+                }
+                if isRight {
+                    Text("Right")
+                }
             }
             .foregroundStyle(.secondary)
         }

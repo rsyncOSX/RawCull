@@ -289,7 +289,7 @@ struct ToolHandlerTests {
         #expect(rankings.isError != true)
     }
 
-    @Test func damagedJobRecoveryPreservesOriginalBytes() async throws {
+    @Test func `damaged job recovery preserves original bytes`() async throws {
         let grants = try makeStore()
         defer { removeStore(grants) }
         let catalogID = try authorizePhotos(in: grants)

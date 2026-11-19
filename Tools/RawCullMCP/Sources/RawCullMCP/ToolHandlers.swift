@@ -230,7 +230,7 @@ func callKnownTool(
         "transport": .string("stdio")
     ]
     do {
-        details["photoAssessmentsEnabled"] = .bool(try jobs.followUpsEnabled())
+        details["photoAssessmentsEnabled"] = try .bool(jobs.followUpsEnabled())
     } catch {
         details["photoAssessmentsEnabled"] = .null
         details["photoAssessmentsSettingError"] = .string("The photo assessment setting could not be read.")

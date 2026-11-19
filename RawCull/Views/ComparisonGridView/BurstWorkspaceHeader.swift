@@ -50,7 +50,7 @@ struct BurstWorkspaceHeader: View {
                 viewModel: viewModel,
                 files: viewModel.files.filter { file in
                     viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
-                }
+                },
             )
             reviewButton
         }
