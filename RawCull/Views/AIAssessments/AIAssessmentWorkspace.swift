@@ -23,6 +23,9 @@ struct AIAssessmentWorkspace: View {
                 Button(action: returnToBursts) {
                     Label("Burst list", systemImage: "chevron.left")
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .help("Return to Burst list (R)")
                 Spacer()
                 Button("Previous Assessment", systemImage: "chevron.left") {
                     navigate(by: -1)
@@ -78,6 +81,10 @@ struct AIAssessmentWorkspace: View {
         .onAppear {
             keyMonitor.install { event in
                 guard !viewModel.zoomOverlayVisible, keyboardScope.accepts(event) else { return .ignored }
+                if event.charactersIgnoringModifiers?.lowercased() == "r" {
+                    returnToBursts()
+                    return .handled
+                }
                 switch BurstReviewKeyAction.resolve(characters: event.charactersIgnoringModifiers) {
                 case .previousImage: navigate(by: -1)
                 case .nextImage: navigate(by: 1)

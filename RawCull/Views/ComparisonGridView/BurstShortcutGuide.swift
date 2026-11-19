@@ -4,6 +4,8 @@ struct BurstShortcutGuide: View {
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 7) {
+                shortcut("R", action: "burst list")
+                separator
                 shortcut("P/N", action: "frame")
                 separator
                 shortcut("G", action: "next group")
@@ -30,7 +32,7 @@ struct BurstShortcutGuide: View {
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, 2 through 5 rates, 0 picks, and X rejects",
+            "Keyboard shortcuts: R returns to the burst list, P or N changes frame, G opens the next group, plus or minus zooms, 2 through 5 rates, 0 picks, and X rejects",
         )
     }
 

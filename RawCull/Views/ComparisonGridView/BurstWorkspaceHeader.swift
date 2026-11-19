@@ -17,6 +17,15 @@ struct BurstWorkspaceHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            Button {
+                viewModel.returnToActiveBurstGroupView()
+            } label: {
+                Label("Burst list", systemImage: "chevron.left")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .help("Return to Burst list (R)")
+
             Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
                 .font(.callout.monospaced())
                 .foregroundStyle(.secondary)
@@ -37,14 +46,6 @@ struct BurstWorkspaceHeader: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .help("Change the display order. AF-point sharpness places frames without a usable focus-point measurement last.")
             }
-
-            Button {
-                viewModel.returnToActiveBurstGroupView()
-            } label: {
-                Label("Burst list", systemImage: "chevron.left")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
 
             BurstAssessmentButton(
                 viewModel: viewModel,

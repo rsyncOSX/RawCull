@@ -37,7 +37,7 @@ struct AIAssessmentComparison: View {
                     .padding(20)
                 }
 
-                Text("Click an image to activate it · P/N assessment · +/− zoom · 2–5 rate · 0 pick · X reject")
+                Text("Click an image to activate it · R burst list · P/N assessment · +/− zoom · 2–5 rate · 0 pick · X reject")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .padding(8)
