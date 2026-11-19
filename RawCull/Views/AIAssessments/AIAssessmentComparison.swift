@@ -6,6 +6,7 @@ struct AIAssessmentComparison: View {
     let viewModel: RawCullViewModel
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
+    let onMarkedReviewed: () -> Void
 
     @State private var leftID: String?
     @State private var rightID: String?
@@ -13,6 +14,7 @@ struct AIAssessmentComparison: View {
     @State private var leftViewport = ComparisonViewportInteractionState()
     @State private var rightViewport = ComparisonViewportInteractionState()
     @State private var activeSide = AIAssessmentSide.left
+    @State private var isUpdatingReview = false
     @FocusState private var hasKeyboardFocus: Bool
 
     var body: some View {
@@ -23,7 +25,7 @@ struct AIAssessmentComparison: View {
                         AIAssessmentComparisonHeader(
                             entry: entry, linked: $linked, isReviewed: verifiedGroupID.map {
                                 viewModel.burstGroupReviewState(groupID: $0) == .reviewed
-                            }, toggleReviewed: toggleReviewed,
+                            }, isUpdatingReview: isUpdatingReview, toggleReviewed: toggleReviewed,
                         )
                         HStack(alignment: .top, spacing: 12) {
                             pane(for: leftFrame, side: .left, height: max(210, geometry.size.height * 0.52))
@@ -205,10 +207,15 @@ struct AIAssessmentComparison: View {
     }
 
     private func toggleReviewed() {
+        guard !isUpdatingReview else { return }
+        isUpdatingReview = true
         Task {
+            defer { isUpdatingReview = false }
             guard await entry.isAvailable(), let catalog = liveCatalog, let group = verifiedGroupID,
                   entry.frames.allSatisfy({ (try? $0.source.resolve(in: catalog)) != nil }) else { return }
-            viewModel.toggleBurstGroupReviewed(groupID: group)
+            if viewModel.toggleBurstGroupReviewed(groupID: group) {
+                onMarkedReviewed()
+            }
         }
     }
 }
@@ -221,6 +228,7 @@ private struct AIAssessmentComparisonHeader: View {
     let entry: AIAssessmentEntry
     @Binding var linked: Bool
     let isReviewed: Bool?
+    let isUpdatingReview: Bool
     let toggleReviewed: () -> Void
 
     var body: some View {
@@ -250,6 +258,7 @@ private struct AIAssessmentComparisonHeader: View {
                             Label("Mark Reviewed", systemImage: "checkmark.circle")
                         }
                     }
+                    .disabled(isUpdatingReview)
                 }
             }
             if let catalog = entry.catalogName {
