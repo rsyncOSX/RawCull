@@ -1,6 +1,6 @@
 # RawCull
 
-RawCull **3.4.6** (build **443**) is in development on `main` and `version-3.4.6`.
+Current project version: **3.4.8**. Build **460**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -118,16 +118,21 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 | `parsersyncoutput` | `1.0.0` |
 | `photoaikit` | `1.0.0` |
 | `photoanalysiskit` | `1.3.7` |
-| `photoevidencekit` | `1.1.0` |
+| `photoevidencekit` | `1.1.5` |
 | `rawcullcore` | `1.1.5` |
 | `rawparserkit` | `1.3.3` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.4` |
+| `swift-atomics` | `1.3.1` |
 | `swift-collections` | `1.7.5` |
 | `swift-crypto` | `4.5.2` |
 | `swift-huggingface` | `1.0.0` |
 | `swift-jinja` | `3.0.0` |
+| `swift-log` | `1.17.0` |
+| `swift-nio` | `2.105.0` |
+| `swift-sdk` | `0.12.1` |
+| `swift-system` | `1.8.1` |
 | `swift-transformers` | `1.4.0` |
 | `xgrammar` | `0.2.2` |
 | `yyjson` | `0.13.0` |

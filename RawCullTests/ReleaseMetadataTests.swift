@@ -39,11 +39,16 @@ struct ReleaseMetadataTests {
         )
         for entitlements in [appEntitlements, extensionEntitlements] {
             #expect(entitlements["com.apple.security.app-sandbox"] as? Bool == true)
-            #expect(
-                entitlements["com.apple.security.application-groups"] as? [String]
-                    == ["group.no.blogspot.RawCull.model-assets"],
-            )
         }
+
+        #expect(
+            appEntitlements["com.apple.security.application-groups"] as? [String]
+                == ["group.no.blogspot.RawCull.model-assets", "93M47F4H9T.no.blogspot.RawCull.mcp"],
+        )
+        #expect(
+            extensionEntitlements["com.apple.security.application-groups"] as? [String]
+                == ["group.no.blogspot.RawCull.model-assets"],
+        )
 
         let appInfo = try propertyList("RawCull-Info.plist")
         #expect(appInfo["CFBundleShortVersionString"] as? String == "$(MARKETING_VERSION)")
@@ -111,7 +116,7 @@ struct ReleaseMetadataTests {
             .map(String.init)
             .filter { $0.hasPrefix("|") }
 
-        #expect(resolved.pins.count == 18)
+        #expect(resolved.pins.count == 24)
         for pin in resolved.pins {
             let expectedPin = pin.state.version ?? pin.state.revision
             let matchingRows = tableRows.filter { row in

@@ -7,13 +7,13 @@ import Testing
 @Suite("ZoomOverlayLaunchContext")
 struct ZoomOverlayLaunchContextTests {
     @Test
-    func `default zoom overlay launch context preserves existing behavior`() {
+    func `default zoom overlay opens the embedded JPG fitted without focus points`() {
         let viewModel = makeRawCullViewModel()
 
         viewModel.openZoomOverlay()
 
         #expect(viewModel.zoomOverlayLaunchContext == .default)
-        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .thumbnail)
+        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .embeddedJPG)
         #expect(viewModel.zoomOverlayLaunchContext.initialZoomMode == .fit)
         #expect(viewModel.zoomOverlayLaunchContext.showFocusPointsOnOpen == false)
     }
