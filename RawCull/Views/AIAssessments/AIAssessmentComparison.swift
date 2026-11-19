@@ -37,7 +37,7 @@ struct AIAssessmentComparison: View {
                     .padding(20)
                 }
 
-                Text("Click an image to activate it · P/N frame · +/− zoom · 2–5 rate · 0 pick · X reject")
+                Text("Click an image to activate it · P/N assessment · +/− zoom · 2–5 rate · 0 pick · X reject")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .padding(8)
@@ -53,16 +53,10 @@ struct AIAssessmentComparison: View {
         .focusEffectDisabled()
         .focused($hasKeyboardFocus)
         .defaultFocus($hasKeyboardFocus, true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-012345xXtTpPnN")) { press in
+        .onAppear { hasKeyboardFocus = true }
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-012345xXtT")) { press in
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder), access != nil,
                   press.modifiers.intersection([.command, .control, .option]).isEmpty else { return .ignored }
-            if let action = BurstReviewKeyAction.resolve(characters: press.characters) {
-                let current = activeSide == .left ? leftFrame : rightFrame
-                guard let index = entry.frames.firstIndex(where: { $0.id == current?.id }) else { return .ignored }
-                let next = index + (action == .previousImage ? -1 : 1)
-                if entry.frames.indices.contains(next) { select(entry.frames[next].id, side: activeSide) }
-                return .handled
-            }
             if case let .rating(value) = ZoomOverlayKeyAction.resolve(
                 characters: press.characters, keyCode: 0, navigationAxis: .horizontal
             ) {
@@ -387,6 +381,7 @@ private struct AIAssessmentPane: View {
 private struct AIAssessmentFindings: View {
     let outcome: MCPPhotoAssessmentResult.Photo?
     let rubric: [String]
+    @State private var isExpanded = true
 
     var body: some View {
         if let findings = outcome?.findings {
@@ -402,7 +397,7 @@ private struct AIAssessmentFindings: View {
                         Text(assessmentCriterion(field))
                     }
                 }
-                DisclosureGroup("Findings") {
+                DisclosureGroup("Findings", isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(rubric, id: \.self) { field in
                             if let evidence = findings[field]?.evidence, !evidence.isEmpty {

@@ -155,6 +155,8 @@ struct RawCullApp: App {
                 objectAnalysisFeature: intelligenceRuntime.objectAnalysisFeature,
                 combinedReviewFeature: intelligenceRuntime.combinedReviewFeature,
                 aiSettingsModel: intelligenceRuntime.settingsModel,
+                assessmentNavigation: assessmentNavigation,
+                assessmentPhotoAccess: appDelegate.assessmentPhotoAccess,
             )
             .background(.windowBackground)
             .environment(viewModel)
@@ -186,14 +188,6 @@ struct RawCullApp: App {
             SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .environment(viewModel)
         }
-
-        Window("AI Assessments", id: AIAssessmentNavigation.windowID) {
-            AIAssessmentsWindow(
-                navigation: assessmentNavigation, viewModel: viewModel, photoAccess: appDelegate.assessmentPhotoAccess,
-            )
-        }
-        .defaultSize(width: 1120, height: 800)
-        .defaultLaunchBehavior(.suppressed)
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()

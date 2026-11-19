@@ -1,4 +1,5 @@
 import OSLog
+import RawCullCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -14,6 +15,8 @@ struct RawCullMainView: View {
     let objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
     let aiSettingsModel: RawCullAISettingsModel
+    let assessmentNavigation: AIAssessmentNavigation
+    let assessmentPhotoAccess: (AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -33,7 +36,14 @@ struct RawCullMainView: View {
 
     var body: some View {
         ZStack {
-            Group {
+            if assessmentNavigation.presentedID != nil {
+                AIAssessmentWorkspace(
+                    navigation: assessmentNavigation,
+                    viewModel: viewModel,
+                    photoAccess: assessmentPhotoAccess,
+                )
+                .navigationTitle("AI Assessment")
+            } else {
                 switch viewModel.mainViewMode {
                 case .loupe:
                     loupeSplit

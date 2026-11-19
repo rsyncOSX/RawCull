@@ -110,36 +110,41 @@ private actor AIAssessmentRejectionLog {
 
 @MainActor @Observable
 final class AIAssessmentNavigation {
-    static let windowID = "ai-assessments"
-    enum Destination: Equatable {
-        case result(UUID)
-    }
-
-    var destination: Destination?
-    var entries: [AIAssessmentEntry] = []
+    var presentedID: UUID?
+    private(set) var entries: [AIAssessmentEntry] = []
+    private(set) var loadFailed = false
 
     func observeResults() async {
         while !Task.isCancelled {
-            do { entries = try await AIAssessmentEntry.available() }
-            catch AnalysisJobStore.StoreError.busy { }
-            catch { entries = [] }
-            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            do {
+                let latest = try await AIAssessmentEntry.available()
+                guard !Task.isCancelled else { return }
+                if latest != entries { entries = latest }
+                loadFailed = false
+            } catch AnalysisJobStore.StoreError.busy {
+                // The writer still owns the store. Retry without changing selection.
+            } catch FollowUpSourceSnapshot.SourceError.unavailable {
+                entries = []
+                loadFailed = false
+            } catch {
+                entries = []
+                loadFailed = true
+            }
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
         }
     }
-
 }
+
 struct BurstAssessmentButton: View {
     let viewModel: RawCullViewModel
     let files: [FileItem]
     @Environment(AIAssessmentNavigation.self) private var navigation: AIAssessmentNavigation?
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if let navigation, let catalog = viewModel.selectedSource?.url,
            let entry = navigation.entries.first(where: { $0.matches(files: files, catalog: catalog) }) {
             Button {
-                navigation.destination = .result(entry.id)
-                openWindow(id: AIAssessmentNavigation.windowID)
+                navigation.presentedID = entry.id
             } label: {
                 Label("View AI Assessment", systemImage: "sparkles")
             }
