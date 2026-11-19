@@ -717,7 +717,7 @@ final class MCPAnalysisController {
             }
             job.setupRequestId = request.requestId
             job.setupHintDigest = request.replayDigest
-            try jobs.updateLocked { current in
+            _ = try jobs.updateLocked { current in
                 guard current?.state.isActive != true else {
                     throw JobError("An analysis is already active. Wait for it to finish and try again.")
                 }

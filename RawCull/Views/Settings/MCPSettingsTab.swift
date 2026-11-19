@@ -284,7 +284,7 @@ struct MCPSettingsTab: View {
 private struct MCPPhotoAssessmentSetting: View {
     let enabled: Bool?
     let failed: Bool
-    let setEnabled: (Bool) -> Void
+    let setEnabled: @MainActor @Sendable (Bool) -> Void
 
     var body: some View {
         Section {
