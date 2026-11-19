@@ -20,9 +20,62 @@ private nonisolated enum BurstFaceStatus: Sendable {
     case detailUnavailable
 }
 
+/// Bounds the number of concurrent preview decodes and Vision passes for
+/// detected-face evidence. Waiters leave promptly when cancelled.
+actor BurstEvidenceWorkLimiter {
+    static let shared = BurstEvidenceWorkLimiter(limit: 2)
+    private let limit: Int
+    private var active = 0
+    private var waiters: [(id: UUID, continuation: CheckedContinuation<Bool, Never>)] = []
+    private(set) var maxObservedActive = 0
+
+    init(limit: Int) {
+        self.limit = max(1, limit)
+    }
+
+    func acquire() async throws {
+        try Task.checkCancellation()
+        if active < limit {
+            active += 1
+            maxObservedActive = max(maxObservedActive, active)
+            return
+        }
+        let id = UUID()
+        let granted = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume(returning: false)
+                } else {
+                    waiters.append((id, continuation))
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(id) }
+        }
+        guard granted else { throw CancellationError() }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            active -= 1
+        } else {
+            // Hand the slot straight to the next waiter.
+            waiters.removeFirst().continuation.resume(returning: true)
+        }
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+        waiters.remove(at: index).continuation.resume(returning: false)
+    }
+}
+
+/// The actor owns only the prune timestamp and caches. Decoding and Vision run
+/// in `@concurrent` helpers behind a small limiter, so close-up tiles and People
+/// Ranking no longer queue behind one another on a single actor.
 actor BurstDetectedFaceLoader {
     static let shared = BurstDetectedFaceLoader()
-    private let analyzer = FaceEvidenceAnalyzer()
+    private let limiter: BurstEvidenceWorkLimiter
     private let cache = FaceEvidenceCache()
     private var nextFaceCachePrune = Date.distantPast
 
@@ -39,6 +92,44 @@ actor BurstDetectedFaceLoader {
         cache.countLimit = 64
         return cache
     }()
+
+    init(limiter: BurstEvidenceWorkLimiter = .shared) {
+        self.limiter = limiter
+    }
+
+    private func limited<T: Sendable>(_ operation: () async throws -> T) async throws -> T {
+        try await limiter.acquire()
+        do {
+            let value = try await operation()
+            await limiter.release()
+            return value
+        } catch {
+            await limiter.release()
+            throw error
+        }
+    }
+
+    @concurrent private nonisolated static func decodePreview(_ url: URL) async throws -> CGImage {
+        try Task.checkCancellation()
+        let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
+                                          policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
+        guard let preview = try ReviewEmbeddedPreviewLoader().load(request)?.image else {
+            throw CloseUpRenderError.unavailable
+        }
+        return preview
+    }
+
+    /// A fresh analyzer per call: the analyzer is stateless, and a shared
+    /// instance would serialize every Vision pass on one actor.
+    @concurrent private nonisolated static func analyzeFaces(_ preview: CGImage) async throws -> FaceEvidenceResult {
+        try Task.checkCancellation()
+        return try await FaceEvidenceAnalyzer().analyze(preview)
+    }
+
+    @concurrent private nonisolated static func detectAnimals(_ preview: CGImage) async throws -> [AnimalCloseUpDetector.Region]? {
+        try Task.checkCancellation()
+        return try? AnimalCloseUpDetector.regions(in: preview)
+    }
 
     func evidence(for url: URL) async throws -> FaceEvidenceResult {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
@@ -59,18 +150,15 @@ actor BurstDetectedFaceLoader {
             cache.pruneExpiredRecords(now: now)
             nextFaceCachePrune = now.addingTimeInterval(24 * 60 * 60)
         }
-        let request = ReviewSourceRequest(url: url, preference: .highQualityPreview,
-                                          policy: .appearance, embeddedPreviewMaximumDimension: FaceEvidenceCache.previewMaximumDimension)
-        guard let preview = try ReviewEmbeddedPreviewLoader().load(request)?.image else {
-            throw CloseUpRenderError.unavailable
-        }
+        let preview = try await limited { try await Self.decodePreview(url) }
+        try Task.checkCancellation()
 
         let signature = FaceEvidenceCache.signature(sourceRevision: revision)
         let cached = cache.load(for: url, signature: signature, width: preview.width, height: preview.height)
         let result: FaceEvidenceResult = if let cached {
             cached
         } else {
-            try await analyzer.analyze(preview)
+            try await limited { try await Self.analyzeFaces(preview) }
         }
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
@@ -93,7 +181,11 @@ actor BurstDetectedFaceLoader {
         let (preview, result) = try await loadEvidence(url, revision: revision)
         let animalKey = "\(revision)|\(preview.width)x\(preview.height)" as NSString
         let cachedAnimals = animalCache.object(forKey: animalKey)
-        let animalRegions = cachedAnimals?.values ?? (try? AnimalCloseUpDetector.regions(in: preview))
+        let animalRegions: [AnimalCloseUpDetector.Region]? = if let cachedAnimals {
+            cachedAnimals.values
+        } else {
+            try await limited { try await Self.detectAnimals(preview) }
+        }
         try Task.checkCancellation()
         guard BurstCloseUpIdentity.revision(url) == revision else {
             throw CloseUpRenderError.sourceChanged
