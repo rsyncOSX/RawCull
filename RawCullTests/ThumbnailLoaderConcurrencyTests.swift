@@ -8,6 +8,19 @@
 import Testing
 
 struct ThumbnailLoaderConcurrencyTests {
+    @Test @MainActor
+    func `preview size follows the current setting instead of a launch-time cache`() async {
+        let loader = ThumbnailLoader()
+        let original = SettingsViewModel.shared.thumbnailSizePreview
+        defer { SettingsViewModel.shared.thumbnailSizePreview = original }
+
+        SettingsViewModel.shared.thumbnailSizePreview = 1024
+        #expect(await loader.resolvedTargetSize(0) == 1024)
+        SettingsViewModel.shared.thumbnailSizePreview = 2048
+        #expect(await loader.resolvedTargetSize(0) == 2048)
+        #expect(await loader.resolvedTargetSize(300) == 300)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     func `saturated loader queues waiter until slot is released`() async throws {
         let loader = ThumbnailLoader()

@@ -22,17 +22,13 @@ actor ThumbnailLoader {
     private var activeTasks = 0
     private var maxObservedActiveTasks = 0
     private var pendingContinuations: [(id: UUID, continuation: CheckedContinuation<SlotAcquisition, Never>)] = []
-    private var cachedSettings: SavedSettings?
 
-    /// Cached settings so we don't hammer the settings actor
-    func getSettings() async -> SavedSettings {
-        // Logger.process.debugMessageOnly("ThumbnailLoader.getSettings()")
-        if let cachedSettings {
-            return cachedSettings
-        }
-        let settings = await SettingsViewModel.shared.asyncgetsettings()
-        cachedSettings = settings
-        return settings
+    /// The pixel size to request. A caller-supplied size wins; otherwise the
+    /// current preview setting is read each time, so a Settings change applies
+    /// without a relaunch. Loads are rate-limited, so this hop is cheap.
+    func resolvedTargetSize(_ targetSize: Int) async -> Int {
+        guard targetSize <= 0 else { return targetSize }
+        return await MainActor.run { SettingsViewModel.shared.thumbnailSizePreview }
     }
 
     private func acquireSlot() async -> SlotAcquisition {
@@ -107,8 +103,7 @@ actor ThumbnailLoader {
 
         guard !Task.isCancelled else { return nil }
 
-        let settings = await getSettings()
-        let requestedSize = targetSize > 0 ? targetSize : settings.thumbnailSizePreview
+        let requestedSize = await resolvedTargetSize(targetSize)
         let cgThumb = await RequestThumbnail.shared.requestThumbnail(
             for: file.url,
             targetSize: requestedSize,
