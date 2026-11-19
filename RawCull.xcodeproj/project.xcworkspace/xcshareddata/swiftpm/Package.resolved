@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "git@github.com:rsyncOSX/PhotoEvidenceKit.git",
       "state" : {
-        "revision" : "35e8aca4135ac2151cbce033e4e9baefb8bafabc",
-        "version" : "1.1.0"
+        "revision" : "e49d34adcfa2e2c43a4240c2e962dbe9defa4cad",
+        "version" : "1.1.5"
       }
     },
     {
