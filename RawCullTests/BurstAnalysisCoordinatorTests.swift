@@ -87,11 +87,13 @@ struct BurstAnalysisCoordinatorTests {
         let coordinator = harness.coordinator
         let repository = harness.repository
         let request = harness.request
-        repository.migrationCandidate = makeCoordinatorSnapshot(
+        var legacy = makeCoordinatorSnapshot(
             request: request,
             files: oldFiles,
             groups: [oldGroup],
         )
+        legacy.schemaVersion = BurstAnalysisCache.legacyArtifactMigrationSchemaVersion
+        repository.migrationCandidate = legacy
 
         let result = await coordinator.prepareCache(
             for: request,
@@ -197,6 +199,7 @@ struct BurstAnalysisCoordinatorTests {
             preloadedSaliency: [:],
         )
         var migration = makeCoordinatorSnapshot(request: harness.request)
+        migration.schemaVersion = BurstAnalysisCache.legacyArtifactMigrationSchemaVersion
         migration.embeddings = [
             file.id: makeCoordinatorArtifact(
                 file: file,
@@ -335,6 +338,46 @@ struct BurstAnalysisCoordinatorTests {
                 == viewModel.currentBurstSimilaritySignature,
         )
         #expect(!viewModel.burstAnalysisProgress.isRunning)
+    }
+
+    @Test(arguments: [
+        (live: BurstReviewState.reviewed, saved: BurstReviewState?.none, expected: BurstReviewState?.some(.reviewed)),
+        (live: BurstReviewState.none, saved: BurstReviewState?.some(.reviewed), expected: BurstReviewState?.none)
+    ])
+    func `unsaved in-memory review states win over the saved cache`(
+        live: BurstReviewState,
+        saved: BurstReviewState?,
+        expected: BurstReviewState?,
+    ) async throws {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = [makeCoordinatorFile("A.raw"), makeCoordinatorFile("B.raw")]
+        let group = BurstGroup(id: 4, fileIDs: files.map(\.id))
+        let signature = try #require(BurstGroupSignature(files: files, catalog: catalog))
+        let harness = makeCoordinatorHarness(catalog: catalog, files: files)
+        harness.repository.snapshot = makeCoordinatorSnapshot(
+            request: harness.request,
+            groups: [group],
+            reviewStates: saved.map { [BurstReviewStateSnapshot(signature: signature, state: $0)] } ?? [],
+        )
+        // A current-schema file is also returned as the migration candidate.
+        harness.repository.migrationCandidate = harness.repository.snapshot
+        harness.similarityModel.burstGroups = [group]
+
+        let result = await harness.coordinator.run(
+            request: harness.request,
+            initialReviewStates: [group.id: live],
+            fullCatalogFileIDs: Set(files.map(\.id)),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { true },
+                updateProgress: { _ in },
+                didScoreSharpness: { _ in },
+                applyResult: { $0 },
+            ),
+        )
+
+        #expect(result?.cacheOutcome == .hit)
+        #expect(result?.restoredReviewStates[group.id] == expected)
+        #expect(result?.diagnostics.contains(.legacyMigrationCandidateFound) == false)
     }
 
     @Test

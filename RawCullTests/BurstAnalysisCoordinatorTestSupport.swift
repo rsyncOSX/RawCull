@@ -48,6 +48,7 @@ struct CoordinatorComputeHarness {
     let repository: CoordinatorCacheRepository
     let request: BurstAnalysisPipelineRequest
     let sharpnessModel: SharpnessScoringModel
+    let similarityModel: SimilarityScoringModel
 }
 
 @MainActor
@@ -102,6 +103,7 @@ func makeCoordinatorHarness(
         repository: repository,
         request: request,
         sharpnessModel: sharpnessModel,
+        similarityModel: model,
     )
 }
 
