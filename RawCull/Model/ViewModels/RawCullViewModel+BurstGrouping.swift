@@ -42,10 +42,9 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): running generation \(generation) for \(request.orderedFiles.count) files",
         )
-        defer { finishBurstAnalysis(generation: generation) }
         let initialReviewStates = burstReviewStates
         let fullCatalogFileIDs = Set(files.map(\.id))
-        return await burstAnalysisCoordinator.run(
+        let result = await burstAnalysisCoordinator.run(
             request: request,
             initialReviewStates: initialReviewStates,
             fullCatalogFileIDs: fullCatalogFileIDs,
@@ -73,6 +72,8 @@ extension RawCullViewModel {
                 },
             ),
         )
+        await finishBurstAnalysis(generation: generation, applied: result != nil)
+        return result
     }
 
     private func isCurrentBurstAnalysis(generation: Int, catalog: URL) -> Bool {
@@ -85,6 +86,15 @@ extension RawCullViewModel {
             "RawCullViewModel.finishBurstAnalysis(): finishing generation \(generation)",
         )
         burstAnalysisCoordinator.finish(generation: generation)
+    }
+
+    /// Finish the run, then apply a sensitivity change the user made while it
+    /// was running. Without this the run's start-time threshold would win.
+    private func finishBurstAnalysis(generation: Int, applied: Bool) async {
+        let shouldRegroup = burstAnalysisCoordinator.takePendingRegroup(generation: generation)
+        finishBurstAnalysis(generation: generation)
+        guard applied, shouldRegroup, !Task.isCancelled else { return }
+        await reGroupBursts()
     }
 
     /// Refresh similarity artifacts, delete the saved derived burst cache, and
@@ -144,8 +154,6 @@ extension RawCullViewModel {
         burstAnalysisCoordinator.updateProgress(
             BurstAnalysisProgress(step: .loadingCache),
         )
-        defer { finishBurstAnalysis(generation: generation) }
-
         let request = makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: sorted,
@@ -162,7 +170,11 @@ extension RawCullViewModel {
                   },
               ),
               let snapshot = cachePreparation.compatibleSnapshot
-        else { return false }
+        else {
+            // Nothing was restored, but a regroup requested meanwhile still applies.
+            await finishBurstAnalysis(generation: generation, applied: true)
+            return false
+        }
 
         burstAnalysisCoordinator.applyCachedWorkerState(
             snapshot,
@@ -181,6 +193,7 @@ extension RawCullViewModel {
             diagnostics: [],
         )
         _ = applyBurstAnalysisPipelineResult(result, request: request)
+        await finishBurstAnalysis(generation: generation, applied: true)
         return true
     }
 
@@ -199,6 +212,12 @@ extension RawCullViewModel {
     /// Requires embeddings to already be computed — no-ops otherwise.
     func reGroupBursts() async {
         Logger.process.debugMessageOnly("RawCullViewModel.reGroupBursts()")
+        // An active run groups with the threshold it captured at start and
+        // would overwrite this regroup; replay it when the run finishes.
+        if burstAnalysisProgress.isRunning {
+            burstAnalysisCoordinator.hasPendingRegroup = true
+            return
+        }
         guard !similarityModel.embeddings.isEmpty, let catalog = selectedSource?.url else { return }
         let sorted = completedBurstAnalysisContext
             .flatMap(filesForCompletedBurstAnalysis)

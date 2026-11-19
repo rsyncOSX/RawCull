@@ -296,6 +296,47 @@ struct BurstAnalysisCoordinatorTests {
         #expect(harness.sharpnessModel.scoresSignature == newSignature)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func `sensitivity change during an active run is applied after it finishes`() async throws {
+        let gate = CoordinatorIndexGate()
+        let backend = SimilarityBackendDescriptor(
+            backend: "clip",
+            modelFingerprint: "coordinator-test-v1",
+            representation: "coordinator-test-representation",
+            preprocessingVersion: "coordinator-test-preprocessing-v1",
+            normalizationVersion: "coordinator-test-normalization-v1",
+            configurationVersion: "coordinator-test-configuration-v1",
+        )
+        let viewModel = makeRawCullViewModel(
+            similarityService: CoordinatorGatedSimilarityService(backendDescriptor: backend, gate: gate),
+            burstAnalysisCacheRepository: CoordinatorCacheRepository(),
+        )
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let files = (0 ..< 4).map { makeCoordinatorFile("R\($0).raw") }
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+
+        let run = Task { await viewModel.startBurstAnalysis(catalog: catalog.url, files: files) }
+        while await !gate.hasStarted {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(viewModel.burstAnalysisProgress.isRunning)
+        viewModel.similarityModel.burstSensitivity = 0.5
+        await viewModel.reGroupBursts()
+        await gate.release()
+        _ = await run.value
+
+        #expect(viewModel.completedBurstAnalysisContext != nil)
+        #expect(
+            viewModel.completedBurstAnalysisContext?.similaritySignature
+                == viewModel.currentBurstSimilaritySignature,
+        )
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
+    }
+
     @Test
     func `stale generation cannot apply or save a computed result`() async {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")

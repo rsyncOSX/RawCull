@@ -24,6 +24,10 @@ final class BurstAnalysisCoordinator {
     var progress = BurstAnalysisProgress()
     var generation = 0
     @ObservationIgnored var cancelTask: (() -> Void)?
+    /// Set when the user changes grouping sensitivity while a run is active.
+    /// The run groups with the threshold captured at its start, so the newer
+    /// threshold must be applied after it finishes.
+    @ObservationIgnored var hasPendingRegroup = false
     var hasActiveTask: Bool {
         cancelTask != nil
     }

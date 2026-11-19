@@ -221,3 +221,55 @@ func makeCoordinatorSnapshot(
         ),
     )
 }
+
+/// Suspends the first `index` call until released.
+actor CoordinatorIndexGate {
+    private(set) var hasStarted = false
+    private var released = false
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    func enter() async {
+        hasStarted = true
+        guard !released else { return }
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+/// Indexes every source into a valid artifact after the gate opens; all
+/// adjacent pairs are near-identical.
+nonisolated struct CoordinatorGatedSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor: SimilarityBackendDescriptor
+    let gate: CoordinatorIndexGate
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress _: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        await gate.enter()
+        let artifacts = Dictionary(uniqueKeysWithValues: sources.map { source in
+            (
+                source.id,
+                SimilarityArtifact(
+                    descriptor: SimilarityArtifactDescriptor(
+                        backend: backendDescriptor,
+                        dimensions: 1,
+                        sourceFingerprint: SourceFingerprint(source: source),
+                    ),
+                    payload: Data([0]),
+                ),
+            )
+        })
+        return RawCullSimilarityIndexingOutput(artifacts: artifacts, failures: [])
+    }
+
+    func distance(from _: SimilarityArtifact, to _: SimilarityArtifact) throws -> Float? {
+        0.01
+    }
+}
