@@ -40,9 +40,7 @@ struct BurstGroupHeaderView: View {
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
 
-            #if DEBUG
             BurstAssessmentButton(viewModel: viewModel, files: files)
-            #endif
 
             if groupID == -1 || analysis != nil {
                 Button {
