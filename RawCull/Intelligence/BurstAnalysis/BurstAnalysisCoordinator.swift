@@ -247,7 +247,8 @@ final class BurstAnalysisCoordinator {
         if importLegacyCandidate,
            let loadedCandidate = await cacheRepository.loadMigrationCandidate(
                catalog: request.catalogIdentity,
-           ) {
+           ),
+           BurstAnalysisCache.hasUniqueFileIdentity(loadedCandidate) {
             guard isCurrent() else { return nil }
             let remappedCandidate = Self.remap(
                 loadedCandidate,
@@ -276,7 +277,7 @@ final class BurstAnalysisCoordinator {
             similaritySignature: request.similaritySignature,
         )
         guard isCurrent() else { return nil }
-        guard let loadedSnapshot else {
+        guard let loadedSnapshot, BurstAnalysisCache.hasUniqueFileIdentity(loadedSnapshot) else {
             return BurstAnalysisCachePreparation(
                 compatibleSnapshot: nil,
                 migrationCandidate: migrationCandidate,

@@ -20,15 +20,20 @@ extension BurstAnalysisCoordinator {
         _ snapshot: BurstAnalysisCacheSnapshot,
         to currentFiles: [FileItem],
     ) -> BurstAnalysisCacheSnapshot {
+        // Never trap on a malformed snapshot: the first entry for a repeated
+        // id or path wins. Repositories reject such snapshots before use.
+        let keepFirst: (UUID, UUID) -> UUID = { first, _ in first }
         let cachedFilesByID = Dictionary(
-            uniqueKeysWithValues: snapshot.files.map { ($0.id, $0) },
+            snapshot.files.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first },
         )
         let currentByPath = Dictionary(
-            uniqueKeysWithValues: currentFiles.map { ($0.url.path, $0.id) },
+            currentFiles.map { ($0.url.path, $0.id) },
+            uniquingKeysWith: keepFirst,
         )
-        let idMap = Dictionary(uniqueKeysWithValues: cachedFilesByID.compactMap { oldID, file in
+        let idMap = Dictionary(cachedFilesByID.compactMap { oldID, file in
             currentByPath[file.path].map { (oldID, $0) }
-        })
+        }, uniquingKeysWith: keepFirst)
 
         let groups = snapshot.groups.map { group in
             BurstGroup(
@@ -52,17 +57,15 @@ extension BurstAnalysisCoordinator {
                     modificationDate: $0.dateModified,
                 )
             },
-            embeddings: Dictionary(uniqueKeysWithValues: snapshot.embeddings.compactMap { oldID, artifact in
+            embeddings: Dictionary(snapshot.embeddings.compactMap { oldID, artifact in
                 idMap[oldID].map { ($0, artifact) }
-            }),
-            sharpnessScores: Dictionary(
-                uniqueKeysWithValues: snapshot.sharpnessScores.compactMap { oldID, score in
-                    idMap[oldID].map { ($0, score) }
-                },
-            ),
-            saliencyInfo: Dictionary(uniqueKeysWithValues: snapshot.saliencyInfo.compactMap { oldID, info in
+            }, uniquingKeysWith: { first, _ in first }),
+            sharpnessScores: Dictionary(snapshot.sharpnessScores.compactMap { oldID, score in
+                idMap[oldID].map { ($0, score) }
+            }, uniquingKeysWith: { first, _ in first }),
+            saliencyInfo: Dictionary(snapshot.saliencyInfo.compactMap { oldID, info in
                 idMap[oldID].map { ($0, info) }
-            }),
+            }, uniquingKeysWith: { first, _ in first }),
             groups: groups,
             boundaryEvidence: remappedEvidence(snapshot.boundaryEvidence, idMap: idMap),
             results: remappedResults(snapshot.results, idMap: idMap),

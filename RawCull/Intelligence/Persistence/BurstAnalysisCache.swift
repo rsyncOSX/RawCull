@@ -125,6 +125,14 @@ actor BurstAnalysisCache {
     nonisolated static let schemaVersion = 9
     nonisolated static let legacyArtifactMigrationSchemaVersion = 8
 
+    /// A decodable file can still repeat a file id or path (a crash mid-edit,
+    /// a manual copy, an older buggy build). Such a snapshot cannot be remapped
+    /// unambiguously, so it is rejected rather than allowed to trap.
+    nonisolated static func hasUniqueFileIdentity(_ snapshot: BurstAnalysisCacheSnapshot) -> Bool {
+        Set(snapshot.files.map(\.id)).count == snapshot.files.count
+            && Set(snapshot.files.map(\.path)).count == snapshot.files.count
+    }
+
     private let cacheDirectory: URL
 
     nonisolated var storageDirectory: URL {
@@ -236,7 +244,8 @@ actor BurstAnalysisCache {
                   from: data,
               ),
               snapshot.schemaVersion == Self.schemaVersion
-              || snapshot.schemaVersion == Self.legacyArtifactMigrationSchemaVersion
+              || snapshot.schemaVersion == Self.legacyArtifactMigrationSchemaVersion,
+              Self.hasUniqueFileIdentity(snapshot)
         else { return nil }
         return snapshot
     }
@@ -314,10 +323,11 @@ actor BurstAnalysisCache {
               snapshot.similarityArtifactSetDigest != nil,
               snapshot.similaritySignature.artifactSchemaVersion
               == SimilarityArtifactDescriptor.currentSchemaVersion,
-              snapshot.files.count == files.count
+              snapshot.files.count == files.count,
+              Self.hasUniqueFileIdentity(snapshot)
         else { return false }
 
-        let cached = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.path, $0) })
+        let cached = Dictionary(snapshot.files.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
         for file in files {
             guard let item = cached[file.url.path],
                   item.size == file.size,
