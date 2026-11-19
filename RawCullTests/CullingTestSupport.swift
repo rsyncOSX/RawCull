@@ -201,8 +201,10 @@ actor SimilarityEmbeddingSuspensionProbe {
     private var startedCount = 0
     private var continuations: [CheckedContinuation<Void, Never>] = []
 
-    func suspendIgnoringCancellation() async -> Data? {
+    func slowFilePayload() async -> Data {
         startedCount += 1
+        // The superseded attempt stays suspended until released. Its retry can finish.
+        guard startedCount == 1 else { return Data([3]) }
         await withCheckedContinuation { continuation in
             continuations.append(continuation)
         }
@@ -236,7 +238,7 @@ nonisolated struct SuspendingSimilarityService: RawCullSimilarityServicing {
         var artifacts: [UUID: SimilarityArtifact] = [:]
         for (offset, source) in sources.enumerated() {
             let payload: Data = if source.url.lastPathComponent.hasPrefix("slow") {
-                await probe.suspendIgnoringCancellation() ?? Data()
+                await probe.slowFilePayload()
             } else {
                 Data([2])
             }
