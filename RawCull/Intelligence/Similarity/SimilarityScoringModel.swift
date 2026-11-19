@@ -276,7 +276,9 @@ final class SimilarityScoringModel {
         burstBoundaryEvidence = []
         burstModeActive = false
         isGrouping = false
-        _groupingGeneration = 0
+        // Bump rather than zero: a continuation pending from before the reset
+        // must never match the generation of a grouping started after it.
+        _groupingGeneration &+= 1
         _adjacentDistanceCache = [:]
         _adjacentDistanceCacheSignature = 0
         indexingFailures = []
@@ -777,12 +779,14 @@ final class SimilarityScoringModel {
             for runSlice in eligibleRuns {
                 guard !Task.isCancelled else { return nil }
                 let run = Array(runSlice)
-                let adjacentDistances = Self.computeAdjacentDistances(
+                // Partial distances would make the engine split at every
+                // missing pair, so a cancelled computation publishes nothing.
+                guard let adjacentDistances = Self.computeAdjacentDistances(
                     files: run,
                     artifacts: snapshot,
                     service: service,
                     cached: cachedAdjacentDistances,
-                )
+                ) else { return nil }
                 let output = BurstGroupingEngine.group(
                     files: run,
                     adjacentDistances: adjacentDistances,
@@ -795,6 +799,7 @@ final class SimilarityScoringModel {
                 }
                 boundaryEvidence.append(contentsOf: output.boundaryEvidence)
             }
+            guard !Task.isCancelled else { return nil }
             return BurstGroupingOutput(
                 groups: groups,
                 boundaryEvidence: boundaryEvidence,
@@ -814,7 +819,7 @@ final class SimilarityScoringModel {
 
         guard _groupingGeneration == generation else { return }
         isGrouping = false
-        guard let output else { return }
+        guard !work.isCancelled, let output else { return }
 
         burstGroups = output.groups
         burstGroupLookup = Dictionary(
@@ -935,13 +940,13 @@ final class SimilarityScoringModel {
         artifacts: [UUID: SimilarityArtifact],
         service: any RawCullSimilarityServicing,
         cached: [String: Float] = [:],
-    ) -> [String: Float] {
-        guard files.count > 1 else { return [:] }
+    ) -> [String: Float]? {
+        guard files.count > 1 else { return Task.isCancelled ? nil : [:] }
 
         var distances = cached
         for index in files.indices.dropFirst() {
             if index & 0x3F == 0, Task.isCancelled {
-                return distances
+                return nil
             }
             let previousID = files[index - 1].id
             let currentID = files[index].id
@@ -965,7 +970,7 @@ final class SimilarityScoringModel {
                 continue
             }
         }
-        return distances
+        return Task.isCancelled ? nil : distances
     }
 
     @concurrent
