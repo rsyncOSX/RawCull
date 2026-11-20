@@ -491,22 +491,75 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
     }
 }
 
+/// Regenerates a subject mask when the cached one does not fit the decoded image.
+///
+/// The package mask cache is keyed by file, prompt, model and input size only, so a
+/// mask cached from one render (embedded preview at 1616 px, say) is returned for
+/// another (RAW Demosaic at 2048 px). Deep Review checks the size itself, regenerates
+/// without the cache and writes the fresh mask back so the overlay shows the mask
+/// that was scored.
+nonisolated struct DeepAIReviewMaskRegeneration: Sendable {
+    let selector: SubjectMaskSelector
+    let repository: SubjectMaskRepository
+    let stores: [any SubjectMaskStoring]
+
+    /// - Parameters:
+    ///   - provider: The active segmentation provider.
+    ///   - repository: The cached repository whose keys the fresh masks overwrite.
+    ///   - stores: The stores behind `repository`.
+    init(
+        provider: any SubjectSegmenting,
+        repository: SubjectMaskRepository,
+        stores: [any SubjectMaskStoring],
+        maxSide: Int,
+    ) {
+        let uncachedRepository = SubjectMaskRepository(configuration: repository.configuration, stores: [])
+        selector = SubjectMaskSelector(
+            repository: uncachedRepository,
+            segmentationService: SegmentationService(provider: provider, stores: [], maxSide: maxSide),
+        )
+        self.repository = repository
+        self.stores = stores
+    }
+
+    init(selector: SubjectMaskSelector, repository: SubjectMaskRepository, stores: [any SubjectMaskStoring]) {
+        self.selector = selector
+        self.repository = repository
+        self.stores = stores
+    }
+
+    func replaceCachedMask(_ result: SubjectSegmentationResult, for source: AIImageSource) async {
+        let key = await repository.storageKey(for: source, prompt: result.prompt)
+        for store in stores {
+            try? await store.save(result, for: key)
+        }
+    }
+}
+
 nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable {
     private let selector: SubjectMaskSelector
+    private let maskRegeneration: DeepAIReviewMaskRegeneration?
     private let decoder: any DeepAIReviewImageDecoding
     private let focusScorer: any SubjectMaskFocusScoring
     private let maximumPixelSize: Int
 
     init(
         selector: SubjectMaskSelector,
+        maskRegeneration: DeepAIReviewMaskRegeneration? = nil,
         decoder: any DeepAIReviewImageDecoding = RawCullDeepReviewImageDecoder(),
         focusScorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(),
         maximumPixelSize: Int = SharpnessScoringSizeOption.maximumPixelSize,
     ) {
         self.selector = selector
+        self.maskRegeneration = maskRegeneration
         self.decoder = decoder
         self.focusScorer = focusScorer
         self.maximumPixelSize = maximumPixelSize
+    }
+
+    static func maskFits(_ selection: SubjectMaskSelection, image: CGImage) -> Bool {
+        guard let mask = selection.selected?.result.mask else { return true }
+        return mask.width == image.width && mask.height == image.height
     }
 
     @concurrent
@@ -629,21 +682,33 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             url: candidate.url,
             displayName: candidate.fileName,
         )
-        let selection: SubjectMaskSelection
+        var selection: SubjectMaskSelection
         do {
             Logger.process.debugMessageOnly(
                 "RawCullDeepAIReviewPipeline.evaluate(): requesting a subject mask "
                     + "for \(candidate.fileName) with \(prompts.count) prompt attempts",
             )
-            selection = try await selector.select(
-                for: source,
-                image: image,
-                strategy: SubjectMaskSelectionStrategy(
-                    orderedPrompts: prompts,
-                    minimumQuality: .warning,
-                    acquisitionPolicy: .cacheFirstGenerateIfMissing,
-                ),
+            let strategy = SubjectMaskSelectionStrategy(
+                orderedPrompts: prompts,
+                minimumQuality: .warning,
+                acquisitionPolicy: .cacheFirstGenerateIfMissing,
             )
+            selection = try await selector.select(for: source, image: image, strategy: strategy)
+            if !Self.maskFits(selection, image: image) {
+                // A cached mask from another render or decode size cannot be scored
+                // against this image. Regenerate instead of reporting missing detail.
+                Logger.process.debugMessageOnly(
+                    "RawCullDeepAIReviewPipeline.evaluate(): cached mask size does not match "
+                        + "\(image.width)x\(image.height) for \(candidate.fileName); regenerating",
+                )
+                if let maskRegeneration {
+                    let fresh = try await maskRegeneration.selector.select(for: source, image: image, strategy: strategy)
+                    if let result = fresh.selected?.result {
+                        await maskRegeneration.replaceCachedMask(result, for: source)
+                    }
+                    selection = fresh
+                }
+            }
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -653,6 +718,13 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             return Self.failedCandidate(
                 candidate,
                 issue: .maskAcquisitionFailed(String(describing: error)),
+            )
+        }
+
+        guard Self.maskFits(selection, image: image) else {
+            return Self.failedCandidate(
+                candidate,
+                issue: .maskAcquisitionFailed("The cached subject mask does not match the decoded image size."),
             )
         }
 

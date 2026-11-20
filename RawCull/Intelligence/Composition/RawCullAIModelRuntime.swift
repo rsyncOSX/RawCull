@@ -455,9 +455,15 @@ final class RawCullAIModelRuntime {
             installUnavailableSegmentationProviderIfNeeded()
         }
         deepAIReviewFeature?.install(
-            service: provider.map { _ in
+            service: provider.map {
                 RawCullDeepAIReviewPipeline(
                     selector: subjectMaskSelector,
+                    maskRegeneration: DeepAIReviewMaskRegeneration(
+                        provider: $0,
+                        repository: subjectMaskRepository,
+                        stores: subjectMaskStores,
+                        maxSide: inputMaxSide,
+                    ),
                     maximumPixelSize: min(
                         inputMaxSide,
                         SharpnessScoringSizeOption.maximumPixelSize,
