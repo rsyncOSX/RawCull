@@ -218,6 +218,19 @@ nonisolated struct FollowUpSourceSnapshot: Codable, Sendable {
 
 /// One job slot shared by the app and any number of helper processes. The lock
 /// file is never replaced. Every state transition replaces the JSON atomically.
+/// Why a photo-assessment follow-up stopped or was refused. The raw values
+/// are the `errorCode` strings sent across the app/helper boundary, so they
+/// must not change.
+nonisolated enum MCPAssessmentStopReason: String, Codable, Sendable, CaseIterable {
+    case busy
+    case executionTimeout
+    case modelChanged
+    case modelUnavailable
+    case reauthorizationRequired
+    case assessmentFailed
+    case allPhotosFailed
+}
+
 nonisolated struct AnalysisJobStore: Sendable {
     let directory: URL?
 

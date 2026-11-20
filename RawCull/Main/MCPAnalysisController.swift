@@ -137,7 +137,7 @@ final class MCPAnalysisController {
         let id: UUID
         let deadline: ContinuousClock.Instant
         /// Set when the controller stops the assessment for a known reason.
-        var stopReason: String?
+        var stopReason: MCPAssessmentStopReason?
     }
 
     /// Catalog setup, catalog analysis and photo-assessment follow-ups never
@@ -272,7 +272,7 @@ final class MCPAnalysisController {
         }
     }
 
-    private func cancelFollowUp(reason: String? = nil) {
+    private func cancelFollowUp(reason: MCPAssessmentStopReason? = nil) {
         guard case var .assessing(followUp) = activity else { return }
         if let reason {
             followUp.stopReason = reason
@@ -281,7 +281,7 @@ final class MCPAnalysisController {
         followUp.task?.cancel()
     }
 
-    private func followUpStopReason(_ token: ActivityToken) -> String? {
+    private func followUpStopReason(_ token: ActivityToken) -> MCPAssessmentStopReason? {
         if case let .assessing(followUp) = activity, followUp.token == token { followUp.stopReason } else { nil }
     }
 
@@ -446,7 +446,7 @@ final class MCPAnalysisController {
             if status.cancellationRequested {
                 cancelFollowUp()
             } else if environment.instant() >= running.deadline {
-                cancelFollowUp(reason: "executionTimeout")
+                cancelFollowUp(reason: .executionTimeout)
             }
             return
         }
@@ -459,14 +459,14 @@ final class MCPAnalysisController {
         guard canStart(), !isWorkspaceLoading(viewModel), !viewModel.isDeepAIReviewBlockedByOtherWork,
               !viewModel.isPreparingBurstCatalog, (try? lease.acquire(id)) != nil
         else {
-            try jobs.finishFollowUp(worker, result: nil, errorCode: "busy")
+            try jobs.finishFollowUp(worker, result: nil, errorCode: MCPAssessmentStopReason.busy.rawValue)
             return
         }
         let token = begin {
             .assessing(FollowUpActivity(token: $0, id: id, deadline: environment.instant().advanced(by: .seconds(180))))
         }
         lease.invalidateOwner = { [weak self] in
-            self?.cancelFollowUp(reason: "modelChanged")
+            self?.cancelFollowUp(reason: .modelChanged)
         }
         attach(Task {
             let activity = ProcessInfo.processInfo.beginActivity(
@@ -486,22 +486,11 @@ final class MCPAnalysisController {
                 try await retryStorage {
                     try Task.checkCancellation()
                     try jobs.finishFollowUp(worker, result: JSONEncoder().encode(output),
-                                            errorCode: output.assessedCount == 0 ? "allPhotosFailed" : nil)
+                                            errorCode: output.assessedCount == 0
+                                                ? MCPAssessmentStopReason.allPhotosFailed.rawValue : nil)
                 }
             } catch {
-                let code: String? = if let stopReason = followUpStopReason(token) {
-                    stopReason
-                } else if error is CancellationError {
-                    nil
-                } else if error is QwenInferenceRuntime.MCPAssessmentError {
-                    "modelChanged"
-                } else if case QwenModelError.modelUnavailable = error {
-                    "modelUnavailable"
-                } else if error is FollowUpCatalogError {
-                    "reauthorizationRequired"
-                } else {
-                    "assessmentFailed"
-                }
+                let code = Self.stopReason(for: error, recorded: followUpStopReason(token))?.rawValue
                 // Publish terminal state from a fresh task so a cancelled inference can still retry a busy store.
                 await Task {
                     do {
@@ -512,6 +501,28 @@ final class MCPAnalysisController {
                 }.value
             }
         }, to: token)
+    }
+
+    /// Maps how a follow-up ended to the code published to the helper. A reason
+    /// the controller recorded (timeout, lease invalidation) wins; a plain
+    /// cancellation publishes no code.
+    static func stopReason(for error: any Error, recorded: MCPAssessmentStopReason?) -> MCPAssessmentStopReason? {
+        if let recorded {
+            return recorded
+        }
+        if error is CancellationError {
+            return nil
+        }
+        if error is QwenInferenceRuntime.MCPAssessmentError {
+            return .modelChanged
+        }
+        if case QwenModelError.modelUnavailable = error {
+            return .modelUnavailable
+        }
+        if error is FollowUpCatalogError {
+            return .reauthorizationRequired
+        }
+        return .assessmentFailed
     }
 
     private func assessFollowUp(

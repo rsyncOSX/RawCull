@@ -237,7 +237,7 @@ struct MCPAnalysisControllerTests {
         await controller.tick()
 
         let status = try fixture.jobs.followUpStatus(request.id)
-        #expect(status.errorCode == "busy")
+        #expect(status.errorCode == MCPAssessmentStopReason.busy.rawValue)
         #expect(status.state != .running)
     }
 
@@ -253,7 +253,7 @@ struct MCPAnalysisControllerTests {
         fixture.instant = fixture.instant.advanced(by: .seconds(1))
         await controller.tick()
         #expect(try await fixture.settle { try fixture.jobs.followUpStatus(request.id).state != .running })
-        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == "executionTimeout")
+        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == MCPAssessmentStopReason.executionTimeout.rawValue)
     }
 
     @Test func `lease invalidation stops a follow up as modelChanged`() async throws {
@@ -264,7 +264,7 @@ struct MCPAnalysisControllerTests {
         CombinedReviewLease.shared.invalidate()
 
         #expect(try await fixture.settle { try fixture.jobs.followUpStatus(request.id).state != .running })
-        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == "modelChanged")
+        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == MCPAssessmentStopReason.modelChanged.rawValue)
     }
 
     @Test func `cancellation requested by the helper stops a follow up`() async throws {
@@ -292,7 +292,7 @@ struct MCPAnalysisControllerTests {
         await controller.tick()
 
         #expect(try await fixture.settle { try fixture.jobs.followUpStatus(request.id).state != .running })
-        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == "modelUnavailable")
+        #expect(try fixture.jobs.followUpStatus(request.id).errorCode == MCPAssessmentStopReason.modelUnavailable.rawValue)
     }
 
     @Test func `quitting during a follow up waits for it and stops it`() async throws {
@@ -304,5 +304,35 @@ struct MCPAnalysisControllerTests {
 
         // stopForQuit awaits the follow-up task, so its terminal state is already written.
         #expect(try fixture.jobs.followUpStatus(request.id).state != .running)
+    }
+}
+
+@Suite("MCP assessment stop reasons")
+@MainActor
+struct MCPAssessmentStopReasonTests {
+    private struct OtherError: Error {}
+
+    @Test func `a recorded reason wins over the error`() {
+        #expect(MCPAnalysisController.stopReason(for: CancellationError(), recorded: .executionTimeout) == .executionTimeout)
+        #expect(MCPAnalysisController.stopReason(for: OtherError(), recorded: .modelChanged) == .modelChanged)
+    }
+
+    @Test func `errors map to their published codes`() {
+        #expect(MCPAnalysisController.stopReason(for: CancellationError(), recorded: nil) == nil)
+        #expect(MCPAnalysisController.stopReason(
+            for: QwenInferenceRuntime.MCPAssessmentError.modelChanged, recorded: nil,
+        ) == .modelChanged)
+        #expect(MCPAnalysisController.stopReason(for: QwenModelError.modelUnavailable, recorded: nil) == .modelUnavailable)
+        #expect(MCPAnalysisController.stopReason(
+            for: MCPAnalysisController.FollowUpCatalogError.reauthorizationRequired, recorded: nil,
+        ) == .reauthorizationRequired)
+        #expect(MCPAnalysisController.stopReason(for: OtherError(), recorded: nil) == .assessmentFailed)
+    }
+
+    @Test func `raw values are the wire contract`() {
+        #expect(MCPAssessmentStopReason.allCases.map(\.rawValue) == [
+            "busy", "executionTimeout", "modelChanged", "modelUnavailable",
+            "reauthorizationRequired", "assessmentFailed", "allPhotosFailed",
+        ])
     }
 }
