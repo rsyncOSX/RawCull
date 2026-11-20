@@ -477,32 +477,12 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             return image
 
         case .rawDemosaic:
-            guard let rawFilter = CIRAWFilter(imageURL: candidate.url) else {
+            // Same render as sharpness scoring so both report on identical pixels.
+            guard let result = RawScoringDemosaic.render(url: candidate.url, maximumPixelSize: maximumPixelSize) else {
+                try Task.checkCancellation()
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed
-            }
-            rawFilter.sharpnessAmount = 0
-            rawFilter.detailAmount = 0.6
-            rawFilter.contrastAmount = 1
-            rawFilter.exposure = 0
-
-            guard var image = rawFilter.outputImage else {
-                throw DeepAIReviewCandidateIssue.imageDecodeFailed
-            }
-            let maximumDimension = max(image.extent.width, image.extent.height)
-            if maximumDimension > CGFloat(maximumPixelSize), maximumDimension > 0 {
-                let scale = CGFloat(maximumPixelSize) / maximumDimension
-                image = image.transformed(
-                    by: CGAffineTransform(scaleX: scale, y: scale),
-                )
             }
             try Task.checkCancellation()
-            let context = CIContext(options: [
-                .cacheIntermediates: false,
-                .workingColorSpace: NSNull()
-            ])
-            guard let result = context.createCGImage(image, from: image.extent) else {
-                throw DeepAIReviewCandidateIssue.imageDecodeFailed
-            }
             Logger.process.debugMessageOnly(
                 "RawCullDeepReviewImageDecoder.image(): decoded \(candidate.fileName) at \(result.width)x\(result.height)",
             )
