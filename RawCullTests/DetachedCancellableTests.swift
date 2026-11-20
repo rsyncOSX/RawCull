@@ -45,6 +45,23 @@ struct DetachedCancellableTests {
     }
 
     @Test
+    func `work started by an already-cancelled caller always sees cancellation`() async {
+        // The previous implementation launched a detached task before installing
+        // the cancellation handler, so the body could pass its first check in a
+        // small fraction of calls. Repeat enough times to expose that race.
+        for _ in 0 ..< 50000 {
+            let caller = Task {
+                while !Task.isCancelled {
+                    await Task.yield()
+                }
+                return await detachedCancellable(priority: .utility) { Task.isCancelled }
+            }
+            caller.cancel()
+            #expect(await caller.value == true)
+        }
+    }
+
+    @Test
     func `uncancelled work returns its value`() async throws {
         #expect(await detachedCancellable { 21 * 2 } == 42)
         #expect(try await detachedCancellable { () throws -> String in "ok" } == "ok")
