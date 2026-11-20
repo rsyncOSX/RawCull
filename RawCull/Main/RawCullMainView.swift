@@ -98,7 +98,7 @@ struct RawCullMainView: View {
                 .zIndex(12)
             }
         }
-        .sheet(item: $viewModel.activeSheet) { sheet in
+        .sheet(item: Bindable(viewModel.presentation).activeSheet) { sheet in
             switch sheet {
             case .stats:
                 ScanStatsSheetView(viewModel: viewModel)
@@ -115,15 +115,15 @@ struct RawCullMainView: View {
                 ExtractJPGsSheetView(viewModel: viewModel)
             }
         }
-        .sheet(isPresented: $viewModel.showCopyARWFilesView) {
+        .sheet(isPresented: Bindable(viewModel.presentation).showCopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,
-                sheetType: $viewModel.sheetType,
+                sheetType: Bindable(viewModel.presentation).sheetType,
                 remoteDataNumbers: $viewModel.remoteDataNumbers,
-                showcopytask: $viewModel.showCopyARWFilesView,
+                showcopytask: Bindable(viewModel.presentation).showCopyARWFilesView,
             )
         }
-        .alert(item: $viewModel.operationFailurePresentation) { presentation in
+        .alert(item: Bindable(viewModel.presentation).operationFailurePresentation) { presentation in
             Alert(
                 title: Text(presentation.title),
                 message: Text(presentation.message),
@@ -184,7 +184,7 @@ struct RawCullMainView: View {
         .onChange(of: reduceMotion) { _, reduced in
             if reduced {
                 memoryWarningOpacity = 0.8
-            } else if viewModel.memoryPressureWarning {
+            } else if viewModel.presentation.memoryPressureWarning {
                 startMemoryWarningFlash()
             }
         }
@@ -193,24 +193,24 @@ struct RawCullMainView: View {
                 viewModel.showsDetailedBurstComparison = false
             }
         }
-        .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
-        .focusedSceneValue(\.aborttask, $viewModel.focusAbortTask)
-        .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
-        .focusedSceneValue(\.copyTaggedFiles, $viewModel.focusCopyTaggedFiles)
+        .focusedSceneValue(\.extractJPGs, Bindable(viewModel.presentation).focusExtractJPGs)
+        .focusedSceneValue(\.aborttask, Bindable(viewModel.presentation).focusAbortTask)
+        .focusedSceneValue(\.addCatalog, Bindable(viewModel.presentation).isShowingPicker)
+        .focusedSceneValue(\.copyTaggedFiles, Bindable(viewModel.presentation).focusCopyTaggedFiles)
         .focusedSceneValue(
             \.canCopyTaggedFiles,
             viewModel.selectedSource != nil && !viewModel.isCreatingThumbnails,
         )
-        .onChange(of: viewModel.focusExtractJPGs) { _, shouldPresent in
+        .onChange(of: viewModel.presentation.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
-            viewModel.focusExtractJPGs = false
+            viewModel.presentation.focusExtractJPGs = false
             viewModel.presentExtractJPGsSheet()
         }
-        .onChange(of: viewModel.focusCopyTaggedFiles) { _, shouldPresent in
+        .onChange(of: viewModel.presentation.focusCopyTaggedFiles) { _, shouldPresent in
             guard shouldPresent else { return }
-            viewModel.focusCopyTaggedFiles = false
-            viewModel.sheetType = .copytasksview
-            viewModel.showCopyARWFilesView = true
+            viewModel.presentation.focusCopyTaggedFiles = false
+            viewModel.presentation.sheetType = .copytasksview
+            viewModel.presentation.showCopyARWFilesView = true
         }
     }
 
@@ -267,8 +267,8 @@ struct RawCullMainView: View {
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
             .toolbar { toolbarContent }
-            .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
-                switch viewModel.alertType {
+            .alert(viewModel.presentation.alertTitle, isPresented: Bindable(viewModel.presentation).showingAlert) {
+                switch viewModel.presentation.alertType {
                 case .createJPGDiskCache:
                     Button("Create Cache") {
                         viewModel.startScanAndExtractJPGs()
@@ -286,7 +286,7 @@ struct RawCullMainView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(viewModel.alertMessage)
+                Text(viewModel.presentation.alertMessage(catalogFileCount: viewModel.files.count))
             }
         } detail: {
             RawCullDetailContainerView(
@@ -312,7 +312,7 @@ struct RawCullMainView: View {
             )
             await SharedMemoryCache.shared.setFileHandlers(handlers)
         }
-        .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
+        .fileImporter(isPresented: Bindable(viewModel.presentation).isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)
         }
         .task(id: viewModel.selectedSource) {
@@ -324,7 +324,7 @@ struct RawCullMainView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if viewModel.memoryPressureWarning, !dismissedMemoryPressureWarning {
+            if viewModel.presentation.memoryPressureWarning, !dismissedMemoryPressureWarning {
                 MemoryWarningLabelView(
                     memoryWarningOpacity: $memoryWarningOpacity,
                     onAppearAction: startMemoryWarningFlash,
@@ -335,7 +335,7 @@ struct RawCullMainView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .onChange(of: viewModel.memoryPressureWarning) { _, newValue in
+        .onChange(of: viewModel.presentation.memoryPressureWarning) { _, newValue in
             if newValue {
                 startMemoryWarningFlash()
             } else {
@@ -423,7 +423,7 @@ struct RawCullMainView: View {
             .task {
                 columnVisibility = .detailOnly
             }
-            .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
+            .fileImporter(isPresented: Bindable(viewModel.presentation).isShowingPicker, allowedContentTypes: [.folder]) { result in
                 handlePickerResult(result)
             }
             .task(id: viewModel.selectedSource) {

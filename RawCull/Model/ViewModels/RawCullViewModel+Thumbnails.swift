@@ -23,7 +23,7 @@ extension RawCullViewModel {
 
     func setMemoryPressureWarning(_ warning: Bool) {
         Logger.process.debugMessageOnly("RawCullViewModel.setMemoryPressureWarning()")
-        memoryPressureWarning = warning
+        presentation.memoryPressureWarning = warning
     }
 
     func extractionNeeded() {
@@ -56,7 +56,7 @@ extension RawCullViewModel {
         if extractJPGDestination == nil {
             extractJPGDestination = selectedSource ?? sources.first
         }
-        activeSheet = .extractJPGs
+        presentation.activeSheet = .extractJPGs
     }
 
     func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
@@ -85,7 +85,7 @@ extension RawCullViewModel {
         let destinationAccessStarted = catalogLifecycle.startSecurityScopedResource(destinationURL)
         guard destinationAccessStarted else {
             isCreatingThumbnails = false
-            operationFailurePresentation = OperationFailurePresentation(
+            presentation.operationFailurePresentation = OperationFailurePresentation(
                 title: "Export Not Started",
                 message: "RawCull could not access the selected destination folder. Choose the folder again and retry.",
             )
@@ -111,7 +111,7 @@ extension RawCullViewModel {
                 self.isCreatingThumbnails = false
                 if !result.failures.isEmpty {
                     let firstFailure = result.failures[0]
-                    self.operationFailurePresentation = OperationFailurePresentation(
+                    self.presentation.operationFailurePresentation = OperationFailurePresentation(
                         title: "Export Incomplete",
                         message: "\(result.failures.count) of \(result.succeeded + result.failures.count) JPG files could not be saved. First failure: \(firstFailure.fileName): \(firstFailure.message)",
                     )

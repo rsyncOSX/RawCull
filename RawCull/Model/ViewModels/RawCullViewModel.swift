@@ -110,8 +110,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     var sortOrder = FileItemSortDescriptor()
-    var isShowingPicker = false
-    var showsLoupeMetadataPanel = true
     var selectedFile: FileItem? {
         files.first { $0.id == selectedFileID }
     }
@@ -132,18 +130,11 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var fileOperationEstimatedSeconds: Int = 0
     var isCreatingThumbnails: Bool = false
     var scanning: Bool = true
-    var showingAlert: Bool = false
 
-    var focusAbortTask: Bool = false
-    var focusExtractJPGs: Bool = false
-    var focusCopyTaggedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGSelectedOnly = true
     var extractJPGDestination: ARWSourceCatalog?
 
-    var showCopyARWFilesView: Bool = false
-    var alertType: AlertType?
-    var sheetType: SheetType? = .copytasksview
     var remoteDataNumbers: RemoteDataNumbers?
     var ratingFilter: RatingFilter = .all
 
@@ -164,6 +155,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Pan and zoom of the main loupe image.
     let loupeViewport = LoupeViewportModel()
+
+    /// Sheets, alerts, banners and menu-command flags of the main window.
+    let presentation = WorkspacePresentationModel()
 
     /// This is the only place CullingModel is initialised.
     var cullingModel = CullingModel()
@@ -230,8 +224,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// URLs whose thumbnails have already been preloaded — skip on revisit.
     @ObservationIgnored var processedURLs: Set<URL> = []
 
-    var memoryPressureWarning: Bool = false
-
     /// O(1) lookup: filename → rating for the current source catalog.
     /// Rebuilt by rebuildRatingCache() after any culling state change.
     var ratingCache: [String: Int] = [:] {
@@ -243,12 +235,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
-
-    /// Sheet currently presented from the main window toolbar
-    /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
-    var activeSheet: ActiveSheet?
-
-    var operationFailurePresentation: OperationFailurePresentation?
 
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
     var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
@@ -293,25 +279,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     // MARK: - Computed
-
-    var alertTitle: String {
-        switch alertType {
-        case .createJPGDiskCache: "Create JPG Disk Cache"
-        case .clearRatedFiles: "Clear Rated Images"
-        case .none: ""
-        }
-    }
-
-    var alertMessage: String {
-        switch alertType {
-        case .createJPGDiskCache:
-            "RawCull will create missing extracted JPG preview cache images for \(files.count) RAW files in this catalog. Existing cached images will be skipped."
-
-        case .clearRatedFiles: "Are you sure you want to clear all rated images?"
-
-        case .none: ""
-        }
-    }
 
     // MARK: - Zoom
 

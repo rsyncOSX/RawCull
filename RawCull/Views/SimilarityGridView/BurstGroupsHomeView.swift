@@ -24,7 +24,7 @@ struct BurstGroupsHomeView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         BurstGroupsHomeHeader(
                             maintenanceActionsAreDisabled: controlsAreBusy,
-                            showScoringParameters: { viewModel.activeSheet = .scoringParams },
+                            showScoringParameters: { viewModel.presentation.activeSheet = .scoringParams },
                             reindex: reindex,
                             indexSimilarity: indexSimilarity,
                         )

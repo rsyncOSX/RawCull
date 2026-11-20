@@ -14,7 +14,7 @@ struct LoupeMetadataOverlay: View {
                 density: .compact,
             )
 
-            if viewModel.showsLoupeMetadataPanel {
+            if viewModel.presentation.showsLoupeMetadataPanel {
                 ZoomMetadataPanel(
                     file: file,
                     image: image,
@@ -25,7 +25,7 @@ struct LoupeMetadataOverlay: View {
                     ),
                     onHide: {
                         withAnimation(.snappy) {
-                            viewModel.showsLoupeMetadataPanel = false
+                            viewModel.presentation.showsLoupeMetadataPanel = false
                         }
                     },
                     previewSource: previewSource,

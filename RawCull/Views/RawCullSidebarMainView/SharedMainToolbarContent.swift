@@ -64,7 +64,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             Group {
                 ToolbarItem(placement: .status) {
                     Button {
-                        viewModel.activeSheet = .scoringParams
+                        viewModel.presentation.activeSheet = .scoringParams
                     } label: {
                         Label("Scoring Parameters", systemImage: "slider.horizontal.3")
                     }
@@ -74,7 +74,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
                 ToolbarItem(placement: .status) {
                     Button {
-                        viewModel.activeSheet = .stats
+                        viewModel.presentation.activeSheet = .stats
                     } label: {
                         Label("Statistics", systemImage: "info.circle")
                     }

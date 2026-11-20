@@ -49,7 +49,7 @@ struct LoupeKeyboardController {
 
         case .toggleMetadata:
             withAnimation(.snappy) {
-                viewModel.showsLoupeMetadataPanel.toggle()
+                viewModel.presentation.showsLoupeMetadataPanel.toggle()
             }
             return .handled
 

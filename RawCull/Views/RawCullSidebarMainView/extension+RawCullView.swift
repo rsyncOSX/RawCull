@@ -24,12 +24,12 @@ extension RawCullMainView {
     func toggleLoupeMetadataPanel() {
         guard viewModel.mainViewMode == .loupe else { return }
         withAnimation(.snappy) {
-            viewModel.showsLoupeMetadataPanel.toggle()
+            viewModel.presentation.showsLoupeMetadataPanel.toggle()
         }
     }
 
     func handlePickerResult(_ result: Result<URL, Error>) {
-        viewModel.isShowingPicker = false
+        viewModel.presentation.isShowingPicker = false
 
         if case let .success(url) = result {
             let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)

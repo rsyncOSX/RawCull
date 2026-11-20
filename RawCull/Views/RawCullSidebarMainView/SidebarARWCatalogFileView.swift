@@ -56,8 +56,8 @@ struct SidebarARWCatalogFileView: View {
                             text: "Clear",
                             helpText: "Clear rated files",
                         ) {
-                            viewModel.alertType = .clearRatedFiles
-                            viewModel.showingAlert = true
+                            viewModel.presentation.alertType = .clearRatedFiles
+                            viewModel.presentation.showingAlert = true
                         }
                         .disabled(viewModel.isCreatingThumbnails)
 
@@ -106,7 +106,7 @@ struct SidebarARWCatalogFileView: View {
 
     private var addCatalogIcon: some View {
         Button {
-            viewModel.isShowingPicker = true
+            viewModel.presentation.isShowingPicker = true
         } label: {
             Image(systemName: "folder.badge.plus")
                 .symbolRenderingMode(.monochrome)

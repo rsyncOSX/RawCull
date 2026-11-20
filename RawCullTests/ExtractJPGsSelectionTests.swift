@@ -97,7 +97,7 @@ struct ExtractJPGsSelectionTests {
 
         #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
         #expect(!viewModel.isCreatingThumbnails)
-        #expect(viewModel.operationFailurePresentation?.title == "Export Not Started")
+        #expect(viewModel.presentation.operationFailurePresentation?.title == "Export Not Started")
     }
 
     @Test
@@ -115,7 +115,7 @@ struct ExtractJPGsSelectionTests {
         viewModel.presentExtractJPGsSheet()
 
         #expect(viewModel.extractJPGDestination == source)
-        #expect(viewModel.activeSheet == .extractJPGs)
+        #expect(viewModel.presentation.activeSheet == .extractJPGs)
         #expect(!viewModel.extractJPGSelectedOnly)
         #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW"])
 
@@ -143,7 +143,7 @@ struct ExtractJPGsSelectionTests {
         viewModel.presentExtractJPGsSheet()
 
         #expect(viewModel.extractJPGDestination == externalDestination)
-        #expect(viewModel.activeSheet == .extractJPGs)
+        #expect(viewModel.presentation.activeSheet == .extractJPGs)
     }
 }
 
