@@ -21,11 +21,11 @@ struct AIAssessmentWorkspace: View {
         VStack(spacing: 0) {
             HStack {
                 Button(action: returnToBursts) {
-                    Label(navigation.initialPair == nil ? "Burst list" : "Back to burst", systemImage: "chevron.left")
+                    Label(navigation.returnsToBurstViewer ? "Back to burst" : "Burst list", systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
-                .help(navigation.initialPair == nil ? "Return to Burst list (R)" : "Return to the burst viewer (R)")
+                .help(navigation.returnsToBurstViewer ? "Return to the burst viewer (R)" : "Return to Burst list (R)")
                 Spacer()
                 Button("Previous Assessment", systemImage: "chevron.left") {
                     navigate(by: -1)
@@ -199,7 +199,7 @@ struct AIAssessmentWorkspace: View {
     }
 
     private func returnToBursts() {
-        if navigation.initialPair == nil {
+        if !navigation.returnsToBurstViewer {
             viewModel.returnToActiveBurstGroupView()
         }
         navigation.presentedID = nil
