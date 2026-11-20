@@ -37,15 +37,15 @@ struct LoupeMainImageView: View {
     }
 
     var body: some View {
-        @Bindable var viewModel = viewModel
+        @Bindable var viewport = viewModel.loupeViewport
         ZStack {
             if let thumbnailSizePreview {
                 VStack {
                     GeometryReader { geo in
                         LoupeImageStage(
                             session: session, url: url, thumbnailSizePreview: thumbnailSizePreview, size: geo.size,
-                            scale: $viewModel.scale, lastScale: $viewModel.lastScale,
-                            offset: $viewModel.offset, lastOffset: $viewModel.lastOffset,
+                            scale: $viewport.scale, lastScale: $viewport.lastScale,
+                            offset: $viewport.offset, lastOffset: $viewport.lastOffset,
                             showsFocusMask: focusPresentation.isPresented, focusMask: focusPresentation.image,
                             showsSubjectOutline: outlinePresentation.isPresented, subjectOutlineImage: outlinePresentation.image,
                             showFocusPoints: showFocusPoints, focusPoints: focusPoints,

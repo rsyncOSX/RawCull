@@ -22,7 +22,7 @@ struct ReviewViewBoundaryTests {
         } onChange: {
             changes.withLock { $0 += 1 }
         }
-        viewModel.scale = 2
+        viewModel.loupeViewport.scale = 2
         #expect(changes.withLock { $0 } == 0)
         session.viewport.scale = 2
         #expect(changes.withLock { $0 } == 1)
@@ -37,7 +37,7 @@ struct ReviewViewBoundaryTests {
         } onChange: {
             changes.withLock { $0 += 1 }
         }
-        viewModel.scale = 2
+        viewModel.loupeViewport.scale = 2
         #expect(changes.withLock { $0 } == 0)
         viewModel.selectedSource = ARWSourceCatalog(name: "New catalog", url: URL(filePath: "/tmp/new-catalog"))
         #expect(changes.withLock { $0 } == 1)

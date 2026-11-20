@@ -14,15 +14,15 @@ struct LoupeKeyboardController {
         switch action {
         case .zoomIn:
             withAnimation(.spring()) {
-                viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.scale)
-                viewModel.lastScale = viewModel.scale
+                viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.loupeViewport.scale)
+                viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
             }
             return .handled
 
         case .zoomOut:
             withAnimation(.spring()) {
-                viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.scale)
-                viewModel.lastScale = viewModel.scale
+                viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.loupeViewport.scale)
+                viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
             }
             return .handled
 

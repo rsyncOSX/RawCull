@@ -37,21 +37,21 @@ struct LoupeImageControls: View {
                 set: { session.sourceSelection = $0 },
             ),
             imageSourceURL: file?.url,
-            scale: viewModel.scale,
-            canZoomOut: viewModel.scale > ImageReviewViewportPolicy.loupe.minimumScale,
-            canZoomIn: viewModel.scale < ImageReviewViewportPolicy.loupe.maximumScale,
-            canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
+            scale: viewModel.loupeViewport.scale,
+            canZoomOut: viewModel.loupeViewport.scale > ImageReviewViewportPolicy.loupe.minimumScale,
+            canZoomIn: viewModel.loupeViewport.scale < ImageReviewViewportPolicy.loupe.maximumScale,
+            canReset: viewModel.loupeViewport.scale != 1.0 || viewModel.loupeViewport.offset != .zero,
             onZoomOut: {
                 withAnimation(.spring()) {
-                    viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.scale)
-                    viewModel.lastScale = viewModel.scale
+                    viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.loupeViewport.scale)
+                    viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
                 }
             },
-            onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
+            onZoomReset: { withAnimation(.spring()) { viewModel.loupeViewport.reset() } },
             onZoomIn: {
                 withAnimation(.spring()) {
-                    viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.scale)
-                    viewModel.lastScale = viewModel.scale
+                    viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.loupeViewport.scale)
+                    viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
                 }
             },
         )

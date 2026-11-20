@@ -162,11 +162,8 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// In-window zoom overlay state.
     let zoomOverlay = ZoomOverlayModel()
 
-    // Thumbnail preview zoom state
-    var scale: CGFloat = 1.0
-    var lastScale: CGFloat = 1.0
-    var offset: CGSize = .zero
-    var lastOffset: CGSize = .zero
+    /// Pan and zoom of the main loupe image.
+    let loupeViewport = LoupeViewportModel()
 
     /// This is the only place CullingModel is initialised.
     var cullingModel = CullingModel()
@@ -317,14 +314,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     // MARK: - Zoom
-
-    func resetZoom() {
-        Logger.process.debugMessageOnly("RawCullViewModel.resetZoom()")
-        scale = 1.0
-        lastScale = 1.0
-        offset = .zero
-        lastOffset = .zero
-    }
 
     func openZoomOverlay(
         navigationIDs: [FileItem.ID]? = nil,
