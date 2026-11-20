@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import OSLog
 import PhotoAIContracts
 import PhotoAIStorage
 
@@ -12,6 +13,13 @@ nonisolated enum PerFileAnalysisArtifactCacheMissReason: Equatable, Sendable {
     case notFound
     case corrupt
     case incompatible
+    /// The record exists but could not be read (volume, permission or I/O
+    /// failure). `load` never deletes it, because the failure may be temporary.
+    /// The caller still has no embedding, so indexing regenerates one and
+    /// `upsert` replaces the record's contents with that equivalent version.
+    /// The atomic write keeps the file's existing permissions, so a record that
+    /// was unreadable for permission reasons stays unreadable until they change.
+    case unreadable
 }
 
 nonisolated struct PerFileAnalysisArtifactCacheMiss: Equatable, Sendable {
@@ -135,8 +143,24 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                     continue
                 }
 
+                let data: Data
                 do {
-                    var record = try decodeRecord(at: url)
+                    data = try Data(contentsOf: url, options: .mappedIfSafe)
+                } catch {
+                    // Never delete on a read failure: an unmounted volume, a
+                    // sandbox hiccup or a racing writer would otherwise wipe a
+                    // valid artifact. If the caller re-indexes this source, the
+                    // atomic write in `upsert` replaces the record's contents
+                    // with an equivalent artifact (keeping file permissions).
+                    sourceMissReason = .unreadable
+                    Logger.process.warning(
+                        "PerFileAnalysisArtifactStore: could not read \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)",
+                    )
+                    continue
+                }
+
+                do {
+                    var record = try decodeRecord(from: data)
                     guard record.schemaVersion == Self.recordSchemaVersion,
                           record.identity == identity
                     else {
@@ -159,7 +183,13 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                     artifacts[source.id] = artifact
                     if Date().timeIntervalSince(record.lastAccessedAt) >= 86400 {
                         record.lastAccessedAt = Date()
-                        try? encode(record).write(to: url, options: .atomic)
+                        do {
+                            try encode(record).write(to: url, options: .atomic)
+                        } catch {
+                            Logger.process.warning(
+                                "PerFileAnalysisArtifactStore: could not refresh last access for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)",
+                            )
+                        }
                     }
                     break
                 } catch {
@@ -393,11 +423,12 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
     }
 
     private func decodeRecord(at url: URL) throws -> StoredRecord {
+        try decodeRecord(from: Data(contentsOf: url, options: .mappedIfSafe))
+    }
+
+    private func decodeRecord(from data: Data) throws -> StoredRecord {
         decodedRecordCount += 1
-        return try JSONDecoder().decode(
-            StoredRecord.self,
-            from: Data(contentsOf: url, options: .mappedIfSafe),
-        )
+        return try JSONDecoder().decode(StoredRecord.self, from: data)
     }
 
     private func encode(_ value: some Encodable) throws -> Data {

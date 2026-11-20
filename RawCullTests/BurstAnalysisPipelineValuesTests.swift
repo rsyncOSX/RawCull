@@ -150,6 +150,40 @@ struct BurstAnalysisPipelineValuesTests {
         await cache.save(snapshot, catalog: catalog)
         #expect(await cache.loadMigrationCandidate(catalog: catalog) == nil)
     }
+
+    @Test
+    func `completed context resolves files by ID then path and fails when one is gone`() {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let first = makePipelineFile("A.ARW", captureSeconds: 1)
+        let second = makePipelineFile("B.ARW", captureSeconds: 2)
+        let context = BurstAnalysisSnapshotFactory.completedContext(
+            catalog: catalog,
+            files: [first, second],
+            generation: 5,
+            similaritySignature: makeRawCullViewModel().currentBurstSimilaritySignature,
+        )
+
+        let reordered = BurstAnalysisSnapshotFactory.files(for: context, in: [second, first])
+        #expect(reordered?.map(\.id) == [first.id, second.id])
+
+        // A rescan gives the same path a new ID; the path fallback still matches it.
+        let rescannedSecond = makePipelineFile("B.ARW", captureSeconds: 2)
+        let rescanned = BurstAnalysisSnapshotFactory.files(for: context, in: [first, rescannedSecond])
+        #expect(rescanned?.map(\.id) == [first.id, rescannedSecond.id])
+
+        #expect(BurstAnalysisSnapshotFactory.files(for: context, in: [first]) == nil)
+    }
+
+    @Test
+    func `scoped keeps only values for the given files`() {
+        let first = makePipelineFile("A.ARW", captureSeconds: 1)
+        let second = makePipelineFile("B.ARW", captureSeconds: 2)
+        let scores: [UUID: Float] = [first.id: 0.4, second.id: 0.9, UUID(): 0.1]
+
+        let scoped = BurstAnalysisSnapshotFactory.scoped(scores, to: [second])
+
+        #expect(scoped == [second.id: 0.9])
+    }
 }
 
 private nonisolated func makePipelineFile(

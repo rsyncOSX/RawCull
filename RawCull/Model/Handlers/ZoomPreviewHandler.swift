@@ -66,12 +66,12 @@ enum ZoomPreviewHandler {
                     let url = file.url
                     let size = CGFloat(thumbnailSizePreview)
                     let amount = settings.thumbnailSharpenAmount
-                    let sharpened = await Task.detached(priority: .userInitiated) { () -> CGImage? in
-                        guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount, useRAW9: true) else {
+                    let sharpened = await detachedCancellable(priority: .userInitiated) { () -> CGImage? in
+                        guard !Task.isCancelled, let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount, useRAW9: true) else {
                             return nil
                         }
                         return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url)
-                    }.value
+                    }
                     displayImage = sharpened ?? cgThumb
                 } else {
                     displayImage = cgThumb

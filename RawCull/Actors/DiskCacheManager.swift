@@ -69,8 +69,8 @@ actor DiskCacheManager {
     func load(for key: ThumbnailCacheKey) async -> NSImage? {
         let fileURL = cacheURL(for: key)
 
-        return await Task.detached(priority: .userInitiated) {
-            guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+        return await detachedCancellable(priority: .userInitiated) {
+            guard !Task.isCancelled, FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
             guard let image = OrientationNormalizedImageLoader.loadCGImage(from: fileURL) else {
                 // A partial or corrupt JPEG must be a recoverable miss, never a
                 // sticky cache failure. Limit deletion to this schema entry.
@@ -78,7 +78,7 @@ actor DiskCacheManager {
                 return nil
             }
             return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
-        }.value
+        }
     }
 
     // MARK: - Save

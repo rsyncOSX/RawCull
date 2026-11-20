@@ -778,32 +778,21 @@ extension RawCullViewModel {
             return
         }
 
-        let snapshot = BurstAnalysisCacheSnapshot(
-            schemaVersion: configuration?.cacheSchemaVersion ?? BurstAnalysisCache.schemaVersion,
-            algorithmVersion: configuration?.groupingAlgorithmVersion ?? BurstGroupingConfig.algorithmVersion,
-            catalogPath: catalog.path,
-            thumbnailMaxPixelSize: configuration?.thumbnailMaxPixelSize
-                ?? sharpnessModel.effectiveThumbnailMaxPixelSize,
-            sharpnessSignature: sharpnessSignature ?? currentBurstSharpnessSignature,
-            similaritySignature: context.similaritySignature,
-            files: files.map {
-                BurstAnalysisCacheFile(
-                    id: $0.id,
-                    path: $0.url.path,
-                    size: $0.size,
-                    modificationDate: $0.dateModified,
-                )
-            },
-            embeddings: scoped(similarityModel.embeddings, to: files),
-            sharpnessScores: scoped(sharpnessModel.scores, to: files),
-            saliencyInfo: scoped(sharpnessModel.saliencyInfo, to: files),
-            groups: similarityModel.burstGroups,
-            boundaryEvidence: similarityModel.burstBoundaryEvidence,
-            results: Array(burstAnalysisResults.values).sorted { $0.groupID < $1.groupID },
-            reviewStateSnapshots: reviewStateSnapshots(catalog: catalog, files: files),
-            similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+        let snapshot = BurstAnalysisSnapshotFactory.cacheSnapshot(
+            .init(
+                catalog: catalog,
                 files: files,
-                artifacts: similarityModel.embeddings,
+                configuration: configuration,
+                fallbackThumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
+                sharpnessSignature: sharpnessSignature ?? currentBurstSharpnessSignature,
+                similaritySignature: context.similaritySignature,
+                embeddings: similarityModel.embeddings,
+                sharpnessScores: sharpnessModel.scores,
+                saliencyInfo: sharpnessModel.saliencyInfo,
+                groups: similarityModel.burstGroups,
+                boundaryEvidence: similarityModel.burstBoundaryEvidence,
+                results: Array(burstAnalysisResults.values),
+                reviewStateSnapshots: reviewStateSnapshots(catalog: catalog, files: files),
             ),
         )
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
@@ -859,15 +848,10 @@ extension RawCullViewModel {
     }
 
     var currentBurstSimilaritySignature: BurstSimilaritySignature {
-        BurstSimilaritySignature(
-            groupingConfig: BurstGroupingConfig(
-                visualDistanceThreshold: similarityModel.burstSensitivity,
-            ),
+        BurstAnalysisSnapshotFactory.similaritySignature(
+            burstSensitivity: similarityModel.burstSensitivity,
             backendDescriptor: similarityModel.backendDescriptor,
             artifactBackendDescriptors: similarityModel.artifactBackendDescriptors,
-            artifactSchemaVersion: SimilarityScoringModel.artifactSchemaVersion,
-            embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-            embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
         )
     }
 
@@ -876,19 +860,13 @@ extension RawCullViewModel {
         files: [FileItem],
         generation: Int,
     ) -> BurstAnalysisPipelineRequest {
-        let similaritySignature = currentBurstSimilaritySignature
-        return BurstAnalysisPipelineRequest(
-            catalogIdentity: catalog,
-            orderedFiles: files,
-            sharpnessSignature: currentBurstSharpnessSignature,
-            similaritySignature: similaritySignature,
+        BurstAnalysisSnapshotFactory.pipelineRequest(
+            catalog: catalog,
+            files: files,
             generation: generation,
-            configuration: BurstAnalysisPipelineConfiguration(
-                thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
-                grouping: similaritySignature.groupingConfig,
-                cacheSchemaVersion: BurstAnalysisCache.schemaVersion,
-                groupingAlgorithmVersion: BurstGroupingConfig.algorithmVersion,
-            ),
+            sharpnessSignature: currentBurstSharpnessSignature,
+            similaritySignature: currentBurstSimilaritySignature,
+            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
         )
     }
 
@@ -898,32 +876,17 @@ extension RawCullViewModel {
         generation: Int,
         similaritySignature: BurstSimilaritySignature? = nil,
     ) -> CompletedBurstAnalysisContext {
-        CompletedBurstAnalysisContext(
+        BurstAnalysisSnapshotFactory.completedContext(
             catalog: catalog,
-            orderedFileIDs: files.map(\.id),
-            orderedFilePaths: files.map(\.url.path),
-            similaritySignature: similaritySignature ?? currentBurstSimilaritySignature,
+            files: files,
             generation: generation,
+            similaritySignature: similaritySignature ?? currentBurstSimilaritySignature,
         )
     }
 
     private func filesForCompletedBurstAnalysis(
         _ context: CompletedBurstAnalysisContext,
     ) -> [FileItem]? {
-        let currentByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        let currentByPath = Dictionary(uniqueKeysWithValues: files.map { ($0.url.path, $0) })
-        var resolved: [FileItem] = []
-        resolved.reserveCapacity(context.orderedFileIDs.count)
-
-        for (id, path) in zip(context.orderedFileIDs, context.orderedFilePaths) {
-            guard let file = currentByID[id] ?? currentByPath[path] else { return nil }
-            resolved.append(file)
-        }
-        return resolved
-    }
-
-    private func scoped<Value>(_ dictionary: [UUID: Value], to files: [FileItem]) -> [UUID: Value] {
-        let validIDs = Set(files.map(\.id))
-        return dictionary.filter { validIDs.contains($0.key) }
+        BurstAnalysisSnapshotFactory.files(for: context, in: files)
     }
 }

@@ -60,8 +60,8 @@ actor FullSizeJPGDiskCache {
     func load(for sourceURL: URL, variant: Variant = .embeddedJPG) async -> CGImage? {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
-        return await Task.detached(priority: .userInitiated) {
-            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        return await detachedCancellable(priority: .userInitiated) {
+            guard !Task.isCancelled, FileManager.default.fileExists(atPath: fileURL.path) else {
                 return nil
             }
 
@@ -78,7 +78,7 @@ actor FullSizeJPGDiskCache {
             case .developedRAW:
                 return OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
             }
-        }.value
+        }
     }
 
     func save(_ jpegData: Data, for sourceURL: URL, variant: Variant = .embeddedJPG) async {

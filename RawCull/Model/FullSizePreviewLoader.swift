@@ -31,12 +31,12 @@ nonisolated struct FullSizePreviewLoader: FullSizePreviewLoading {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [rawURL])
         defer { withExtendedLifetime(access) {} }
         let sidecarJPGURL = Self.sidecarJPEGURL(for: rawURL)
-        let sidecarImage: CGImage? = await Task.detached(priority: .userInitiated) {
-            guard FileManager.default.fileExists(atPath: sidecarJPGURL.path) else {
+        let sidecarImage: CGImage? = await detachedCancellable(priority: .userInitiated) { () -> CGImage? in
+            guard !Task.isCancelled, FileManager.default.fileExists(atPath: sidecarJPGURL.path) else {
                 return nil
             }
             return OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
-        }.value
+        }
 
         guard !Task.isCancelled else { return nil }
         if let sidecarImage {
