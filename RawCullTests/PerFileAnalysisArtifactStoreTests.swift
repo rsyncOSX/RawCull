@@ -266,7 +266,7 @@ struct PerFileAnalysisArtifactStoreTests {
     }
 
     @Test
-    func `An unreadable record is reported but kept for a later load`() async throws {
+    func `An unreadable record is reported and not deleted by load`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let source = try fixture.source(named: "locked.raw")
@@ -308,6 +308,59 @@ struct PerFileAnalysisArtifactStoreTests {
         )
         #expect(recovered.artifacts[source.id] != nil)
         #expect(recovered.misses.isEmpty)
+    }
+
+    @Test
+    func `Re-indexing an unreadable record replaces its contents`() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let source = try fixture.source(named: "reindexed.raw")
+        let original = fixture.artifact(source: source, backend: fixture.clipBackend, dimensions: 1, payload: Data([4]))
+        _ = await fixture.store.upsert(
+            artifacts: [source.id: original],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
+        let record = try #require(fixture.recordURLs().first)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: record.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: record.path) }
+
+        let unreadable = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(unreadable.misses.map(\.reason) == [.unreadable])
+
+        // Indexing has no embedding for this source, so it regenerates one and
+        // upserts it. The atomic write replaces the unreadable file at the same path.
+        let regenerated = fixture.artifact(source: source, backend: fixture.clipBackend, dimensions: 1, payload: Data([5]))
+        let commit = await fixture.store.upsert(
+            artifacts: [source.id: regenerated],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
+        #expect(commit.committedSourceIDs == [source.id])
+        #expect(commit.failures.isEmpty)
+        #expect(fixture.recordURLs() == [record])
+
+        // The atomic write keeps the file's permissions, so it is still unreadable.
+        let stillLocked = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(stillLocked.misses.map(\.reason) == [.unreadable])
+
+        // Once readable again, the record holds the regenerated artifact.
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: record.path)
+        let reloaded = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(reloaded.misses.isEmpty)
+        #expect(reloaded.artifacts[source.id] == regenerated)
     }
 
     @Test

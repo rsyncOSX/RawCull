@@ -14,7 +14,11 @@ nonisolated enum PerFileAnalysisArtifactCacheMissReason: Equatable, Sendable {
     case corrupt
     case incompatible
     /// The record exists but could not be read (volume, permission or I/O
-    /// failure). The record is kept, because the failure may be temporary.
+    /// failure). `load` never deletes it, because the failure may be temporary.
+    /// The caller still has no embedding, so indexing regenerates one and
+    /// `upsert` replaces the record's contents with that equivalent version.
+    /// The atomic write keeps the file's existing permissions, so a record that
+    /// was unreadable for permission reasons stays unreadable until they change.
     case unreadable
 }
 
@@ -145,7 +149,9 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                 } catch {
                     // Never delete on a read failure: an unmounted volume, a
                     // sandbox hiccup or a racing writer would otherwise wipe a
-                    // valid, expensive-to-rebuild artifact.
+                    // valid artifact. If the caller re-indexes this source, the
+                    // atomic write in `upsert` replaces the record's contents
+                    // with an equivalent artifact (keeping file permissions).
                     sourceMissReason = .unreadable
                     Logger.process.warning(
                         "PerFileAnalysisArtifactStore: could not read \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)",
