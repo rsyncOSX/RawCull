@@ -101,7 +101,7 @@ struct BurstAnalysisPipelineValuesTests {
     }
 
     @Test
-    func `malformed cache with a repeated path is rejected without trapping`() async {
+    func `malformed cache with repeated file or group keys is rejected without trapping`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullMalformedCacheTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -131,7 +131,7 @@ struct BurstAnalysisPipelineValuesTests {
 
         let remapped = BurstAnalysisCoordinator.remap(snapshot, to: [first, second])
         #expect(remapped.files.map(\.id) == [first.id, second.id])
-        #expect(!BurstAnalysisCache.hasUniqueFileIdentity(snapshot))
+        #expect(!BurstAnalysisCache.hasUniqueRestoreKeys(snapshot))
 
         await cache.save(snapshot, catalog: catalog)
         let loaded = await cache.load(
@@ -142,6 +142,12 @@ struct BurstAnalysisPipelineValuesTests {
             similaritySignature: snapshot.similaritySignature,
         )
         #expect(loaded == nil)
+        #expect(await cache.loadMigrationCandidate(catalog: catalog) == nil)
+
+        snapshot.files = remapped.files
+        snapshot.groups = [BurstGroup(id: 1, fileIDs: [first.id]), BurstGroup(id: 2, fileIDs: [first.id, second.id])]
+        #expect(!BurstAnalysisCache.hasUniqueRestoreKeys(snapshot))
+        await cache.save(snapshot, catalog: catalog)
         #expect(await cache.loadMigrationCandidate(catalog: catalog) == nil)
     }
 }
