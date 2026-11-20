@@ -175,18 +175,12 @@ extension RawCullViewModel {
         preloadTask?.cancel()
         preloadTask = nil
 
-        jpgCacheWarmTask?.cancel()
-        jpgCacheWarmTask = nil
-
         if let actor = currentScanAndCreateThumbnailsActor {
             Task { await actor.cancelPreload() }
         }
         currentScanAndCreateThumbnailsActor = nil
 
-        if let actor = currentScanAndExtractJPGsActor {
-            Task { await actor.cancelExtraction() }
-        }
-        currentScanAndExtractJPGsActor = nil
+        fileOperations.cancelJPGCacheWarming()
 
         isCreatingThumbnails = false
         scanning = false
@@ -292,9 +286,9 @@ extension RawCullViewModel {
 
         let progress = CatalogProgressCoalescer(initial: CatalogThumbnailProgress()) { [weak self] value in
             guard let self, self.isActiveCatalogLoad(url) else { return }
-            self.fileOperationCompleted = value.completed
-            self.fileOperationTotal = value.total
-            self.fileOperationEstimatedSeconds = value.estimatedSeconds
+            self.fileOperations.fileOperationCompleted = value.completed
+            self.fileOperations.fileOperationTotal = value.total
+            self.fileOperations.fileOperationEstimatedSeconds = value.estimatedSeconds
         }
         thumbnailProgress = progress
         progress.update(immediately: true) { _ in }

@@ -31,7 +31,7 @@ struct RawCullMainView: View {
     @State private var showCandidateInspector = false
 
     private var showsJPGExtractionProgressOverlay: Bool {
-        viewModel.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
+        viewModel.fileOperations.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
     }
 
     var body: some View {
@@ -79,9 +79,9 @@ struct RawCullMainView: View {
                     Spacer()
 
                     ProgressCount(
-                        completed: viewModel.fileOperationCompleted,
-                        total: viewModel.fileOperationTotal,
-                        estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
+                        completed: viewModel.fileOperations.fileOperationCompleted,
+                        total: viewModel.fileOperations.fileOperationTotal,
+                        estimatedSeconds: viewModel.fileOperations.fileOperationEstimatedSeconds,
                         statusText: "Extracting JPGs",
                     )
                     .frame(maxWidth: 480)
@@ -119,7 +119,7 @@ struct RawCullMainView: View {
             CopyARWFilesView(
                 viewModel: viewModel,
                 sheetType: Bindable(viewModel.presentation).sheetType,
-                remoteDataNumbers: $viewModel.remoteDataNumbers,
+                remoteDataNumbers: Bindable(viewModel.fileOperations).remoteDataNumbers,
                 showcopytask: Bindable(viewModel.presentation).showCopyARWFilesView,
             )
         }
@@ -204,7 +204,7 @@ struct RawCullMainView: View {
         .onChange(of: viewModel.presentation.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
             viewModel.presentation.focusExtractJPGs = false
-            viewModel.presentExtractJPGsSheet()
+            viewModel.fileOperations.presentExtractJPGsSheet()
         }
         .onChange(of: viewModel.presentation.focusCopyTaggedFiles) { _, shouldPresent in
             guard shouldPresent else { return }
@@ -271,7 +271,7 @@ struct RawCullMainView: View {
                 switch viewModel.presentation.alertType {
                 case .createJPGDiskCache:
                     Button("Create Cache") {
-                        viewModel.startScanAndExtractJPGs()
+                        viewModel.fileOperations.startScanAndExtractJPGs()
                     }
                     .frame(width: 100)
 

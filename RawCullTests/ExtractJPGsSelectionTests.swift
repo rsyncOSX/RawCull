@@ -41,11 +41,11 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedFileID = first.id
         viewModel.selectedFileIDs = [second.id, third.id]
 
-        #expect(viewModel.selectedFilesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
-        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
+        #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
+        #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
 
-        viewModel.extractJPGSelectedOnly = false
-        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW", "B.ARW", "C.ARW"])
+        viewModel.fileOperations.extractJPGSelectedOnly = false
+        #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["A.ARW", "B.ARW", "C.ARW"])
     }
 
     @Test
@@ -59,8 +59,8 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedFileID = first.id
         viewModel.selectedFileIDs = []
 
-        #expect(viewModel.selectedFilesForJPGExtraction.map(\.name) == ["A.ARW"])
-        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW"])
+        #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.map(\.name) == ["A.ARW"])
+        #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["A.ARW"])
     }
 
     @Test
@@ -73,10 +73,10 @@ struct ExtractJPGsSelectionTests {
 
         viewModel.files = [makeExtractJPGTestFile("A.ARW")]
         viewModel.filteredFiles = viewModel.files
-        viewModel.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
+        viewModel.fileOperations.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 
-        #expect(viewModel.selectedFilesForJPGExtraction.isEmpty)
-        #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
+        #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.isEmpty)
+        #expect(viewModel.fileOperations.currentExtractAndSaveJPGsActor == nil)
         #expect(!viewModel.isCreatingThumbnails)
     }
 
@@ -93,9 +93,9 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedFileID = file.id
         viewModel.catalogLifecycle.startSecurityScopedResource = { _ in false }
 
-        viewModel.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
+        viewModel.fileOperations.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 
-        #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
+        #expect(viewModel.fileOperations.currentExtractAndSaveJPGsActor == nil)
         #expect(!viewModel.isCreatingThumbnails)
         #expect(viewModel.presentation.operationFailurePresentation?.title == "Export Not Started")
     }
@@ -112,16 +112,16 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedSource = source
         viewModel.files = [makeExtractJPGTestFile("A.ARW")]
 
-        viewModel.presentExtractJPGsSheet()
+        viewModel.fileOperations.presentExtractJPGsSheet()
 
-        #expect(viewModel.extractJPGDestination == source)
+        #expect(viewModel.fileOperations.extractJPGDestination == source)
         #expect(viewModel.presentation.activeSheet == .extractJPGs)
-        #expect(!viewModel.extractJPGSelectedOnly)
-        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW"])
+        #expect(!viewModel.fileOperations.extractJPGSelectedOnly)
+        #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["A.ARW"])
 
         viewModel.selectedFileID = viewModel.files.first?.id
-        viewModel.presentExtractJPGsSheet()
-        #expect(viewModel.extractJPGSelectedOnly)
+        viewModel.fileOperations.presentExtractJPGsSheet()
+        #expect(viewModel.fileOperations.extractJPGSelectedOnly)
     }
 
     @Test
@@ -138,11 +138,11 @@ struct ExtractJPGsSelectionTests {
 
         viewModel.sources = [source]
         viewModel.selectedSource = source
-        viewModel.extractJPGDestination = externalDestination
+        viewModel.fileOperations.extractJPGDestination = externalDestination
 
-        viewModel.presentExtractJPGsSheet()
+        viewModel.fileOperations.presentExtractJPGsSheet()
 
-        #expect(viewModel.extractJPGDestination == externalDestination)
+        #expect(viewModel.fileOperations.extractJPGDestination == externalDestination)
         #expect(viewModel.presentation.activeSheet == .extractJPGs)
     }
 }

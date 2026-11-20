@@ -6,21 +6,6 @@
 import OSLog
 
 extension RawCullViewModel {
-    func fileHandler(_ update: Int) {
-        // Logger.process.debugMessageOnly("RawCullViewModel.fileHandler()")
-        fileOperationCompleted = update
-    }
-
-    func maxfilesHandler(_ maxfiles: Int) {
-        Logger.process.debugMessageOnly("RawCullViewModel.maxfilesHandler()")
-        fileOperationTotal = maxfiles
-    }
-
-    func estimatedTimeHandler(_ seconds: Int) {
-        // Logger.process.debugMessageOnly("RawCullViewModel.estimatedTimeHandler()")
-        fileOperationEstimatedSeconds = seconds
-    }
-
     func setMemoryPressureWarning(_ warning: Bool) {
         Logger.process.debugMessageOnly("RawCullViewModel.setMemoryPressureWarning()")
         presentation.memoryPressureWarning = warning
@@ -29,137 +14,6 @@ extension RawCullViewModel {
     func extractionNeeded() {
         // Logger.process.debugMessageOnly("RawCullViewModel.extractionNeeded()")
         isCreatingThumbnails = true
-    }
-
-    var selectedFilesForJPGExtraction: [FileItem] {
-        if !selectedFileIDs.isEmpty {
-            return filteredFiles.filter { selectedFileIDs.contains($0.id) }
-        }
-
-        guard let selectedFileID else { return [] }
-        if let file = filteredFiles.first(where: { $0.id == selectedFileID }) {
-            return [file]
-        }
-        return activeCatalogFiles
-            .first(where: { $0.id == selectedFileID })
-            .map { [$0] } ?? []
-    }
-
-    var filesForJPGExtraction: [FileItem] {
-        extractJPGSelectedOnly ? selectedFilesForJPGExtraction : activeCatalogFiles
-    }
-
-    func presentExtractJPGsSheet() {
-        Logger.process.debugMessageOnly("RawCullViewModel.presentExtractJPGsSheet()")
-        guard !sources.isEmpty else { return }
-        extractJPGSelectedOnly = !selectedFilesForJPGExtraction.isEmpty
-        if extractJPGDestination == nil {
-            extractJPGDestination = selectedSource ?? sources.first
-        }
-        presentation.activeSheet = .extractJPGs
-    }
-
-    func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
-        Logger.process.debugMessageOnly("RawCullViewModel.startSelectedJPGExtraction()")
-        let exportFiles = filesForJPGExtraction
-        guard currentScanAndExtractJPGsActor == nil,
-              currentScanAndCreateThumbnailsActor == nil,
-              currentExtractAndSaveJPGsActor == nil,
-              !exportFiles.isEmpty
-        else { return }
-
-        fileOperationCompleted = 0
-        fileOperationTotal = exportFiles.count
-        fileOperationEstimatedSeconds = 0
-        isCreatingThumbnails = true
-
-        let handlers = CreateFileHandlers().createFileHandlers(
-            fileHandler: fileHandler,
-            maxfilesHandler: maxfilesHandler,
-            estimatedTimeHandler: estimatedTimeHandler,
-            memorypressurewarning: { _ in },
-            onExtractionNeeded: {},
-        )
-
-        let destinationURL = destination.url
-        let destinationAccessStarted = catalogLifecycle.startSecurityScopedResource(destinationURL)
-        guard destinationAccessStarted else {
-            isCreatingThumbnails = false
-            presentation.operationFailurePresentation = OperationFailurePresentation(
-                title: "Export Not Started",
-                message: "RawCull could not access the selected destination folder. Choose the folder again and retry.",
-            )
-            return
-        }
-        let extract = ExtractAndSaveJPGs(
-            files: exportFiles,
-            destinationCatalogURL: destinationURL,
-            exportMode: exportMode,
-        )
-        currentExtractAndSaveJPGsActor = extract
-
-        let sourceAccess = RawCullCatalogAccess.shared.retainAccess(for: exportFiles.map(\.url))
-        Task(priority: .background) {
-            defer { withExtendedLifetime(sourceAccess) {} }
-            await extract.setFileHandlers(handlers)
-            let result = await extract.extractAndSavejpgs()
-
-            await MainActor.run {
-                self.catalogLifecycle.stopSecurityScopedResource(destinationURL)
-                guard self.currentExtractAndSaveJPGsActor === extract else { return }
-                self.currentExtractAndSaveJPGsActor = nil
-                self.isCreatingThumbnails = false
-                if !result.failures.isEmpty {
-                    let firstFailure = result.failures[0]
-                    self.presentation.operationFailurePresentation = OperationFailurePresentation(
-                        title: "Export Incomplete",
-                        message: "\(result.failures.count) of \(result.succeeded + result.failures.count) JPG files could not be saved. First failure: \(firstFailure.fileName): \(firstFailure.message)",
-                    )
-                }
-            }
-        }
-    }
-
-    func startScanAndExtractJPGs() {
-        Logger.process.debugMessageOnly("RawCullViewModel.startScanAndExtractJPGs()")
-        let extractionFiles = activeCatalogFiles
-        guard currentScanAndExtractJPGsActor == nil,
-              currentScanAndCreateThumbnailsActor == nil,
-              currentExtractAndSaveJPGsActor == nil,
-              !extractionFiles.isEmpty
-        else { return }
-
-        jpgCacheWarmTask?.cancel()
-
-        fileOperationCompleted = 0
-        fileOperationTotal = extractionFiles.count
-        fileOperationEstimatedSeconds = 0
-        isCreatingThumbnails = true
-
-        let handlers = CreateFileHandlers().createFileHandlers(
-            fileHandler: fileHandler,
-            maxfilesHandler: maxfilesHandler,
-            estimatedTimeHandler: estimatedTimeHandler,
-            memorypressurewarning: { _ in },
-            onExtractionNeeded: {},
-        )
-
-        let actor = ScanAndExtractJPGs(urls: extractionFiles.map(\.url))
-        currentScanAndExtractJPGsActor = actor
-
-        let access = RawCullCatalogAccess.shared.retainAccess(for: extractionFiles.map(\.url))
-        jpgCacheWarmTask = Task(priority: .background) {
-            defer { withExtendedLifetime(access) {} }
-            await actor.setFileHandlers(handlers)
-            await actor.extractCatalogJPGs()
-
-            await MainActor.run {
-                guard self.currentScanAndExtractJPGsActor === actor else { return }
-                self.currentScanAndExtractJPGsActor = nil
-                self.jpgCacheWarmTask = nil
-                self.isCreatingThumbnails = false
-            }
-        }
     }
 
     func applyStoredScoringSettings() async {
@@ -192,20 +46,21 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.abort()")
 
         cancelCatalogLoad()
-
-        if let actor = currentExtractAndSaveJPGsActor {
-            Task { await actor.cancelExtractJPGSTask() }
-        }
-        currentExtractAndSaveJPGsActor = nil
-
-        jpgCacheWarmTask?.cancel()
-        jpgCacheWarmTask = nil
-
-        if let actor = currentScanAndExtractJPGsActor {
-            Task { await actor.cancelExtraction() }
-        }
-        currentScanAndExtractJPGsActor = nil
-
+        fileOperations.cancelJPGOperations()
         isCreatingThumbnails = false
+    }
+}
+
+extension RawCullViewModel: FileOperationsCatalog {
+    var isCatalogThumbnailScanActive: Bool {
+        currentScanAndCreateThumbnailsActor != nil
+    }
+
+    func startSecurityScopedResource(_ url: URL) -> Bool {
+        catalogLifecycle.startSecurityScopedResource(url)
+    }
+
+    func stopSecurityScopedResource(_ url: URL) {
+        catalogLifecycle.stopSecurityScopedResource(url)
     }
 }

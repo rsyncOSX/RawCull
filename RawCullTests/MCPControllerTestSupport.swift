@@ -222,18 +222,14 @@ final class MCPControllerFixture {
 }
 
 /// A scriptable Qwen surface for MCP photo assessment.
-actor FakeMCPPhotoAssessor: MCPPhotoAssessing {
-    var identity: QwenInferenceRuntime.Identity?
+nonisolated struct FakeMCPPhotoAssessor: MCPPhotoAssessing {
+    let identity: QwenInferenceRuntime.Identity?
 
     init(identity: QwenInferenceRuntime.Identity? = nil) {
         self.identity = identity
     }
 
-    func setIdentity(_ identity: QwenInferenceRuntime.Identity?) {
-        self.identity = identity
-    }
-
-    func assessmentIdentity() -> QwenInferenceRuntime.Identity? {
+    func assessmentIdentity() async -> QwenInferenceRuntime.Identity? {
         identity
     }
 

@@ -125,17 +125,10 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored var metadataProgress: CatalogProgressCoalescer<Int>?
     @ObservationIgnored var thumbnailProgress: CatalogProgressCoalescer<CatalogThumbnailProgress>?
     var scanDiscoveredCount: Int = 0
-    var fileOperationCompleted: Int = 0
-    var fileOperationTotal: Int = 0
-    var fileOperationEstimatedSeconds: Int = 0
     var isCreatingThumbnails: Bool = false
     var scanning: Bool = true
 
-    var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
-    var extractJPGSelectedOnly = true
-    var extractJPGDestination: ARWSourceCatalog?
 
-    var remoteDataNumbers: RemoteDataNumbers?
     var ratingFilter: RatingFilter = .all
 
     /// Main content mode — drives which view fills the main window.
@@ -158,6 +151,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Sheets, alerts, banners and menu-command flags of the main window.
     let presentation = WorkspacePresentationModel()
+
+    /// JPG extraction, JPG cache warming and file-operation progress.
+    let fileOperations = FileOperationsModel()
 
     /// This is the only place CullingModel is initialised.
     var cullingModel = CullingModel()
@@ -237,10 +233,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var focusPoints: [FocusPointsModel]?
 
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
-    var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
-    var currentScanAndExtractJPGsActor: ScanAndExtractJPGs?
     var preloadTask: Task<Void, Never>?
-    @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,
     /// sharpness, and similarity filters are applied.
@@ -276,6 +269,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         )
         similarityFeature.bindApplicationContext(self)
         deepAIReviewController.bindApplicationContext(self)
+        fileOperations.bind(self)
     }
 
     // MARK: - Computed

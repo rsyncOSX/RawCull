@@ -77,9 +77,9 @@ struct SidebarARWCatalogFileView: View {
 
                     if creatingThumbnails {
                         ProgressCount(
-                            completed: viewModel.fileOperationCompleted,
-                            total: viewModel.fileOperationTotal,
-                            estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
+                            completed: viewModel.fileOperations.fileOperationCompleted,
+                            total: viewModel.fileOperations.fileOperationTotal,
+                            estimatedSeconds: viewModel.fileOperations.fileOperationEstimatedSeconds,
                             statusText: progressStatusText,
                         )
                     }
@@ -131,7 +131,7 @@ struct SidebarARWCatalogFileView: View {
         if viewModel.currentScanAndCreateThumbnailsActor != nil {
             return "Creating Thumbnails"
         }
-        if viewModel.currentScanAndExtractJPGsActor != nil {
+        if viewModel.fileOperations.currentScanAndExtractJPGsActor != nil {
             return "Caching JPGs"
         }
         return "Extracting JPGs"
