@@ -271,7 +271,7 @@ extension CatalogPerformanceTests {
             .appendingPathComponent("RawCullPerformance-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: artifactDirectory) }
         let model = makeModel(directory: artifactDirectory)
-        model.files = files
+        model.catalog.files = files
         model.catalog.filteredFiles = files
         let navigation = ZoomNavigationPresentation(viewModel: model)
         var start = ProcessInfo.processInfo.systemUptime
@@ -310,7 +310,7 @@ extension CatalogPerformanceTests {
         model.ratings.ratingFilter = .all
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
         try #require(navigation.orderedZoomFiles.map(\.id) == files.reversed().map(\.id))
-        model.files = []
+        model.catalog.files = []
         model.catalog.filteredFiles = []
         try #require(navigation.orderedZoomFiles.isEmpty && navigation.currentZoomIndex == nil)
         // Keep a structural regression visible in the machine-readable report.
