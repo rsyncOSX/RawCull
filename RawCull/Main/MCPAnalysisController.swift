@@ -109,20 +109,76 @@ final class MCPAnalysisController {
     private let environment: MCPAnalysisEnvironment
     private let grants: CatalogGrantStore
     private let jobs: AnalysisJobStore
-    private var activeJob: AnalysisJob?
-    private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
-    private var followUp: Task<Void, Never>?
-    private var followUpID: UUID?
-    private var followUpDeadline: ContinuousClock.Instant?
-    private var followUpStopCode: String?
-    private var nextHostPublication = Date.distantPast
-    private var isQuitting = false
-    private var isTerminationPending = false
-    private var setup: Task<Void, Never>?
-    private var setupDeadline: Date?
-    private var setupSheet: (parent: NSWindow, window: NSWindow)?
-    private var cachedGrant: (revision: AnalysisJobStore.Revision, catalogId: UUID?, analysisEnabled: Bool)?
+
+    // MARK: State
+
+    /// Identifies one activity, so a finished task can only end its own activity.
+    private struct ActivityToken: Equatable {
+        let value: UInt64
+    }
+
+    private struct SetupActivity {
+        let token: ActivityToken
+        var task: Task<Void, Never>?
+        let deadline: Date
+        var sheet: (parent: NSWindow, window: NSWindow)?
+    }
+
+    private struct AnalysisActivity {
+        let token: ActivityToken
+        var task: Task<Void, Never>?
+        let job: AnalysisJob
+    }
+
+    private struct FollowUpActivity {
+        let token: ActivityToken
+        var task: Task<Void, Never>?
+        let id: UUID
+        let deadline: ContinuousClock.Instant
+        /// Set when the controller stops the assessment for a known reason.
+        var stopReason: String?
+    }
+
+    /// Catalog setup, catalog analysis and photo-assessment follow-ups never
+    /// run at the same time.
+    private enum Activity {
+        case idle
+        case settingUp(SetupActivity)
+        case analyzing(AnalysisActivity)
+        case assessing(FollowUpActivity)
+
+        var token: ActivityToken? {
+            switch self {
+            case .idle: nil
+            case let .settingUp(activity): activity.token
+            case let .analyzing(activity): activity.token
+            case let .assessing(activity): activity.token
+            }
+        }
+
+        var task: Task<Void, Never>? {
+            switch self {
+            case .idle: nil
+            case let .settingUp(activity): activity.task
+            case let .analyzing(activity): activity.task
+            case let .assessing(activity): activity.task
+            }
+        }
+    }
+
+    private enum Lifecycle {
+        case running
+        /// The app asked to quit and is waiting on a save prompt; no new work starts.
+        case terminationPending
+        /// `stopForQuit()` ran; nothing is published after this.
+        case quitting
+    }
+
+    private var activity: Activity = .idle
+    private var lifecycle: Lifecycle = .running
+    private var nextActivityToken: UInt64 = 0
+
     private struct SetupApproval {
         let id: UUID
         let url: URL
@@ -131,10 +187,103 @@ final class MCPAnalysisController {
         let expectedGrantID: UUID?
     }
 
-    private var approvedSetup: SetupApproval?
-    private var inactiveRevision: AnalysisJobStore.Revision?
-    private var nextSetupMaintenance = Date.distantPast
-    private var storageFailureSince: ContinuousClock.Instant?
+    /// Created by an approved setup and consumed when the job it queued is
+    /// claimed. It deliberately outlives the setup activity, so it is not part
+    /// of `activity`.
+    private var pendingApprovalForClaim: SetupApproval?
+
+    /// Timers and caches of the polling loop.
+    private struct PollBookkeeping {
+        var inactiveRevision: AnalysisJobStore.Revision?
+        var cachedGrant: (revision: AnalysisJobStore.Revision, catalogId: UUID?, analysisEnabled: Bool)?
+        var nextHostPublication = Date.distantPast
+        var nextSetupMaintenance = Date.distantPast
+        var storageFailureSince: ContinuousClock.Instant?
+    }
+
+    private var bookkeeping = PollBookkeeping()
+
+    private var isQuitting: Bool {
+        lifecycle == .quitting
+    }
+
+    /// Termination is pending or the app is quitting: no new work starts.
+    private var isTerminationPending: Bool {
+        lifecycle != .running
+    }
+
+    private var isIdle: Bool {
+        if case .idle = activity { true } else { false }
+    }
+
+    private var isSettingUp: Bool {
+        if case .settingUp = activity { true } else { false }
+    }
+
+    private var isAnalyzing: Bool {
+        if case .analyzing = activity { true } else { false }
+    }
+
+    private var isAssessing: Bool {
+        if case .assessing = activity { true } else { false }
+    }
+
+    /// The job the running analysis works on.
+    private var activeJob: AnalysisJob? {
+        if case let .analyzing(analysis) = activity { analysis.job } else { nil }
+    }
+
+    /// Starts `next` (built with a fresh token) and returns that token.
+    private func begin(_ next: (ActivityToken) -> Activity) -> ActivityToken {
+        precondition(isIdle, "MCP activities never overlap")
+        nextActivityToken &+= 1
+        let token = ActivityToken(value: nextActivityToken)
+        activity = next(token)
+        return token
+    }
+
+    /// Attaches the task that runs the activity identified by `token`.
+    private func attach(_ task: Task<Void, Never>, to token: ActivityToken) {
+        switch activity {
+        case var .settingUp(setup) where setup.token == token:
+            setup.task = task
+            activity = .settingUp(setup)
+        case var .analyzing(analysis) where analysis.token == token:
+            analysis.task = task
+            activity = .analyzing(analysis)
+        case var .assessing(followUp) where followUp.token == token:
+            followUp.task = task
+            activity = .assessing(followUp)
+        default:
+            break
+        }
+    }
+
+    /// Ends the activity only if `token` still identifies it, so a stale
+    /// task's cleanup can never clear a newer activity.
+    private func end(_ token: ActivityToken) {
+        guard activity.token == token else { return }
+        activity = .idle
+    }
+
+    private func cancelAnalysis() {
+        if case let .analyzing(analysis) = activity {
+            analysis.task?.cancel()
+        }
+    }
+
+    private func cancelFollowUp(reason: String? = nil) {
+        guard case var .assessing(followUp) = activity else { return }
+        if let reason {
+            followUp.stopReason = reason
+            activity = .assessing(followUp)
+        }
+        followUp.task?.cancel()
+    }
+
+    private func followUpStopReason(_ token: ActivityToken) -> String? {
+        if case let .assessing(followUp) = activity, followUp.token == token { followUp.stopReason } else { nil }
+    }
 
     /// What `start` was given; `tick()` reads it on every iteration.
     private struct MonitorContext {
@@ -189,7 +338,7 @@ final class MCPAnalysisController {
         guard let context, let viewModel = context.viewModel else { return }
         let prepare = context.prepare
         let canStart = context.canStart
-        if let setupDeadline, environment.now() >= setupDeadline {
+        if case let .settingUp(setup) = activity, environment.now() >= setup.deadline {
             cancelSetup()
         }
         do {
@@ -197,38 +346,34 @@ final class MCPAnalysisController {
                 try pollFollowUp(qwen: qwen, viewModel: viewModel, prepare: context.preparePhotoAssessment,
                                  canStart: canStart)
             }
-            if followUp == nil {
+            if !isAssessing {
                 try poll(viewModel, prepare: prepare, canStart: canStart)
             }
-            storageFailureSince = nil
-            if setup == nil, analysis == nil, environment.now() >= nextSetupMaintenance {
-                nextSetupMaintenance = environment.now().addingTimeInterval(60)
+            bookkeeping.storageFailureSince = nil
+            if !isSettingUp, !isAnalyzing, environment.now() >= bookkeeping.nextSetupMaintenance {
+                bookkeeping.nextSetupMaintenance = environment.now().addingTimeInterval(60)
                 try setupStore.maintain()
             }
-            if !isTerminationPending, setup == nil, analysis == nil, followUp == nil,
-               let request = try setupStore.pending() {
-                setupDeadline = request.expiresAt
-                setup = Task { [weak self, weak viewModel] in
+            if !isTerminationPending, isIdle, let request = try setupStore.pending() {
+                let token = begin { .settingUp(SetupActivity(token: $0, deadline: request.expiresAt)) }
+                attach(Task { [weak self, weak viewModel] in
                     guard let self else { return }
-                    defer {
-                        setup = nil
-                        setupDeadline = nil
-                    }
+                    defer { end(token) }
                     guard let viewModel else { return }
                     await respond(to: request, viewModel: viewModel, canStart: canStart)
-                }
+                }, to: token)
             }
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
             Logger.process.error("MCP analysis job uses an unsupported format. Use the helper bundled with this RawCull installation.")
-            analysis?.cancel()
+            cancelAnalysis()
         } catch where AnalysisJobStore.StoreError.isRetryable(error) {
             let now = environment.instant()
-            let since = storageFailureSince ?? now
-            storageFailureSince = since
+            let since = bookkeeping.storageFailureSince ?? now
+            bookkeeping.storageFailureSince = since
             if let job = activeJob, now - since >= .seconds(5) {
                 await finish(job, as: .failed, message: storageFailureMessage(error))
                 if activeJob?.jobId == job.jobId {
-                    analysis?.cancel()
+                    cancelAnalysis()
                 }
             }
         } catch {
@@ -236,12 +381,14 @@ final class MCPAnalysisController {
             if let job = activeJob {
                 await finish(job, as: .failed, message: storageFailureMessage(error))
             }
-            analysis?.cancel()
+            cancelAnalysis()
         }
     }
 
     func setTerminationPending(_ pending: Bool) {
-        isTerminationPending = pending
+        if lifecycle != .quitting {
+            lifecycle = pending ? .terminationPending : .running
+        }
         // Suspend setup before the asynchronous quit save. If quitting is
         // cancelled, the monitor can present the same stored request again.
         if pending {
@@ -250,12 +397,14 @@ final class MCPAnalysisController {
     }
 
     func stopForQuit() async {
-        isQuitting = true
+        lifecycle = .quitting
         monitor?.cancel()
         monitor = nil
-        analysis?.cancel()
-        followUp?.cancel()
-        await followUp?.value
+        cancelAnalysis()
+        if case let .assessing(followUp) = activity {
+            followUp.task?.cancel()
+            await followUp.task?.value
+        }
         cancelSetup()
         if let job = activeJob {
             await finish(job, as: .cancelled, message: "RawCull quit.")
@@ -281,28 +430,27 @@ final class MCPAnalysisController {
         canStart: @MainActor () -> Bool,
     ) throws {
         guard try jobs.followUpsEnabled() else {
-            followUp?.cancel()
+            cancelFollowUp()
             return
         }
-        if !isTerminationPending, environment.now() >= nextHostPublication {
+        if !isTerminationPending, environment.now() >= bookkeeping.nextHostPublication {
             try jobs.publishFollowUpHost(bundlePath: environment.hostBundlePath())
-            nextHostPublication = environment.now().addingTimeInterval(2)
+            bookkeeping.nextHostPublication = environment.now().addingTimeInterval(2)
         }
-        if let followUpID {
+        if case let .assessing(running) = activity {
             let status: AnalysisJobStore.FollowUpRecord
-            do { status = try jobs.followUpStatus(followUpID) } catch where Self.isFollowUpUnavailable(error) {
-                followUp?.cancel()
+            do { status = try jobs.followUpStatus(running.id) } catch where Self.isFollowUpUnavailable(error) {
+                cancelFollowUp()
                 return
             }
             if status.cancellationRequested {
-                followUp?.cancel()
-            } else if let followUpDeadline, environment.instant() >= followUpDeadline {
-                followUpStopCode = "executionTimeout"
-                followUp?.cancel()
+                cancelFollowUp()
+            } else if environment.instant() >= running.deadline {
+                cancelFollowUp(reason: "executionTimeout")
             }
             return
         }
-        guard !isTerminationPending, setup == nil, analysis == nil,
+        guard !isTerminationPending, isIdle,
               let pending = try jobs.queuedFollowUp(), environment.now().timeIntervalSince(pending.createdAt) < 120,
               case let .started(worker) = try jobs.beginFollowUp(pending.request) else { return }
 
@@ -314,23 +462,20 @@ final class MCPAnalysisController {
             try jobs.finishFollowUp(worker, result: nil, errorCode: "busy")
             return
         }
-        followUpID = id
-        followUpDeadline = environment.instant().advanced(by: .seconds(180))
-        lease.invalidateOwner = { [weak self] in
-            self?.followUpStopCode = "modelChanged"
-            self?.followUp?.cancel()
+        let token = begin {
+            .assessing(FollowUpActivity(token: $0, id: id, deadline: environment.instant().advanced(by: .seconds(180))))
         }
-        followUp = Task {
+        lease.invalidateOwner = { [weak self] in
+            self?.cancelFollowUp(reason: "modelChanged")
+        }
+        attach(Task {
             let activity = ProcessInfo.processInfo.beginActivity(
                 options: [.userInitiatedAllowingIdleSystemSleep], reason: "RawCull MCP photo assessment",
             )
             defer {
                 ProcessInfo.processInfo.endActivity(activity)
                 lease.release(id)
-                followUpID = nil
-                followUpDeadline = nil
-                followUpStopCode = nil
-                followUp = nil
+                end(token)
             }
             do {
                 if await qwen.assessmentIdentity() == nil {
@@ -344,8 +489,8 @@ final class MCPAnalysisController {
                                             errorCode: output.assessedCount == 0 ? "allPhotosFailed" : nil)
                 }
             } catch {
-                let code: String? = if let followUpStopCode {
-                    followUpStopCode
+                let code: String? = if let stopReason = followUpStopReason(token) {
+                    stopReason
                 } else if error is CancellationError {
                     nil
                 } else if error is QwenInferenceRuntime.MCPAssessmentError {
@@ -366,7 +511,7 @@ final class MCPAnalysisController {
                     }
                 }.value
             }
-        }
+        }, to: token)
     }
 
     private func assessFollowUp(
@@ -418,11 +563,19 @@ final class MCPAnalysisController {
     }
 
     private func cancelSetup() {
-        setup?.cancel()
-        if let sheet = setupSheet, sheet.parent.sheets.contains(sheet.window) {
-            setupSheet = nil
+        guard case var .settingUp(setup) = activity else { return }
+        setup.task?.cancel()
+        if let sheet = setup.sheet, sheet.parent.sheets.contains(sheet.window) {
+            setup.sheet = nil
+            activity = .settingUp(setup)
             sheet.parent.endSheet(sheet.window, returnCode: .cancel)
         }
+    }
+
+    private func setSetupSheet(_ sheet: (parent: NSWindow, window: NSWindow)?) {
+        guard case var .settingUp(setup) = activity else { return }
+        setup.sheet = sheet
+        activity = .settingUp(setup)
     }
 
     private func showSetupSheet(
@@ -432,8 +585,8 @@ final class MCPAnalysisController {
         try Task.checkCancellation()
         guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
         sheet.preventsApplicationTerminationWhenModal = false
-        setupSheet = (parent, sheet)
-        defer { setupSheet = nil }
+        setSetupSheet((parent, sheet))
+        defer { setSetupSheet(nil) }
         let response = if let presentSetupSheet = environment.presentSetupSheet {
             await presentSetupSheet(sheet, parent)
         } else {
@@ -450,15 +603,15 @@ final class MCPAnalysisController {
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
         let revision = jobs.revision()
-        if let revision, revision == inactiveRevision {
+        if let revision, revision == bookkeeping.inactiveRevision {
             return
         }
-        inactiveRevision = nil
+        bookkeeping.inactiveRevision = nil
         let storedJob: AnalysisJob?
         do {
             storedJob = try jobs.readRecovering()
         } catch AnalysisJobStore.StoreError.unsupportedFormat {
-            inactiveRevision = revision
+            bookkeeping.inactiveRevision = revision
             throw AnalysisJobStore.StoreError.unsupportedFormat
         }
         if let photoAccess = MCPJobPhotoAccess.saved(in: environment.defaults),
@@ -466,32 +619,32 @@ final class MCPAnalysisController {
             MCPJobPhotoAccess.save(nil, in: environment.defaults)
         }
         guard let job = storedJob else {
-            approvedSetup = nil
-            analysis?.cancel()
+            pendingApprovalForClaim = nil
+            cancelAnalysis()
             return
         }
-        if analysis != nil {
-            guard job.jobId == activeJob?.jobId, job.catalogId == activeJob?.catalogId,
+        if case let .analyzing(running) = activity {
+            guard job.jobId == running.job.jobId, job.catalogId == running.job.catalogId,
                   job.state == .running, !job.cancellationRequested, try isAuthorized(job)
             else {
-                analysis?.cancel()
+                cancelAnalysis()
                 return
             }
             try updateProgress(job, viewModel: viewModel)
             return
         }
         guard job.state.isActive else {
-            if approvedSetup?.id == job.jobId {
-                approvedSetup = nil
+            if pendingApprovalForClaim?.id == job.jobId {
+                pendingApprovalForClaim = nil
             }
-            inactiveRevision = revision
+            bookkeeping.inactiveRevision = revision
             return
         }
         if job.usesWorkerLease || job.isExpired(at: .now) {
             _ = try jobs.expireInterruptedJob()
             return
         }
-        guard job.state == .queued, setup == nil, let lease = try jobs.acquireWorkerLease() else { return }
+        guard job.state == .queued, isIdle, let lease = try jobs.acquireWorkerLease() else { return }
 
         var didClaim = false
         let claimed = try jobs.update { current in
@@ -506,17 +659,16 @@ final class MCPAnalysisController {
         }
         guard didClaim, let claimed else { return }
 
-        activeJob = claimed
-        analysis = Task { [weak self, weak viewModel, lease] in
+        let token = begin { .analyzing(AnalysisActivity(token: $0, job: claimed)) }
+        attach(Task { [weak self, weak viewModel, lease] in
             guard let self else { return }
-            let activity = ProcessInfo.processInfo.beginActivity(
+            let processActivity = ProcessInfo.processInfo.beginActivity(
                 options: .userInitiatedAllowingIdleSystemSleep, reason: "RawCull MCP catalog analysis",
             )
             defer {
                 withExtendedLifetime(lease) {}
-                ProcessInfo.processInfo.endActivity(activity)
-                activeJob = nil
-                analysis = nil
+                ProcessInfo.processInfo.endActivity(processActivity)
+                end(token)
             }
             guard let viewModel else {
                 if !isQuitting {
@@ -546,7 +698,7 @@ final class MCPAnalysisController {
                     )
                 }
             }
-        }
+        }, to: token)
     }
 
     private var setupStore: CatalogSetupStore {
@@ -832,7 +984,7 @@ final class MCPAnalysisController {
                 return job
             }
             if let access {
-                approvedSetup = SetupApproval(id: job.jobId, url: url, access: access,
+                pendingApprovalForClaim = SetupApproval(id: job.jobId, url: url, access: access,
                                               remember: remember, expectedGrantID: expectedGrantID)
             }
             var response = request
@@ -865,10 +1017,10 @@ final class MCPAnalysisController {
         let name: String
         let grant: CatalogGrant?
         let authorization: MCPAnalysisAuthorization?
-        let setupApproval = approvedSetup.flatMap { $0.id == job.jobId ? $0 : nil }
+        let setupApproval = pendingApprovalForClaim.flatMap { $0.id == job.jobId ? $0 : nil }
         defer {
-            if approvedSetup?.id == job.jobId {
-                approvedSetup = nil
+            if pendingApprovalForClaim?.id == job.jobId {
+                pendingApprovalForClaim = nil
             }
         }
         if job.usesSetupApproval {
@@ -1235,16 +1387,16 @@ final class MCPAnalysisController {
 
     private func isAuthorized(_ job: AnalysisJob) throws -> Bool {
         if job.usesSetupApproval {
-            return approvedSetup?.id == job.jobId
+            return pendingApprovalForClaim?.id == job.jobId
         }
         let revision = grants.revision()
-        if let revision, let cachedGrant, cachedGrant.revision == revision {
+        if let revision, let cachedGrant = bookkeeping.cachedGrant, cachedGrant.revision == revision {
             return cachedGrant.catalogId == job.catalogId && cachedGrant.analysisEnabled
         }
-        cachedGrant = nil
+        bookkeeping.cachedGrant = nil
         let grant = try grants.authorizedCatalog()
         if let revision, grants.revision() == revision {
-            cachedGrant = (revision, grant?.id, grant?.analysisEnabled == true)
+            bookkeeping.cachedGrant = (revision, grant?.id, grant?.analysisEnabled == true)
         }
         return grant?.id == job.catalogId && grant?.analysisEnabled == true
     }
