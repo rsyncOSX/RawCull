@@ -73,10 +73,6 @@ final class RawCullViewModel {
     /// Owns catalog transitions, scan task lifetime, and security-scoped access.
     @ObservationIgnored let catalogLifecycle = CatalogLifecycleCoordinator()
 
-    @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
-    @ObservationIgnored var zoomNavigationBuildCount = 0
-    @ObservationIgnored var gridProjectionCache: CullingGridProjection?
-    @ObservationIgnored var gridProjectionBuildCount = 0
 
     /// The open catalog: sources, files, sorted and filtered projection, scan progress.
     let catalog: CatalogWorkspace
@@ -179,6 +175,7 @@ final class RawCullViewModel {
             presentation: presentation,
             fileOperations: fileOperations,
             navigation: navigation,
+            zoomOverlay: zoomOverlay,
             burstWorkflow: burstWorkflow,
             sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,

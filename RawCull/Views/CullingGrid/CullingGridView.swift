@@ -33,7 +33,7 @@ struct CullingGridView<Header: View>: View {
     @State private var batchRating: Int = 3
 
     private var projection: CullingGridProjection {
-        viewModel.cullingGridProjection(ratingFilter: ratingFilter)
+        viewModel.catalogController.cullingGridProjection(ratingFilter: ratingFilter)
     }
 
     private var visibleBurstGroups: [CullingGridVisibleBurstGroup] {

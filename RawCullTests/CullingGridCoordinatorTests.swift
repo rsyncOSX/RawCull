@@ -118,8 +118,8 @@ struct CullingGridCoordinatorTests {
             groupID: 1, fileIDs: [first.id, second.id], confidence: .medium,
         )])
         model.burstWorkflow.burstReviewQueueFilter = .needsReview
-        #expect(model.cullingGridProjection(ratingFilter: .all).groups.count == 1)
-        let buildCount = model.gridProjectionBuildCount
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).groups.count == 1)
+        let buildCount = model.catalogController.gridProjectionBuildCount
         let changed = Mutex(false)
         withObservationTracking {
             _ = model.burstWorkflow.burstAnalysisResults
@@ -130,8 +130,8 @@ struct CullingGridCoordinatorTests {
         #expect(changed.withLock { $0 })
         #expect(model.burstWorkflow.burstReviewStates[1] == .reviewed)
         #expect(model.burstWorkflow.burstAnalysisResults[1]?.reviewState == .reviewed)
-        #expect(model.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
-        #expect(model.gridProjectionBuildCount == buildCount + 1)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
+        #expect(model.catalogController.gridProjectionBuildCount == buildCount + 1)
         let revision = session.contentRevision
         session.setReviewState(.deferred, groupID: 1, scopedGroups: model.similarityModel.burstGroups)
         #expect(session.contentRevision == revision + 1)
@@ -357,15 +357,15 @@ struct CullingGridCoordinatorTests {
         model.catalog.filteredFiles = [first, middle, last, replacement]
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, middle.id, last.id])]
         model.sharpnessModel.scores = [first.id: 0.8]
-        let baseline = model.cullingGridProjection(ratingFilter: .all)
+        let baseline = model.catalogController.cullingGridProjection(ratingFilter: .all)
         model.sharpnessModel.scores = [first.id: 0.9, middle.id: 0.7]
-        #expect(model.cullingGridProjection(ratingFilter: .all).key == baseline.key)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).key == baseline.key)
         model.sharpnessModel.scores = [:]
-        #expect(model.cullingGridProjection(ratingFilter: .all).key != baseline.key)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).key != baseline.key)
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]
-        #expect(model.cullingGridProjection(ratingFilter: .all).groups.first?.files.map(\.id) == [first.id, replacement.id, last.id])
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).groups.first?.files.map(\.id) == [first.id, replacement.id, last.id])
         model.catalog.filteredFiles = [first, replacement, last]
-        #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id, last.id])
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id, last.id])
     }
 
     @Test

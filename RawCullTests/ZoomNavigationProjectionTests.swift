@@ -21,12 +21,12 @@ struct ZoomNavigationProjectionTests {
         #expect(navigation.currentZoomIndex == 0)
         #expect(!navigation.canNavigatePrevious)
         #expect(navigation.canNavigateNext)
-        let builds = model.zoomNavigationBuildCount
+        let builds = model.catalogController.zoomNavigationBuildCount
         model.selection.selectedFileID = second.id
         #expect(navigation.currentZoomIndex == 1)
         #expect(navigation.canNavigatePrevious)
         #expect(!navigation.canNavigateNext)
-        #expect(model.zoomNavigationBuildCount == builds)
+        #expect(model.catalogController.zoomNavigationBuildCount == builds)
         model.selection.selectedFileID = UUID()
         #expect(navigation.currentZoomIndex == nil)
     }
@@ -106,15 +106,15 @@ struct ZoomNavigationProjectionTests {
         let file = makeCullingTestFile("A.ARW")
         model.catalog.files = [file]
         model.catalog.filteredFiles = [file]
-        _ = model.zoomNavigationProjection()
+        _ = model.catalogController.zoomNavigationProjection()
         let changed = Mutex(false)
         withObservationTracking {
-            _ = model.zoomNavigationProjection()
+            _ = model.catalogController.zoomNavigationProjection()
         } onChange: {
             changed.withLock { $0 = true }
         }
         model.catalog.filteredFiles = []
         #expect(changed.withLock { $0 })
-        #expect(model.zoomNavigationProjection().files.isEmpty)
+        #expect(model.catalogController.zoomNavigationProjection().files.isEmpty)
     }
 }

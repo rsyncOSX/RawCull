@@ -18,11 +18,18 @@ final class CatalogController: FileOperationsCatalog {
     @ObservationIgnored let presentation: WorkspacePresentationModel
     @ObservationIgnored let fileOperations: FileOperationsModel
     @ObservationIgnored let navigation: WorkspaceNavigationModel
+    @ObservationIgnored let zoomOverlay: ZoomOverlayModel
     @ObservationIgnored let burstWorkflow: BurstWorkflowController
     @ObservationIgnored let sharpnessModel: SharpnessScoringModel
     @ObservationIgnored let similarityFeature: RawCullSimilarityFeature
     @ObservationIgnored let similarityModel: SimilarityScoringModel
     @ObservationIgnored let semanticSearchFeature: RawCullSemanticSearchFeature
+
+    // Projection memoization; not presentation state, so never observed.
+    @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
+    @ObservationIgnored var zoomNavigationBuildCount = 0
+    @ObservationIgnored var gridProjectionCache: CullingGridProjection?
+    @ObservationIgnored var gridProjectionBuildCount = 0
 
     /// Advances when the catalog the similarity feature works on changes.
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
@@ -35,6 +42,7 @@ final class CatalogController: FileOperationsCatalog {
         presentation: WorkspacePresentationModel,
         fileOperations: FileOperationsModel,
         navigation: WorkspaceNavigationModel,
+        zoomOverlay: ZoomOverlayModel,
         burstWorkflow: BurstWorkflowController,
         sharpnessModel: SharpnessScoringModel,
         similarityFeature: RawCullSimilarityFeature,
@@ -48,6 +56,7 @@ final class CatalogController: FileOperationsCatalog {
         self.presentation = presentation
         self.fileOperations = fileOperations
         self.navigation = navigation
+        self.zoomOverlay = zoomOverlay
         self.burstWorkflow = burstWorkflow
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature

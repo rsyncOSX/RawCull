@@ -16,21 +16,21 @@ struct CullingGridProjectionTests {
         let first = file("first.ARW"), second = file("second.ARW")
         model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
         model.catalog.filteredFiles = [first, second]
-        _ = model.cullingGridProjection(ratingFilter: .rating(3))
-        _ = model.zoomNavigationProjection()
-        let gridBuilds = model.gridProjectionBuildCount
-        let zoomBuilds = model.zoomNavigationBuildCount
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .rating(3))
+        _ = model.catalogController.zoomNavigationProjection()
+        let gridBuilds = model.catalogController.gridProjectionBuildCount
+        let zoomBuilds = model.catalogController.zoomNavigationBuildCount
         let revision = model.ratings.revision
 
         model.ratings.ratingCache[first.name] = 3
 
         #expect(model.ratings.revision == revision + 1)
-        #expect(model.cullingGridProjection(ratingFilter: .rating(3)).fileIDs == [first.id])
-        #expect(model.gridProjectionBuildCount == gridBuilds + 1)
-        _ = model.cullingGridProjection(ratingFilter: .rating(3))
-        #expect(model.gridProjectionBuildCount == gridBuilds + 1)
-        _ = model.zoomNavigationProjection()
-        #expect(model.zoomNavigationBuildCount == zoomBuilds + 1)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .rating(3)).fileIDs == [first.id])
+        #expect(model.catalogController.gridProjectionBuildCount == gridBuilds + 1)
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .rating(3))
+        #expect(model.catalogController.gridProjectionBuildCount == gridBuilds + 1)
+        _ = model.catalogController.zoomNavigationProjection()
+        #expect(model.catalogController.zoomNavigationBuildCount == zoomBuilds + 1)
     }
 
     @Test
@@ -38,21 +38,21 @@ struct CullingGridProjectionTests {
         let model = makeRawCullViewModel()
         let first = file("first.ARW"), second = file("second.ARW"), replacement = file("replacement.ARW")
         model.catalog.filteredFiles = [first, second]
-        _ = model.cullingGridProjection(ratingFilter: .all)
-        let initial = model.gridProjectionBuildCount
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .all)
+        let initial = model.catalogController.gridProjectionBuildCount
         model.selection.selectedFileID = first.id
         model.selection.selectedFileIDs = [first.id]
-        #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, second.id])
-        #expect(model.gridProjectionBuildCount == initial)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, second.id])
+        #expect(model.catalogController.gridProjectionBuildCount == initial)
         model.sharpnessModel.scores = [first.id: 0.5]
-        _ = model.cullingGridProjection(ratingFilter: .all)
-        let scored = model.gridProjectionBuildCount
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .all)
+        let scored = model.catalogController.gridProjectionBuildCount
         model.sharpnessModel.scores[first.id] = 0.9
-        _ = model.cullingGridProjection(ratingFilter: .all)
-        #expect(model.gridProjectionBuildCount == scored)
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .all)
+        #expect(model.catalogController.gridProjectionBuildCount == scored)
         model.catalog.filteredFiles = [first, replacement]
-        #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id])
-        #expect(model.gridProjectionBuildCount == scored + 1)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id])
+        #expect(model.catalogController.gridProjectionBuildCount == scored + 1)
     }
 
     @Test
@@ -61,20 +61,20 @@ struct CullingGridProjectionTests {
         let first = file("first.ARW"), second = file("second.ARW")
         model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
         model.catalog.filteredFiles = [first, second]
-        #expect(model.cullingGridProjection(ratingFilter: .unrated).files.count == 2)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .unrated).files.count == 2)
         model.ratings.ratingCache[first.name] = 0
-        #expect(model.cullingGridProjection(ratingFilter: .unrated).fileIDs == [second.id])
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .unrated).fileIDs == [second.id])
         model.navigation.mainViewMode = .similarityGrid
         model.similarityModel.burstModeActive = true
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
-        #expect(model.cullingGridProjection(ratingFilter: .all).selectionIDs == [first.id, second.id])
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).selectionIDs == [first.id, second.id])
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [second.id, first.id])]
-        #expect(model.cullingGridProjection(ratingFilter: .all).selectionIDs == [second.id, first.id])
-        let count = model.gridProjectionBuildCount
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).selectionIDs == [second.id, first.id])
+        let count = model.catalogController.gridProjectionBuildCount
         model.sharpnessModel.saliencyInfo[first.id] = SaliencyInfo(subjectLabel: "bird")
-        _ = model.cullingGridProjection(ratingFilter: .all)
-        #expect(model.gridProjectionBuildCount == count + 1)
+        _ = model.catalogController.cullingGridProjection(ratingFilter: .all)
+        #expect(model.catalogController.gridProjectionBuildCount == count + 1)
         model.burstWorkflow.burstReviewQueueFilter = .singleImages
-        #expect(model.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
+        #expect(model.catalogController.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
     }
 }

@@ -25,7 +25,7 @@ struct CullingGridProjection {
     let badges: [BatchBadgeSelectionItem]
 }
 
-extension RawCullViewModel {
+extension CatalogController {
     /// Revisions are advanced at mutation sites. Reading this key never hashes
     /// catalog membership or reconstructs a semantic selection set.
     func cullingGridProjection(ratingFilter: GridRatingFilter) -> CullingGridProjection {

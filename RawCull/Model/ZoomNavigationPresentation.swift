@@ -18,7 +18,7 @@ struct ZoomNavigationProjection {
     let catalogIDs: Set<FileItem.ID>
 }
 
-extension RawCullViewModel {
+extension CatalogController {
     func zoomNavigationProjection() -> ZoomNavigationProjection {
         // Read observable inputs even on cache hits so views retain dependencies.
         let key = ZoomNavigationProjectionKey(
@@ -64,12 +64,12 @@ struct ZoomNavigationPresentation {
     let viewModel: RawCullViewModel
 
     var orderedZoomFiles: [FileItem] {
-        viewModel.zoomNavigationProjection().files
+        viewModel.catalogController.zoomNavigationProjection().files
     }
 
     var currentZoomIndex: Int? {
         guard let selectedID = viewModel.selection.selectedFileID else { return nil }
-        let projection = viewModel.zoomNavigationProjection()
+        let projection = viewModel.catalogController.zoomNavigationProjection()
         guard projection.catalogIDs.contains(selectedID) else { return nil }
         return projection.indexByID[selectedID]
     }
