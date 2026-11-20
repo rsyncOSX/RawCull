@@ -7,7 +7,7 @@ import RawCullCore
 
 /// Owns the in-window zoom overlay: whether it is shown, how it navigates, and
 /// the images it displays. Choosing the navigation axis depends on the main view
-/// mode, so `RawCullViewModel.openZoomOverlay` decides it and passes it in.
+/// mode, so the workspace root decides it in `openZoomOverlay` and passes it in.
 @Observable @MainActor
 final class ZoomOverlayModel {
     var isVisible = false

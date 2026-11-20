@@ -5,7 +5,7 @@ import OSLog
 
 /// Pan and zoom of the main loupe image.
 ///
-/// Owned by `RawCullViewModel` rather than by `LoupeSessionModel`: the session
+/// Owned by the workspace root rather than by `LoupeSessionModel`: the session
 /// is `@State` of `LoupeMainImageView` and is recreated with the view, while the
 /// loupe viewport has always survived switching main view modes.
 @Observable @MainActor
