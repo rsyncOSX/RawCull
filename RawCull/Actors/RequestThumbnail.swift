@@ -247,7 +247,8 @@ actor RequestThumbnail {
             return cgRef
         }
 
-        return try await Task.detached(priority: .utility) { () throws -> CGImage in
+        return try await detachedCancellable(priority: .utility) { () throws -> CGImage in
+            try Task.checkCancellation()
             guard let tiffData = nsImage.tiffRepresentation,
                   let bitmapRep = NSBitmapImageRep(data: tiffData),
                   let cgImage = bitmapRep.cgImage
@@ -255,7 +256,7 @@ actor RequestThumbnail {
                 throw RawImageLoadingError.generationFailed
             }
             return cgImage
-        }.value
+        }
     }
 
     private func storeInMemory(_ image: NSImage, for key: ThumbnailCacheKey) {
