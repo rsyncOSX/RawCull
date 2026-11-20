@@ -84,7 +84,7 @@ final class MCPAnalysisController {
     private var inactiveRevision: AnalysisJobStore.Revision?
 
     func start(
-        viewModel: RawCullViewModel,
+        viewModel: any MCPAnalysisWorkspace,
         qwen: QwenInferenceRuntime? = nil,
         prepare: @escaping @MainActor () async -> Void,
         preparePhotoAssessment: @escaping @MainActor () async -> Void = {},
@@ -171,7 +171,7 @@ final class MCPAnalysisController {
     }
 
     private func pollFollowUp(
-        qwen: QwenInferenceRuntime, viewModel: RawCullViewModel, prepare: @escaping @MainActor () async -> Void,
+        qwen: QwenInferenceRuntime, viewModel: any MCPAnalysisWorkspace, prepare: @escaping @MainActor () async -> Void,
         canStart: @MainActor () -> Bool,
     ) throws {
         guard try jobs.followUpsEnabled() else {
@@ -337,7 +337,7 @@ final class MCPAnalysisController {
     }
 
     private func poll(
-        _ viewModel: RawCullViewModel,
+        _ viewModel: any MCPAnalysisWorkspace,
         prepare: @escaping @MainActor () async -> Void,
         canStart: @escaping @MainActor () -> Bool,
     ) throws {
@@ -446,7 +446,7 @@ final class MCPAnalysisController {
     }
 
     private func respond(
-        to request: CatalogSetupRequest, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool,
+        to request: CatalogSetupRequest, viewModel: any MCPAnalysisWorkspace, canStart: @MainActor () -> Bool,
     ) async {
         var response = request
         do {
@@ -598,7 +598,7 @@ final class MCPAnalysisController {
     }
 
     private func matchingCatalog(
-        for hint: String, viewModel: RawCullViewModel, saved: (grant: CatalogGrant, url: URL)?,
+        for hint: String, viewModel: any MCPAnalysisWorkspace, saved: (grant: CatalogGrant, url: URL)?,
     ) -> URL? {
         let query = hint.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return nil }
@@ -627,15 +627,15 @@ final class MCPAnalysisController {
         return match
     }
 
-    private func readableFolderAccess(_ url: URL, viewModel: RawCullViewModel) -> RawCullCatalogGrant? {
-        guard let access = viewModel.catalogLifecycle.retainSecurityScopedAccess(for: url),
+    private func readableFolderAccess(_ url: URL, viewModel: any MCPAnalysisWorkspace) -> RawCullCatalogGrant? {
+        guard let access = viewModel.retainSecurityScopedAccess(for: url),
               let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey]),
               values.isDirectory == true, values.isReadable == true else { return nil }
         return access
     }
 
     private func chooseFolder(
-        for request: CatalogSetupRequest, viewModel: RawCullViewModel, window: NSWindow,
+        for request: CatalogSetupRequest, viewModel: any MCPAnalysisWorkspace, window: NSWindow,
     ) async throws -> URL {
         let chooser = NSAlert()
         chooser.messageText = String(localized: "Choose a catalog for burst analysis")
@@ -684,7 +684,7 @@ final class MCPAnalysisController {
     private func queueSetup(
         _ request: CatalogSetupRequest, url: URL, remember: Bool, savedGrantId: UUID? = nil, access: RawCullCatalogGrant? = nil,
         expectedGrantID: UUID? = nil,
-        viewModel: RawCullViewModel, canStart: @MainActor () -> Bool,
+        viewModel: any MCPAnalysisWorkspace, canStart: @MainActor () -> Bool,
     ) async throws {
         try await waitForWorkspaceLoad(viewModel: viewModel) {
             try Task.checkCancellation()
@@ -749,7 +749,7 @@ final class MCPAnalysisController {
 
     private func run(
         _ job: AnalysisJob,
-        viewModel: RawCullViewModel,
+        viewModel: any MCPAnalysisWorkspace,
         prepare: @MainActor () async -> Void,
         canStart: @MainActor () -> Bool,
     ) async throws {
@@ -805,7 +805,7 @@ final class MCPAnalysisController {
             viewModel.sources.append(target)
         }
         let needsCatalogLoad = grant?.recurringFolder == true
-            || viewModel.catalogLifecycle.currentSource != target || viewModel.files.isEmpty
+            || viewModel.loadedSource != target || viewModel.files.isEmpty
             || !viewModel.hasActiveSecurityScopedAccess(for: url)
         if viewModel.selectedSource != target {
             viewModel.selectedSource = target
@@ -837,16 +837,16 @@ final class MCPAnalysisController {
                 try await withJobLockRetry {
                     try checkCurrent(job)
                     try requireUnchangedGrant(setupApproval.expectedGrantID)
-                    try viewModel.authorizeMCPCatalog(allowAnalysis: true, catalogId: job.catalogId, preservingJob: true)
+                    try viewModel.authorizeCatalogForMCPJob(catalogId: job.catalogId)
                 }
             }
         }
         try await checkCurrentWithRetry(job)
-        if viewModel.similarityModel.semanticSearchState != .idle {
-            await viewModel.semanticSearchFeature.clear()
+        if viewModel.isSemanticSearchActive {
+            await viewModel.clearActiveSemanticSearchForMCP()
             try await checkCurrentWithRetry(job)
         }
-        guard viewModel.selectedSource == target, viewModel.catalogLifecycle.currentSource == target,
+        guard viewModel.selectedSource == target, viewModel.loadedSource == target,
               viewModel.hasActiveSecurityScopedAccess(for: url), canStart(),
               !viewModel.isDeepAIReviewBlockedByOtherWork, !viewModel.isPreparingBurstCatalog
         else { throw JobError("The catalog changed or another operation started. Start a new job.") }
@@ -854,12 +854,12 @@ final class MCPAnalysisController {
         let orderedFiles = viewModel.fullCatalogBurstAnalysisFiles
         let generation = viewModel.burstAnalysisGeneration &+ 1
         let similaritySignature = viewModel.currentBurstSimilaritySignature
-        let sharpnessSignature = viewModel.sharpnessModel.scoringSignature
+        let sharpnessSignature = viewModel.currentSharpnessScoringSignature
         let result = await viewModel.startBurstAnalysis(catalog: target.url, files: orderedFiles)
         try await checkCurrentWithRetry(job)
         guard viewModel.selectedSource == target, viewModel.burstAnalysisGeneration == generation,
               viewModel.currentBurstSimilaritySignature == similaritySignature,
-              viewModel.sharpnessModel.scoringSignature == sharpnessSignature,
+              viewModel.currentSharpnessScoringSignature == sharpnessSignature,
               let result else { throw JobError("The catalog or analysis settings changed during the job.") }
         guard !result.diagnostics.contains(.cacheSaveFailed) else {
             throw JobError("RawCull could not save the ranked bursts to its analysis cache.")
@@ -910,18 +910,16 @@ final class MCPAnalysisController {
             return current
         }
         if needsCatalogLoad, grant?.recurringFolder != true || selection == nil {
-            viewModel.showsDetailedBurstComparison = false
-            viewModel.useExistingBurstGroupIndex()
+            viewModel.presentBurstResultsAfterMCPJob()
         }
     }
 
-    private func isWorkspaceLoading(_ viewModel: RawCullViewModel) -> Bool {
-        viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil
-            || viewModel.scanning || viewModel.isCreatingThumbnails
+    private func isWorkspaceLoading(_ viewModel: any MCPAnalysisWorkspace) -> Bool {
+        viewModel.isMCPWorkspaceLoading
     }
 
     private func waitForWorkspaceLoad(
-        viewModel: RawCullViewModel, checkRequest: () async throws -> Void,
+        viewModel: any MCPAnalysisWorkspace, checkRequest: () async throws -> Void,
     ) async throws {
         let clock = SuspendingClock()
         let deadline = clock.now.advanced(by: .seconds(120))
@@ -936,28 +934,28 @@ final class MCPAnalysisController {
     }
 
     private func requireAvailableWorkspace(
-        for url: URL, viewModel: RawCullViewModel, canStart: @MainActor () -> Bool, allowSwitch: Bool = false,
+        for url: URL, viewModel: any MCPAnalysisWorkspace, canStart: @MainActor () -> Bool, allowSwitch: Bool = false,
     ) throws {
-        if viewModel.cullingModel.isTerminationPending {
+        if viewModel.isMCPTerminationPending {
             throw JobError("RawCull is waiting to quit. Resolve any save prompt in RawCull, then start a new request.")
         }
         if isWorkspaceLoading(viewModel) {
             throw JobError("RawCull is loading a catalog. Wait for the catalog and thumbnails to finish loading, then start a new request.")
         }
         if !canStart() || viewModel.isDeepAIReviewBlockedByOtherWork || viewModel.isPreparingBurstCatalog
-            || viewModel.sharpnessModel.isCalibratingSharpnessScoring {
+            || viewModel.isSharpnessCalibrationRunning {
             throw JobError("RawCull is running analysis or preparing burst results. Wait for that operation to finish, then start a new request.")
         }
 
         let selectedMatches = viewModel.selectedSource.map { sameFolder($0.url, url) } ?? true
-        let loadedMatches = viewModel.catalogLifecycle.currentSource.map { sameFolder($0.url, url) } ?? true
+        let loadedMatches = viewModel.loadedSource.map { sameFolder($0.url, url) } ?? true
         guard allowSwitch || (selectedMatches && loadedMatches) else {
             throw JobError("RawCull has another catalog open. Select the authorized catalog in RawCull, then start a new job.")
         }
     }
 
     private func waitForCatalog(
-        _ job: AnalysisJob, target: ARWSourceCatalog, viewModel: RawCullViewModel,
+        _ job: AnalysisJob, target: ARWSourceCatalog, viewModel: any MCPAnalysisWorkspace,
     ) async throws {
         do {
             try await waitForCatalogLoad(job, target: target, viewModel: viewModel)
@@ -970,15 +968,15 @@ final class MCPAnalysisController {
     }
 
     private func waitForCatalogLoad(
-        _ job: AnalysisJob, target: ARWSourceCatalog, viewModel: RawCullViewModel,
+        _ job: AnalysisJob, target: ARWSourceCatalog, viewModel: any MCPAnalysisWorkspace,
     ) async throws {
-        while viewModel.catalogLifecycle.transitionTask != nil || viewModel.catalogLifecycle.loadTask != nil {
+        while viewModel.isCatalogTransitionActive {
             try await checkCurrentWithRetry(job)
             guard viewModel.selectedSource == target else { throw CancellationError() }
             try await Task.sleep(for: .milliseconds(250))
         }
         try await checkCurrentWithRetry(job)
-        guard viewModel.cullingModel.persistenceError == nil else {
+        guard viewModel.catalogPersistenceError == nil else {
             throw JobError("RawCull could not load or save culling data. Resolve the error in RawCull, then start a new request.")
         }
         guard viewModel.selectedSource == target else {
@@ -994,7 +992,7 @@ final class MCPAnalysisController {
         case nil:
             break
         }
-        guard viewModel.catalogLifecycle.currentSource == target, !viewModel.scanning,
+        guard viewModel.loadedSource == target, !viewModel.isScanningCatalog,
               viewModel.hasActiveSecurityScopedAccess(for: target.url), !viewModel.files.isEmpty
         else { throw JobError("RawCull did not finish loading the selected catalog. Open it in RawCull and try again.") }
     }
@@ -1059,11 +1057,11 @@ final class MCPAnalysisController {
 
     private func makeResults(
         _ result: BurstAnalysisPipelineResult, job: AnalysisJob,
-        photoIds: [UUID: String], viewModel: RawCullViewModel,
+        photoIds: [UUID: String], viewModel: any MCPAnalysisWorkspace,
     ) -> (coverage: AnalysisJob.Coverage, bursts: [AnalysisJob.Burst]) {
         let names = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0.url.lastPathComponent) })
-        let scores = viewModel.sharpnessModel.scores
-        let embeddings = viewModel.similarityModel.embeddings
+        let scores = viewModel.currentSharpnessScores
+        let embeddings = viewModel.currentSimilarityEmbeddings
         let grouped = Set(result.groups.flatMap(\.fileIDs))
         var skipped: [String: Int] = [:]
         var backendCounts: [String: Int] = [:]
@@ -1172,7 +1170,7 @@ final class MCPAnalysisController {
         }
     }
 
-    private func updateProgress(_ job: AnalysisJob, viewModel: RawCullViewModel) throws {
+    private func updateProgress(_ job: AnalysisJob, viewModel: any MCPAnalysisWorkspace) throws {
         let progress = viewModel.burstAnalysisProgress
         let scanned = viewModel.scanDiscoveredCount
         try jobs.update { current in
@@ -1182,13 +1180,13 @@ final class MCPAnalysisController {
             current.recordHeartbeat()
             current.filesScanned = current.stage == "openingCatalog" ? scanned : viewModel.files.count
             if progress.step == .grouping || progress.step == .ranking || progress.step == .savingCache {
-                current.filesAnalyzed = viewModel.similarityModel.embeddings.keys.lazy
-                    .filter { viewModel.sharpnessModel.scores[$0] != nil }.count
+                current.filesAnalyzed = viewModel.currentSimilarityEmbeddings.keys.lazy
+                    .filter { viewModel.currentSharpnessScores[$0] != nil }.count
             }
             current.stageTotal = progress.isCountBased ? progress.total : nil
             current.stageCompleted = switch progress.step {
-            case .scoringSharpness: viewModel.sharpnessModel.scoringProgress
-            case .indexingSimilarity: viewModel.similarityModel.indexingProgress
+            case .scoringSharpness: viewModel.sharpnessScoringProgress
+            case .indexingSimilarity: viewModel.similarityIndexingProgress
             default: nil
             }
             return current
