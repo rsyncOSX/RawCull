@@ -128,7 +128,7 @@ struct ComparisonGridView: View {
     }
 
     private func canHandleKeyboardShortcut(event: NSEvent) -> Bool {
-        viewModel.mainViewMode == .comparisonGrid
+        viewModel.navigation.mainViewMode == .comparisonGrid
             && !viewModel.zoomOverlay.isVisible
             && event.modifierFlags.intersection([.command, .control, .option]).isEmpty
             && keyboardScope.accepts(event)

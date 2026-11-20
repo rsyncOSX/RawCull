@@ -31,7 +31,7 @@ struct RawCullMainView: View {
     @State private var showCandidateInspector = false
 
     private var showsJPGExtractionProgressOverlay: Bool {
-        viewModel.fileOperations.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
+        viewModel.fileOperations.currentExtractAndSaveJPGsActor != nil && viewModel.navigation.mainViewMode != .loupe
     }
 
     var body: some View {
@@ -44,7 +44,7 @@ struct RawCullMainView: View {
                 )
                 .navigationTitle("AI Assessment")
             } else {
-                switch viewModel.mainViewMode {
+                switch viewModel.navigation.mainViewMode {
                 case .loupe:
                     loupeSplit
 

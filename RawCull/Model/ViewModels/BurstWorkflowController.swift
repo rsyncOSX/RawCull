@@ -6,7 +6,6 @@ import RawCullCore
 /// The workspace root implements this; the controller holds it weakly.
 @MainActor
 protocol BurstWorkflowHost: AnyObject {
-    var mainViewMode: MainViewMode { get set }
     var activeCatalogFiles: [FileItem] { get }
     var hasActiveSemanticSearchSelection: Bool { get }
     func hasRating(in files: [FileItem]) -> Bool
@@ -14,8 +13,6 @@ protocol BurstWorkflowHost: AnyObject {
     func updateRating(for file: FileItem, rating: Int)
     func refreshCullingDerivedState()
     func handleSortOrderChange() async
-    func selectMainViewMode(_ mode: MainViewMode)
-    func closeZoomOverlay()
     func applyBurstSharpnessScoringSideEffects(_ files: [FileItem]) async
 }
 
@@ -24,6 +21,7 @@ protocol BurstWorkflowHost: AnyObject {
 /// persistence, and the Deep Review group context.
 @Observable @MainActor
 final class BurstWorkflowController: DeepAIReviewApplicationContext {
+    @ObservationIgnored let navigation: WorkspaceNavigationModel
     @ObservationIgnored let catalog: CatalogWorkspace
     @ObservationIgnored let selection: SelectionModel
     @ObservationIgnored let ratings: RatingsModel
@@ -46,6 +44,7 @@ final class BurstWorkflowController: DeepAIReviewApplicationContext {
     var showsDetailedBurstComparison = false
 
     init(
+        navigation: WorkspaceNavigationModel,
         catalog: CatalogWorkspace,
         selection: SelectionModel,
         ratings: RatingsModel,
@@ -55,6 +54,7 @@ final class BurstWorkflowController: DeepAIReviewApplicationContext {
         deepAIReviewController: DeepAIReviewController,
         cacheRepository: any BurstAnalysisCacheRepository,
     ) {
+        self.navigation = navigation
         self.catalog = catalog
         self.selection = selection
         self.ratings = ratings

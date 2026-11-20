@@ -18,7 +18,7 @@ struct GridThumbnailView: View {
     var body: some View {
         // let _ = Self._printChanges()
         Group {
-            if viewModel.canShowThumbnailWorkspace {
+            if viewModel.navigation.canShowThumbnailWorkspace {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,
@@ -59,7 +59,7 @@ struct GridThumbnailView: View {
     }
 
     private var sortedFiles: [FileItem] {
-        if viewModel.showsBurstGroups,
+        if viewModel.navigation.showsBurstGroups,
            !viewModel.similarityFeature.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
             if !viewModel.selection.cullingGridRenderedFileIDs.isEmpty {

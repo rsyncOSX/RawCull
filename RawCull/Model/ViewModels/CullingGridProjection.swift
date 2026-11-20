@@ -38,7 +38,7 @@ extension RawCullViewModel {
             sourceURL: catalog.selectedSource?.url,
             ratingFilter: ratingFilter,
             reviewQueueFilter: burstWorkflow.burstReviewQueueFilter,
-            showsBurstGroups: showsBurstGroups,
+            showsBurstGroups: navigation.showsBurstGroups,
             hasSharpnessScores: !sharpnessModel.scores.isEmpty,
         )
         if let cached = gridProjectionCache, cached.key == key {

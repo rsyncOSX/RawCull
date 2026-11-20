@@ -63,7 +63,7 @@ struct CullingGridView<Header: View>: View {
             .padding(.vertical, 12)
             .background(.ultraThinMaterial)
 
-            if viewModel.showsBurstGroups {
+            if viewModel.navigation.showsBurstGroups {
                 CullingQueueHeader(
                     title: reviewQueueTitle, isSingleImages: viewModel.burstWorkflow.burstReviewQueueFilter == .singleImages,
                     burstCount: visibleBurstGroups.count,
@@ -76,7 +76,7 @@ struct CullingGridView<Header: View>: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         Group {
-                            if viewModel.showsBurstGroups {
+                            if viewModel.navigation.showsBurstGroups {
                                 LazyVStack(spacing: 16) {
                                     ForEach(renderedBurstGroups) { group in
                                         CullingBurstGroupCard(
@@ -128,7 +128,7 @@ struct CullingGridView<Header: View>: View {
                             let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
                                 state: newState,
                                 selectedFileID: viewModel.selection.selectedFileID,
-                                showsBurstGroups: viewModel.showsBurstGroups,
+                                showsBurstGroups: viewModel.navigation.showsBurstGroups,
                             )
                         else { return }
 
@@ -142,14 +142,12 @@ struct CullingGridView<Header: View>: View {
                     }
                 }
 
-                CullingGridProgressOverlay(
-                    viewModel: viewModel,
-                    similarityFeature: similarityFeature,
+                CullingGridProgressOverlay(similarityFeature: similarityFeature,
                 )
             }
         }
         .frame(minWidth: 400, minHeight: 400)
-        .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
+        .animation(.easeInOut(duration: 0.15), value: viewModel.navigation.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .task(id: viewModel.catalog.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
@@ -179,7 +177,7 @@ struct CullingGridView<Header: View>: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selection.selectedFileID = file.id
-        viewModel.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
+        viewModel.navigation.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
     }
 
     private func selectFiles(matchingBadge badge: String) {
@@ -225,7 +223,7 @@ struct CullingGridView<Header: View>: View {
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
         CullingGridSelectionCoordinator.zoomNavigationIDs(
             for: file,
-            showsBurstGroups: viewModel.showsBurstGroups,
+            showsBurstGroups: viewModel.navigation.showsBurstGroups,
             visibleBurstGroups: renderedBurstGroups,
             files: files,
         )
@@ -292,7 +290,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
-        guard viewModel.showsBurstGroups else { return .ignored }
+        guard viewModel.navigation.showsBurstGroups else { return .ignored }
         if characters == "\u{1b}" {
             viewModel.similarityFeature.burstModeActive = false
             return .handled
@@ -356,7 +354,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var semanticResultCount: Int? {
-        guard !viewModel.showsBurstGroups,
+        guard !viewModel.navigation.showsBurstGroups,
               let summary = semanticSearchFeature.resultSummary,
               summary.resultCount > 0
         else { return nil }

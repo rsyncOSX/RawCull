@@ -58,13 +58,13 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                 guard keyMonitor == nil else { return }
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     guard keyboardScope.accepts(event),
-                          viewModel.mainViewMode != .comparisonGrid,
+                          viewModel.navigation.mainViewMode != .comparisonGrid,
                           !viewModel.zoomOverlay.isVisible,
                           event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
 
                     if ThumbnailKeyboardRouting.handleBurstCommand(
                         event.charactersIgnoringModifiers,
-                        showsBurstGroups: axis == .grid && viewModel.showsBurstGroups,
+                        showsBurstGroups: axis == .grid && viewModel.navigation.showsBurstGroups,
                         perform: onBurstKeyPress,
                     ) {
                         return nil
@@ -78,7 +78,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         }
                         let filtered = viewModel.catalog.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
                         if axis == .grid,
-                           viewModel.showsBurstGroups,
+                           viewModel.navigation.showsBurstGroups,
                            !viewModel.similarityFeature.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
                             if !viewModel.selection.cullingGridRenderedFileIDs.isEmpty {
@@ -104,7 +104,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
 
                     switch event.keyCode {
                     case _ where ThumbnailKeyAction.resolve(characters: event.characters) == .inspectActualPixels:
-                        viewModel.openZoomOverlay(
+                        viewModel.navigation.openZoomOverlay(
                             navigationIDs: files.map(\.id),
                             initialSource: .embeddedJPG,
                             initialZoomMode: .actualPixels,

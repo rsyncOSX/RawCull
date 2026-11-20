@@ -384,14 +384,14 @@ extension BurstWorkflowController {
         }
         selection.comparisonFileIDs = Array(rankedIDs.prefix(4))
         selection.selectedFileID = fileID.flatMap { groupFileIDs.contains($0) ? $0 : nil } ?? selection.comparisonFileIDs.first
-        host.selectMainViewMode(.comparisonGrid)
+        navigation.selectMainViewMode(.comparisonGrid)
     }
 
     func returnToActiveBurstGroupView() {
         Logger.process.debugMessageOnly("BurstWorkflowController.returnToActiveBurstGroupView()")
-        host.closeZoomOverlay()
+        navigation.closeZoomOverlay()
         activeBurstComparisonGroupID = nil
-        host.mainViewMode = .similarityGrid
+        navigation.mainViewMode = .similarityGrid
         similarityModel.burstModeActive = true
     }
 
@@ -448,7 +448,7 @@ extension BurstWorkflowController {
     func useExistingBurstGroupIndex() {
         Logger.process.debugMessageOnly("BurstWorkflowController.useExistingBurstGroupIndex()")
         burstReviewQueueFilter = .all
-        host.selectMainViewMode(.similarityGrid)
+        navigation.selectMainViewMode(.similarityGrid)
         similarityModel.burstModeActive = true
     }
 

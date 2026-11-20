@@ -12,13 +12,13 @@ struct AboutRawCullView: View {
     private var activeShortcutSection: ShortcutSection {
         if viewModel.zoomOverlay.isVisible {
             .zoomPreview(navigationAxis: viewModel.zoomOverlay.navigationAxis)
-        } else if viewModel.mainViewMode == .comparisonGrid,
+        } else if viewModel.navigation.mainViewMode == .comparisonGrid,
                   viewModel.burstWorkflow.activeBurstComparisonGroupID != nil {
             viewModel.burstWorkflow.showsDetailedBurstComparison ? .burstComparison : .burstReview
-        } else if viewModel.showsBurstGroups {
+        } else if viewModel.navigation.showsBurstGroups {
             .burstGroups
         } else {
-            switch viewModel.mainViewMode {
+            switch viewModel.navigation.mainViewMode {
             case .loupe:
                 .loupe
 

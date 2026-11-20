@@ -54,7 +54,7 @@ struct LoupeKeyboardController {
             return .handled
 
         case .inspectActualPixels:
-            viewModel.openZoomOverlay(
+            viewModel.navigation.openZoomOverlay(
                 initialSource: .embeddedJPG,
                 initialZoomMode: .actualPixels,
                 showFocusPointsOnOpen: true,

@@ -362,7 +362,7 @@ struct ZoomOverlayView: View {
             session.endRAWExposureInspection()
             return
         }
-        viewModel.closeZoomOverlay()
+        viewModel.navigation.closeZoomOverlay()
         resetToFit()
         session.focusMask = nil
         session.subjectOutline = nil

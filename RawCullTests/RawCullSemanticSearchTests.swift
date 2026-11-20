@@ -592,7 +592,7 @@ struct RawCullSemanticSearchTests {
         viewModel.selection.selectedFileIDs = [selectedFile.id, outsideFile.id]
         viewModel.selection.selectedFileID = outsideFile.id
         viewModel.selection.comparisonFileIDs = [selectedFile.id, outsideFile.id]
-        viewModel.mainViewMode = .comparisonGrid
+        viewModel.navigation.mainViewMode = .comparisonGrid
 
         await viewModel.semanticSearchFeature.adjustSelection(by: -1)
 
@@ -600,7 +600,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.selection.selectedFileIDs == [selectedFile.id])
         #expect(viewModel.selection.selectedFileID == viewModel.catalog.filteredFiles.first?.id)
         #expect(viewModel.selection.comparisonFileIDs.isEmpty)
-        #expect(viewModel.mainViewMode == .similarityGrid)
+        #expect(viewModel.navigation.mainViewMode == .similarityGrid)
         #expect(await provider.queries() == ["wildlife"])
 
         await viewModel.semanticSearchFeature.adjustSelection(by: 1)

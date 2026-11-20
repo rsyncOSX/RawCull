@@ -85,18 +85,11 @@ final class RawCullViewModel {
         catalog.file(withID: selection.selectedFileID)
     }
 
-    /// Main content mode — drives which view fills the main window.
-    var mainViewMode: MainViewMode = .loupe
-    var canShowThumbnailWorkspace: Bool {
-        catalog.selectedSource != nil
-    }
-
-    var showsBurstGroups: Bool {
-        mainViewMode == .similarityGrid && similarityModel.burstModeActive
-    }
+    /// Main view mode and opening or closing the zoom overlay.
+    let navigation: WorkspaceNavigationModel
 
     /// In-window zoom overlay state.
-    let zoomOverlay = ZoomOverlayModel()
+    let zoomOverlay: ZoomOverlayModel
 
     /// Pan and zoom of the main loupe image.
     let loupeViewport = LoupeViewportModel()
@@ -146,6 +139,8 @@ final class RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.init()")
         let sharpnessModel = SharpnessScoringModel()
         let catalog = CatalogWorkspace()
+        let zoomOverlay = ZoomOverlayModel()
+        self.zoomOverlay = zoomOverlay
         let ratings = RatingsModel()
         let selection = SelectionModel()
         self.catalog = catalog
@@ -156,7 +151,11 @@ final class RawCullViewModel {
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewController = deepAIReviewController
+        navigation = WorkspaceNavigationModel(
+            zoomOverlay: zoomOverlay, catalog: catalog, similarityModel: similarityModel,
+        )
         burstWorkflow = BurstWorkflowController(
+            navigation: navigation,
             catalog: catalog,
             selection: selection,
             ratings: ratings,
@@ -180,40 +179,6 @@ final class RawCullViewModel {
     }
 
     // MARK: - Computed
-
-    // MARK: - Zoom
-
-    func openZoomOverlay(
-        navigationIDs: [FileItem.ID]? = nil,
-        initialSource: ImagePreviewSource = .embeddedJPG,
-        initialZoomMode: ZoomOverlayInitialZoomMode = .fit,
-        showFocusPointsOnOpen: Bool = false,
-    ) {
-        Logger.process.debugMessageOnly("RawCullViewModel.openZoomOverlay()")
-        zoomOverlay.open(
-            axis: mainViewMode == .loupe ? .vertical : .horizontal,
-            navigationIDs: navigationIDs,
-            initialSource: initialSource,
-            initialZoomMode: initialZoomMode,
-            showFocusPointsOnOpen: showFocusPointsOnOpen,
-        )
-    }
-
-    func closeZoomOverlay() {
-        Logger.process.debugMessageOnly("RawCullViewModel.closeZoomOverlay()")
-        zoomOverlay.close()
-    }
-
-    // MARK: - File Selection
-
-    func selectMainViewMode(_ mode: MainViewMode) {
-        Logger.process.debugMessageOnly("RawCullViewModel.selectMainViewMode()")
-        closeZoomOverlay()
-        if mode != .similarityGrid {
-            similarityModel.burstModeActive = false
-        }
-        mainViewMode = mode
-    }
 
     // MARK: - Focus Points
 

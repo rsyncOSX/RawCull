@@ -118,12 +118,12 @@ struct SharedMainToolbarContent: ToolbarContent {
             // Trailing mode switcher — Loupe / Grid / Rated Grid.
             ToolbarItemGroup(placement: .status) {
                 Button {
-                    viewModel.selectMainViewMode(.loupe)
+                    viewModel.navigation.selectMainViewMode(.loupe)
                 } label: {
                     Label("Loupe", systemImage: "rectangle.center.inset.filled")
                 }
                 .help("Loupe view")
-                .disabled(isDisabled || viewModel.mainViewMode == .loupe)
+                .disabled(isDisabled || viewModel.navigation.mainViewMode == .loupe)
 
                 Button {
                     selectSimilarityGridMode()
@@ -134,7 +134,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .disabled(isDisabled ||
                     viewModel.catalog.selectedSource == nil ||
                     viewModel.catalog.filteredFiles.isEmpty ||
-                    viewModel.mainViewMode == .similarityGrid ||
+                    viewModel.navigation.mainViewMode == .similarityGrid ||
                     viewModel.catalog.isCreatingThumbnails)
 
                 Button {
@@ -146,11 +146,11 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .disabled(isDisabled ||
                     viewModel.catalog.selectedSource == nil ||
                     viewModel.catalog.filteredFiles.isEmpty ||
-                    viewModel.mainViewMode == .grid ||
+                    viewModel.navigation.mainViewMode == .grid ||
                     viewModel.catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.aiAnalysis)
+                    viewModel.navigation.selectMainViewMode(.aiAnalysis)
                 } label: {
                     Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
                 }
@@ -158,11 +158,11 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .disabled(isDisabled ||
                     viewModel.catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
-                    viewModel.mainViewMode == .aiAnalysis ||
+                    viewModel.navigation.mainViewMode == .aiAnalysis ||
                     viewModel.catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.combinedReview)
+                    viewModel.navigation.selectMainViewMode(.combinedReview)
                 } label: {
                     Label("Combined Review", systemImage: "sparkles.rectangle.stack")
                 }
@@ -171,11 +171,11 @@ struct SharedMainToolbarContent: ToolbarContent {
                     !combinedReviewEnabled ||
                     viewModel.catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
-                    viewModel.mainViewMode == .combinedReview ||
+                    viewModel.navigation.mainViewMode == .combinedReview ||
                     viewModel.catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.ratedGrid)
+                    viewModel.navigation.selectMainViewMode(.ratedGrid)
                 } label: {
                     Label("Rated", systemImage: "star.square.fill")
                 }
@@ -183,7 +183,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .disabled(isDisabled ||
                     viewModel.catalog.selectedSource == nil ||
                     !showGridtaggedThumbnailWindow() ||
-                    viewModel.mainViewMode == .ratedGrid ||
+                    viewModel.navigation.mainViewMode == .ratedGrid ||
                     viewModel.catalog.isCreatingThumbnails)
             }
         }
@@ -235,19 +235,19 @@ struct SharedMainToolbarContent: ToolbarContent {
     private func selectGridMode() {
         viewModel.ratings.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.selectMainViewMode(.grid)
+        viewModel.navigation.selectMainViewMode(.grid)
     }
 
     private func selectSimilarityGridMode() {
         viewModel.ratings.ratingFilter = .all
         viewModel.burstWorkflow.burstReviewQueueFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.selectMainViewMode(.similarityGrid)
+        viewModel.navigation.selectMainViewMode(.similarityGrid)
     }
 
     private func selectReviewQueueMode() {
         viewModel.ratings.ratingFilter = .all
-        viewModel.selectMainViewMode(.similarityGrid)
+        viewModel.navigation.selectMainViewMode(.similarityGrid)
         if semanticSelectionCount != nil {
             Task { @MainActor in
                 await viewModel.handleSortOrderChange()
@@ -281,7 +281,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             .filter { selectedIDs.contains($0.id) }
             .map(\.id)
         viewModel.selection.comparisonFileIDs = Array(orderedIDs.prefix(4))
-        viewModel.selectMainViewMode(.comparisonGrid)
+        viewModel.navigation.selectMainViewMode(.comparisonGrid)
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {

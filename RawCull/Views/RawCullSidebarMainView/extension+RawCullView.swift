@@ -22,7 +22,7 @@ extension RawCullMainView {
     }
 
     func toggleLoupeMetadataPanel() {
-        guard viewModel.mainViewMode == .loupe else { return }
+        guard viewModel.navigation.mainViewMode == .loupe else { return }
         withAnimation(.snappy) {
             viewModel.presentation.showsLoupeMetadataPanel.toggle()
         }

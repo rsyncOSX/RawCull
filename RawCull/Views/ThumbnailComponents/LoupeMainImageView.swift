@@ -172,7 +172,7 @@ struct LoupeMainImageView: View {
     /// Match the zoom overlay's shortcut handling without intercepting text entry.
     private func installSubjectOutlineKeyMonitor() {
         subjectOutlineKeyMonitor.install { event in
-            guard viewModel.mainViewMode == .loupe,
+            guard viewModel.navigation.mainViewMode == .loupe,
                   !viewModel.zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),

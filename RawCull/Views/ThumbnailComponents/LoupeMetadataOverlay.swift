@@ -29,7 +29,7 @@ struct LoupeMetadataOverlay: View {
                         }
                     },
                     previewSource: previewSource,
-                    onOpenZoom: { viewModel.openZoomOverlay(initialSource: .embeddedJPG) },
+                    onOpenZoom: { viewModel.navigation.openZoomOverlay(initialSource: .embeddedJPG) },
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }

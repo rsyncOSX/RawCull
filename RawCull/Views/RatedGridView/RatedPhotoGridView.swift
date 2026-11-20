@@ -20,9 +20,7 @@ struct RatedPhotoGridView: View {
                     spacing: 8,
                 ) {
                     ForEach(ratedFiles, id: \.id) { file in
-                        RatedImageItemView(
-                            viewModel: viewModel,
-                            file: file,
+                        RatedImageItemView(file: file,
                             catalogURL: catalogURL,
                             isSelected: viewModel.selection.selectedFileID == file.id,
                             isMultiSelected: viewModel.selection.selectedFileIDs.contains(file.id),
@@ -94,6 +92,6 @@ struct RatedPhotoGridView: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selection.selectedFileID = file.id
-        viewModel.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
+        viewModel.navigation.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
     }
 }

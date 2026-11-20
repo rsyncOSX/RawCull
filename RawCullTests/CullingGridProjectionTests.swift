@@ -64,7 +64,7 @@ struct CullingGridProjectionTests {
         #expect(model.cullingGridProjection(ratingFilter: .unrated).files.count == 2)
         model.ratings.ratingCache[first.name] = 0
         #expect(model.cullingGridProjection(ratingFilter: .unrated).fileIDs == [second.id])
-        model.mainViewMode = .similarityGrid
+        model.navigation.mainViewMode = .similarityGrid
         model.similarityModel.burstModeActive = true
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
         #expect(model.cullingGridProjection(ratingFilter: .all).selectionIDs == [first.id, second.id])

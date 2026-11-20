@@ -38,10 +38,10 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly("RawCullViewModel.refreshSemanticSearchSelection()")
         similarityModel.burstModeActive = false
         if burstWorkflow.activeBurstComparisonGroupID != nil
-            || mainViewMode == .comparisonGrid {
+            || navigation.mainViewMode == .comparisonGrid {
             burstWorkflow.activeBurstComparisonGroupID = nil
             selection.comparisonFileIDs = []
-            selectMainViewMode(.similarityGrid)
+            navigation.selectMainViewMode(.similarityGrid)
         }
         await handleSortOrderChange()
         reconcileThumbnailSelectionWithSemanticSearch()

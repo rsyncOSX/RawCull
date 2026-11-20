@@ -166,7 +166,7 @@ struct ComparisonKeyboardController {
 
     private func inspectSelectedActualPixels() -> KeyPress.Result {
         guard selectedFileIDForInteraction() != nil else { return .ignored }
-        viewModel.openZoomOverlay(
+        viewModel.navigation.openZoomOverlay(
             navigationIDs: files.map(\.id),
             initialSource: .embeddedJPG,
             initialZoomMode: .actualPixels,

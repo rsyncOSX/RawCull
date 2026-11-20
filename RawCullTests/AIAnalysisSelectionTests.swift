@@ -50,9 +50,9 @@ struct AIAnalysisSelectionTests {
         state.viewModel.catalog.filteredFiles = [first, second]
         state.viewModel.selection.selectedFileIDs = [first.id, second.id]
 
-        state.viewModel.selectMainViewMode(.aiAnalysis)
-        state.viewModel.selectMainViewMode(.loupe)
-        state.viewModel.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.loupe)
+        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
 
         #expect(state.viewModel.selection.selectedFileIDs == [first.id, second.id])
         #expect(

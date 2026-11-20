@@ -25,7 +25,7 @@ struct GridThumbnailSelectionView: View {
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
         ) {
-            if !viewModel.showsBurstGroups {
+            if !viewModel.navigation.showsBurstGroups {
                 SharpnessControlsView(
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,

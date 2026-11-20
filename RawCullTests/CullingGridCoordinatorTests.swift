@@ -111,7 +111,7 @@ struct CullingGridCoordinatorTests {
         let second = makeGridTestFile("second.ARW")
         model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
         model.catalog.filteredFiles = [first, second]
-        model.mainViewMode = .similarityGrid
+        model.navigation.mainViewMode = .similarityGrid
         model.similarityModel.burstModeActive = true
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
         model.burstWorkflow.burstReviewSession.replaceRankings([1: makeReviewQueueResult(
@@ -175,16 +175,16 @@ struct CullingGridCoordinatorTests {
 
     @Test func `thumbnail workspace follows the current catalog across view switches`() {
         let viewModel = makeRawCullViewModel()
-        #expect(!viewModel.canShowThumbnailWorkspace)
+        #expect(!viewModel.navigation.canShowThumbnailWorkspace)
         viewModel.catalog.selectedSource = ARWSourceCatalog(name: "First", url: URL(fileURLWithPath: "/tmp/first"))
         for mode in [MainViewMode.grid, .loupe, .similarityGrid, .combinedReview, .grid] {
-            viewModel.selectMainViewMode(mode)
-            #expect(viewModel.canShowThumbnailWorkspace)
+            viewModel.navigation.selectMainViewMode(mode)
+            #expect(viewModel.navigation.canShowThumbnailWorkspace)
         }
         viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Second", url: URL(fileURLWithPath: "/tmp/second"))
-        #expect(viewModel.canShowThumbnailWorkspace)
+        #expect(viewModel.navigation.canShowThumbnailWorkspace)
         viewModel.catalog.selectedSource = nil
-        #expect(!viewModel.canShowThumbnailWorkspace)
+        #expect(!viewModel.navigation.canShowThumbnailWorkspace)
     }
 
     @Test(.tags(.smoke))

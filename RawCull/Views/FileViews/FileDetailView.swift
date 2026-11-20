@@ -33,7 +33,7 @@ struct FileDetailView: View {
             .onTapGesture(count: 2) {
                 guard let selectedID = selectedFileID,
                       files.contains(where: { $0.id == selectedID }) else { return }
-                viewModel.openZoomOverlay()
+                viewModel.navigation.openZoomOverlay()
             }
         } else {
             emptyState
