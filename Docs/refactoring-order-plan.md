@@ -73,12 +73,12 @@ One step = one branch = one PR, commit all changes the current branch before the
 | 4 | `ZoomOverlayModel` | VM → [Slice 1](viewmodel-decomposition-plan.md#slice-1-zoomoverlaymodel-low-risk-about-11-files) | S | low | done |
 | 5 | Loupe viewport into `LoupeSessionModel` | VM → [Slice 2](viewmodel-decomposition-plan.md#slice-2-loupe-viewport-into-loupesessionmodel-low-risk-3-files) | XS | low | done |
 | 6 | `WorkspacePresentationModel` | VM → [Slice 3](viewmodel-decomposition-plan.md#slice-3-workspacepresentationmodel-low-risk-many-small-consumers) | S | low | done |
-| 7 | Make the MCP controller testable | QF → [Finding 3](code-quality-followups-plan.md#finding-3-make-the-mcp-controllers-state-explicit), step 3.1 | S | low | todo |
-| 8 | Characterization tests for MCP transitions | QF → Finding 3, step 3.2 | M | low | todo |
-| 9 | `FileOperationsModel` | VM → [Slice 4](viewmodel-decomposition-plan.md#slice-4-fileoperationsmodel-medium-risk) | M | medium | todo |
-| 10 | Explicit MCP state (`Activity` / `Lifecycle` enums) | QF → Finding 3, step 3.3 | M | medium | todo |
-| 11 | `RatingsModel` | VM → [Slice 5](viewmodel-decomposition-plan.md#slice-5-ratingsmodel-medium-risk-the-hot-path) | M | medium | todo |
-| 12 | Typed MCP stop reasons + split the MCP files | QF → Finding 3, steps 3.4–3.5 | S | low | todo |
+| 7 | Make the MCP controller testable | QF → [Finding 3](code-quality-followups-plan.md#finding-3-make-the-mcp-controllers-state-explicit), step 3.1 | S | low | done |
+| 8 | Characterization tests for MCP transitions | QF → Finding 3, step 3.2 | M | low | done |
+| 9 | `FileOperationsModel` | VM → [Slice 4](viewmodel-decomposition-plan.md#slice-4-fileoperationsmodel-medium-risk) | M | medium | done |
+| 10 | Explicit MCP state (`Activity` / `Lifecycle` enums) | QF → Finding 3, step 3.3 | M | medium | done |
+| 11 | `RatingsModel` | VM → [Slice 5](viewmodel-decomposition-plan.md#slice-5-ratingsmodel-medium-risk-the-hot-path) | M | medium | done |
+| 12 | Typed MCP stop reasons + split the MCP files | QF → Finding 3, steps 3.4–3.5 | S | low | done |
 | 13 | `SelectionModel` | VM → [Slice 6](viewmodel-decomposition-plan.md#slice-6-catalogworkspace--selectionmodel-high-risk-the-most-read-state) (first PR) | M | high | todo |
 | 14 | `CatalogWorkspace` | VM → Slice 6 (second PR) | L | high | todo |
 | 15 | `BurstWorkflowController` | VM → [Slice 7](viewmodel-decomposition-plan.md#slice-7-burstworkflowcontroller-high-risk-the-biggest-win) | L | high | todo |
@@ -119,7 +119,7 @@ Result: done 2026-11-20. 28 stored properties removed (counted as non-computed `
 
 *Done when:* `MCPAnalysisController` has no loose optional activity fields left, the MCP transition tests pass, ratings live in `RatingsModel`, and the `ImageReviewRating*` conformances have moved there.
 
-Result: —
+Result: done 2026-11-20. The controller takes an injected `MCPAnalysisEnvironment` (stores, preferences, clocks, windows, sheet presentation) and exposes `tick()`. 13 characterization tests in `MCPAnalysisControllerTests` passed before and after the state change. State is now an `Activity` enum (idle / settingUp / analyzing / assessing) with token-checked `begin`/`end`, a `Lifecycle` enum, `pendingApprovalForClaim` and `PollBookkeeping`. Stop codes are `MCPAssessmentStopReason`, mapped by the pure, unit-tested `stopReason(for:recorded:)`. Files split: the controller is 580 + 287 + 473 + 210 lines (was 1,262 in one file). `AnalysisJobStore.swift` is 298 lines (was 1,391), with `AnalysisJob`, `+FollowUps`, `CatalogSetupStore` and `MCPAssessmentStopReason` in their own files. `RatingsModel` owns the culling store, rating caches and filter. Its `revision` is in the grid and zoom projection keys, replacing the `didSet` side effect, and a new test checks for exactly one rebuild per rating change. `ImageReviewRatingProviding` moved to `RatingsModel`. `ImageReviewRatingActing` stays on the root because advancing the selection needs both slices. Graph edges 385 → 372; stored properties (same count as before) 63 → 51. Not covered: storage failures retried for under 5 s, because the store gives tests no way to inject a retryable error. Plan corrections: the plan counted 32 `remoteDataNumbers` references, but only one goes through the view model (the rest are local bindings). Splitting by extension means members used across files can no longer be `private`.
 
 ### Phase 4: High-risk view-model slices (steps 13–16)
 
@@ -146,3 +146,4 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 |---|---|---|---|---|---|---|
 | 2026-11-20 | baseline | 399 | 0.02 | 103 | 73 | |
 | 2026-11-20 | 6 | 385 | 0.03 | 63 (91 at baseline by the same count) | 73 | steps 1–6 |
+| 2026-11-20 | 12 | 372 | 0.02 | 51 | 73 | steps 7–12 |
