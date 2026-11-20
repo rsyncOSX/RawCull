@@ -212,7 +212,7 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            viewModel.updateRating(for: file, rating: rating)
+            viewModel.culling.updateRating(for: file, rating: rating)
         }
     }
 
@@ -224,9 +224,9 @@ struct AIAssessmentComparison: View {
                   !hasDuplicateFilename(file) else { return }
             if viewModel.ratings.getRating(for: file) >= 2 {
                 viewModel.ratings.cullingModel.applyRatingStates([file.name: nil], in: catalog)
-                viewModel.refreshCullingDerivedState()
+                viewModel.culling.refreshCullingDerivedState()
             } else {
-                viewModel.updateRating(for: file, rating: 2)
+                viewModel.culling.updateRating(for: file, rating: 2)
             }
         }
     }

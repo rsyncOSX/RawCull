@@ -285,8 +285,8 @@ extension CatalogPerformanceTests {
             let actual = navigation.currentZoomIndex
             let previous = navigation.canNavigatePrevious
             let next = navigation.canNavigateNext
-            let count = model.sharpnessScoringTargetCount
-            let description = model.sharpnessScoringTargetDescription
+            let count = model.catalogController.sharpnessScoringTargetCount
+            let description = model.catalogController.sharpnessScoringTargetDescription
             await journal.record(
                 "navigation.selectionAndControls",
                 since: start,
@@ -296,7 +296,7 @@ extension CatalogPerformanceTests {
         }
         try #require(model.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
         model.selection.selectedFileIDs = Set(files.prefix(3).map(\.id))
-        try #require(model.sharpnessScoringTargetCount == min(3, files.count))
+        try #require(model.catalogController.sharpnessScoringTargetCount == min(3, files.count))
         model.selection.selectedFileIDs = []
         start = ProcessInfo.processInfo.systemUptime
         model.ratings.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })

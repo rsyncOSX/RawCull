@@ -44,7 +44,7 @@ struct SettingsView: View {
                             selectedCatalogName: viewModel.catalog.selectedSource?.name,
                             selectedCatalogURL: viewModel.catalog.selectedSource?.url,
                             canAuthorizeAnalysis: !viewModel.catalog.scanning && !viewModel.catalog.files.isEmpty,
-                            authorizeCatalog: viewModel.authorizeMCPCatalog,
+                            authorizeCatalog: viewModel.catalogController.authorizeMCPCatalog,
                         )
                     }
                 }

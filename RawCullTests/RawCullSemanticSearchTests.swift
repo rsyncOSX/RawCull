@@ -573,16 +573,16 @@ struct RawCullSemanticSearchTests {
 
         await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.catalog.filteredFiles.count == 20)
-        #expect(viewModel.activeCatalogFiles.count == 20)
+        #expect(viewModel.catalogController.activeCatalogFiles.count == 20)
 
         await viewModel.semanticSearchFeature.adjustSelection(by: -13)
 
         let selectedIDs = Set(viewModel.catalog.filteredFiles.map(\.id))
         #expect(viewModel.catalog.filteredFiles.count == 7)
-        #expect(Set(viewModel.activeCatalogFiles.map(\.id)) == selectedIDs)
+        #expect(Set(viewModel.catalogController.activeCatalogFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
-        #expect(Set(viewModel.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
-        #expect(viewModel.sharpnessScoringTargetCount == selectedIDs.count)
+        #expect(Set(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
+        #expect(viewModel.catalogController.sharpnessScoringTargetCount == selectedIDs.count)
         #expect(await provider.queries() == ["wildlife"])
 
         let selectedFile = try #require(viewModel.catalog.filteredFiles.first)
@@ -606,10 +606,10 @@ struct RawCullSemanticSearchTests {
         await viewModel.semanticSearchFeature.adjustSelection(by: 1)
 
         #expect(viewModel.catalog.filteredFiles.count == 7)
-        #expect(viewModel.activeCatalogFiles.count == 7)
+        #expect(viewModel.catalogController.activeCatalogFiles.count == 7)
         #expect(await provider.queries() == ["wildlife"])
 
-        let scopedFiles = viewModel.activeCatalogFiles
+        let scopedFiles = viewModel.catalogController.activeCatalogFiles
         viewModel.burstWorkflow.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
             catalog: fixture.root,
             orderedFileIDs: scopedFiles.map(\.id),
@@ -623,7 +623,7 @@ struct RawCullSemanticSearchTests {
 
         await viewModel.semanticSearchFeature.clear()
 
-        #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
+        #expect(viewModel.catalogController.activeCatalogFiles.count == fixture.files.count)
         #expect(
             viewModel.burstWorkflow.completedBurstAnalysisContext
                 == CompletedBurstAnalysisContext(
@@ -732,14 +732,14 @@ struct RawCullSemanticSearchTests {
             ) == 25,
         )
         await viewModel.semanticSearchFeature.search(for: "wildlife")
-        #expect(viewModel.activeCatalogFiles.count == 20)
+        #expect(viewModel.catalogController.activeCatalogFiles.count == 20)
 
         viewModel.selection.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
         await viewModel.burstWorkflow.prepareForFullCatalogReindex()
 
         #expect(viewModel.similarityModel.semanticSearchState == .idle)
         #expect(viewModel.selection.selectedFileIDs.isEmpty)
-        #expect(viewModel.activeCatalogFiles.count == 25)
+        #expect(viewModel.catalogController.activeCatalogFiles.count == 25)
         #expect(viewModel.catalog.filteredFiles.count == 25)
         #expect(viewModel.fullCatalogBurstAnalysisFiles.count == 25)
     }

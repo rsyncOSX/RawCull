@@ -111,7 +111,7 @@ struct CacheSettingsTab: View {
                 Task {
                     let cullingModel = viewModel.ratings.cullingModel
                     if await cullingModel.ensureLoaded() {
-                        viewModel.clearAllCullingState()
+                        viewModel.culling.clearAllCullingState()
                         if await !(cullingModel.flushPersistence()) {
                             savedFilesDeletionError = cullingModel.persistenceError
                         }

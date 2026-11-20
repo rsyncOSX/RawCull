@@ -30,7 +30,7 @@ struct ComparisonPane: View {
             sharpnessContext: sharpnessContext(for: file),
             onSelect: { session.select(file.id) },
             onRate: { rating in
-                viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
+                viewModel.culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
             },
             onSourceChange: {
                 startReloadImage(for: file)

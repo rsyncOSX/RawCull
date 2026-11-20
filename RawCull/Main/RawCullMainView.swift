@@ -133,13 +133,13 @@ struct RawCullMainView: View {
         .alert(persistenceAlertTitle, isPresented: persistenceErrorIsPresented) {
             Button("Retry") {
                 Task {
-                    await viewModel.retryCullingPersistence()
+                    await viewModel.culling.retryCullingPersistence()
                 }
             }
             if viewModel.ratings.cullingModel.persistenceLoadFailure != nil {
                 Button("Archive Damaged File and Reset", role: .destructive) {
                     Task {
-                        await viewModel.archiveCullingStoreAndReset()
+                        await viewModel.culling.archiveCullingStoreAndReset()
                     }
                 }
             }
@@ -277,7 +277,7 @@ struct RawCullMainView: View {
 
                 case .clearRatedFiles:
                     Button("Clear", role: .destructive) {
-                        viewModel.clearCurrentCatalogCullingState()
+                        viewModel.culling.clearCurrentCatalogCullingState()
                     }
                     .frame(width: 100)
 
@@ -305,7 +305,7 @@ struct RawCullMainView: View {
                 fileHandler: { _ in },
                 maxfilesHandler: { _ in },
                 estimatedTimeHandler: { _ in },
-                memorypressurewarning: viewModel.setMemoryPressureWarning,
+                memorypressurewarning: viewModel.catalogController.setMemoryPressureWarning,
                 onExtractionNeeded: {},
             )
             await SharedMemoryCache.shared.setFileHandlers(handlers)
@@ -314,11 +314,11 @@ struct RawCullMainView: View {
             handlePickerResult(result)
         }
         .task(id: viewModel.catalog.selectedSource) {
-            viewModel.startCatalogLoad(for: viewModel.catalog.selectedSource)
+            viewModel.catalogController.startCatalogLoad(for: viewModel.catalog.selectedSource)
         }
         .onChange(of: viewModel.catalog.sortOrder) { _, _ in
             Task(priority: .background) {
-                await viewModel.handleSortOrderChange()
+                await viewModel.catalogController.handleSortOrderChange()
             }
         }
         .overlay(alignment: .bottom) {
@@ -425,7 +425,7 @@ struct RawCullMainView: View {
                 handlePickerResult(result)
             }
             .task(id: viewModel.catalog.selectedSource) {
-                viewModel.startCatalogLoad(for: viewModel.catalog.selectedSource)
+                viewModel.catalogController.startCatalogLoad(for: viewModel.catalog.selectedSource)
             }
         }
     }
@@ -471,7 +471,7 @@ struct RawCullMainView: View {
     // MARK: - Actions
 
     func abort() {
-        viewModel.abort()
+        viewModel.catalogController.abort()
     }
 
     private func startMemoryWarningFlash() {

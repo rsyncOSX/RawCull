@@ -129,37 +129,37 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                     case 7: // x / X — reject (rating −1, red), advance to next
                         let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
+                            viewModel.culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
                             viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: -1, in: files)
+                        viewModel.culling.updateRatingAndAdvance(for: current, rating: -1, in: files)
                         return nil
 
                     case 35: // p / P — keep (rating 0), advance to next
                         let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            viewModel.culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
                             viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
+                        viewModel.culling.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
                     case 29: // 0 — keep (rating 0), advance to next
                         let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            viewModel.culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
                             viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
+                        viewModel.culling.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
                     case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating and advance to next
@@ -172,25 +172,25 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         }
                         let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
+                            viewModel.culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
                             viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: rating, in: files)
+                        viewModel.culling.updateRatingAndAdvance(for: current, rating: rating, in: files)
                         return nil
 
                     case 17: // t — default tag (rating 3, green), advance to next
                         let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
+                            viewModel.culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
                             viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 3, in: files)
+                        viewModel.culling.updateRatingAndAdvance(for: current, rating: 3, in: files)
                         return nil
 
                     default:

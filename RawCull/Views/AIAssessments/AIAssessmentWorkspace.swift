@@ -99,8 +99,8 @@ struct AIAssessmentWorkspace: View {
             guard let access = currentAccess,
                   viewModel.catalog.selectedSource?.url.standardizedFileURL == access.url.standardizedFileURL else { return }
             if await viewModel.ratings.cullingModel.ensureLoaded() {
-                viewModel.rebuildRatingCache()
-                viewModel.loadPersistedScoringandSaliency()
+                viewModel.catalogController.rebuildRatingCache()
+                viewModel.catalogController.loadPersistedScoringandSaliency()
             }
         }
         .task(id: AccessRequest(sourceJobID: navigation.entries.first?.request.sourceJobID, retryID: accessRetryID)) {
@@ -146,7 +146,7 @@ struct AIAssessmentWorkspace: View {
                 HStack {
                     if viewModel.ratings.cullingModel.loadState == .failed {
                         Text("Saved ratings couldn’t be loaded.")
-                        Button("Retry loading ratings") { Task { await viewModel.retryCullingPersistence() } }
+                        Button("Retry loading ratings") { Task { await viewModel.culling.retryCullingPersistence() } }
                     } else {
                         ProgressView().controlSize(.small)
                         Text("Preparing catalog ratings and badges…")
@@ -177,7 +177,7 @@ struct AIAssessmentWorkspace: View {
             viewModel.catalog.sources.append(source)
         }
         viewModel.catalog.selectedSource = source
-        viewModel.startCatalogLoad(for: source, scopedURL: access.url, retainedAccess: access)
+        viewModel.catalogController.startCatalogLoad(for: source, scopedURL: access.url, retainedAccess: access)
     }
 
     private var currentAccess: RawCullCatalogGrant? {

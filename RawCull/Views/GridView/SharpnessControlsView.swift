@@ -16,7 +16,7 @@ struct SharpnessControlsView: View {
     var body: some View {
         // Score button — calibrates from the burst then scores
         Button {
-            Task { await viewModel.calibrateAndScoreCurrentCatalog() }
+            Task { await viewModel.catalogController.calibrateAndScoreCurrentCatalog() }
         } label: {
             if viewModel.sharpnessModel.isScoring {
                 Label("Scoring…", systemImage: "scope")
@@ -27,8 +27,8 @@ struct SharpnessControlsView: View {
             }
         }
         .font(.caption)
-        .disabled(viewModel.sharpnessModel.isScoring || viewModel.sharpnessScoringTargetCount == 0)
-        .help("Measure detail around the recorded AF point for \(viewModel.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
+        .disabled(viewModel.sharpnessModel.isScoring || viewModel.catalogController.sharpnessScoringTargetCount == 0)
+        .help("Measure detail around the recorded AF point for \(viewModel.catalogController.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
 
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {
@@ -45,7 +45,7 @@ struct SharpnessControlsView: View {
 
         // Sort toggle — requires an actual AF measurement. Legacy combined scores cannot rank AF detail.
         if !viewModel.sharpnessModel.afPointScores.isEmpty, !viewModel.sharpnessModel.isScoring {
-            Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
+            Toggle(isOn: Bindable(viewModel.sharpnessModel).sortBySharpness) {
                 Label("AF-point sharpness", systemImage: "arrow.up.arrow.down")
             }
             .toggleStyle(.button)
@@ -62,7 +62,7 @@ struct SharpnessControlsView: View {
                     return
                 }
                 Task(priority: .background) {
-                    await viewModel.handleSharpnessSortingChange(isEnabled: isEnabled)
+                    await viewModel.catalogController.handleSharpnessSortingChange(isEnabled: isEnabled)
                 }
             }
         }
@@ -98,12 +98,12 @@ struct SharpnessControlsView: View {
         .onChange(of: similarityFeature.isSimilaritySortingActive) { _, isEnabled in
             if isEnabled {
                 viewModel.sharpnessModel.sortBySharpness = false
-                Task { await viewModel.findSimilarToSelected() }
+                Task { await viewModel.catalogController.findSimilarToSelected() }
             } else if preservesSimilarityOrderOnDisable {
                 preservesSimilarityOrderOnDisable = false
             } else if !viewModel.sharpnessModel.sortBySharpness {
                 Task(priority: .background) {
-                    await viewModel.handleSortOrderChange()
+                    await viewModel.catalogController.handleSortOrderChange()
                 }
             }
         }

@@ -204,7 +204,7 @@ struct CullingGridView<Header: View>: View {
             renderedFiles: visibleSelectionFiles,
         )
         guard !selectedFiles.isEmpty else { return }
-        viewModel.updateRating(for: selectedFiles, rating: batchRating)
+        viewModel.culling.updateRating(for: selectedFiles, rating: batchRating)
     }
 
     private var visibleSelectionFiles: [FileItem] {

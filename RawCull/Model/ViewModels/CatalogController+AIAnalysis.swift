@@ -9,7 +9,7 @@ nonisolated enum AIAnalysisInputSource: String, CaseIterable, Identifiable, Send
     }
 }
 
-extension RawCullViewModel {
+extension CatalogController {
     /// Keep the grid batch independent of focus changes while browsing tagged images.
     func preserveAIAnalysisGridSelection() {
         guard selection.selectedFileIDs.isEmpty else { return }

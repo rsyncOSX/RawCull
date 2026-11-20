@@ -1,5 +1,5 @@
 //
-//  RawCullViewModel+Sharpness.swift
+//  CatalogController+Sharpness.swift
 //  RawCull
 //
 
@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import RawCullCore
 
-extension RawCullViewModel {
+extension CatalogController {
     /// Applies the current catalog ordering and, when sharpness sorting has
     /// just been enabled, focuses the visible image with strongest AF-center detail. Selecting the
     /// first sorted image also lets thumbnail views reset their scroll position
@@ -85,7 +85,7 @@ extension RawCullViewModel {
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
+            "CatalogController.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
         )
         await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
@@ -102,7 +102,7 @@ extension RawCullViewModel {
 
     private func calibrateAndScoreFiles(_ files: [FileItem]) async {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
+            "CatalogController.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
         )
         let shouldContinue = await sharpnessModel.calibrateFromBurst(files)
         guard shouldContinue, !Task.isCancelled else { return }
@@ -114,7 +114,7 @@ extension RawCullViewModel {
         }
         await handleSortOrderChange()
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
+            "CatalogController.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
         )
     }
 
@@ -127,7 +127,7 @@ extension RawCullViewModel {
 
     private func persistScoringResultsInMemory(files: [FileItem]) {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
+            "CatalogController.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
         )
         guard let catalog = catalog.selectedSource?.url else { return }
         let scores = sharpnessModel.scores
@@ -184,5 +184,46 @@ extension RawCullViewModel {
             saliency: saliency,
             signature: signature,
         )
+    }
+
+    // MARK: - Scoring settings and cancellation
+
+    func extractionNeeded() {
+        // Logger.process.debugMessageOnly("CatalogController.extractionNeeded()")
+        catalog.isCreatingThumbnails = true
+    }
+
+    func applyStoredScoringSettings() async {
+        Logger.process.debugMessageOnly("CatalogController.applyStoredScoringSettings()")
+        // Wait for the initial settings load to complete before reading.
+        // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()
+        // and read default values from the JSON before the file I/O finishes.
+        await SettingsViewModel.shared.ensureLoaded()
+        let s = SettingsViewModel.shared
+        sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            s.scoringThumbnailMaxPixelSize,
+            for: s.scoringQuality,
+        )
+        sharpnessModel.focusMaskModel.config.borderInsetFraction = s.scoringBorderInsetFraction
+        sharpnessModel.focusMaskModel.config.enableSubjectClassification = s.scoringEnableSubjectClassification
+        sharpnessModel.focusMaskModel.config.salientWeight = s.scoringSalientWeight
+        sharpnessModel.focusMaskModel.config.subjectSizeFactor = s.scoringSubjectSizeFactor
+        sharpnessModel.focusMaskModel.config.preBlurRadius = s.focusMaskPreBlurRadius
+        sharpnessModel.photoType = s.scoringPhotoType
+        sharpnessModel.scoringQuality = s.scoringQuality
+        sharpnessModel.scoringSource = s.scoringSource
+        sharpnessModel.focusMaskModel.config.threshold = s.focusMaskThreshold
+        sharpnessModel.focusMaskModel.config.energyMultiplier = s.focusMaskEnergyMultiplier
+        sharpnessModel.focusMaskModel.config.erosionRadius = s.focusMaskErosionRadius
+        sharpnessModel.focusMaskModel.config.dilationRadius = s.focusMaskDilationRadius
+        sharpnessModel.focusMaskModel.config.featherRadius = s.focusMaskFeatherRadius
+    }
+
+    func abort() {
+        Logger.process.debugMessageOnly("CatalogController.abort()")
+
+        cancelCatalogLoad()
+        fileOperations.cancelJPGOperations()
+        catalog.isCreatingThumbnails = false
     }
 }

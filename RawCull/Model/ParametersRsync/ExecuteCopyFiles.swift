@@ -131,9 +131,9 @@ final class ExecuteCopyFiles {
         }
 
         if copyTaggedFiles {
-            filelist = sidebarRawCullViewModel.extractTaggedfilenames()
+            filelist = sidebarRawCullViewModel.catalogController.extractTaggedfilenames()
         } else {
-            filelist = sidebarRawCullViewModel.extractRatedfilenames(rating)
+            filelist = sidebarRawCullViewModel.catalogController.extractRatedfilenames(rating)
         }
 
         guard !filelist.isEmpty else {

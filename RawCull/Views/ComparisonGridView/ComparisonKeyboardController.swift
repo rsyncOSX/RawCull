@@ -36,7 +36,7 @@ struct ComparisonKeyboardController {
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let file = selectedComparisonFile else { return .ignored }
-        viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
+        viewModel.culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
         return .handled
     }
 

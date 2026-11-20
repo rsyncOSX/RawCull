@@ -257,9 +257,9 @@ struct RawCullApplicationState {
             qwenAnalysisFeature: qwenAnalysisFeature,
             objectAnalysisFeature: objectAnalysisFeature,
             settingsModel: settingsModel,
-            applicationContext: viewModel,
+            applicationContext: viewModel.catalogController,
         )
-        semanticSearchFeature.bindApplicationTarget(viewModel)
+        semanticSearchFeature.bindApplicationTarget(viewModel.catalogController)
         settingsModel.bindConfigurationConsumer(intelligenceRuntime)
 
         assert(viewModel.similarityFeature === intelligenceRuntime.similarityFeature)

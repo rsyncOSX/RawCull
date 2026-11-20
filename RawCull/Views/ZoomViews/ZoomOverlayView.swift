@@ -347,7 +347,7 @@ struct ZoomOverlayView: View {
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        session.applyRating(rating, to: selectedFile, in: navigation.orderedZoomFiles, using: viewModel)
+        session.applyRating(rating, to: selectedFile, in: navigation.orderedZoomFiles, using: viewModel.culling)
         return .handled
     }
 

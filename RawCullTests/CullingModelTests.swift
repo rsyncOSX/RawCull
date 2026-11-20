@@ -186,7 +186,7 @@ struct CullingModelTests {
 
         #expect(!viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
 
-        await viewModel.findSimilarToSelected()
+        await viewModel.catalogController.findSimilarToSelected()
 
         #expect(viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
         #expect(viewModel.similarityModel.anchorFileID == anchor.id)

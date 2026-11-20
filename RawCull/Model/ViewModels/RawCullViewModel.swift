@@ -108,7 +108,7 @@ final class RawCullViewModel {
 
     /// Single shared instance — config changes here affect both the zoom
     /// overlay and the sharpness scoring pipeline.
-    var sharpnessModel = SharpnessScoringModel()
+    let sharpnessModel: SharpnessScoringModel
 
     /// Stable feature boundary for image-similarity work and presentation.
     let similarityFeature: RawCullSimilarityFeature
@@ -127,7 +127,12 @@ final class RawCullViewModel {
     /// Burst analysis, review queue, keep-best and undo, and Deep Review context.
     let burstWorkflow: BurstWorkflowController
 
-    @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
+    /// Catalog loading, sorting, filtering, scoring and semantic selection.
+    let catalogController: CatalogController
+
+    /// Rating updates, clearing and culling-store recovery.
+    let culling: CullingController
+
     init(
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature,
@@ -135,9 +140,9 @@ final class RawCullViewModel {
         deepAIReviewController: DeepAIReviewController,
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
+        sharpnessModel: SharpnessScoringModel = SharpnessScoringModel(),
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.init()")
-        let sharpnessModel = SharpnessScoringModel()
         let catalog = CatalogWorkspace()
         let zoomOverlay = ZoomOverlayModel()
         self.zoomOverlay = zoomOverlay
@@ -166,16 +171,32 @@ final class RawCullViewModel {
             cacheRepository: burstAnalysisCacheRepository,
         )
 
+        catalogController = CatalogController(
+            catalogLifecycle: catalogLifecycle,
+            catalog: catalog,
+            selection: selection,
+            ratings: ratings,
+            presentation: presentation,
+            fileOperations: fileOperations,
+            navigation: navigation,
+            burstWorkflow: burstWorkflow,
+            sharpnessModel: sharpnessModel,
+            similarityFeature: similarityFeature,
+            similarityModel: similarityModel,
+            semanticSearchFeature: semanticSearchFeature,
+        )
+        culling = CullingController(catalogController: catalogController)
+
         assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
         assert(
             semanticSearchFeature.sharesSimilarityModelIdentity(
                 with: similarityModel,
             ),
         )
-        similarityFeature.bindApplicationContext(self)
+        similarityFeature.bindApplicationContext(catalogController)
         deepAIReviewController.bindApplicationContext(burstWorkflow)
-        fileOperations.bind(self)
-        burstWorkflow.bind(host: self)
+        fileOperations.bind(catalogController)
+        burstWorkflow.bind(host: culling)
     }
 
     // MARK: - Computed
@@ -197,4 +218,3 @@ final class RawCullViewModel {
     }
 }
 
-extension RawCullViewModel: BurstWorkflowHost {}

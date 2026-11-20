@@ -154,8 +154,8 @@ struct CullingGridCoordinatorTests {
         let second = makeGridTestFile("second.ARW")
         model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
         model.catalog.files = [first, second]
-        model.updateRating(for: first, rating: 2)
-        model.updateRating(for: second, rating: 0)
+        model.culling.updateRating(for: first, rating: 2)
+        model.culling.updateRating(for: second, rating: 0)
         model.burstWorkflow.burstReviewSession.replaceRankings([1: makeReviewQueueResult(
             groupID: 1, fileIDs: [first.id, second.id], confidence: .medium, reviewState: .decisionApplied,
         )])
@@ -163,8 +163,8 @@ struct CullingGridCoordinatorTests {
         model.burstWorkflow.lastBurstUndoEntry = BurstUndoEntry(
             groupID: 1, previousRatingsByFileName: [first.name: 2, second.name: 0],
         )
-        model.updateRating(for: first, rating: 3)
-        model.updateRating(for: second, rating: -1)
+        model.culling.updateRating(for: first, rating: 3)
+        model.culling.updateRating(for: second, rating: -1)
         model.burstWorkflow.undoLastBurstAction()
         #expect(model.ratings.rating(for: first) == 2)
         #expect(model.ratings.rating(for: second) == 0)
@@ -568,7 +568,7 @@ struct CullingGridCoordinatorTests {
             1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
             2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
         ])
-        viewModel.updateRating(for: current[0], rating: rating)
+        viewModel.culling.updateRating(for: current[0], rating: rating)
 
         #expect(viewModel.burstWorkflow.advanceToNextBurstGroup(after: 1))
         #expect(viewModel.burstWorkflow.burstAnalysisResults[1]?.reviewState.rawValue == BurstReviewState.none.rawValue)

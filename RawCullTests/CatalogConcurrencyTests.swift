@@ -25,10 +25,10 @@ struct CatalogConcurrencyTests {
             return files
         }
         model.catalog.files = [old]
-        let first = Task { await model.handleSortOrderChange() }
+        let first = Task { await model.catalogController.handleSortOrderChange() }
         await firstStarted.wait()
         model.catalog.files = [new]
-        let second = Task { await model.handleSortOrderChange() }
+        let second = Task { await model.catalogController.handleSortOrderChange() }
         await secondStarted.wait()
         firstRelease.open()
         await first.value
@@ -51,11 +51,11 @@ struct CatalogConcurrencyTests {
             await release.wait()
             return files
         }
-        let task = Task { await model.handleSortOrderChange() }
+        let task = Task { await model.catalogController.handleSortOrderChange() }
         await started.wait()
         if switchCatalog {
             model.catalog.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
-            model.similarityCatalogGeneration &+= 1
+            model.catalogController.similarityCatalogGeneration &+= 1
         } else {
             task.cancel()
         }
@@ -88,10 +88,10 @@ struct CatalogConcurrencyTests {
         var starts: [URL] = []
         viewModel.catalogLifecycle.startSecurityScopedResource = { starts.append($0); return true }
         viewModel.catalogLifecycle.stopSecurityScopedResource = { _ in }
-        viewModel.startCatalogLoad(for: new)
+        viewModel.catalogController.startCatalogLoad(for: new)
         let pending = try #require(viewModel.catalogLifecycle.transitionTask)
         await started.wait()
-        viewModel.abort()
+        viewModel.catalogController.abort()
         release.open()
         await pending.value
         #expect(starts.isEmpty)

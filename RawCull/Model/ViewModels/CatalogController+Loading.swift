@@ -1,12 +1,12 @@
 //
-//  RawCullViewModel+Catalog.swift
+//  CatalogController+Loading.swift
 //  RawCull
 //
 
 import Foundation
 import OSLog
 
-extension RawCullViewModel {
+extension CatalogController {
     func mcpCatalogSummary(scanId: UUID? = nil) -> CatalogSummary? {
         guard let selectedSource = catalog.selectedSource, catalogLifecycle.currentSource == selectedSource,
               !catalog.scanning, !catalog.files.isEmpty
@@ -92,7 +92,7 @@ extension RawCullViewModel {
     func startCatalogLoad(
         for source: ARWSourceCatalog?, scopedURL: URL? = nil, retainedAccess: RawCullCatalogGrant? = nil,
     ) {
-        Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
+        Logger.process.debugMessageOnly("CatalogController.startCatalogLoad()")
         if scopedURL == nil, let url = source?.url,
            catalogLifecycle.currentSource == source,
            hasActiveSecurityScopedAccess(for: url) {
@@ -125,7 +125,7 @@ extension RawCullViewModel {
     private func beginCatalogLoad(
         for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?,
     ) {
-        Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
+        Logger.process.debugMessageOnly("CatalogController.beginCatalogLoad()")
         selection.selectedFileID = nil
         selection.selectedFileIDs = []
 
@@ -154,7 +154,7 @@ extension RawCullViewModel {
     }
 
     func cancelCatalogLoad() {
-        Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
+        Logger.process.debugMessageOnly("CatalogController.cancelCatalogLoad()")
         catalogLifecycle.cancelTransition()
         cancelCurrentCatalogLoad()
     }
@@ -190,7 +190,7 @@ extension RawCullViewModel {
         let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "CatalogPerformance")
         let interval = signposter.beginInterval("CatalogOpen", id: signposter.makeSignpostID())
         defer { signposter.endInterval("CatalogOpen", interval) }
-        Logger.process.debugMessageOnly("RawCullViewModel.handleSourceChange()")
+        Logger.process.debugMessageOnly("CatalogController.handleSourceChange()")
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         catalog.scanning = true
         catalog.scanDiscoveredCount = 0
@@ -352,7 +352,7 @@ extension RawCullViewModel {
     }
 
     func handleSortOrderChange() async {
-        Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
+        Logger.process.debugMessageOnly("CatalogController.handleSortOrderChange()")
         catalog.sortGeneration &+= 1
         let generation = catalog.sortGeneration
         let catalog = currentSimilarityCatalogSnapshot.identity
@@ -377,7 +377,7 @@ extension RawCullViewModel {
     /// admission. Semantic ranking is applied after these filters, so ratings
     /// and filename filtering continue to compose with text search.
     func semanticSearchAdmissionSnapshot() async -> [FileItem] {
-        Logger.process.debugMessageOnly("RawCullViewModel.semanticSearchAdmissionSnapshot()")
+        Logger.process.debugMessageOnly("CatalogController.semanticSearchAdmissionSnapshot()")
         let sorted = await ScanFiles.sortFiles(
             catalog.files,
             by: catalog.sortOrder,
@@ -406,7 +406,7 @@ extension RawCullViewModel {
     }
 
     func preselectFirstVisibleFileByName() {
-        Logger.process.debugMessageOnly("RawCullViewModel.preselectFirstVisibleFileByName()")
+        Logger.process.debugMessageOnly("CatalogController.preselectFirstVisibleFileByName()")
         selection.selectFirstByName(in: catalog.filteredFiles)
     }
 
@@ -496,5 +496,25 @@ extension RawCullViewModel {
         catalog.focusPoints = nil
         ratings.ratingCache = [:]
         ratings.taggedNamesCache = []
+    }
+
+    /// Rebuilds the rating lookup for the selected catalog.
+    /// Must be called after any culling store mutation that affects ratings.
+    func rebuildRatingCache() {
+        ratings.rebuildRatingCache(catalog: catalog.selectedSource?.url)
+    }
+
+    func extractRatedfilenames(_ rating: Int) -> [String] {
+        catalog.filteredFiles
+            .filter { ratings.getRating(for: $0) >= rating }
+            .map(\.name)
+    }
+
+    func extractTaggedfilenames() -> [String] {
+        ratings.taggedFileNames(catalog: catalog.selectedSource?.url, activeNames: Set(activeCatalogFiles.map(\.name)))
+    }
+
+    func hasRating(in files: [FileItem]) -> Bool {
+        ratings.hasRating(in: files, catalog: catalog.selectedSource?.url)
     }
 }

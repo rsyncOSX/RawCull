@@ -107,7 +107,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         onSelect: applyRatingFilter,
                         onClear: {
                             viewModel.ratings.ratingFilter = .all
-                            Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                            Task(priority: .background) { await viewModel.catalogController.handleSortOrderChange() }
                         },
                     )
                     .padding(.trailing, 8)
@@ -234,14 +234,14 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectGridMode() {
         viewModel.ratings.ratingFilter = .all
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        Task(priority: .background) { await viewModel.catalogController.handleSortOrderChange() }
         viewModel.navigation.selectMainViewMode(.grid)
     }
 
     private func selectSimilarityGridMode() {
         viewModel.ratings.ratingFilter = .all
         viewModel.burstWorkflow.burstReviewQueueFilter = .all
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        Task(priority: .background) { await viewModel.catalogController.handleSortOrderChange() }
         viewModel.navigation.selectMainViewMode(.similarityGrid)
     }
 
@@ -250,7 +250,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.navigation.selectMainViewMode(.similarityGrid)
         if semanticSelectionCount != nil {
             Task { @MainActor in
-                await viewModel.handleSortOrderChange()
+                await viewModel.catalogController.handleSortOrderChange()
                 guard !Task.isCancelled else { return }
 
                 if viewModel.burstWorkflow.canUseExistingBurstGroupIndexForActiveScope {
@@ -270,7 +270,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             viewModel.burstWorkflow.burstReviewQueueFilter = .needsReview
             viewModel.similarityFeature.burstModeActive = true
             Task(priority: .background) {
-                await viewModel.handleSortOrderChange()
+                await viewModel.catalogController.handleSortOrderChange()
             }
         }
     }
@@ -303,7 +303,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         default: .stars(rating)
         }
         viewModel.ratings.ratingFilter = viewModel.ratings.ratingFilter == newFilter ? .all : newFilter
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        Task(priority: .background) { await viewModel.catalogController.handleSortOrderChange() }
     }
 
     private var hasExplicitRatings: Bool {
@@ -312,7 +312,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var hasAIAnalysisInput: Bool {
-        !viewModel.aiAnalysisFiles(for: .gridSelection).isEmpty
-            || !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty
+        !viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).isEmpty
+            || !viewModel.catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty
     }
 }

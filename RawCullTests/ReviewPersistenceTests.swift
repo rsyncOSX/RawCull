@@ -138,16 +138,16 @@ struct CullingRecoveryPresentationTests {
             state.isRepaired ? .loaded([history]) : .failed(.init(url: URL(filePath: "/test/store"), message: "damaged"))
         })
         #expect(await !model.ratings.cullingModel.ensureLoaded())
-        #expect(await !model.retryCullingPersistence())
+        #expect(await !model.culling.retryCullingPersistence())
         #expect(model.catalog.filteredFiles.count == 2)
         state.isRepaired = true
-        #expect(await model.retryCullingPersistence())
+        #expect(await model.culling.retryCullingPersistence())
         #expect(model.ratings.ratingCache == [photo.name: 5])
         #expect(model.ratings.taggedNamesCache == [photo.name])
         #expect(model.catalog.filteredFiles.map(\.id) == [photo.id])
         #expect(model.selection.selectedFileID == photo.id)
         #expect(model.selection.selectedFileIDs == [photo.id])
-        #expect(model.extractTaggedfilenames() == [photo.name])
+        #expect(model.catalogController.extractTaggedfilenames() == [photo.name])
     }
 
     @Test
@@ -172,7 +172,7 @@ struct CullingRecoveryPresentationTests {
             .failed(.init(url: url, message: "damaged"))
         })
         #expect(await !model.ratings.cullingModel.ensureLoaded())
-        #expect(await !model.archiveCullingStoreAndReset())
+        #expect(await !model.culling.archiveCullingStoreAndReset())
         #expect(model.ratings.ratingCache.isEmpty)
         #expect(model.ratings.taggedNamesCache.isEmpty)
         #expect(model.sharpnessModel.scores.isEmpty)
@@ -204,7 +204,7 @@ struct CullingRecoveryPresentationTests {
         model.ratings.cullingModel = CullingModel(saveHandler: { _ in }, loadHandler: { .loaded([saved]) })
         #expect(await model.ratings.cullingModel.ensureLoaded())
         let revision = model.sharpnessModel.scoreRevision
-        model.loadPersistedScoringandSaliency()
+        model.catalogController.loadPersistedScoringandSaliency()
         #expect(model.sharpnessModel.scoreRevision == revision + 1)
         #expect(model.sharpnessModel.scores.count == 99)
         #expect(model.sharpnessModel.scores[photos[0].id] == 0.5)

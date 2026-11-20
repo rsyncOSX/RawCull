@@ -17,9 +17,9 @@ struct SharpnessTargetPresentationTests {
         model.ratings.ratingFilter = filter
         for selection in [Set<UUID>(), [first.id, second.id], [UUID()]] {
             model.selection.selectedFileIDs = selection
-            #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
+            #expect(model.catalogController.sharpnessScoringTargetCount == model.catalogController.sharpnessScoringTargetFiles.count)
             model.catalog.filteredFiles = []
-            #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
+            #expect(model.catalogController.sharpnessScoringTargetCount == model.catalogController.sharpnessScoringTargetFiles.count)
             model.catalog.filteredFiles = [third, first]
         }
     }
@@ -27,18 +27,18 @@ struct SharpnessTargetPresentationTests {
     @Test
     func `target descriptions and availability reflect empty and selected scope`() {
         let model = makeRawCullViewModel()
-        #expect(model.sharpnessScoringTargetCount == 0)
-        #expect(model.sharpnessScoringTargetDescription == "0 catalog files")
+        #expect(model.catalogController.sharpnessScoringTargetCount == 0)
+        #expect(model.catalogController.sharpnessScoringTargetDescription == "0 catalog files")
         let file = makeCullingTestFile("A.ARW")
         model.catalog.files = [file]
         model.catalog.filteredFiles = [file]
-        #expect(model.sharpnessScoringTargetDescription == "1 catalog file")
+        #expect(model.catalogController.sharpnessScoringTargetDescription == "1 catalog file")
         model.selection.selectedFileIDs = [file.id]
-        #expect(model.sharpnessScoringTargetDescription == "1 selected file")
+        #expect(model.catalogController.sharpnessScoringTargetDescription == "1 selected file")
         model.selection.selectedFileIDs = []
         model.ratings.ratingFilter = .stars(3)
-        #expect(model.sharpnessScoringTargetDescription == "0 3-star files")
+        #expect(model.catalogController.sharpnessScoringTargetDescription == "0 3-star files")
         model.ratings.ratingCache[file.name] = 3
-        #expect(model.sharpnessScoringTargetDescription == "1 3-star file")
+        #expect(model.catalogController.sharpnessScoringTargetDescription == "1 3-star file")
     }
 }

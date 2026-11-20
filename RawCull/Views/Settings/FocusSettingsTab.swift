@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FocusSettingsTab: View {
-    @Environment(RawCullViewModel.self) private var viewModel
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
 
     private var settingsManager: SettingsViewModel {
         SettingsViewModel.shared
@@ -14,7 +14,7 @@ struct FocusSettingsTab: View {
     @State private var showSaveConfirmation = false
 
     var body: some View {
-        @Bindable var vm = viewModel
+        @Bindable var vm = sharpnessModel
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 16) {
                 // Focus Mask Section
@@ -26,35 +26,35 @@ struct FocusSettingsTab: View {
 
                         LabeledSlider(
                             label: "Threshold",
-                            value: $vm.sharpnessModel.focusMaskModel.config.threshold,
+                            value: $vm.focusMaskModel.config.threshold,
                             range: 0.01 ... 0.70,
                             hint: "Lower = more highlighted, Higher = only sharpest edges",
                         )
 
                         LabeledSlider(
                             label: "Pre-blur",
-                            value: $vm.sharpnessModel.focusMaskModel.config.preBlurRadius,
+                            value: $vm.focusMaskModel.config.preBlurRadius,
                             range: 0.3 ... 4.0,
                             hint: "Higher = ignore more background texture",
                         )
 
                         LabeledSlider(
                             label: "Amplify",
-                            value: $vm.sharpnessModel.focusMaskModel.config.energyMultiplier,
+                            value: $vm.focusMaskModel.config.energyMultiplier,
                             range: 1.0 ... 20.0,
                             hint: "Visual-only amplification before the overlay threshold",
                         )
 
                         LabeledSlider(
                             label: "Erosion",
-                            value: $vm.sharpnessModel.focusMaskModel.config.erosionRadius,
+                            value: $vm.focusMaskModel.config.erosionRadius,
                             range: 0.0 ... 2.0,
                             hint: "Higher = removes more isolated noise pixels",
                         )
 
                         LabeledSlider(
                             label: "Dilation",
-                            value: $vm.sharpnessModel.focusMaskModel.config.dilationRadius,
+                            value: $vm.focusMaskModel.config.dilationRadius,
                             range: 0.0 ... 3.0,
                             hint: "Higher = expands and connects nearby mask regions",
                         )
@@ -79,17 +79,17 @@ struct FocusSettingsTab: View {
 
     private func resetToDefaults() {
         let d = FocusDetectorConfig()
-        viewModel.sharpnessModel.focusMaskModel.config.preBlurRadius = d.preBlurRadius
-        viewModel.sharpnessModel.focusMaskModel.config.threshold = d.threshold
-        viewModel.sharpnessModel.focusMaskModel.config.energyMultiplier = d.energyMultiplier
-        viewModel.sharpnessModel.focusMaskModel.config.erosionRadius = d.erosionRadius
-        viewModel.sharpnessModel.focusMaskModel.config.dilationRadius = d.dilationRadius
-        viewModel.sharpnessModel.focusMaskModel.config.featherRadius = d.featherRadius
+        sharpnessModel.focusMaskModel.config.preBlurRadius = d.preBlurRadius
+        sharpnessModel.focusMaskModel.config.threshold = d.threshold
+        sharpnessModel.focusMaskModel.config.energyMultiplier = d.energyMultiplier
+        sharpnessModel.focusMaskModel.config.erosionRadius = d.erosionRadius
+        sharpnessModel.focusMaskModel.config.dilationRadius = d.dilationRadius
+        sharpnessModel.focusMaskModel.config.featherRadius = d.featherRadius
         Task { await saveSettings() }
     }
 
     private func saveSettings() async {
-        let config = viewModel.sharpnessModel.focusMaskModel.config
+        let config = sharpnessModel.focusMaskModel.config
         settingsManager.focusMaskPreBlurRadius = config.preBlurRadius
         settingsManager.focusMaskThreshold = config.threshold
         settingsManager.focusMaskEnergyMultiplier = config.energyMultiplier

@@ -65,7 +65,7 @@ struct BurstGroupsHomeView: View {
     private var nextUpCard: some View {
         BurstNextUpCard(
             resultsAreAvailable: resultsAreAvailable,
-            fileCount: viewModel.activeCatalogFiles.count,
+            fileCount: viewModel.catalogController.activeCatalogFiles.count,
             completedCount: completedCount,
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
@@ -118,7 +118,7 @@ struct BurstGroupsHomeView: View {
     }
 
     private var burstDataStatus: some View {
-        let files = viewModel.activeCatalogFiles
+        let files = viewModel.catalogController.activeCatalogFiles
         let sharpness = viewModel.sharpnessModel
         let backend = similarityFeature.backend.kind
         return VStack(alignment: .leading, spacing: 12) {
@@ -211,7 +211,7 @@ struct BurstGroupsHomeView: View {
         let sharpnessModel = viewModel.sharpnessModel
         return BurstCatalogPreparationPresentation(
             isPreparingCatalog: viewModel.burstWorkflow.isPreparingBurstCatalog,
-            fileCount: viewModel.activeCatalogFiles.count,
+            fileCount: viewModel.catalogController.activeCatalogFiles.count,
             semanticIndexedCount: semanticSearchFeature.indexedFileCount,
             semanticCatalogCount: semanticSearchFeature.catalogFileCount,
             isIndexing: indexing.isIndexing,
@@ -236,7 +236,7 @@ struct BurstGroupsHomeView: View {
 
     private var suggestedPicks: [BurstSuggestedPick] {
         let filesByID = Dictionary(
-            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+            uniqueKeysWithValues: viewModel.catalogController.activeCatalogFiles.map { ($0.id, $0) },
         )
         return viewModel.burstWorkflow.burstAnalysisResults.values
             .sorted { $0.groupID < $1.groupID }

@@ -1,11 +1,11 @@
 //
-//  RawCullViewModel+Culling.swift
+//  CullingController+Ratings.swift
 //  RawCull
 //
 
 import Foundation
 
-extension RawCullViewModel {
+extension CullingController {
     @discardableResult
     func retryCullingPersistence() async -> Bool {
         let wasLoadingStore = ratings.cullingModel.loadState != .ready
@@ -28,8 +28,8 @@ extension RawCullViewModel {
 
     private func restoreCullingPresentation() {
         sharpnessModel.reset()
-        rebuildRatingCache()
-        loadPersistedScoringandSaliency()
+        catalogController.rebuildRatingCache()
+        catalogController.loadPersistedScoringandSaliency()
         sharpnessModel.applyPreloadedScores(
             catalog.files, preloadedScores: sharpnessModel.scores,
             preloadedSaliency: sharpnessModel.saliencyInfo,
@@ -38,32 +38,12 @@ extension RawCullViewModel {
         let candidates = catalog.catalogDisplayCandidates.isEmpty
             ? catalog.sortOrder.sorted(catalog.files).filter { catalog.searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(catalog.searchText) }
             : catalog.catalogDisplayCandidates
-        catalog.filteredFiles = applyFilters(to: candidates)
+        catalog.filteredFiles = catalogController.applyFilters(to: candidates)
         let visibleIDs = Set(catalog.filteredFiles.map(\.id))
         selection.selectedFileIDs.formIntersection(visibleIDs)
         if selection.selectedFileID.map(visibleIDs.contains) != true {
             selection.selectedFileID = catalog.filteredFiles.first?.id
         }
-    }
-
-    /// Rebuilds the rating lookup for the selected catalog.
-    /// Must be called after any culling store mutation that affects ratings.
-    func rebuildRatingCache() {
-        ratings.rebuildRatingCache(catalog: catalog.selectedSource?.url)
-    }
-
-    func extractRatedfilenames(_ rating: Int) -> [String] {
-        catalog.filteredFiles
-            .filter { ratings.getRating(for: $0) >= rating }
-            .map(\.name)
-    }
-
-    func extractTaggedfilenames() -> [String] {
-        ratings.taggedFileNames(catalog: catalog.selectedSource?.url, activeNames: Set(activeCatalogFiles.map(\.name)))
-    }
-
-    func hasRating(in files: [FileItem]) -> Bool {
-        ratings.hasRating(in: files, catalog: catalog.selectedSource?.url)
     }
 
     func updateRating(for file: FileItem, rating: Int) {
@@ -117,7 +97,7 @@ extension RawCullViewModel {
     /// Synchronizes the cached rating lookup and the displayed catalog
     /// projection after every persisted culling mutation.
     func refreshCullingDerivedState() {
-        rebuildRatingCache()
+        catalogController.rebuildRatingCache()
         guard ratings.ratingFilter != .all else { return }
 
         let candidates = catalog.catalogDisplayCandidates.isEmpty
@@ -125,6 +105,6 @@ extension RawCullViewModel {
                 catalog.searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(catalog.searchText)
             }
             : catalog.catalogDisplayCandidates
-        catalog.filteredFiles = applyFilters(to: candidates)
+        catalog.filteredFiles = catalogController.applyFilters(to: candidates)
     }
 }

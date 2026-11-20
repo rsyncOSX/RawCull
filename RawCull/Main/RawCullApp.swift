@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             viewModel: viewModel,
             qwen: runtime.modelRuntime.qwenInference as? QwenInferenceRuntime,
             prepare: { [weak viewModel] in
-                await viewModel?.applyStoredScoringSettings()
+                await viewModel?.catalogController.applyStoredScoringSettings()
                 await runtime.settingsModel.refresh()
             },
             preparePhotoAssessment: { await runtime.settingsModel.refresh() },
@@ -166,7 +166,7 @@ struct RawCullApp: App {
                 await viewModel.ratings.cullingModel.ensureLoaded()
             }
             .task {
-                await viewModel.applyStoredScoringSettings()
+                await viewModel.catalogController.applyStoredScoringSettings()
             }
             .task {
                 await intelligenceRuntime.settingsModel.refresh()

@@ -11,7 +11,7 @@ struct AIAnalysisView: View {
     @State private var selectedTool = AIAnalysisTool.samCLIP
 
     private var inputFiles: [FileItem] {
-        viewModel.aiAnalysisFiles(for: inputSource)
+        viewModel.catalogController.aiAnalysisFiles(for: inputSource)
     }
 
     private var isAnalysisRunning: Bool {
@@ -53,10 +53,10 @@ struct AIAnalysisView: View {
 
                     AIAnalysisInputPicker(
                         selection: $inputSource,
-                        selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
-                        taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
+                        selectedCount: viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).count,
+                        taggedCount: viewModel.catalogController.aiAnalysisFiles(for: .taggedImages).count,
                         isRunning: isAnalysisRunning,
-                        preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                        preserveGridSelection: viewModel.catalogController.preserveAIAnalysisGridSelection,
                     )
                     .frame(maxWidth: 220)
 
@@ -124,9 +124,9 @@ struct AIAnalysisView: View {
             }
         }
         .task {
-            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty, !viewModel.catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 AIAnalysisInputSelection.binding(
-                    selection: $inputSource, preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    selection: $inputSource, preserveGridSelection: viewModel.catalogController.preserveAIAnalysisGridSelection,
                 ).wrappedValue = .taggedImages
             }
         }
@@ -279,7 +279,7 @@ struct CombinedReviewWorkspaceView: View {
     @State private var inputSource = AIAnalysisInputSource.gridSelection
 
     private var inputFiles: [FileItem] {
-        viewModel.aiAnalysisFiles(for: inputSource)
+        viewModel.catalogController.aiAnalysisFiles(for: inputSource)
     }
 
     var body: some View {
@@ -289,10 +289,10 @@ struct CombinedReviewWorkspaceView: View {
 
                 AIAnalysisInputPicker(
                     selection: $inputSource,
-                    selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
-                    taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
+                    selectedCount: viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).count,
+                    taggedCount: viewModel.catalogController.aiAnalysisFiles(for: .taggedImages).count,
                     isRunning: feature.isRunning,
-                    preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    preserveGridSelection: viewModel.catalogController.preserveAIAnalysisGridSelection,
                 )
                 .frame(maxWidth: 260)
 
@@ -326,9 +326,9 @@ struct CombinedReviewWorkspaceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
-            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty, !viewModel.catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 AIAnalysisInputSelection.binding(
-                    selection: $inputSource, preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    selection: $inputSource, preserveGridSelection: viewModel.catalogController.preserveAIAnalysisGridSelection,
                 ).wrappedValue = .taggedImages
             }
         }

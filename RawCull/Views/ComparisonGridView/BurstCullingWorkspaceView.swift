@@ -411,7 +411,7 @@ struct BurstCullingWorkspaceView: View {
         }
         guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
-            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+            uniqueKeysWithValues: viewModel.catalogController.activeCatalogFiles.map { ($0.id, $0) },
         )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
         return rankedIDs.compactMap { filesByID[$0] }
@@ -497,7 +497,7 @@ struct BurstCullingWorkspaceView: View {
 
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
-        session.applyRating(rating, to: selectedFile, in: files, using: viewModel)
+        session.applyRating(rating, to: selectedFile, in: files, using: viewModel.culling)
     }
 
     private var imageLoadKey: String {

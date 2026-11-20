@@ -111,6 +111,18 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
         isCatalogTransitionActive || catalog.scanning || catalog.isCreatingThumbnails
     }
 
+    func startCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?) {
+        catalogController.startCatalogLoad(for: source, scopedURL: scopedURL, retainedAccess: retainedAccess)
+    }
+
+    func cancelCatalogLoad() {
+        catalogController.cancelCatalogLoad()
+    }
+
+    func mcpCatalogSummary(scanId: UUID?) -> CatalogSummary? {
+        catalogController.mcpCatalogSummary(scanId: scanId)
+    }
+
     func retainSecurityScopedAccess(for url: URL) -> RawCullCatalogGrant? {
         catalogLifecycle.retainSecurityScopedAccess(for: url)
     }
@@ -119,7 +131,7 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
     var isSharpnessCalibrationRunning: Bool { sharpnessModel.isCalibratingSharpnessScoring }
 
     func authorizeCatalogForMCPJob(catalogId: UUID) throws {
-        _ = try authorizeMCPCatalog(allowAnalysis: true, catalogId: catalogId, preservingJob: true)
+        _ = try catalogController.authorizeMCPCatalog(allowAnalysis: true, catalogId: catalogId, preservingJob: true)
     }
 
     var isSemanticSearchActive: Bool { similarityModel.semanticSearchState != .idle }
