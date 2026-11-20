@@ -180,16 +180,6 @@ final class RawCullViewModel {
 
     // MARK: - Computed
 
-    // MARK: - Focus Points
-
-    func getFocusPoints() -> [FocusPoint]? {
-        // Logger.process.debugMessageOnly("RawCullViewModel.getFocusPoints()")
-        guard let imageName = selectedFile?.name else { return nil }
-        let points = catalog.focusPoints?
-            .filter { $0.sourceFile == imageName }
-            .flatMap(\.focusPoints) ?? []
-        return points.isEmpty ? nil : points
-    }
 
     // MARK: - Catalog access used by application workflows
 

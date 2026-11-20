@@ -71,6 +71,15 @@ final class CatalogWorkspace {
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 
+    /// Camera focus points recorded for the file with `id`, or nil when none.
+    func focusPoints(forFileWithID id: FileItem.ID?) -> [FocusPoint]? {
+        guard let imageName = file(withID: id)?.name else { return nil }
+        let points = focusPoints?
+            .filter { $0.sourceFile == imageName }
+            .flatMap(\.focusPoints) ?? []
+        return points.isEmpty ? nil : points
+    }
+
     /// The catalog file with `id`. Reading it registers observation of `files`.
     func file(withID id: FileItem.ID?) -> FileItem? {
         guard let id else { return nil }

@@ -31,7 +31,7 @@ struct ZoomOverlayView: View {
     }
 
     private var focusPoints: [FocusPoint]? {
-        viewModel.getFocusPoints()
+        viewModel.catalog.focusPoints(forFileWithID: viewModel.selection.selectedFileID)
     }
 
     private struct FocusMaskTaskID: Hashable {

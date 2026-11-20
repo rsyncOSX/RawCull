@@ -6,7 +6,7 @@ struct LoupeMainImageView: View {
     @State private var session = LoupeSessionModel()
 
     private var focusPoints: [FocusPoint]? {
-        viewModel.getFocusPoints()
+        viewModel.catalog.focusPoints(forFileWithID: viewModel.selection.selectedFileID)
     }
 
     let url: URL
