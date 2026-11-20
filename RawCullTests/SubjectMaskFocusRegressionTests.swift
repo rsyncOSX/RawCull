@@ -96,6 +96,64 @@ struct SubjectMaskFocusRegressionTests {
         #expect(throws: SubjectMaskDecodingError.unsupportedEncoding) { try SubjectMaskForeground.decode(rgb, width: 4, height: 2) }
     }
 
+    @Test func `high ISO noise does not let a noisier copy outrank the clean frame`() async throws {
+        let (width, height) = (2048, 1365)
+        let clean = Self.blockTexture(width: width, height: height, noise: 0)
+        let noisy = Self.blockTexture(width: width, height: height, noise: 40)
+        let mask = try Self.gray(Self.centerMask(width: width, height: height), width: width, height: height)
+        let scorer = SubjectMaskFocusScorer()
+        let cleanScore = try #require(try await scorer.score(
+            image: Self.gray(clean, width: width, height: height), subjectMask: mask, normalizedAFPoint: nil, iso: 6400,
+        ))
+        let noisyScore = try #require(try await scorer.score(
+            image: Self.gray(noisy, width: width, height: height), subjectMask: mask, normalizedAFPoint: nil, iso: 6400,
+        ))
+        // Noise always adds some edge energy; it must not decide the ranking.
+        #expect(noisyScore.finalScore <= cleanScore.finalScore * 1.05)
+    }
+
+    @Test func `subject detail is comparable across embedded and RAW decode sizes`() async throws {
+        let scorer = SubjectMaskFocusScorer()
+        var scores: [Float] = []
+        for (width, height) in [(1616, 1080), (2048, 1365)] {
+            let image = try Self.gray(Self.blockTexture(width: width, height: height, noise: 0, longSideBlocks: 128),
+                                      width: width, height: height)
+            let mask = try Self.gray(Self.centerMask(width: width, height: height), width: width, height: height)
+            let evidence = try #require(try await scorer.score(image: image, subjectMask: mask, normalizedAFPoint: nil))
+            scores.append(evidence.finalScore)
+        }
+        #expect(abs(scores[0] - scores[1]) <= max(scores[0], scores[1]) * 0.10)
+    }
+
+    @Test func `working size never upsamples and shrinks with ISO`() {
+        #expect(SubjectMaskFocusScorer.workingSize(width: 128, height: 96, iso: 6400) == (128, 96))
+        #expect(SubjectMaskFocusScorer.workingSize(width: 2048, height: 1365, iso: nil).width == 1024)
+        #expect(SubjectMaskFocusScorer.workingSize(width: 1616, height: 1080, iso: 200).width == 1024)
+        #expect(SubjectMaskFocusScorer.workingSize(width: 2048, height: 1365, iso: 6400).width < 1024)
+    }
+
+    /// Blocks scaled with the frame (`longSideBlocks` across the long side) so detail is
+    /// the same scene at any decode size; optional seeded uniform noise of ±`noise` levels.
+    private nonisolated static func blockTexture(width: Int, height: Int, noise: Int, longSideBlocks: Int = 128) -> [UInt8] {
+        var state: UInt64 = 0x9E37_79B9_7F4A_7C15
+        let block = Double(max(width, height)) / Double(longSideBlocks)
+        return (0 ..< width * height).map { index in
+            let x = index % width, y = index / width
+            let base = (Int(Double(x) / block) + Int(Double(y) / block)) % 2 == 0 ? 80 : 176
+            guard noise > 0 else { return UInt8(base) }
+            state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            let offset = Int(state >> 33) % (2 * noise + 1) - noise
+            return UInt8(clamping: base + offset)
+        }
+    }
+
+    private nonisolated static func centerMask(width: Int, height: Int) -> [UInt8] {
+        (0 ..< width * height).map { index in
+            let x = index % width, y = index / width
+            return (width / 4 ..< width * 3 / 4).contains(x) && (height / 4 ..< height * 3 / 4).contains(y) ? 255 : 0
+        }
+    }
+
     private nonisolated static func image() throws -> CGImage {
         let side = 128
         let pixels = (0 ..< side * side).map { index -> UInt8 in

@@ -10,8 +10,13 @@ nonisolated struct RawImageFileMetadata: Sendable {
     let exifMetadata: ExifMetadata
     let captureDate: Date?
     let captureTimeZoneOffsetSeconds: Int?
+    /// AF location as "width height x y" in the upright (oriented) image frame.
     let focusLocation: String?
+    /// Normalized AF point in the upright (oriented) image frame, the space every
+    /// decoded preview, thumbnail and RAW render uses.
     let focusPoint: CGPoint?
+    /// EXIF orientation used to map the camera's sensor-space AF point.
+    let orientation: UInt32
 }
 
 nonisolated protocol RawImageLoading: Sendable {
@@ -95,9 +100,10 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
         let read = Task {
             defer { withExtendedLifetime(access) {} }
-            return await RawParserKit.RawImageLoader.shared.metadata(for: url)
+            let metadata = await RawParserKit.RawImageLoader.shared.metadata(for: url)
+            return metadata.map { ($0, AFPointOrientation.orientation(for: url) ?? 1) }
         }
-        guard let metadata = await read.value, !Task.isCancelled else { return nil }
+        guard let (metadata, orientation) = await read.value, !Task.isCancelled else { return nil }
         let exifMetadata = ExifMetadata(
             shutterSpeed: metadata.exposure,
             exposureTimeSeconds: metadata.exposureTimeSeconds,
@@ -115,15 +121,21 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
             pixelWidth: metadata.pixelWidth,
             pixelHeight: metadata.pixelHeight,
         )
+        // Camera AF coordinates are sensor-space; rotate once here so every consumer
+        // (scoring, masks, overlays, AI evidence) works in the upright image frame.
         let normalizedFocusPoint = metadata.focusPoint.map {
-            CGPoint(x: $0.normalizedX, y: $0.normalizedY)
+            AFPointOrientation.oriented(
+                CGPoint(x: $0.normalizedX, y: $0.normalizedY),
+                orientation: orientation,
+            )
         }
         return RawImageFileMetadata(
             exifMetadata: exifMetadata,
             captureDate: metadata.captureDate,
             captureTimeZoneOffsetSeconds: metadata.captureTimeZoneOffsetSeconds,
-            focusLocation: Self.focusLocation(from: metadata),
+            focusLocation: Self.focusLocation(from: metadata, orientedPoint: normalizedFocusPoint, orientation: orientation),
             focusPoint: normalizedFocusPoint,
+            orientation: orientation,
         )
     }
 
@@ -242,16 +254,23 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         return (width, height)
     }
 
-    private static func focusLocation(from metadata: RawImageMetadata) -> String? {
-        guard let focusPoint = metadata.focusPoint,
-              let width = metadata.pixelWidth,
-              let height = metadata.pixelHeight,
-              width > 0,
-              height > 0
+    private static func focusLocation(
+        from metadata: RawImageMetadata,
+        orientedPoint: CGPoint?,
+        orientation: UInt32,
+    ) -> String? {
+        guard let focusPoint = orientedPoint,
+              let sensorWidth = metadata.pixelWidth,
+              let sensorHeight = metadata.pixelHeight,
+              sensorWidth > 0,
+              sensorHeight > 0
         else { return nil }
 
-        let x = min(width, max(0, Int((focusPoint.normalizedX * Double(width)).rounded())))
-        let y = min(height, max(0, Int((focusPoint.normalizedY * Double(height)).rounded())))
+        let transposed = AFPointOrientation.transposes(orientation)
+        let width = transposed ? sensorHeight : sensorWidth
+        let height = transposed ? sensorWidth : sensorHeight
+        let x = min(width, max(0, Int((focusPoint.x * Double(width)).rounded())))
+        let y = min(height, max(0, Int((focusPoint.y * Double(height)).rounded())))
         return "\(width) \(height) \(x) \(y)"
     }
 

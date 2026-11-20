@@ -32,6 +32,7 @@ struct LoupeMainImageView: View {
             fileID: file?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
             isPresented: outlinePresentation.isPresented,
+            maskStorageKey: subjectOutlineCandidate?.maskStorageKey,
         )
     }
 

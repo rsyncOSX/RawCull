@@ -38,7 +38,6 @@ final class RawCullAIModelRuntime {
     private(set) var subjectMaskRepository: SubjectMaskRepository
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
-    private(set) var subjectMaskSelector: SubjectMaskSelector
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
@@ -123,10 +122,6 @@ final class RawCullAIModelRuntime {
             maxSide: inputMaxSide,
         )
         self.sam3Segmentation = segmentation
-        self.subjectMaskSelector = SubjectMaskSelector(
-            repository: repository,
-            segmentationService: segmentation,
-        )
 
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
@@ -193,8 +188,8 @@ final class RawCullAIModelRuntime {
     /// its inference runtime and returns the status that Settings should publish.
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
-    ) async -> QwenModelStatus {
-        await CombinedReviewLease.shared.invalidateAndWait()
+    ) async throws -> QwenModelStatus {
+        try await CombinedReviewLease.shared.invalidateAndWait()
         objectSegmentation = nil
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
@@ -282,7 +277,7 @@ final class RawCullAIModelRuntime {
     }
 
     func refreshCapabilities() async throws -> RawCullAICapabilities {
-        await CombinedReviewLease.shared.invalidateAndWait()
+        try await CombinedReviewLease.shared.invalidateAndWait()
         async let sam3Load = sam3ModelResourceManager.load()
         async let clipDataCompLoad = clipDataCompModelResourceManager.load()
         async let clipOpenAILoad = clipOpenAIModelResourceManager.load()
@@ -455,9 +450,11 @@ final class RawCullAIModelRuntime {
             installUnavailableSegmentationProviderIfNeeded()
         }
         deepAIReviewFeature?.install(
-            service: provider.map { _ in
+            service: provider.map {
                 RawCullDeepAIReviewPipeline(
-                    selector: subjectMaskSelector,
+                    provider: $0,
+                    maskConfiguration: subjectMaskRepository.configuration,
+                    maskStores: subjectMaskStores,
                     maximumPixelSize: min(
                         inputMaxSide,
                         SharpnessScoringSizeOption.maximumPixelSize,
@@ -466,13 +463,11 @@ final class RawCullAIModelRuntime {
             },
             maskLoader: provider.flatMap { _ in
                 subjectMaskDiskStore.map {
-                    DeepAIReviewDiskMaskLoader(
-                        repository: subjectMaskRepository,
-                        diskStore: $0,
-                    )
+                    DeepAIReviewDiskMaskLoader(diskStore: $0)
                 }
             },
             availability: availability,
+            modelIdentity: provider?.modelIdentity,
         )
     }
 
@@ -505,10 +500,6 @@ final class RawCullAIModelRuntime {
             stores: subjectMaskStores,
             maxSide: inputMaxSide,
         )
-        subjectMaskSelector = SubjectMaskSelector(
-            repository: repository,
-            segmentationService: sam3Segmentation,
-        )
     }
 }
 
@@ -532,14 +523,9 @@ private struct UnavailableSegmentationProvider: SubjectSegmenting {
 /// This deliberately bypasses the repository's memory-first lookup so the
 /// preview verifies and displays the artifact written to the disk cache.
 nonisolated struct DeepAIReviewDiskMaskLoader: DeepAIReviewMaskLoading, Sendable {
-    let repository: SubjectMaskRepository
     let diskStore: SubjectMaskDiskStore
 
-    func mask(
-        for source: AIImageSource,
-        prompt: SubjectSegmentationPrompt,
-    ) async -> CGImage? {
-        let key = await repository.storageKey(for: source, prompt: prompt)
-        return await diskStore.load(for: key)?.mask
+    func mask(for key: SubjectMaskStorageKey) async -> CGImage? {
+        await diskStore.load(for: key)?.mask
     }
 }

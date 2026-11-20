@@ -6,6 +6,47 @@ import Testing
 @Suite("Per-file analysis artifact store")
 struct PerFileAnalysisArtifactStoreTests {
     @Test
+    func `Upsert decodes only a constant number of records once the index exists`() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let sources = try (0 ..< 300).map { try fixture.source(named: "bulk-\($0).raw") }
+        let artifacts = Dictionary(uniqueKeysWithValues: sources.map {
+            ($0.id, fixture.artifact(source: $0, backend: fixture.clipBackend, dimensions: 1, payload: Data([1])))
+        })
+        let seeded = await fixture.store.upsert(
+            artifacts: artifacts,
+            sources: Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) }),
+            pipeline: fixture.pipeline,
+        )
+        #expect(seeded.committedSourceIDs.count == sources.count)
+
+        // A relaunched store, then two edits to existing source files.
+        let store = PerFileAnalysisArtifactStore(
+            storageDirectory: fixture.root.appendingPathComponent("store", isDirectory: true),
+        )
+        func edit(_ source: AIImageSource) async throws -> PerFileAnalysisArtifactCommitResult {
+            try Data("edited-\(source.displayName)-longer".utf8).write(to: source.url, options: .atomic)
+            let artifact = fixture.artifact(source: source, backend: fixture.clipBackend, dimensions: 1, payload: Data([2]))
+            return await store.upsert(artifacts: [source.id: artifact], sources: [source.id: source], pipeline: fixture.pipeline)
+        }
+        _ = try await edit(sources[0])
+        let before = await store.decodedRecordCount
+        let commit = try await edit(sources[1])
+        let decoded = await store.decodedRecordCount - before
+
+        #expect(commit.committedSourceIDs == [sources[1].id])
+        #expect(decoded <= 2)
+        // Superseded records for both edited files were removed.
+        #expect(fixture.recordURLs().count == sources.count)
+        let loaded = await store.load(
+            sources: [sources[0], sources[1]],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(loaded.artifacts[sources[1].id]?.payload == Data([2]))
+    }
+
+    @Test
     func `CLIP and Vision artifacts round-trip independently`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }

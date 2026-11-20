@@ -1,3 +1,4 @@
+RawCullTests/AFPointOrientationTests
 RawCullTests/AICacheBoundaryTests
 RawCullTests/AccessibilityPresentationTests
 RawCullTests/ApertureHintTests

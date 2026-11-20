@@ -99,6 +99,57 @@ struct BurstAnalysisPipelineValuesTests {
         requireSendable(BurstAnalysisPipelineRequest.self)
         requireSendable(BurstAnalysisPipelineResult.self)
     }
+
+    @Test
+    func `malformed cache with repeated file or group keys is rejected without trapping`() async {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullMalformedCacheTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = BurstAnalysisCache(cacheDirectory: directory)
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let first = makePipelineFile("A.ARW", captureSeconds: 1)
+        let second = makePipelineFile("B.ARW", captureSeconds: 2)
+        var snapshot = makeBurstSnapshot(
+            catalog: catalog,
+            files: [first, second],
+            groups: [],
+            results: [],
+            reviewStateSnapshots: [],
+        )
+        // Two entries share A's path, and one id is repeated.
+        snapshot.files = [
+            snapshot.files[0],
+            BurstAnalysisCacheFile(
+                id: UUID(),
+                path: snapshot.files[0].path,
+                size: snapshot.files[0].size,
+                modificationDate: snapshot.files[0].modificationDate,
+            ),
+            snapshot.files[0]
+        ]
+        snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: snapshot.files.dropLast().map { ($0.id, 0.5) })
+
+        let remapped = BurstAnalysisCoordinator.remap(snapshot, to: [first, second])
+        #expect(remapped.files.map(\.id) == [first.id, second.id])
+        #expect(!BurstAnalysisCache.hasUniqueRestoreKeys(snapshot))
+
+        await cache.save(snapshot, catalog: catalog)
+        let loaded = await cache.load(
+            catalog: catalog,
+            files: [first, second, first],
+            thumbnailMaxPixelSize: snapshot.thumbnailMaxPixelSize,
+            sharpnessSignature: snapshot.sharpnessSignature,
+            similaritySignature: snapshot.similaritySignature,
+        )
+        #expect(loaded == nil)
+        #expect(await cache.loadMigrationCandidate(catalog: catalog) == nil)
+
+        snapshot.files = remapped.files
+        snapshot.groups = [BurstGroup(id: 1, fileIDs: [first.id]), BurstGroup(id: 2, fileIDs: [first.id, second.id])]
+        #expect(!BurstAnalysisCache.hasUniqueRestoreKeys(snapshot))
+        await cache.save(snapshot, catalog: catalog)
+        #expect(await cache.loadMigrationCandidate(catalog: catalog) == nil)
+    }
 }
 
 private nonisolated func makePipelineFile(

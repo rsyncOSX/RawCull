@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import Testing
@@ -129,6 +130,37 @@ struct ReviewRunContractTests {
         #expect(try Data(contentsOf: url) == future)
     }
 
+    @Test func `segmentation stage whose retained mask was evicted is not resumable`() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ReviewArtifactStore(root: root, maximumInputBytes: 10)
+        var run = try manifest(includeSegmentation: true)
+        let item = try #require(run.work.first { $0.stage == .segmentation })
+        let maskKey = try await store.retainInput(Data(repeating: 7, count: 6))
+        let record = ReviewSubjectRecord(
+            maskContract: nil, registration: nil, relevance: nil,
+            id: .init(rawValue: "subject"), imageID: item.imageID, concept: "bird",
+            normalizedBounds: .zero, maskConfidence: 1, aliases: [],
+            maskInputReference: maskKey, availability: .available,
+        )
+        try run.begin(item.id, category: .sam)
+        let key = store.artifactKey(item.id, compatibility: item.compatibility)
+        try run.finish(item.id, state: .completed, artifactKey: key)
+        try await store.commit(
+            ReviewStageArtifact(workID: item.id, compatibility: item.compatibility,
+                                payload: JSONEncoder().encode([record]), created: Date()),
+            manifest: run,
+        )
+        #expect(await store.validArtifactKeys(for: run) == [key])
+
+        // An unrelated input pushes the mask out of the LRU.
+        _ = try await store.retainInput(Data(repeating: 8, count: 6))
+        #expect(await store.validArtifactKeys(for: run).isEmpty)
+        var restored = run
+        restored.restore(expected: try run.expectedCompatibility(), validArtifacts: await store.validArtifactKeys(for: run))
+        #expect(restored.work.first { $0.id == item.id }?.state == .pending)
+    }
+
     @Test func `derived cache eviction preserves evidence and rejects traversal`() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -195,22 +227,24 @@ struct ReviewRunContractTests {
         #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(unsafe, regionID: "r") }
     }
 
-    private func snapshot(criteria: String = "Detail", model: String = "model", count: Int = 1) -> ReviewRunSnapshot {
+    private func snapshot(criteria: String = "Detail", model: String = "model", count: Int = 1, includeSAM: Bool = false) -> ReviewRunSnapshot {
         ReviewRunSnapshot(id: UUID(), files: (0 ..< count).map { .init(id: .init(rawValue: String($0)), fileID: UUID(), url: URL(filePath: "/fixture/\($0)"), displayName: "Fixture", fingerprint: String($0)) },
                           criteria: criteria, depth: .standard, sourcePreference: "highQualityPreview", retentionPolicy: .exactInputs, renderVersion: "render-v1",
-                          models: ["qwen": .init(identity: model, runtimeVersion: "runtime", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)],
+                          models: ["qwen": .init(identity: model, runtimeVersion: "runtime", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)]
+                              .merging(includeSAM ? ["sam": .init(identity: "sam", runtimeVersion: "runtime", preprocessing: "none", encoderWidth: 1008, encoderHeight: 1008, contextTokens: 0, imageTokens: 0)] : [:]) { first, _ in first },
                           stageVersions: Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map { ($0, "v1") }), responseTokens: 512,
                           pipelineVersion: "v1", created: Date(), expandedSelectionPlan: nil)
     }
 
-    private func manifest() throws -> CombinedReviewRunV1 {
-        let snap = snapshot()
+    private func manifest(includeSegmentation: Bool = false) throws -> CombinedReviewRunV1 {
+        let snap = snapshot(includeSAM: includeSegmentation)
         let image = snap.files[0].id
         let compatibility = ReviewCompatibility(fields: ["fixture": "v1"])
         func item(_ name: String, _ stage: ReviewStage, _ parents: [String], terminal: Bool = false) -> ReviewWorkItem {
             .init(id: id(name), imageID: image, stage: stage, dependencies: parents.map { .init(id: id($0), allowsUnavailable: terminal) }, compatibility: compatibility)
         }
-        return try CombinedReviewRunV1(snapshot: snap, work: [item("source", .source, []), item("measurement", .measurement, ["source"]),
+        let segmentation = includeSegmentation ? [item("segment", .segmentation, [])] : []
+        return try CombinedReviewRunV1(snapshot: snap, work: segmentation + [item("source", .source, []), item("measurement", .measurement, ["source"]),
                                                               item("crop", .cropObservation, ["source"]), item("reconcile", .reconciliation, ["measurement", "crop"], terminal: true),
                                                               item("report", .report, ["reconcile"], terminal: true)], budget: ReviewBudget(depth: .standard, images: 1))
     }

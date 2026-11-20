@@ -24,6 +24,10 @@ final class BurstAnalysisCoordinator {
     var progress = BurstAnalysisProgress()
     var generation = 0
     @ObservationIgnored var cancelTask: (() -> Void)?
+    /// Set when the user changes grouping sensitivity while a run is active.
+    /// The run groups with the threshold captured at its start, so the newer
+    /// threshold must be applied after it finishes.
+    @ObservationIgnored var hasPendingRegroup = false
     var hasActiveTask: Bool {
         cancelTask != nil
     }
@@ -53,6 +57,13 @@ final class BurstAnalysisCoordinator {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.run()")
         let files = request.orderedFiles
         guard callbacks.isCurrent() else { return nil }
+        // Unsaved in-memory review marks win over states read from disk.
+        let liveReviewStates = BurstReviewStateMapping.liveStates(
+            states: initialReviewStates,
+            groups: similarityModel.burstGroups,
+            files: files,
+            catalog: request.catalogIdentity,
+        )
 
         callbacks.updateProgress(BurstAnalysisProgress(step: .loadingCache))
         guard let preparation = await prepareCache(
@@ -66,12 +77,25 @@ final class BurstAnalysisCoordinator {
             return applyCachedResult(
                 snapshot: snapshot,
                 preparation: preparation,
+                reviewStates: BurstReviewStateMapping.restore(
+                    savedStates: BurstReviewStateMapping.merged(
+                        saved: snapshot.reviewStateSnapshots,
+                        live: liveReviewStates,
+                    ),
+                    groups: snapshot.groups,
+                    files: files,
+                    catalog: request.catalogIdentity,
+                ),
                 files: files,
                 callbacks: callbacks,
             )
         }
 
-        await diagnostics.append(prepareSharpness(files: files, callbacks: callbacks))
+        await diagnostics.append(prepareSharpness(
+            files: files,
+            signature: request.sharpnessSignature,
+            callbacks: callbacks,
+        ))
         guard callbacks.isCurrent() else { return nil }
         await diagnostics.append(prepareSimilarity(files: files, callbacks: callbacks))
 
@@ -83,16 +107,15 @@ final class BurstAnalysisCoordinator {
         )
 
         guard callbacks.isCurrent() else { return nil }
-        let restoredReviewStates: [Int: BurstReviewState] = if let migrationCandidate = preparation.migrationCandidate {
-            Self.restoredReviewStates(
-                snapshots: migrationCandidate.reviewStateSnapshots,
-                groups: similarityModel.burstGroups,
-                files: files,
-                catalog: request.catalogIdentity,
-            )
-        } else {
-            initialReviewStates
-        }
+        let restoredReviewStates = BurstReviewStateMapping.restore(
+            savedStates: BurstReviewStateMapping.merged(
+                saved: preparation.migrationCandidate?.reviewStateSnapshots ?? [],
+                live: liveReviewStates,
+            ),
+            groups: similarityModel.burstGroups,
+            files: files,
+            catalog: request.catalogIdentity,
+        )
 
         callbacks.updateProgress(BurstAnalysisProgress(step: .ranking))
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
@@ -141,6 +164,7 @@ final class BurstAnalysisCoordinator {
     private func applyCachedResult(
         snapshot: BurstAnalysisCacheSnapshot,
         preparation: BurstAnalysisCachePreparation,
+        reviewStates: [Int: BurstReviewState],
         files: [FileItem],
         callbacks: BurstAnalysisRunCallbacks,
     ) -> BurstAnalysisPipelineResult? {
@@ -149,7 +173,6 @@ final class BurstAnalysisCoordinator {
         )
         applyCachedWorkerState(snapshot, files: files)
         guard callbacks.isCurrent() else { return nil }
-        let reviewStates = preparation.restoredReviewStates
         let result = BurstAnalysisPipelineResult(
             groups: snapshot.groups,
             rankings: snapshot.results.map { ranking in
@@ -166,10 +189,13 @@ final class BurstAnalysisCoordinator {
 
     private func prepareSharpness(
         files: [FileItem],
+        signature: BurstSharpnessSignature,
         callbacks: BurstAnalysisRunCallbacks,
     ) async -> BurstAnalysisDiagnostic {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.prepareSharpness()")
-        guard files.contains(where: { sharpnessModel.scores[$0.id] == nil }) else {
+        // Scores from another configuration must never be stamped with this
+        // request's signature in the saved snapshot.
+        guard !sharpnessModel.hasScores(for: files, signature: signature) else {
             return .reusedSharpnessScores
         }
 
@@ -221,20 +247,26 @@ final class BurstAnalysisCoordinator {
         if importLegacyCandidate,
            let loadedCandidate = await cacheRepository.loadMigrationCandidate(
                catalog: request.catalogIdentity,
-           ) {
+           ),
+           BurstAnalysisCache.hasUniqueRestoreKeys(loadedCandidate) {
             guard isCurrent() else { return nil }
             let remappedCandidate = Self.remap(
                 loadedCandidate,
                 to: request.orderedFiles,
             )
+            // A current-schema file supplies saved review states only; its
+            // artifacts already live in the per-file store, so re-importing
+            // them on every run is pure cost.
             migrationCandidate = remappedCandidate
-            diagnostics.append(.legacyMigrationCandidateFound)
-            _ = await similarityModel.importLegacyArtifacts(
-                remappedCandidate.embeddings,
-                files: request.orderedFiles,
-                signature: remappedCandidate.similaritySignature,
-            )
-            guard isCurrent() else { return nil }
+            if loadedCandidate.schemaVersion != BurstAnalysisCache.schemaVersion {
+                diagnostics.append(.legacyMigrationCandidateFound)
+                _ = await similarityModel.importLegacyArtifacts(
+                    remappedCandidate.embeddings,
+                    files: request.orderedFiles,
+                    signature: remappedCandidate.similaritySignature,
+                )
+                guard isCurrent() else { return nil }
+            }
         }
 
         let loadedSnapshot = await cacheRepository.load(
@@ -245,7 +277,7 @@ final class BurstAnalysisCoordinator {
             similaritySignature: request.similaritySignature,
         )
         guard isCurrent() else { return nil }
-        guard let loadedSnapshot else {
+        guard let loadedSnapshot, BurstAnalysisCache.hasUniqueRestoreKeys(loadedSnapshot) else {
             return BurstAnalysisCachePreparation(
                 compatibleSnapshot: nil,
                 migrationCandidate: migrationCandidate,
@@ -299,6 +331,7 @@ final class BurstAnalysisCoordinator {
             files,
             preloadedScores: snapshot.sharpnessScores,
             preloadedSaliency: snapshot.saliencyInfo,
+            signature: snapshot.sharpnessSignature,
         )
     }
 

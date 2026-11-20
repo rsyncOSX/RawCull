@@ -229,15 +229,12 @@ struct DeepAIReviewFeatureTests {
             for: subjectKey,
         )
 
-        let loader = DeepAIReviewDiskMaskLoader(
-            repository: repository,
-            diskStore: diskStore,
-        )
-        let loaded = await loader.mask(for: source, prompt: .bird)
+        let loader = DeepAIReviewDiskMaskLoader(diskStore: diskStore)
+        let loaded = await loader.mask(for: birdKey)
 
         #expect(loaded?.width == 32)
         #expect(loaded?.height == 24)
-        #expect(await loader.mask(for: source, prompt: .subject) == nil)
+        #expect(await loader.mask(for: subjectKey) == nil)
     }
 
     @Test
@@ -264,6 +261,109 @@ struct DeepAIReviewFeatureTests {
         #expect(evidence.autofocusInsideMask == true, "AF: \(String(describing: evidence.autofocusInsideMask))")
         #expect(backgroundEvidence.autofocusInsideMask == false)
         #expect(evidence.usableLocalPatch, "local score: \(String(describing: evidence.localDetailScore))")
+    }
+
+    @MainActor
+    @Test
+    func `Installing a different segmentation model invalidates finished results`() async throws {
+        let request = makeRequest(candidateCount: 2)
+        let feature = DeepAIReviewFeature(availability: .available(location: nil))
+        let modelA = ModelIdentity(family: "sam3", name: "a", assetName: "a.aimodel")
+        let modelB = ModelIdentity(family: "sam3", name: "b", assetName: "b.aimodel")
+        feature.install(service: ImmediateDeepReviewService(), maskLoader: nil,
+                        availability: .available(location: nil), modelIdentity: modelA)
+        await feature.start(request)
+        let result = try #require(feature.result(for: request.groupSignature))
+
+        // Reinstalling the same model keeps results.
+        feature.install(service: ImmediateDeepReviewService(), maskLoader: nil,
+                        availability: .available(location: nil), modelIdentity: modelA)
+        #expect(feature.result(for: request.groupSignature) == result)
+
+        feature.install(service: ImmediateDeepReviewService(), maskLoader: nil,
+                        availability: .available(location: nil), modelIdentity: modelB)
+        #expect(feature.result(for: request.groupSignature) == nil)
+        #expect(feature.maskCandidate(for: result.candidates[0].fileID) == nil)
+        #expect(feature.completedCandidates.isEmpty)
+        #expect(feature.state == .idle)
+    }
+
+    @MainActor
+    @Test
+    func `Installing a different segmentation model cancels a running review`() async {
+        let request = makeRequest(candidateCount: 2)
+        let service = CancellableDeepReviewService()
+        let feature = DeepAIReviewFeature(availability: .available(location: nil))
+        feature.install(service: service, maskLoader: nil, availability: .available(location: nil),
+                        modelIdentity: ModelIdentity(family: "sam3", name: "a", assetName: "a.aimodel"))
+        let run = Task { await feature.start(request) }
+        await service.waitUntilStarted()
+
+        feature.install(service: ImmediateDeepReviewService(), maskLoader: nil, availability: .available(location: nil),
+                        modelIdentity: ModelIdentity(family: "sam3", name: "b", assetName: "b.aimodel"))
+        await run.value
+
+        #expect(await service.observedCancellation())
+        #expect(feature.result(for: request.groupSignature) == nil)
+        #expect(!feature.state.isRunning)
+    }
+
+    @Test
+    func `Deep Review isolates masks for equal-sized preview and RAW renders`() async throws {
+        let preview = await makeRequest(candidateCount: 2)
+        let raw = DeepAIReviewRequest(
+            groupID: preview.groupID, groupSignature: preview.groupSignature,
+            candidates: preview.candidates, preset: preview.preset, scoringSource: .rawDemosaic,
+        )
+        let modelIdentity = ModelIdentity(family: "sam3", name: "render-test", assetName: "render-test.aimodel")
+        let configuration = SubjectMaskRepositoryConfiguration(modelIdentity: modelIdentity, inputMaxSide: 1024)
+        let memoryStore = SubjectMaskMemoryStore()
+        let image = try #require(makeStripedImage(width: 64, height: 48))
+        let mask = try #require(makeCenteredMask(width: 64, height: 48))
+        let provider = FixedMaskSegmenter(modelIdentity: modelIdentity, mask: mask)
+        let pipeline = RawCullDeepAIReviewPipeline(
+            provider: provider,
+            maskConfiguration: configuration,
+            maskStores: [memoryStore],
+            decoder: FixedImageDecoder(image: image),
+            maximumPixelSize: 64,
+        )
+
+        let previewResult = try await pipeline.review(preview) { _ in }
+        let firstCallCount = await provider.calls.value
+        #expect(firstCallCount > 0)
+        let rawResult = try await pipeline.review(raw) { _ in }
+        let secondCallCount = await provider.calls.value
+        #expect(secondCallCount == 2 * firstCallCount)
+        _ = try await pipeline.review(preview) { _ in }
+        #expect(await provider.calls.value == secondCallCount)
+
+        for candidate in previewResult.candidates {
+            let rawCandidate = try #require(rawResult.candidates.first { $0.fileID == candidate.fileID })
+            let previewKey = try #require(candidate.maskStorageKey)
+            let rawKey = try #require(rawCandidate.maskStorageKey)
+            #expect(candidate.deepScore != nil)
+            #expect(rawCandidate.deepScore != nil)
+            #expect(previewKey != rawKey)
+            #expect(await memoryStore.load(for: previewKey)?.mask.width == 64)
+            #expect(await memoryStore.load(for: rawKey)?.mask.width == 64)
+        }
+    }
+
+    @Test
+    func `Mask registration requires matching image dimensions`() async throws {
+        let mask = try #require(makeCenteredMask(width: 32, height: 24))
+        let image = try #require(makeStripedImage(width: 64, height: 48))
+        let modelIdentity = ModelIdentity(family: "sam3", name: "size-test", assetName: "size-test.aimodel")
+        let result = makeSegmentationResult(sourceID: UUID(), prompt: .bird, mask: mask, modelIdentity: modelIdentity)
+        let geometry = SubjectMaskGeometry.measure(mask: mask)
+        let selection = SubjectMaskSelection(
+            selected: SubjectMaskSelectionCandidate(result: result, geometry: geometry,
+                                                   quality: SubjectMaskQuality(geometry: geometry), wasCached: true),
+            attempts: [], metMinimumQuality: true,
+        )
+        #expect(!RawCullDeepAIReviewPipeline.maskFits(selection, image: image))
+        #expect(RawCullDeepAIReviewPipeline.maskFits(selection, image: try #require(makeStripedImage(width: 32, height: 24))))
     }
 
     @MainActor
@@ -546,5 +646,37 @@ private actor PartiallyCompletedDeepReviewService: DeepAIReviewServicing {
         while !progressWasSent {
             await Task.yield()
         }
+    }
+}
+
+private actor CallCounter {
+    private(set) var value = 0
+    func increment() { value += 1 }
+}
+
+private nonisolated struct FixedMaskSegmenter: SubjectSegmenting {
+    let modelIdentity: ModelIdentity
+    let mask: CGImage
+    let calls = CallCounter()
+
+    func segment(_ request: SubjectSegmentationRequest) async throws -> SubjectSegmentationResult {
+        await calls.increment()
+        let size = CGSize(width: mask.width, height: mask.height)
+        let timing = SubjectSegmentationTiming(totalMilliseconds: 1)
+        return SubjectSegmentationResult(
+            sourceID: request.sourceID, requestID: request.requestID, prompt: request.prompt, mask: mask,
+            confidence: 0.9, modelIdentity: modelIdentity, inputSize: size, outputSize: size, timing: timing,
+            diagnostics: SubjectSegmentationDiagnostics(
+                modelIdentity: modelIdentity, prompt: request.prompt, confidence: 0.9, timing: timing,
+                inputSize: size, outputSize: size,
+            ),
+        )
+    }
+}
+
+private nonisolated struct FixedImageDecoder: DeepAIReviewImageDecoding {
+    let image: CGImage
+    func image(for _: DeepAIReviewInputCandidate, maximumPixelSize _: Int, source _: SharpnessScoringSource) async throws -> CGImage {
+        image
     }
 }

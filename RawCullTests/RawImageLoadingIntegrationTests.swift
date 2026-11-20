@@ -281,6 +281,7 @@ struct RawImageLoadingIntegrationTests {
             captureTimeZoneOffsetSeconds: 7200,
             focusLocation: "8640 5760 4320 2880",
             focusPoint: CGPoint(x: 0.5, y: 0.5),
+            orientation: 1,
         )
         let fakeLoader = FakeRawImageLoader(fileMetadataResult: metadata)
         let root = try makeRawImageLoadingTestRoot()

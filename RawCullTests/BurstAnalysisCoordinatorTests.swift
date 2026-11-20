@@ -87,11 +87,13 @@ struct BurstAnalysisCoordinatorTests {
         let coordinator = harness.coordinator
         let repository = harness.repository
         let request = harness.request
-        repository.migrationCandidate = makeCoordinatorSnapshot(
+        var legacy = makeCoordinatorSnapshot(
             request: request,
             files: oldFiles,
             groups: [oldGroup],
         )
+        legacy.schemaVersion = BurstAnalysisCache.legacyArtifactMigrationSchemaVersion
+        repository.migrationCandidate = legacy
 
         let result = await coordinator.prepareCache(
             for: request,
@@ -197,6 +199,7 @@ struct BurstAnalysisCoordinatorTests {
             preloadedSaliency: [:],
         )
         var migration = makeCoordinatorSnapshot(request: harness.request)
+        migration.schemaVersion = BurstAnalysisCache.legacyArtifactMigrationSchemaVersion
         migration.embeddings = [
             file.id: makeCoordinatorArtifact(
                 file: file,
@@ -244,6 +247,137 @@ struct BurstAnalysisCoordinatorTests {
         #expect(harness.repository.savedSnapshots.first?.files.map(\.id) == [file.id])
         #expect(harness.repository.savedSnapshots.first?.sharpnessScores == [file.id: 42])
         #expect(harness.repository.savedSnapshots.first?.results == result?.rankings)
+    }
+
+    @Test
+    func `scores from another sharpness configuration are rescored, not reused`() async {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let file = makeCoordinatorFile("A.raw")
+        let harness = makeCoordinatorHarness(
+            catalog: catalog,
+            files: [file],
+            sharpnessAdapter: makeCoordinatorSharpnessAdapter(),
+        )
+        // Scores produced under the default (.fast) configuration.
+        harness.sharpnessModel.applyPreloadedScores(
+            [file],
+            preloadedScores: [file.id: 42],
+            preloadedSaliency: [:],
+        )
+        // The user changes scoring parameters before running Analyze Bursts.
+        harness.sharpnessModel.scoringQuality = .highPrecision
+        let newSignature = harness.sharpnessModel.scoringSignature
+        #expect(newSignature != harness.request.sharpnessSignature)
+        let request = harness.request.withSharpnessSignature(newSignature)
+        var migration = makeCoordinatorSnapshot(request: request)
+        migration.embeddings = [
+            file.id: makeCoordinatorArtifact(
+                file: file,
+                backend: request.similaritySignature.backendDescriptor,
+            )
+        ]
+        harness.repository.migrationCandidate = migration
+
+        let result = await harness.coordinator.run(
+            request: request,
+            initialReviewStates: [:],
+            fullCatalogFileIDs: Set([file.id]),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { true },
+                updateProgress: { _ in },
+                didScoreSharpness: { _ in },
+                applyResult: { $0 },
+            ),
+        )
+
+        #expect(result?.diagnostics.contains(.scoredMissingSharpness) == true)
+        #expect(result?.diagnostics.contains(.reusedSharpnessScores) == false)
+        let saved = harness.repository.savedSnapshots.first
+        #expect(saved?.sharpnessSignature == newSignature)
+        #expect(saved?.sharpnessScores[file.id] != 42)
+        #expect(saved?.sharpnessScores == harness.sharpnessModel.scores)
+        #expect(harness.sharpnessModel.scoresSignature == newSignature)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func `sensitivity change during an active run is applied after it finishes`() async throws {
+        let gate = CoordinatorIndexGate()
+        let backend = SimilarityBackendDescriptor(
+            backend: "clip",
+            modelFingerprint: "coordinator-test-v1",
+            representation: "coordinator-test-representation",
+            preprocessingVersion: "coordinator-test-preprocessing-v1",
+            normalizationVersion: "coordinator-test-normalization-v1",
+            configurationVersion: "coordinator-test-configuration-v1",
+        )
+        let viewModel = makeRawCullViewModel(
+            similarityService: CoordinatorGatedSimilarityService(backendDescriptor: backend, gate: gate),
+            burstAnalysisCacheRepository: CoordinatorCacheRepository(),
+        )
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let files = (0 ..< 4).map { makeCoordinatorFile("R\($0).raw") }
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+
+        let run = Task { await viewModel.startBurstAnalysis(catalog: catalog.url, files: files) }
+        while await !gate.hasStarted {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(viewModel.burstAnalysisProgress.isRunning)
+        viewModel.similarityModel.burstSensitivity = 0.5
+        await viewModel.reGroupBursts()
+        await gate.release()
+        _ = await run.value
+
+        #expect(viewModel.completedBurstAnalysisContext != nil)
+        #expect(
+            viewModel.completedBurstAnalysisContext?.similaritySignature
+                == viewModel.currentBurstSimilaritySignature,
+        )
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
+    }
+
+    @Test(arguments: [
+        (live: BurstReviewState.reviewed, saved: BurstReviewState?.none, expected: BurstReviewState?.some(.reviewed)),
+        (live: BurstReviewState.none, saved: BurstReviewState?.some(.reviewed), expected: BurstReviewState?.none)
+    ])
+    func `unsaved in-memory review states win over the saved cache`(
+        live: BurstReviewState,
+        saved: BurstReviewState?,
+        expected: BurstReviewState?,
+    ) async throws {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = [makeCoordinatorFile("A.raw"), makeCoordinatorFile("B.raw")]
+        let group = BurstGroup(id: 4, fileIDs: files.map(\.id))
+        let signature = try #require(BurstGroupSignature(files: files, catalog: catalog))
+        let harness = makeCoordinatorHarness(catalog: catalog, files: files)
+        harness.repository.snapshot = makeCoordinatorSnapshot(
+            request: harness.request,
+            groups: [group],
+            reviewStates: saved.map { [BurstReviewStateSnapshot(signature: signature, state: $0)] } ?? [],
+        )
+        // A current-schema file is also returned as the migration candidate.
+        harness.repository.migrationCandidate = harness.repository.snapshot
+        harness.similarityModel.burstGroups = [group]
+
+        let result = await harness.coordinator.run(
+            request: harness.request,
+            initialReviewStates: [group.id: live],
+            fullCatalogFileIDs: Set(files.map(\.id)),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { true },
+                updateProgress: { _ in },
+                didScoreSharpness: { _ in },
+                applyResult: { $0 },
+            ),
+        )
+
+        #expect(result?.cacheOutcome == .hit)
+        #expect(result?.restoredReviewStates[group.id] == expected)
+        #expect(result?.diagnostics.contains(.legacyMigrationCandidateFound) == false)
     }
 
     @Test

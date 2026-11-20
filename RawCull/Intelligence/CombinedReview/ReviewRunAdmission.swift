@@ -6,6 +6,7 @@ nonisolated struct ReviewSelectedFile: Equatable, Sendable {
     let url: URL
     let name: String
     var normalizedAFPoint: CGPoint?
+    var iso: Int? = nil
 }
 
 /// Native reads retain access until completion, including after catalog navigation.
@@ -36,14 +37,14 @@ final class ReviewCatalogSession {
                                                      guard point.x.isFinite, point.y.isFinite,
                                                            (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { return nil }
                                                      return point
-                                                 }))
+                                                 }, iso: file.iso))
         }
         return frozen
     }
 
     @concurrent
     static func revalidate(_ files: [ReviewFileSnapshot]) async throws {
-        let frozen = try await freeze(files.map { ReviewSelectedFile(id: $0.fileID, url: $0.url, name: $0.displayName, normalizedAFPoint: $0.normalizedAFPoint) })
+        let frozen = try await freeze(files.map { ReviewSelectedFile(id: $0.fileID, url: $0.url, name: $0.displayName, normalizedAFPoint: $0.normalizedAFPoint, iso: $0.iso) })
         guard frozen == files else { throw ReviewRunError.incompatible }
     }
 }

@@ -64,6 +64,7 @@ nonisolated struct ReviewFileSnapshot: Codable, Equatable, Sendable {
     let displayName: String
     let fingerprint: String
     var normalizedAFPoint: CGPoint?
+    var iso: Int? = nil
 
     static func fingerprint(_ url: URL) throws -> String {
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
@@ -170,6 +171,9 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
             fields["registration"] = ReviewMaskRegistration.version
             fields["maskContract"] = SubjectMaskContract.version
             fields["scorerSemantics"] = SubjectMaskFocusScorer.semanticsVersion
+            if let iso = image.iso {
+                fields["iso"] = "\(iso)"
+            }
         }
         if let point = image.normalizedAFPoint {
             fields["autofocusPoint"] = "\(point.x),\(point.y)"

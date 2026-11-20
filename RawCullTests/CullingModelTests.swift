@@ -244,7 +244,7 @@ struct CullingModelTests {
         await oldRun.value
 
         #expect(model.embeddings[fastFile.id]?.payload == Data([2]))
-        #expect(model.embeddings[slowFile.id] == nil)
+        #expect(model.embeddings[slowFile.id]?.payload == Data([3]))
         #expect(model.isIndexing == false)
         #expect(model.indexingProgress == 0)
         #expect(model.indexingTotal == 0)

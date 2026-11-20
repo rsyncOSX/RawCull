@@ -182,6 +182,16 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
         at url: URL,
         maximumPixelSize: Int,
     ) -> CGImage? {
+        RawScoringDemosaic.render(url: url, maximumPixelSize: maximumPixelSize)
+    }
+}
+
+/// The single RAW render every scoring path uses (sharpness, calibration, Deep Review),
+/// so "RAW Demosaic" means the same pixels everywhere. The engines are tuned for
+/// gamma-encoded sRGB, so the render goes through Core Image's default colour
+/// management and is written as 8-bit sRGB, matching `RAWPreviewRenderer`.
+nonisolated enum RawScoringDemosaic {
+    static func render(url: URL, maximumPixelSize: Int) -> CGImage? {
         guard !Task.isCancelled, let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
 
         if let version = RAW9Support.preferredVersion(in: rawFilter.supportedDecoderVersions) {
@@ -193,18 +203,29 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
         rawFilter.contrastAmount = 1.0
         rawFilter.exposure = 0.0
 
-        guard var image = rawFilter.outputImage else { return nil }
+        guard var image = rawFilter.outputImage,
+              !image.extent.isEmpty, !image.extent.isInfinite
+        else { return nil }
         let maximumDimension = max(image.extent.width, image.extent.height)
         if maximumDimension > CGFloat(maximumPixelSize), maximumDimension > 0 {
             let scale = CGFloat(maximumPixelSize) / maximumDimension
             image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
 
-        guard !Task.isCancelled else { return nil }
+        guard !Task.isCancelled,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
+        else { return nil }
         let context = CIContext(options: [
-            .workingColorSpace: NSNull(),
-            .workingFormat: CIFormat.RGBAf
+            .cacheIntermediates: false,
+            .workingFormat: CIFormat.RGBAh
         ])
-        return context.createCGImage(image, from: image.extent)
+        return context.createCGImage(
+            image,
+            from: image.extent,
+            format: .RGBA8,
+            colorSpace: colorSpace,
+            deferred: false,
+        )
     }
 }
+

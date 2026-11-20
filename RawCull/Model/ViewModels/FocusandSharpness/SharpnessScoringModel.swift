@@ -22,6 +22,10 @@ final class SharpnessScoringModel {
     }
 
     private(set) var scoreRevision: Int = 0
+    /// The scoring configuration that produced `scores`. `nil` means the
+    /// provenance is unknown, so callers must not treat the scores as matching
+    /// any particular signature.
+    private(set) var scoresSignature: SharpnessScoringSignature?
     /// AF-center measurements used exclusively for catalog/Grid View ordering.
     var afPointScores: [UUID: Float] = [:]
 
@@ -131,6 +135,7 @@ final class SharpnessScoringModel {
         isScoring = false
         isCalibratingSharpnessScoring = false
         scores = [:]
+        scoresSignature = nil
         afPointScores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
@@ -166,11 +171,13 @@ final class SharpnessScoringModel {
         let task = Task { [weak self] in
             defer { withExtendedLifetime(access) {} }
             guard let self, !Task.isCancelled else { return false }
-            guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
+            guard let result = await focusMaskModel.calibrateFromBurstParallel(
                 files: fileEntries,
                 baseConfigOverride: calibrationConfig,
                 thumbnailMaxPixelSize: FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
-                scoringSource: scoringSource,
+                // The threshold only drives the visual focus mask, and masks render the
+                // embedded preview, so calibrate on that source whatever scoring uses.
+                scoringSource: FocusMaskAnalysisResolutionPolicy.calibrationSource,
                 minSamples: 5,
                 maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
             ) else {
@@ -181,7 +188,10 @@ final class SharpnessScoringModel {
                 )
                 return true
             }
-            guard !Task.isCancelled else { return false }
+            // Apply only while this is still the active calibration; a run that was
+            // superseded just as its package call returned must not win.
+            guard !Task.isCancelled, activeCalibrationGeneration == generation else { return false }
+            focusMaskModel.applyCalibration(result)
 
             Logger.process.debugMessageOnly(
                 "SharpnessScoringModel.calibrateFromBurst(): visual calibration applied — "
@@ -244,6 +254,7 @@ final class SharpnessScoringModel {
         scoringTotal = files.count
         scoringEstimatedSeconds = 0
         scores = [:]
+        scoresSignature = nil
         afPointScores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
@@ -305,6 +316,7 @@ final class SharpnessScoringModel {
                     result.score.map { (result.id, $0) }
                 },
             )
+            self.scoresSignature = request.signature
             self.saliencyInfo = Dictionary(
                 uniqueKeysWithValues: results.compactMap { result in
                     result.saliency.map { (result.id, $0) }
@@ -429,11 +441,34 @@ final class SharpnessScoringModel {
         )
     }
 
+    /// True only when every file has a score produced under `signature`.
+    func hasScores(for files: [FileItem], signature: SharpnessScoringSignature) -> Bool {
+        scoresSignature == signature && files.allSatisfy { scores[$0.id] != nil }
+    }
+
+    /// Publish restored scores together with the signature they were produced
+    /// under, so later reuse checks can reject scores from another configuration.
+    func restoreScores(
+        _ restoredScores: [UUID: Float],
+        afPointScores restoredAFPointScores: [UUID: Float],
+        saliency restoredSaliency: [UUID: SaliencyInfo],
+        signature: SharpnessScoringSignature,
+    ) {
+        scores = restoredScores
+        scoresSignature = signature
+        afPointScores = restoredAFPointScores
+        saliencyInfo = restoredSaliency
+    }
+
+    /// `signature` names the configuration that produced `preloadedScores`.
+    /// Callers that only restore scores already filtered by the current
+    /// configuration may omit it.
     func applyPreloadedScores(
         _ files: [FileItem],
         preloadedScores: [UUID: Float],
         preloadedSaliency: [UUID: SaliencyInfo],
         preloadedAFPointScores: [UUID: Float] = [:],
+        signature: SharpnessScoringSignature? = nil,
     ) {
         guard !files.isEmpty else {
             sortBySharpness = false
@@ -450,6 +485,7 @@ final class SharpnessScoringModel {
 
         let validIDs = Set(files.map(\.id))
         scores = preloadedScores.filter { validIDs.contains($0.key) }
+        scoresSignature = signature ?? scoringSignature
         saliencyInfo = preloadedSaliency.filter { validIDs.contains($0.key) }
         breakdowns = [:]
         let validAFIDs = Set(files.filter { Self.hasValidAFPoint($0.afFocusNormalized) }.map(\.id))

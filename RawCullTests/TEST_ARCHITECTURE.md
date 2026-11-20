@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 401 unique smoke identifiers and 2 unique performance
+current baselines are 420 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -45,10 +45,12 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
 - Core culling, zoom, histogram, and comparison behavior: the corresponding
   suite selectors and three exact `CullingModelTests` cancellation identifiers.
 
-The smoke and full plans remain parallelizable. The migration suite uses unique
-temporary stores and has no serialization trait. The Performance plan alone is
-non-parallel because its deliberate shared-cache TSan stress test exercises the
-production singleton while the Vision benchmark measures whole-operation timing.
+The smoke plan runs in parallel. `make test-full` disables test parallelism
+because concurrent Vision requests can stall the test host under Thread
+Sanitizer. The migration suite uses unique temporary stores and has no
+serialization trait. The Performance plan runs serially because its deliberate
+shared-cache TSan stress test exercises the production singleton while the
+Vision benchmark measures whole-operation timing.
 
 ## Historical Phase 3 Gate Verification — 2026-08-04
 

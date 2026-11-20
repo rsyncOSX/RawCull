@@ -35,7 +35,9 @@ enum AnalysisPreviewPreparation {
             aperture: file.exifData?.apertureValue,
         )
         let generated = await model.generateFocusMaskWithBreakdown(
-            from: FocusMaskAnalysisResolutionPolicy.prepare(image),
+            from: FocusMaskAnalysisResolutionPolicy.prepare(
+                FocusMaskAnalysisResolutionPolicy.calibrationScaled(image),
+            ),
             scale: 1.0, configOverride: adjusted, afPoint: point,
             iso: file.exifData?.isoValue ?? 400,
             aperture: file.exifData?.apertureValue,

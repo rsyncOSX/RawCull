@@ -63,6 +63,12 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
     var analysisDescriptor: SharpnessAnalysisDescriptor?
     var scoringSource: SharpnessScoringSource
     var thumbnailMaxPixelSize: Int
+    /// App-owned revision of the inputs RawCull feeds the package scorer.
+    /// 0 (absent): sensor-space AF points and an untagged linear RAW render.
+    /// 1: AF points rotated into the upright image; RAW renders encoded to sRGB.
+    var inputPipelineVersion: Int
+
+    nonisolated static let currentInputPipelineVersion = 1
 
     @MainActor
     init(
@@ -73,12 +79,14 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
         analysisDescriptor = PhotoAnalyzer.sharpnessDescriptor(for: config)
         self.scoringSource = scoringSource
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        inputPipelineVersion = Self.currentInputPipelineVersion
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisDescriptor
         case scoringSource
         case thumbnailMaxPixelSize
+        case inputPipelineVersion
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +103,7 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
             Int.self,
             forKey: .thumbnailMaxPixelSize,
         )) ?? 0
+        inputPipelineVersion = (try? values.decode(Int.self, forKey: .inputPipelineVersion)) ?? 0
     }
 
     func encode(to encoder: Encoder) throws {
@@ -108,6 +117,7 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
             thumbnailMaxPixelSize,
             forKey: .thumbnailMaxPixelSize,
         )
+        try values.encode(inputPipelineVersion, forKey: .inputPipelineVersion)
     }
 }
 
@@ -124,6 +134,20 @@ actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
     nonisolated static let schemaVersion = 9
     nonisolated static let legacyArtifactMigrationSchemaVersion = 8
+
+    /// Reject duplicate keys before restoring the snapshot's lookup tables.
+    nonisolated static func hasUniqueRestoreKeys(_ snapshot: BurstAnalysisCacheSnapshot) -> Bool {
+        let members = snapshot.groups.flatMap(\.fileIDs)
+        let boundaryKeys = snapshot.boundaryEvidence.map {
+            BurstPairKey.cacheKey(previousID: $0.previousID, currentID: $0.currentID)
+        }
+        return Set(snapshot.files.map(\.id)).count == snapshot.files.count
+            && Set(snapshot.files.map(\.path)).count == snapshot.files.count
+            && Set(snapshot.groups.map(\.id)).count == snapshot.groups.count
+            && Set(members).count == members.count
+            && Set(boundaryKeys).count == boundaryKeys.count
+            && Set(snapshot.results.map(\.groupID)).count == snapshot.results.count
+    }
 
     private let cacheDirectory: URL
 
@@ -236,7 +260,8 @@ actor BurstAnalysisCache {
                   from: data,
               ),
               snapshot.schemaVersion == Self.schemaVersion
-              || snapshot.schemaVersion == Self.legacyArtifactMigrationSchemaVersion
+              || snapshot.schemaVersion == Self.legacyArtifactMigrationSchemaVersion,
+              Self.hasUniqueRestoreKeys(snapshot)
         else { return nil }
         return snapshot
     }
@@ -314,10 +339,11 @@ actor BurstAnalysisCache {
               snapshot.similarityArtifactSetDigest != nil,
               snapshot.similaritySignature.artifactSchemaVersion
               == SimilarityArtifactDescriptor.currentSchemaVersion,
-              snapshot.files.count == files.count
+              snapshot.files.count == files.count,
+              Self.hasUniqueRestoreKeys(snapshot)
         else { return false }
 
-        let cached = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.path, $0) })
+        let cached = Dictionary(snapshot.files.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
         for file in files {
             guard let item = cached[file.url.path],
                   item.size == file.size,

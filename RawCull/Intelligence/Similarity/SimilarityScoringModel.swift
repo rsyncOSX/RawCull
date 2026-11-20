@@ -223,6 +223,10 @@ final class SimilarityScoringModel {
 
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
+    /// Bumped only by explicit cancellation/reset, never by a newer request,
+    /// so a superseded caller can tell "replaced" from "abandoned".
+    @ObservationIgnored private var _indexingCancellationEpoch = 0
+    @ObservationIgnored private var _indexingIdleWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
     @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
     @ObservationIgnored private let artifactStore: any SimilarityArtifactStoring
     @ObservationIgnored private var _artifactHydrationGeneration = 0
@@ -276,7 +280,9 @@ final class SimilarityScoringModel {
         burstBoundaryEvidence = []
         burstModeActive = false
         isGrouping = false
-        _groupingGeneration = 0
+        // Bump rather than zero: a continuation pending from before the reset
+        // must never match the generation of a grouping started after it.
+        _groupingGeneration &+= 1
         _adjacentDistanceCache = [:]
         _adjacentDistanceCacheSignature = 0
         indexingFailures = []
@@ -302,12 +308,14 @@ final class SimilarityScoringModel {
         _indexingTask?.cancel()
         _indexingTask = nil
         _indexingGeneration &+= 1
+        _indexingCancellationEpoch &+= 1
         _indexingStartedAt = nil
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
         indexingPhase = .idle
+        resumeIndexingIdleWaiters()
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {
@@ -473,6 +481,7 @@ final class SimilarityScoringModel {
         _indexingTask?.cancel()
         _indexingGeneration &+= 1
         let generation = _indexingGeneration
+        let cancellationEpoch = _indexingCancellationEpoch
         isIndexing = true
         indexingProgress = 0
         indexingTotal = files.count
@@ -513,6 +522,7 @@ final class SimilarityScoringModel {
             indexingProgress = files.count
             isIndexing = false
             indexingPhase = .idle
+            resumeIndexingIdleWaiters()
             return
         }
         indexingTotal = toIndex.count
@@ -602,7 +612,17 @@ final class SimilarityScoringModel {
         } onCancel: {
             workTask.cancel()
         }
-        guard _indexingGeneration == generation else { return }
+        guard _indexingGeneration == generation else {
+            // A newer request cancelled this one. Its caller still needs these
+            // files indexed, so coalesce instead of returning empty-handed.
+            await indexAfterSupersedingRequest(
+                files,
+                thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                forceRefresh: forceRefresh,
+                cancellationEpoch: cancellationEpoch,
+            )
+            return
+        }
         _indexingTask = nil
         _indexingStartedAt = nil
 
@@ -777,12 +797,14 @@ final class SimilarityScoringModel {
             for runSlice in eligibleRuns {
                 guard !Task.isCancelled else { return nil }
                 let run = Array(runSlice)
-                let adjacentDistances = Self.computeAdjacentDistances(
+                // Partial distances would make the engine split at every
+                // missing pair, so a cancelled computation publishes nothing.
+                guard let adjacentDistances = Self.computeAdjacentDistances(
                     files: run,
                     artifacts: snapshot,
                     service: service,
                     cached: cachedAdjacentDistances,
-                )
+                ) else { return nil }
                 let output = BurstGroupingEngine.group(
                     files: run,
                     adjacentDistances: adjacentDistances,
@@ -795,6 +817,7 @@ final class SimilarityScoringModel {
                 }
                 boundaryEvidence.append(contentsOf: output.boundaryEvidence)
             }
+            guard !Task.isCancelled else { return nil }
             return BurstGroupingOutput(
                 groups: groups,
                 boundaryEvidence: boundaryEvidence,
@@ -814,7 +837,7 @@ final class SimilarityScoringModel {
 
         guard _groupingGeneration == generation else { return }
         isGrouping = false
-        guard let output else { return }
+        guard !work.isCancelled, let output else { return }
 
         burstGroups = output.groups
         burstGroupLookup = Dictionary(
@@ -873,12 +896,62 @@ final class SimilarityScoringModel {
 
     // MARK: - Private state helpers
 
+    /// Wait for the request(s) that superseded this one, then index whatever
+    /// they did not cover. Explicit cancellation or reset abandons the request.
+    private func indexAfterSupersedingRequest(
+        _ files: [FileItem],
+        thumbnailMaxPixelSize: Int,
+        forceRefresh: Bool,
+        cancellationEpoch: Int,
+    ) async {
+        while isIndexing, !Task.isCancelled, _indexingCancellationEpoch == cancellationEpoch {
+            await waitForIndexingIdle()
+        }
+        guard !Task.isCancelled, _indexingCancellationEpoch == cancellationEpoch else { return }
+        let remaining = forceRefresh ? files : files.filter { embeddings[$0.id] == nil }
+        guard !remaining.isEmpty else { return }
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.indexFiles(): indexing \(remaining.count) files left by a superseding request",
+        )
+        await indexFiles(
+            remaining,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            forceRefresh: forceRefresh,
+        )
+    }
+
+    private func waitForIndexingIdle() async {
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled || !isIndexing {
+                    continuation.resume()
+                } else {
+                    _indexingIdleWaiters[id] = continuation
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?._indexingIdleWaiters.removeValue(forKey: id)?.resume()
+            }
+        }
+    }
+
+    private func resumeIndexingIdleWaiters() {
+        let waiters = _indexingIdleWaiters
+        _indexingIdleWaiters = [:]
+        for continuation in waiters.values {
+            continuation.resume()
+        }
+    }
+
     private func finishIndexing() {
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
         indexingPhase = .idle
+        resumeIndexingIdleWaiters()
     }
 
     private nonisolated static func isUsable(
@@ -935,13 +1008,13 @@ final class SimilarityScoringModel {
         artifacts: [UUID: SimilarityArtifact],
         service: any RawCullSimilarityServicing,
         cached: [String: Float] = [:],
-    ) -> [String: Float] {
-        guard files.count > 1 else { return [:] }
+    ) -> [String: Float]? {
+        guard files.count > 1 else { return Task.isCancelled ? nil : [:] }
 
         var distances = cached
         for index in files.indices.dropFirst() {
             if index & 0x3F == 0, Task.isCancelled {
-                return distances
+                return nil
             }
             let previousID = files[index - 1].id
             let currentID = files[index].id
@@ -965,7 +1038,7 @@ final class SimilarityScoringModel {
                 continue
             }
         }
-        return distances
+        return Task.isCancelled ? nil : distances
     }
 
     @concurrent

@@ -93,9 +93,34 @@ actor ReviewArtifactStore {
     func validArtifactKeys(for manifest: CombinedReviewRunV1) -> Set<String> {
         Set(manifest.work.compactMap { item in
             guard let key = item.artifactKey, let artifact = try? loadArtifact(key: key, expected: item.compatibility),
-                  artifact.workID == item.id else { return nil }
+                  artifact.workID == item.id, hasRequiredInputs(artifact, stage: item.stage) else { return nil }
             return key
         })
+    }
+
+    /// Masks retained with a segmentation stage are required evidence, not an
+    /// optional cache: measurement reads them back on resume. A stage whose
+    /// referenced masks were evicted or cleared is invalid so it is re-run.
+    private func hasRequiredInputs(_ artifact: ReviewStageArtifact, stage: ReviewStage) -> Bool {
+        guard stage == .segmentation else { return true }
+        // Concept stages store subject records; the head query wraps them.
+        let decoder = JSONDecoder()
+        let records: [ReviewSubjectRecord]
+        if let subjects = try? decoder.decode([ReviewSubjectRecord].self, from: artifact.payload) {
+            records = subjects
+        } else if let heads = try? decoder.decode(CombinedReviewHeadCandidates.self, from: artifact.payload) {
+            records = heads.records
+        } else {
+            return false
+        }
+        return records.allSatisfy { record in
+            guard let key = record.maskInputReference else { return true }
+            return hasInput(key)
+        }
+    }
+
+    private func hasInput(_ key: String) -> Bool {
+        isKey(key) && FileManager.default.fileExists(atPath: root.appendingPathComponent("inputs/\(key).png").path)
     }
 
     func retainInput(_ data: Data) throws -> String {

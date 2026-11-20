@@ -72,7 +72,10 @@ final class FocusMaskModel {
         config = calibrated
     }
 
-    func calibrateAndApplyFromBurstParallel(
+    /// Measures a calibration without applying it. The caller applies the result only
+    /// after confirming it is still the current calibration, so a superseded run that
+    /// returns late cannot overwrite a newer threshold.
+    func calibrateFromBurstParallel(
         files: [(url: URL, iso: Int?, aperture: Double?)],
         baseConfigOverride: FocusDetectorConfig? = nil,
         thumbnailMaxPixelSize: Int = FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
@@ -82,7 +85,7 @@ final class FocusMaskModel {
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
         Logger.process.debugMessageOnly(
-            "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibrating from \(files.count) files",
+            "FocusMaskModel.calibrateFromBurstParallel(): calibrating from \(files.count) files",
         )
         let analysisFiles = files.map {
             RawCullPhotoAnalysisFile(
@@ -102,15 +105,10 @@ final class FocusMaskModel {
             maximumConcurrentTasks: maxConcurrentTasks,
         ) else {
             Logger.process.debugMessageOnly(
-                "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibration returned no result",
+                "FocusMaskModel.calibrateFromBurstParallel(): calibration returned no result",
             )
             return nil
         }
-
-        applyCalibration(result)
-        Logger.process.debugMessageOnly(
-            "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibration applied",
-        )
         return result
     }
 }

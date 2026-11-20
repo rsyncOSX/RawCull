@@ -6,6 +6,7 @@ extension BurstAnalysisCoordinator {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.beginGeneration()")
         cancelTask?()
         cancelTask = nil
+        hasPendingRegroup = false
         generation &+= 1
         return generation
     }
@@ -35,10 +36,18 @@ extension BurstAnalysisCoordinator {
         progress = BurstAnalysisProgress()
     }
 
+    /// Returns and clears the pending-regroup flag for the current generation.
+    func takePendingRegroup(generation: Int) -> Bool {
+        guard self.generation == generation, hasPendingRegroup else { return false }
+        hasPendingRegroup = false
+        return true
+    }
+
     func cancel() {
         Logger.process.debugMessageOnly("BurstAnalysisCoordinator.cancel()")
         cancelTask?()
         cancelTask = nil
+        hasPendingRegroup = false
         generation &+= 1
         progress = BurstAnalysisProgress()
     }

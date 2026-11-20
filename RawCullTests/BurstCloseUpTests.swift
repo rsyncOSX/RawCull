@@ -8,6 +8,33 @@ import Testing
 
 @Suite("Burst Close-ups integration") @MainActor
 struct BurstCloseUpTests {
+    @Test(.timeLimit(.minutes(1))) func `evidence limiter bounds parallel work and releases cancelled waiters`() async throws {
+        let limiter = BurstEvidenceWorkLimiter(limit: 2)
+        await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< 6 {
+                group.addTask {
+                    try await limiter.acquire()
+                    try? await Task.sleep(for: .milliseconds(20))
+                    await limiter.release()
+                }
+            }
+        }
+        #expect(await limiter.maxObservedActive == 2)
+
+        try await limiter.acquire()
+        try await limiter.acquire()
+        let waiter = Task { try await limiter.acquire() }
+        try await Task.sleep(for: .milliseconds(20))
+        waiter.cancel()
+        await #expect(throws: CancellationError.self) { try await waiter.value }
+        await limiter.release()
+        await limiter.release()
+        // Both slots are free again after the cancelled waiter left the queue.
+        try await limiter.acquire()
+        try await limiter.acquire()
+        #expect(await limiter.maxObservedActive == 2)
+    }
+
     @Test(arguments: Array(UInt32(1) ... UInt32(8)))
     func `AF placement maps sensor coordinates to oriented images`(orientation: UInt32) throws {
         let frame = CloseUpFrame(id: URL(filePath: "/fixture/a.arw"), name: "a", revision: "1")

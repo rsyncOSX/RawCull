@@ -84,12 +84,14 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
-        ImageReviewSubjectOutlineRequestContext(
+        let candidate = selectedFile.flatMap {
+            viewModel.deepAIReviewController.maskCandidate(for: $0.id)
+        }
+        return ImageReviewSubjectOutlineRequestContext(
             fileID: selectedFile?.id,
-            prompt: selectedFile.flatMap {
-                viewModel.deepAIReviewController.maskCandidate(for: $0.id)?.maskPromptUsed?.rawValue
-            },
+            prompt: candidate?.maskPromptUsed?.rawValue,
             isPresented: showSubjectOutline,
+            maskStorageKey: candidate?.maskStorageKey,
         )
     }
 

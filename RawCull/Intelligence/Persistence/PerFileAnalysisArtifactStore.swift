@@ -79,6 +79,12 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
 
     nonisolated let storageDirectory: URL
     private let writeBarrier: PerFileAnalysisArtifactWriteBarrier?
+    /// Record files grouped by everything in their identity except the source
+    /// fingerprint, so an upsert finds the records it supersedes without
+    /// decoding the whole store. Built once, from identities only, on first use.
+    private var supersessionIndex: [SupersessionKey: Set<URL>]?
+    /// Test seam: number of record files decoded (full or identity-only).
+    private(set) var decodedRecordCount = 0
 
     init(
         storageDirectory: URL? = nil,
@@ -211,10 +217,9 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
             let rightPath = sources[rhs.key]?.url.path ?? rhs.key.uuidString
             return leftPath < rightPath
         }
-        var knownRecords = recordURLs().compactMap { url -> (URL, StoredRecord)? in
-            guard let record = try? decodeRecord(at: url) else { return nil }
-            return (url, record)
-        }
+        // Mutated in place (not copied): upsert suspends at the write barrier,
+        // and a concurrent upsert must not lose its index updates.
+        loadSupersessionIndexIfNeeded()
 
         for (sourceID, artifact) in orderedArtifacts {
             await writeBarrier?(sourceID, committedSourceIDs)
@@ -266,16 +271,13 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                     lastAccessedAt: now,
                 )
                 try encode(record).write(to: url, options: .atomic)
-                for (knownURL, knownRecord) in knownRecords
-                    where knownURL != url
-                    && knownRecord.identity.isSuperseded(by: identity) {
+                // Same path/schema/backend/pipeline with another fingerprint is
+                // an older version of this source's record.
+                let key = SupersessionKey(identity)
+                for knownURL in supersessionIndex?[key] ?? [] where knownURL != url {
                     try? FileManager.default.removeItem(at: knownURL)
                 }
-                knownRecords.removeAll { knownRecord in
-                    knownRecord.0 == url
-                        || knownRecord.1.identity.isSuperseded(by: identity)
-                }
-                knownRecords.append((url, record))
+                supersessionIndex?[key] = [url]
                 committedSourceIDs.insert(sourceID)
             } catch {
                 failures.append(
@@ -308,6 +310,7 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
         )
         let url = recordURL(for: identity)
         try? FileManager.default.removeItem(at: url)
+        supersessionIndex?[SupersessionKey(identity)]?.remove(url)
     }
 
     func usage() -> PerFileAnalysisArtifactStoreUsage {
@@ -347,6 +350,17 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
         for url in urls {
             try? FileManager.default.removeItem(at: url)
         }
+        supersessionIndex = [:]
+    }
+
+    private func loadSupersessionIndexIfNeeded() {
+        guard supersessionIndex == nil else { return }
+        var index: [SupersessionKey: Set<URL>] = [:]
+        for url in recordURLs() {
+            guard let identity = try? decodeIdentity(at: url) else { continue }
+            index[SupersessionKey(identity), default: []].insert(url)
+        }
+        supersessionIndex = index
     }
 
     private func recordURLs() -> [URL] {
@@ -370,8 +384,17 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
         }.joined()
     }
 
+    private func decodeIdentity(at url: URL) throws -> LookupIdentity {
+        decodedRecordCount += 1
+        return try JSONDecoder().decode(
+            StoredRecordIdentity.self,
+            from: Data(contentsOf: url, options: .mappedIfSafe),
+        ).identity
+    }
+
     private func decodeRecord(at url: URL) throws -> StoredRecord {
-        try JSONDecoder().decode(
+        decodedRecordCount += 1
+        return try JSONDecoder().decode(
             StoredRecord.self,
             from: Data(contentsOf: url, options: .mappedIfSafe),
         )
@@ -401,13 +424,27 @@ private nonisolated struct LookupIdentity: Codable, Equatable, Sendable {
     let backend: SimilarityBackendDescriptor
     let pipeline: SimilarityArtifactPipelineSignature
 
-    func isSuperseded(by current: Self) -> Bool {
-        sourceFingerprint.standardizedPath == current.sourceFingerprint.standardizedPath
-            && artifactSchemaVersion == current.artifactSchemaVersion
-            && backend == current.backend
-            && pipeline == current.pipeline
-            && sourceFingerprint != current.sourceFingerprint
+}
+
+/// Identity without the size/modification-date fingerprint: two records with
+/// the same key describe different versions of one source file.
+private nonisolated struct SupersessionKey: Hashable, Sendable {
+    let standardizedPath: String
+    let artifactSchemaVersion: Int
+    let backend: SimilarityBackendDescriptor
+    let pipeline: SimilarityArtifactPipelineSignature
+
+    init(_ identity: LookupIdentity) {
+        standardizedPath = identity.sourceFingerprint.standardizedPath
+        artifactSchemaVersion = identity.artifactSchemaVersion
+        backend = identity.backend
+        pipeline = identity.pipeline
     }
+}
+
+/// Decodes only the identity of a stored record.
+private nonisolated struct StoredRecordIdentity: Decodable {
+    let identity: LookupIdentity
 }
 
 private nonisolated struct StoredRecord: Codable, Sendable {
