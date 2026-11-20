@@ -135,11 +135,11 @@ Result: 2026-11-20. Three of the four targets are met:
 | Target | Baseline | Now | Met |
 |---|---|---|---|
 | Stored properties on the root (non-computed `var`/`let` in the class) | 91 (plan said 103) | 20 | yes |
-| Graph edges on the main `RawCullViewModel` node | 399 | 33 (no longer a god node) | yes |
+| Graph edges on the main `RawCullViewModel` node | 399 | 26 (no longer a god node) | yes |
 | `RawCullViewModel+BurstGrouping.swift` | 892 lines | gone (now `BurstWorkflowController` + `+Grouping`) | yes |
-| App files referencing `RawCullViewModel` | 73 | 64 | **no** (target ≤ 25) |
+| App files referencing `RawCullViewModel` | 73 | 57 | **no** (target ≤ 25) |
 
-`SelectionModel`, `CatalogWorkspace` and `BurstWorkflowController` own their state, and every slice is in the environment (`workspaceEnvironment(_:)`). Four single-slice views take their slice instead of the root. The file count stays high because most views are still handed the root through `viewModel:` init parameters and read several slices plus root operations. Getting to 25 or fewer means changing each view's initializer and every call site to take the slices it needs (or `@Environment(<Slice>.self)`), which is the remaining work for step 16. The burst controller reaches the root's cross-slice operations through the weak `BurstWorkflowHost` protocol, a deliberate exception to "no back-references". Catalog operations (load, sort, `applyFilters`) and the projection caches stay on the root because they combine several slices. The manual smoke test of every view mode and one end-to-end MCP job has not been done; it needs the app UI.
+`SelectionModel`, `CatalogWorkspace` and `BurstWorkflowController` own their state. `workspaceEnvironment(_:)` injects every slice plus the sharpness, similarity and Deep Review feature objects, and 12 view and modifier structs now read only from the environment or take a single slice. View mode and zoom navigation moved into `WorkspaceNavigationModel` (a deliberate change from this plan, which kept `mainViewMode` on the root), and the focus-point lookup moved to `CatalogWorkspace`. The remaining 57 files fall into three groups: views that call operations combining several slices (`updateRating`/`updateRatingAndAdvance`, which refresh the catalog projection and advance the selection; `handleSortOrderChange`; `startCatalogLoad`; `aiAnalysisFiles`; the culling retry and archive actions); parents that pass the root to those views; and non-view helpers that take the root as a parameter (`ComparisonGridImageCoordinator`, `ZoomNavigationPresentation`, `ZoomOverlayAnalysisCoordinator`, `ExecuteCopyFiles`, `thumbnailKeyNavigation`). Reaching ≤ 25 needs those catalog and rating operations moved out of the root, which is the "most of `+Catalog`" part of slice 6 that is still open. The burst controller reaches the root's cross-slice operations through the weak `BurstWorkflowHost` protocol, a deliberate exception to "no back-references". Catalog operations (load, sort, `applyFilters`) and the projection caches stay on the root because they combine several slices. The manual smoke test of every view mode and one end-to-end MCP job has not been done; it needs the app UI.
 
 ### Phase 5: Optional and open items
 
@@ -158,3 +158,4 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 | 2026-11-20 | 6 | 385 | 0.03 | 63 (91 at baseline by the same count) | 73 | steps 1–6 |
 | 2026-11-20 | 12 | 372 | 0.02 | 51 | 73 | steps 7–12 |
 | 2026-11-20 | 18 | 33 (main node) | 0.05 | 20 | 64 | steps 13–16, 18; 17 not started |
+| 2026-11-20 | 16 (continued) | 26 (main node) | 0.05 | 20 | 57 | environment-based views, `WorkspaceNavigationModel` |
