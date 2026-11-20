@@ -216,9 +216,7 @@ struct AIAnalysisThumbnailStrip: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 8) {
                         ForEach(files) { file in
-                            ImageItemView(
-                                viewModel: viewModel,
-                                file: file,
+                            ImageItemView(file: file,
                                 isSelected: viewModel.selection.selectedFileID == file.id,
                                 thumbnailSize: thumbnailSize,
                                 ratingValue: viewModel.ratings.getRating(for: file),

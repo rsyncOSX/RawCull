@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct CullingGridThumbnail: View {
-    let viewModel: RawCullViewModel
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(SelectionModel.self) private var selection
     let file: FileItem
     var semanticResultRank: Int?
     var semanticResultCount: Int?
@@ -11,10 +12,9 @@ struct CullingGridThumbnail: View {
     let onDoubleSelect: () -> Void
 
     var body: some View {
-        ImageItemView(
-            viewModel: viewModel, file: file,
-            isSelected: viewModel.selection.selectedFileID == file.id,
-            isMultiSelected: viewModel.selection.selectedFileIDs.contains(file.id),
+        ImageItemView(file: file,
+            isSelected: selection.selectedFileID == file.id,
+            isMultiSelected: selection.selectedFileIDs.contains(file.id),
             thumbnailSize: 200,
             ratingValue: ratingValue(for: file), ratingDisplay: ratingDisplay(for: file),
             ratingColor: ratingColor(for: file),
@@ -26,13 +26,13 @@ struct CullingGridThumbnail: View {
     }
 
     private func ratingValue(for file: FileItem) -> Int {
-        viewModel.ratings.getRating(for: file)
+        ratings.getRating(for: file)
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
             rating: ratingValue(for: file),
-            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
+            isExplicit: ratings.taggedNamesCache.contains(file.name),
         )
     }
 

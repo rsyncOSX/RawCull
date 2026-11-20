@@ -289,9 +289,7 @@ struct RawCullMainView: View {
                 Text(viewModel.presentation.alertMessage(catalogFileCount: viewModel.catalog.files.count))
             }
         } detail: {
-            RawCullDetailContainerView(
-                viewModel: viewModel,
-                semanticSearchFeature: semanticSearchFeature,
+            RawCullDetailContainerView(semanticSearchFeature: semanticSearchFeature,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 selectedFileID: Bindable(viewModel.selection).selectedFileID,

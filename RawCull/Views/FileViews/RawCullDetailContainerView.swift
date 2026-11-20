@@ -2,7 +2,9 @@ import RawCullCore
 import SwiftUI
 
 struct RawCullDetailContainerView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(WorkspacePresentationModel.self) private var presentation
+    @Environment(SelectionModel.self) private var selection
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
@@ -10,20 +12,18 @@ struct RawCullDetailContainerView: View {
     let abort: () -> Void
 
     var body: some View {
-        FileDetailView(
-            viewModel: viewModel,
-            semanticSearchFeature: semanticSearchFeature,
+        FileDetailView(semanticSearchFeature: semanticSearchFeature,
             cgImage: $cgImage,
             nsImage: $nsImage,
             selectedFileID: $selectedFileID,
-            file: viewModel.selectedFile,
+            file: catalog.file(withID: selection.selectedFileID),
         )
 
         // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
 
-        if viewModel.presentation.focusAbortTask {
+        if presentation.focusAbortTask {
             AbortTaskFocusView(
-                focusAbortTask: Bindable(viewModel.presentation).focusAbortTask,
+                focusAbortTask: Bindable(presentation).focusAbortTask,
                 abort: abort,
             )
         }

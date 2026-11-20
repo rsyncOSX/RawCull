@@ -116,9 +116,7 @@ private struct OrdinarySimilarityWorkflowView: View {
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
             ) {
-                BurstGroupHeaderControlsView(
-                    viewModel: viewModel,
-                    similarityFeature: similarityFeature,
+                BurstGroupHeaderControlsView(similarityFeature: similarityFeature,
                     similarityThresholdChanged: similarityThresholdChanged,
                 )
             }
@@ -135,7 +133,8 @@ private struct OrdinarySimilarityWorkflowView: View {
 }
 
 private struct BurstGroupHeaderControlsView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Bindable var similarityFeature: RawCullSimilarityFeature
     let similarityThresholdChanged: () -> Void
 
@@ -143,7 +142,7 @@ private struct BurstGroupHeaderControlsView: View {
         let sensitivity = similarityFeature.burstSensitivity.formatted(
             .number.precision(.fractionLength(2)),
         )
-        let groupCount = viewModel.burstWorkflow.burstReviewSummary.totalGroups
+        let groupCount = burstWorkflow.burstReviewSummary.totalGroups
 
         HStack(spacing: 8) {
             HStack(spacing: 8) {
@@ -172,7 +171,7 @@ private struct BurstGroupHeaderControlsView: View {
 
             Spacer(minLength: 8)
 
-            if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
+            if sharpnessModel.isCalibratingSharpnessScoring {
                 HStack {
                     ProgressView()
                     Text("Calibrating focus-mask threshold, please wait...")

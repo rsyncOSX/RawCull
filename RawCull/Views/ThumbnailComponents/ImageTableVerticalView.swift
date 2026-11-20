@@ -27,9 +27,7 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                             LazyVStack(alignment: .center, spacing: 10) {
                                 ForEach(sortedFiles, id: \.id) { file in
-                                    ImageItemView(
-                                        viewModel: viewModel,
-                                        file: file,
+                                    ImageItemView(file: file,
                                         isSelected: viewModel.selection.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         ratingValue: ratingValue(for: file),

@@ -7,18 +7,20 @@ import AppKit
 import SwiftUI
 
 struct AboutRawCullView: View {
-    @Environment(RawCullViewModel.self) private var viewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
 
     private var activeShortcutSection: ShortcutSection {
-        if viewModel.zoomOverlay.isVisible {
-            .zoomPreview(navigationAxis: viewModel.zoomOverlay.navigationAxis)
-        } else if viewModel.navigation.mainViewMode == .comparisonGrid,
-                  viewModel.burstWorkflow.activeBurstComparisonGroupID != nil {
-            viewModel.burstWorkflow.showsDetailedBurstComparison ? .burstComparison : .burstReview
-        } else if viewModel.navigation.showsBurstGroups {
+        if zoomOverlay.isVisible {
+            .zoomPreview(navigationAxis: zoomOverlay.navigationAxis)
+        } else if navigation.mainViewMode == .comparisonGrid,
+                  burstWorkflow.activeBurstComparisonGroupID != nil {
+            burstWorkflow.showsDetailedBurstComparison ? .burstComparison : .burstReview
+        } else if navigation.showsBurstGroups {
             .burstGroups
         } else {
-            switch viewModel.navigation.mainViewMode {
+            switch navigation.mainViewMode {
             case .loupe:
                 .loupe
 

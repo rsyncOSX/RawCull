@@ -179,7 +179,10 @@ private struct SemanticResultRankBadgeView: View {
 
 struct ImageItemView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
 
     @State private var isHovered = false
 
@@ -236,14 +239,14 @@ struct ImageItemView: View {
                             density: .compact,
                         )
 
-                        if let groupID = viewModel.similarityFeature.burstGroupLookup[file.id],
-                           let analysis = viewModel.burstWorkflow.burstAnalysisResult(for: groupID),
-                           let candidate = viewModel.burstWorkflow.burstCandidate(for: file) {
+                        if let groupID = similarityFeature.burstGroupLookup[file.id],
+                           let analysis = burstWorkflow.burstAnalysisResult(for: groupID),
+                           let candidate = burstWorkflow.burstCandidate(for: file) {
                             BurstCandidateBadgeView(
                                 candidate: candidate,
                                 analysis: analysis,
                                 rating: ratingValue,
-                                saliencyLabel: viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+                                saliencyLabel: sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
                             )
                         }
                     }
@@ -324,7 +327,7 @@ struct ImageItemView: View {
     }
 
     private var hasDeepReviewMask: Bool {
-        viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
+        deepAIReviewController.maskCandidate(for: file.id) != nil
     }
 
     private var borderColor: Color {

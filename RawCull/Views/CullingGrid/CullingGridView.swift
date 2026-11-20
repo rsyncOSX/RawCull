@@ -94,8 +94,7 @@ struct CullingGridView<Header: View>: View {
                                 ) {
                                     // ── Flat mode (default) ───────────────────────────
                                     ForEach(files, id: \.id) { file in
-                                        CullingGridThumbnail(
-                                            viewModel: viewModel, file: file,
+                                        CullingGridThumbnail(file: file,
                                             semanticResultRank: semanticResultRank(for: file),
                                             semanticResultCount: semanticResultCount,
                                             semanticResultScore: semanticResultScore(for: file),

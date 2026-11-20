@@ -31,8 +31,7 @@ struct CullingBurstGroupCard: View {
                 // LazyHStack can remain unrealized and collapse the row to its header.
                 HStack(spacing: 12) {
                     ForEach(group.files, id: \.id) { file in
-                        CullingGridThumbnail(
-                            viewModel: viewModel, file: file, doubleSelectActionName: "Open burst",
+                        CullingGridThumbnail(file: file, doubleSelectActionName: "Open burst",
                             onSelect: { select(file) },
                             onDoubleSelect: { viewModel.burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) },
                         )

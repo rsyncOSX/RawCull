@@ -2,7 +2,8 @@ import SwiftUI
 
 struct FileDetailView: View {
     @Environment(\.openWindow) var openWindow
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(WorkspaceNavigationModel.self) private var navigation
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
     @Binding var cgImage: CGImage?
@@ -16,7 +17,7 @@ struct FileDetailView: View {
     }
 
     var files: [FileItem] {
-        viewModel.catalog.filteredFiles
+        catalog.filteredFiles
     }
 
     @ViewBuilder
@@ -33,7 +34,7 @@ struct FileDetailView: View {
             .onTapGesture(count: 2) {
                 guard let selectedID = selectedFileID,
                       files.contains(where: { $0.id == selectedID }) else { return }
-                viewModel.navigation.openZoomOverlay()
+                navigation.openZoomOverlay()
             }
         } else {
             emptyState
