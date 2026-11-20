@@ -15,6 +15,30 @@ nonisolated enum FocusMaskAnalysisResolutionPolicy {
     /// Calibration uses a stable preview size, independent of scalar scoring
     /// quality. The displayed mask still analyzes every decoded preview pixel.
     nonisolated static let calibrationMaximumPixelSize = 1616
+    /// Masks render the embedded preview, so the visual threshold is measured there.
+    nonisolated static let calibrationSource: SharpnessScoringSource = .embeddedPreview
+
+    /// Edge energy depends on decode size, so a calibrated threshold only fits images
+    /// near the size it was measured at. Analysis previews that load larger or smaller
+    /// renders call this to measure their mask at the calibrated scale. Returns the
+    /// image unchanged when it is already within 5% of the calibration size.
+    nonisolated static func calibrationScaled(_ image: CGImage) -> CGImage {
+        let longSide = max(image.width, image.height)
+        let target = calibrationMaximumPixelSize
+        guard longSide > 0, abs(longSide - target) * 20 > target else { return image }
+        let scale = Double(target) / Double(longSide)
+        let width = max(1, Int((Double(image.width) * scale).rounded()))
+        let height = max(1, Int((Double(image.height) * scale).rounded()))
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                  space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+              )
+        else { return image }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage() ?? image
+    }
 
     nonisolated static func prepare(_ image: CGImage) -> CGImage {
         image

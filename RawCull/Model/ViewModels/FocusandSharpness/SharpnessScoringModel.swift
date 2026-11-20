@@ -175,7 +175,9 @@ final class SharpnessScoringModel {
                 files: fileEntries,
                 baseConfigOverride: calibrationConfig,
                 thumbnailMaxPixelSize: FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
-                scoringSource: scoringSource,
+                // The threshold only drives the visual focus mask, and masks render the
+                // embedded preview, so calibrate on that source whatever scoring uses.
+                scoringSource: FocusMaskAnalysisResolutionPolicy.calibrationSource,
                 minSamples: 5,
                 maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
             ) else {

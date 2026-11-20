@@ -16,6 +16,26 @@ struct FocusImageResolutionPolicyTests {
         #expect(result.height == dimensions.height)
     }
 
+    @Test(arguments: [(width: 1200, height: 800), (width: 2048, height: 1365), (width: 1365, height: 2048)])
+    func `analysis previews measure masks at the calibration size`(dimensions: (width: Int, height: Int)) throws {
+        let image = try makeImage(width: dimensions.width, height: dimensions.height)
+
+        let result = FocusMaskAnalysisResolutionPolicy.calibrationScaled(image)
+
+        #expect(max(result.width, result.height) == FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize)
+        // Aspect ratio and orientation are kept.
+        #expect((result.width > result.height) == (dimensions.width > dimensions.height))
+    }
+
+    @Test func `images already at the calibration size are not resampled`() throws {
+        let image = try makeImage(width: 1616, height: 1080)
+        #expect(FocusMaskAnalysisResolutionPolicy.calibrationScaled(image) === image)
+    }
+
+    @Test func `the visual threshold is calibrated on the source masks render`() {
+        #expect(FocusMaskAnalysisResolutionPolicy.calibrationSource == .embeddedPreview)
+    }
+
     private func makeImage(width: Int, height: Int) throws -> CGImage {
         let context = try #require(CGContext(
             data: nil,
