@@ -10,7 +10,9 @@ import SwiftUI
 
 struct CacheSettingsTab: View {
     let aiSettingsModel: RawCullAISettingsModel
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CullingController.self) private var culling
+    @Environment(RatingsModel.self) private var ratings
     @State private var savedFilesSize = 0
     @State private var showDeleteSavedFiles = false
     @State private var isDeletingSavedFiles = false
@@ -89,8 +91,8 @@ struct CacheSettingsTab: View {
                         Button("Delete Saved Files", role: .destructive) {
                             showDeleteSavedFiles = true
                         }
-                        .disabled(viewModel.catalog.isCreatingThumbnails || isDeletingSavedFiles
-                            || viewModel.ratings.cullingModel.persistenceError != nil)
+                        .disabled(catalog.isCreatingThumbnails || isDeletingSavedFiles
+                            || ratings.cullingModel.persistenceError != nil)
                     }
                 }
 
@@ -109,9 +111,9 @@ struct CacheSettingsTab: View {
             Button("Delete Saved Files", role: .destructive) {
                 isDeletingSavedFiles = true
                 Task {
-                    let cullingModel = viewModel.ratings.cullingModel
+                    let cullingModel = ratings.cullingModel
                     if await cullingModel.ensureLoaded() {
-                        viewModel.culling.clearAllCullingState()
+                        culling.clearAllCullingState()
                         if await !(cullingModel.flushPersistence()) {
                             savedFilesDeletionError = cullingModel.persistenceError
                         }

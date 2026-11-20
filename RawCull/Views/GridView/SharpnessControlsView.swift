@@ -8,7 +8,10 @@
 import SwiftUI
 
 struct SharpnessControlsView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(SelectionModel.self) private var selection
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let similarityFeature: RawCullSimilarityFeature
     @State private var isShowingCLIPIndexConfirmation = false
     @State private var preservesSimilarityOrderOnDisable = false
@@ -16,24 +19,24 @@ struct SharpnessControlsView: View {
     var body: some View {
         // Score button — calibrates from the burst then scores
         Button {
-            Task { await viewModel.catalogController.calibrateAndScoreCurrentCatalog() }
+            Task { await catalogController.calibrateAndScoreCurrentCatalog() }
         } label: {
-            if viewModel.sharpnessModel.isScoring {
+            if sharpnessModel.isScoring {
                 Label("Scoring…", systemImage: "scope")
-            } else if viewModel.sharpnessModel.afPointScores.isEmpty {
+            } else if sharpnessModel.afPointScores.isEmpty {
                 Label("Score AF Sharpness", systemImage: "scope")
             } else {
                 Label("Re-score", systemImage: "scope")
             }
         }
         .font(.caption)
-        .disabled(viewModel.sharpnessModel.isScoring || viewModel.catalogController.sharpnessScoringTargetCount == 0)
-        .help("Measure detail around the recorded AF point for \(viewModel.catalogController.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
+        .disabled(sharpnessModel.isScoring || catalogController.sharpnessScoringTargetCount == 0)
+        .help("Measure detail around the recorded AF point for \(catalogController.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
 
         // Cancel button — only visible while scoring
-        if viewModel.sharpnessModel.isScoring {
+        if sharpnessModel.isScoring {
             Button(role: .cancel) {
-                viewModel.sharpnessModel.cancelScoring()
+                sharpnessModel.cancelScoring()
             } label: {
                 Label("Cancel", systemImage: "xmark.circle")
             }
@@ -44,25 +47,25 @@ struct SharpnessControlsView: View {
         }
 
         // Sort toggle — requires an actual AF measurement. Legacy combined scores cannot rank AF detail.
-        if !viewModel.sharpnessModel.afPointScores.isEmpty, !viewModel.sharpnessModel.isScoring {
-            Toggle(isOn: Bindable(viewModel.sharpnessModel).sortBySharpness) {
+        if !sharpnessModel.afPointScores.isEmpty, !sharpnessModel.isScoring {
+            Toggle(isOn: Bindable(sharpnessModel).sortBySharpness) {
                 Label("AF-point sharpness", systemImage: "arrow.up.arrow.down")
             }
             .toggleStyle(.button)
             .font(.caption)
             .help(
-                viewModel.sharpnessModel.sortBySharpness
+                sharpnessModel.sortBySharpness
                     ? "Stop sorting by AF-point sharpness"
                     : "Sort by detail at the AF point, strongest first. Unknown measurements sort last.",
             )
-            .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, isEnabled in
+            .onChange(of: sharpnessModel.sortBySharpness) { _, isEnabled in
                 if isEnabled {
                     similarityFeature.setSimilaritySortingActive(false)
                 } else if similarityFeature.isSimilaritySortingActive {
                     return
                 }
                 Task(priority: .background) {
-                    await viewModel.catalogController.handleSharpnessSortingChange(isEnabled: isEnabled)
+                    await catalogController.handleSharpnessSortingChange(isEnabled: isEnabled)
                 }
             }
         }
@@ -79,7 +82,7 @@ struct SharpnessControlsView: View {
         .toggleStyle(.button)
         .font(.caption)
         .disabled(
-            (viewModel.selectedFile == nil
+            (catalog.file(withID: selection.selectedFileID) == nil
                 && !similarityFeature.isSimilaritySortingActive)
                 || similarityFeature.indexing.isIndexing,
         )
@@ -97,17 +100,17 @@ struct SharpnessControlsView: View {
         }
         .onChange(of: similarityFeature.isSimilaritySortingActive) { _, isEnabled in
             if isEnabled {
-                viewModel.sharpnessModel.sortBySharpness = false
-                Task { await viewModel.catalogController.findSimilarToSelected() }
+                sharpnessModel.sortBySharpness = false
+                Task { await catalogController.findSimilarToSelected() }
             } else if preservesSimilarityOrderOnDisable {
                 preservesSimilarityOrderOnDisable = false
-            } else if !viewModel.sharpnessModel.sortBySharpness {
+            } else if !sharpnessModel.sortBySharpness {
                 Task(priority: .background) {
-                    await viewModel.catalogController.handleSortOrderChange()
+                    await catalogController.handleSortOrderChange()
                 }
             }
         }
-        .onChange(of: viewModel.selection.selectedFileID) { oldID, newID in
+        .onChange(of: selection.selectedFileID) { oldID, newID in
             guard oldID != newID,
                   similarityFeature.isSimilaritySortingActive
             else { return }
@@ -120,7 +123,7 @@ struct SharpnessControlsView: View {
         }
 
         // Spinner shown while calibrating is in progress
-        if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
+        if sharpnessModel.isCalibratingSharpnessScoring {
             HStack {
                 ProgressView()
                 Text("Calibrating focus-mask threshold, please wait...")
@@ -146,7 +149,7 @@ struct SharpnessControlsView: View {
     }
 
     private var needsSimilarityIndex: Bool {
-        !similarityFeature.hasCompleteIndex(for: viewModel.catalog.files)
+        !similarityFeature.hasCompleteIndex(for: catalog.files)
     }
 
     private var similarityHelp: String {

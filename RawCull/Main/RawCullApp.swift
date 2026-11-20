@@ -185,7 +185,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
+            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .workspaceEnvironment(viewModel)
         }
 
@@ -226,6 +226,8 @@ extension View {
             .environment(workspace.loupeViewport)
             .environment(workspace.burstWorkflow)
             .environment(workspace.navigation)
+            .environment(workspace.catalogController)
+            .environment(workspace.culling)
             .environment(workspace.sharpnessModel)
             .environment(workspace.similarityFeature)
             .environment(workspace.similarityModel)

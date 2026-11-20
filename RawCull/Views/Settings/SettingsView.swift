@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct SettingsView: View {
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CatalogController.self) private var catalogController
     let aiSettingsModel: RawCullAISettingsModel
     let combinedReviewFeature: CombinedReviewFeature
 
@@ -20,7 +21,7 @@ struct SettingsView: View {
             if settingsLoaded {
                 TabView {
                     Tab("Cache", systemImage: "memorychip.fill") {
-                        CacheSettingsTab(aiSettingsModel: aiSettingsModel, viewModel: viewModel, combinedReviewFeature: combinedReviewFeature)
+                        CacheSettingsTab(aiSettingsModel: aiSettingsModel, combinedReviewFeature: combinedReviewFeature)
                     }
 
                     Tab("Thumbnails", systemImage: "photo.fill") {
@@ -41,10 +42,10 @@ struct SettingsView: View {
 
                     Tab("MCP", systemImage: "link") {
                         MCPSettingsTab(
-                            selectedCatalogName: viewModel.catalog.selectedSource?.name,
-                            selectedCatalogURL: viewModel.catalog.selectedSource?.url,
-                            canAuthorizeAnalysis: !viewModel.catalog.scanning && !viewModel.catalog.files.isEmpty,
-                            authorizeCatalog: viewModel.catalogController.authorizeMCPCatalog,
+                            selectedCatalogName: catalog.selectedSource?.name,
+                            selectedCatalogURL: catalog.selectedSource?.url,
+                            canAuthorizeAnalysis: !catalog.scanning && !catalog.files.isEmpty,
+                            authorizeCatalog: catalogController.authorizeMCPCatalog,
                         )
                     }
                 }

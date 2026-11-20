@@ -2,7 +2,11 @@ import RawCullCore
 import SwiftUI
 
 struct ComparisonPane: View {
-    let viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CullingController.self) private var culling
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let session: ComparisonSessionModel
     let presentation: ComparisonSessionPresentation
     let file: FileItem
@@ -26,11 +30,11 @@ struct ComparisonPane: View {
             saliencyLabel: saliencyLabel(for: file),
             burstAnalysis: burstAnalysis,
             burstCandidate: burstCandidate(for: file, in: burstAnalysis),
-            burstRating: viewModel.ratings.getRating(for: file),
+            burstRating: ratings.getRating(for: file),
             sharpnessContext: sharpnessContext(for: file),
             onSelect: { session.select(file.id) },
             onRate: { rating in
-                viewModel.culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
+                culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
             },
             onSourceChange: {
                 startReloadImage(for: file)
@@ -66,7 +70,7 @@ struct ComparisonPane: View {
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
         let points =
-            viewModel.catalog.focusPoints?
+            catalog.focusPoints?
                 .filter { $0.sourceFile == file.name }
                 .flatMap(\.focusPoints) ?? []
         return points.isEmpty ? nil : points
@@ -74,8 +78,8 @@ struct ComparisonPane: View {
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
-            rating: viewModel.ratings.getRating(for: file),
-            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
+            rating: ratings.getRating(for: file),
+            isExplicit: ratings.taggedNamesCache.contains(file.name),
         )
     }
 
@@ -90,14 +94,14 @@ struct ComparisonPane: View {
     }
 
     private func saliencyLabel(for file: FileItem) -> String? {
-        viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel
+        sharpnessModel.saliencyInfo[file.id]?.subjectLabel
     }
 
     private func sharpnessContext(for file: FileItem) -> SharpnessComparisonContext? {
         SharpnessComparisonSummary.context(
             for: file.id,
             fileIDs: files.map(\.id),
-            scores: viewModel.sharpnessModel.scores,
+            scores: sharpnessModel.scores,
             breakdowns: comparisonBreakdowns(),
             winnerID: comparisonWinnerFile()?.id,
         )
@@ -108,7 +112,7 @@ struct ComparisonPane: View {
             uniqueKeysWithValues: files.compactMap { file in
                 guard
                     let breakdown = presentation.imageStates[file.id]?.sharpnessBreakdown
-                    ?? viewModel.sharpnessModel.breakdowns[file.id]
+                    ?? sharpnessModel.breakdowns[file.id]
                 else { return nil }
                 return (file.id, breakdown)
             },
@@ -116,7 +120,7 @@ struct ComparisonPane: View {
     }
 
     private func comparisonWinnerFile() -> FileItem? {
-        if let manual = viewModel.burstWorkflow.manualOverrideWinner(in: files)?.file {
+        if let manual = burstWorkflow.manualOverrideWinner(in: files)?.file {
             return manual
         }
         guard let winnerID = presentation.burstComparisonResult?.recommendedFileID else { return nil }
