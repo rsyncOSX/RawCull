@@ -67,12 +67,12 @@ One step = one branch = one PR, commit all changes the current branch before the
 
 | Step | What | Reference | Size | Risk | Status |
 |---|---|---|---|---|---|
-| 1 | Fix the `try?` uses that hide failures | QF → [Finding 5](code-quality-followups-plan.md#finding-5-fix-the-try-uses-that-hide-failures) | S | low | todo |
-| 2 | Move the subject-mask types out of `DeepReview/` | QF → [4.1](code-quality-followups-plan.md#41-code-fix-shared-primitives-in-the-wrong-place-s) | XS | none | todo |
-| 3 | Remove dead view-model state | VM → [Slice 0](viewmodel-decomposition-plan.md#slice-0-remove-dead-state-about-30-min) | XS | none | todo |
-| 4 | `ZoomOverlayModel` | VM → [Slice 1](viewmodel-decomposition-plan.md#slice-1-zoomoverlaymodel-low-risk-about-11-files) | S | low | todo |
-| 5 | Loupe viewport into `LoupeSessionModel` | VM → [Slice 2](viewmodel-decomposition-plan.md#slice-2-loupe-viewport-into-loupesessionmodel-low-risk-3-files) | XS | low | todo |
-| 6 | `WorkspacePresentationModel` | VM → [Slice 3](viewmodel-decomposition-plan.md#slice-3-workspacepresentationmodel-low-risk-many-small-consumers) | S | low | todo |
+| 1 | Fix the `try?` uses that hide failures | QF → [Finding 5](code-quality-followups-plan.md#finding-5-fix-the-try-uses-that-hide-failures) | S | low | done |
+| 2 | Move the subject-mask types out of `DeepReview/` | QF → [4.1](code-quality-followups-plan.md#41-code-fix-shared-primitives-in-the-wrong-place-s) | XS | none | done |
+| 3 | Remove dead view-model state | VM → [Slice 0](viewmodel-decomposition-plan.md#slice-0-remove-dead-state-about-30-min) | XS | none | done |
+| 4 | `ZoomOverlayModel` | VM → [Slice 1](viewmodel-decomposition-plan.md#slice-1-zoomoverlaymodel-low-risk-about-11-files) | S | low | done |
+| 5 | Loupe viewport into `LoupeSessionModel` | VM → [Slice 2](viewmodel-decomposition-plan.md#slice-2-loupe-viewport-into-loupesessionmodel-low-risk-3-files) | XS | low | done |
+| 6 | `WorkspacePresentationModel` | VM → [Slice 3](viewmodel-decomposition-plan.md#slice-3-workspacepresentationmodel-low-risk-many-small-consumers) | S | low | done |
 | 7 | Make the MCP controller testable | QF → [Finding 3](code-quality-followups-plan.md#finding-3-make-the-mcp-controllers-state-explicit), step 3.1 | S | low | todo |
 | 8 | Characterization tests for MCP transitions | QF → Finding 3, step 3.2 | M | low | todo |
 | 9 | `FileOperationsModel` | VM → [Slice 4](viewmodel-decomposition-plan.md#slice-4-fileoperationsmodel-medium-risk) | M | medium | todo |
@@ -98,7 +98,7 @@ One step = one branch = one PR, commit all changes the current branch before the
 
 *Done when:* all 8 rows of the QF fix list are handled, there's a test proving a NaN no longer produces a shared key, and `DeepReview/` no longer holds anything Combined Review imports.
 
-Result: —
+Result: done 2026-11-20. All 8 fix-list rows handled; `CacheKeyEncodingFailureTests` proves a NaN never yields a shared key; SwiftLint rule `try_optional_empty_data_fallback` added; policy in [contributing.md](contributing.md). `try?` 157 → 148. Subject-mask primitives now in `Intelligence/SubjectMasks/`. Plan corrections: the clear buttons (row 5) live in `CombinedReviewView`, not `CacheSettingsTab`.
 
 ### Phase 2: Low-risk view-model slices (steps 3–6)
 
@@ -109,7 +109,7 @@ Each one follows the VM plan's [Rules for every slice](viewmodel-decomposition-p
 
 *Done when:* stored properties are ≤ 75, no forwarders are left for slices 0–3, and the graph edges on `RawCullViewModel` have dropped visibly. Record the number.
 
-Result: —
+Result: done 2026-11-20. 28 stored properties removed (counted as non-computed `var`/`let` in the class body: 91 → 63; the baseline's 103 used a different count, which would give about 75). No forwarders left. Graph edges 399 → 385, Main VM cohesion 0.02 → 0.03, no import cycles. Files referencing the root unchanged at 73, because views still reach slices through `viewModel.<slice>`; environment injection is slice 8. Plan correction: the loupe viewport went to a new root-owned `LoupeViewportModel`, not `LoupeSessionModel`, because that model is `@State` of `LoupeMainImageView` and would reset the zoom on every view-mode switch.
 
 ### Phase 3: MCP and the medium slices, alternating (steps 7–12)
 
@@ -145,3 +145,4 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 | Date | After step | `RawCullViewModel` edges | Main VM cohesion | Stored props | Files referencing VM | Notes |
 |---|---|---|---|---|---|---|
 | 2026-11-20 | baseline | 399 | 0.02 | 103 | 73 | |
+| 2026-11-20 | 6 | 385 | 0.03 | 63 (91 at baseline by the same count) | 73 | steps 1–6 |
