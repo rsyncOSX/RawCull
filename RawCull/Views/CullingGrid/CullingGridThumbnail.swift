@@ -13,8 +13,8 @@ struct CullingGridThumbnail: View {
     var body: some View {
         ImageItemView(
             viewModel: viewModel, file: file,
-            isSelected: viewModel.selectedFileID == file.id,
-            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+            isSelected: viewModel.selection.selectedFileID == file.id,
+            isMultiSelected: viewModel.selection.selectedFileIDs.contains(file.id),
             thumbnailSize: 200,
             ratingValue: ratingValue(for: file), ratingDisplay: ratingDisplay(for: file),
             ratingColor: ratingColor(for: file),

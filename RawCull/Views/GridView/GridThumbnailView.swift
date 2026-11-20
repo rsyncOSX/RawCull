@@ -44,14 +44,14 @@ struct GridThumbnailView: View {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index + 1 < sortedFiles.count else { return }
-        viewModel.selectedFileID = sortedFiles[index + 1].id
+        viewModel.selection.selectedFileID = sortedFiles[index + 1].id
     }
 
     private func navigateToPrevious() {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
-        viewModel.selectedFileID = sortedFiles[index - 1].id
+        viewModel.selection.selectedFileID = sortedFiles[index - 1].id
     }
 
     private var filteredFiles: [FileItem] {
@@ -62,8 +62,8 @@ struct GridThumbnailView: View {
         if viewModel.showsBurstGroups,
            !viewModel.similarityFeature.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
-            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
-                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+            if !viewModel.selection.cullingGridRenderedFileIDs.isEmpty {
+                return viewModel.selection.cullingGridRenderedFileIDs.compactMap { visible[$0] }
             }
             return viewModel.similarityFeature.burstGroups.flatMap { group in
                 group.fileIDs.compactMap { visible[$0] }

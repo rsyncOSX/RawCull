@@ -18,17 +18,17 @@ extension RawCullViewModel {
               sharpnessModel.sortBySharpness,
               let sharpestFile = filteredFiles.first
         else { return }
-        selectedFileID = sharpestFile.id
+        selection.selectedFileID = sharpestFile.id
     }
 
     var sharpnessScoringTargetFiles: [FileItem] {
         let active = activeCatalogFiles
 
-        if !selectedFileIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selectedFileIDs.contains($0.id) }
+        if !selection.selectedFileIDs.isEmpty {
+            let visibleSelected = filteredFiles.filter { selection.selectedFileIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
             let hiddenSelected = active.filter {
-                selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
+                selection.selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
             }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             return visibleSelected + hiddenSelected
         }
@@ -46,7 +46,7 @@ extension RawCullViewModel {
 
     /// Presentation needs membership and count, never the scoring execution order.
     var sharpnessScoringTargetCount: Int {
-        let selectedIDs = selectedFileIDs
+        let selectedIDs = selection.selectedFileIDs
         if !selectedIDs.isEmpty {
             let visibleSelected = filteredFiles.filter { selectedIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
@@ -66,7 +66,7 @@ extension RawCullViewModel {
         let count = sharpnessScoringTargetCount
         let fileLabel = count == 1 ? "file" : "files"
 
-        if !selectedFileIDs.isEmpty {
+        if !selection.selectedFileIDs.isEmpty {
             return "\(count) selected \(fileLabel)"
         }
 

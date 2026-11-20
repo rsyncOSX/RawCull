@@ -51,7 +51,7 @@ struct CullingGridView<Header: View>: View {
                 if batchBadgeSelectionEnabled(), !badgeSelectionItems.isEmpty {
                     BatchBadgeSelectionControlsView(
                         items: badgeSelectionItems,
-                        selectedCount: viewModel.selectedFileIDs.count,
+                        selectedCount: viewModel.selection.selectedFileIDs.count,
                         rating: $batchRating,
                         onSelectBadge: selectFiles(matchingBadge:),
                         onApplyRating: applyBatchRating,
@@ -111,13 +111,13 @@ struct CullingGridView<Header: View>: View {
                         .padding(.bottom, 20)
                     }
                     .onAppear {
-                        guard let id = viewModel.selectedFileID else { return }
+                        guard let id = viewModel.selection.selectedFileID else { return }
                         // Defer one runloop cycle so LazyVGrid has laid out before scrolling
                         Task { @MainActor in
                             proxy.scrollTo(id, anchor: .top)
                         }
                     }
-                    .onChange(of: viewModel.selectedFileID) { _, newID in
+                    .onChange(of: viewModel.selection.selectedFileID) { _, newID in
                         guard let newID else { return }
                         withAnimation(.easeInOut(duration: 0.2)) {
                             proxy.scrollTo(newID, anchor: .center)
@@ -127,7 +127,7 @@ struct CullingGridView<Header: View>: View {
                         guard
                             let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
                                 state: newState,
-                                selectedFileID: viewModel.selectedFileID,
+                                selectedFileID: viewModel.selection.selectedFileID,
                                 showsBurstGroups: viewModel.showsBurstGroups,
                             )
                         else { return }
@@ -178,7 +178,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        viewModel.selectedFileID = file.id
+        viewModel.selection.selectedFileID = file.id
         viewModel.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
     }
 
@@ -200,7 +200,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func applyBatchRating() {
-        let selectedIDs = viewModel.selectedFileIDs
+        let selectedIDs = viewModel.selection.selectedFileIDs
         guard !selectedIDs.isEmpty else { return }
         let selectedFiles = CullingGridSelectionCoordinator.actionFiles(
             requestedIDs: selectedIDs,
@@ -237,19 +237,19 @@ struct CullingGridView<Header: View>: View {
 
     private var selectionState: CullingGridSelectionState {
         CullingGridSelectionState(
-            selectedFileID: viewModel.selectedFileID,
-            selectedFileIDs: viewModel.selectedFileIDs,
+            selectedFileID: viewModel.selection.selectedFileID,
+            selectedFileIDs: viewModel.selection.selectedFileIDs,
         )
     }
 
     private func applySelectionState(_ state: CullingGridSelectionState) {
-        viewModel.selectedFileID = state.selectedFileID
-        viewModel.selectedFileIDs = state.selectedFileIDs
+        viewModel.selection.selectedFileID = state.selectedFileID
+        viewModel.selection.selectedFileIDs = state.selectedFileIDs
     }
 
     private func synchronizeSelectionWithRenderedFiles() {
         let renderedIDs = visibleSelectionIDs
-        viewModel.cullingGridRenderedFileIDs = renderedIDs
+        viewModel.selection.cullingGridRenderedFileIDs = renderedIDs
         applySelectionState(
             CullingGridSelectionCoordinator.reconcileSelection(
                 selectionState,
@@ -328,7 +328,7 @@ struct CullingGridView<Header: View>: View {
         if viewModel.burstReviewQueueFilter == .singleImages {
             return renderedBurstGroups.first?.files
         }
-        guard let selectedID = viewModel.selectedFileID,
+        guard let selectedID = viewModel.selection.selectedFileID,
               let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
         else { return nil }
         return renderedBurstGroups.first { $0.id == groupID }?.files

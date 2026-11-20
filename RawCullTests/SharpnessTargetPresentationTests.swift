@@ -16,7 +16,7 @@ struct SharpnessTargetPresentationTests {
         model.ratings.ratingCache = [first.name: 3, second.name: 3, third.name: -1]
         model.ratings.ratingFilter = filter
         for selection in [Set<UUID>(), [first.id, second.id], [UUID()]] {
-            model.selectedFileIDs = selection
+            model.selection.selectedFileIDs = selection
             #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
             model.filteredFiles = []
             #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
@@ -33,9 +33,9 @@ struct SharpnessTargetPresentationTests {
         model.files = [file]
         model.filteredFiles = [file]
         #expect(model.sharpnessScoringTargetDescription == "1 catalog file")
-        model.selectedFileIDs = [file.id]
+        model.selection.selectedFileIDs = [file.id]
         #expect(model.sharpnessScoringTargetDescription == "1 selected file")
-        model.selectedFileIDs = []
+        model.selection.selectedFileIDs = []
         model.ratings.ratingFilter = .stars(3)
         #expect(model.sharpnessScoringTargetDescription == "0 3-star files")
         model.ratings.ratingCache[file.name] = 3

@@ -314,7 +314,7 @@ struct ZoomOverlayView: View {
             by: delta,
             from: currentZoomIndex,
             in: navigation.orderedZoomFiles,
-            using: viewModel,
+            using: viewModel.selection,
         ) {
             prepareForNavigatedImage()
         }

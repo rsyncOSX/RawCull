@@ -40,7 +40,7 @@ extension RawCullViewModel {
         if activeBurstComparisonGroupID != nil
             || mainViewMode == .comparisonGrid {
             activeBurstComparisonGroupID = nil
-            comparisonFileIDs = []
+            selection.comparisonFileIDs = []
             selectMainViewMode(.similarityGrid)
         }
         await handleSortOrderChange()
@@ -52,7 +52,7 @@ extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
     func prepareApplicationForNewSemanticSearch() {
         Logger.process.debugMessageOnly("RawCullViewModel.prepareApplicationForNewSemanticSearch()")
         discardScopedBurstAnalysisIfNeeded()
-        selectedFileIDs = []
+        selection.selectedFileIDs = []
         similarityModel.burstModeActive = false
         activeBurstComparisonGroupID = nil
     }

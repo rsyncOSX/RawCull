@@ -134,7 +134,7 @@ extension RawCullViewModel {
 
     func prepareForFullCatalogReindex() async {
         Logger.process.debugMessageOnly("RawCullViewModel.prepareForFullCatalogReindex()")
-        selectedFileIDs = []
+        selection.selectedFileIDs = []
         clearLoadedBurstAnalysisForReindex()
         await handleSortOrderChange()
     }
@@ -382,8 +382,8 @@ extension RawCullViewModel {
         } else {
             groupFiles.map(\.id)
         }
-        comparisonFileIDs = Array(rankedIDs.prefix(4))
-        selectedFileID = fileID.flatMap { groupFileIDs.contains($0) ? $0 : nil } ?? comparisonFileIDs.first
+        selection.comparisonFileIDs = Array(rankedIDs.prefix(4))
+        selection.selectedFileID = fileID.flatMap { groupFileIDs.contains($0) ? $0 : nil } ?? selection.comparisonFileIDs.first
         selectMainViewMode(.comparisonGrid)
     }
 
@@ -535,8 +535,8 @@ extension RawCullViewModel {
     func burstAnalysisOrderedFiles() -> [FileItem] {
         let activeFiles = activeCatalogFiles
         let targets: [FileItem]
-        if !selectedFileIDs.isEmpty {
-            targets = activeFiles.filter { selectedFileIDs.contains($0.id) }
+        if !selection.selectedFileIDs.isEmpty {
+            targets = activeFiles.filter { selection.selectedFileIDs.contains($0.id) }
         } else if case let .stars(rating) = ratings.ratingFilter {
             let visible = filteredFiles.isEmpty ? activeFiles : filteredFiles
             targets = visible.filter { self.ratings.rating(for: $0) == rating }
@@ -740,7 +740,7 @@ extension RawCullViewModel {
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstReviewSession.reset()
-        comparisonFileIDs = []
+        selection.comparisonFileIDs = []
         similarityModel.clearBurstGrouping()
     }
 
@@ -749,7 +749,7 @@ extension RawCullViewModel {
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstReviewSession.reset()
-        comparisonFileIDs = []
+        selection.comparisonFileIDs = []
         sharpnessModel.cancelScoring()
         similarityModel.reset()
     }

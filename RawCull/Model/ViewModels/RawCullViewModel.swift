@@ -101,7 +101,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     var searchText = ""
-    var selectedFileID: FileItem.ID?
     @ObservationIgnored var sortGeneration: UInt64 = 0
     @ObservationIgnored var sortFiles: @MainActor (
         [FileItem], FileItemSortDescriptor, String,
@@ -111,13 +110,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     var sortOrder = FileItemSortDescriptor()
     var selectedFile: FileItem? {
-        files.first { $0.id == selectedFileID }
+        files.first { $0.id == selection.selectedFileID }
     }
 
-    var selectedFileIDs: Set<FileItem.ID> = []
-    /// Ordered IDs currently rendered by the culling grid. Keyboard and loupe
-    /// navigation use this projection so hidden burst frames cannot become targets.
-    var cullingGridRenderedFileIDs: [FileItem.ID] = []
     var isSorting: Bool = false
     /// Number of RAW files discovered by the active catalog scan. This is
     /// reset with the catalog working set and is the source of truth for the
@@ -137,7 +132,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     var showsDetailedBurstComparison = false
-    var comparisonFileIDs: [FileItem.ID] = []
     var showsBurstGroups: Bool {
         mainViewMode == .similarityGrid && similarityModel.burstModeActive
     }
@@ -156,6 +150,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Culling store, rating lookup and rating filter.
     let ratings = RatingsModel()
+
+    /// Current file, multi-selection, comparison set and rendered grid order.
+    let selection = SelectionModel()
 
     /// Single shared instance — config changes here affect both the zoom
     /// overlay and the sharpness scoring pipeline.
@@ -296,11 +293,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
             similarityModel.burstModeActive = false
         }
         mainViewMode = mode
-    }
-
-    func selectFile(_ file: FileItem) {
-        Logger.process.debugMessageOnly("RawCullViewModel.selectFile()")
-        selectedFileID = file.id
     }
 
     // MARK: - Focus Points

@@ -33,8 +33,6 @@ protocol ComparisonSessionSelection: AnyObject {
     var selectedFileID: FileItem.ID? { get set }
 }
 
-extension RawCullViewModel: ComparisonSessionSelection {}
-
 struct ComparisonSessionPresentation {
     let displayState: ComparisonGridDisplayState
     let imageStates: [FileItem.ID: ComparisonImageState]

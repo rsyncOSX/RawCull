@@ -21,7 +21,7 @@ struct ComparisonGridView: View {
         _session = State(
             initialValue: ComparisonSessionModel(
                 imageService: imageService ?? LiveComparisonSessionImageService(viewModel: viewModel),
-                selection: viewModel,
+                selection: viewModel.selection,
             ),
         )
     }
@@ -42,10 +42,10 @@ struct ComparisonGridView: View {
                         .padding(.vertical, 6)
                     }
 
-                    ComparisonPager(files: files, selectedFileID: viewModel.selectedFileID, select: session.select) { file in
+                    ComparisonPager(files: files, selectedFileID: viewModel.selection.selectedFileID, select: session.select) { file in
                         ComparisonPane(
                             viewModel: viewModel, session: session, presentation: presentation,
-                            file: file, isSelected: viewModel.selectedFileID == file.id,
+                            file: file, isSelected: viewModel.selection.selectedFileID == file.id,
                         )
                     }
                 }
@@ -75,7 +75,7 @@ struct ComparisonGridView: View {
             selectFirstComparisonFileIfNeeded()
             await session.loadImages(files: files)
         }
-        .onChange(of: viewModel.comparisonFileIDs) { _, _ in
+        .onChange(of: viewModel.selection.comparisonFileIDs) { _, _ in
             session.resetDisplayScope()
             selectFirstComparisonFileIfNeeded()
         }
@@ -91,7 +91,7 @@ struct ComparisonGridView: View {
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
             filteredFiles: viewModel.filteredFiles,
-            comparisonFileIDs: viewModel.comparisonFileIDs,
+            comparisonFileIDs: viewModel.selection.comparisonFileIDs,
             activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
             burstAnalysisResult: viewModel.burstAnalysisResult(for:),
         )

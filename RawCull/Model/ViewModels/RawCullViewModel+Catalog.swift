@@ -126,8 +126,8 @@ extension RawCullViewModel {
         for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?,
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
-        selectedFileID = nil
-        selectedFileIDs = []
+        selection.selectedFileID = nil
+        selection.selectedFileIDs = []
 
         cancelCurrentCatalogLoad()
         similarityCatalogGeneration &+= 1
@@ -407,25 +407,21 @@ extension RawCullViewModel {
 
     func preselectFirstVisibleFileByName() {
         Logger.process.debugMessageOnly("RawCullViewModel.preselectFirstVisibleFileByName()")
-        selectedFileID = filteredFiles
-            .min { lhs, rhs in
-                lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-            }?
-            .id
+        selection.selectFirstByName(in: filteredFiles)
     }
 
     func reconcileThumbnailSelectionWithSemanticSearch() {
         guard hasActiveSemanticSearchSelection else { return }
 
         let visibleIDs = Set(filteredFiles.map(\.id))
-        selectedFileIDs.formIntersection(visibleIDs)
+        selection.selectedFileIDs.formIntersection(visibleIDs)
 
         guard let firstVisibleID = filteredFiles.first?.id else {
-            selectedFileID = nil
+            selection.selectedFileID = nil
             return
         }
-        if selectedFileID.map(visibleIDs.contains) != true {
-            selectedFileID = firstVisibleID
+        if selection.selectedFileID.map(visibleIDs.contains) != true {
+            selection.selectedFileID = firstVisibleID
         }
     }
 

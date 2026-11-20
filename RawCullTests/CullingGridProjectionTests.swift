@@ -40,8 +40,8 @@ struct CullingGridProjectionTests {
         model.filteredFiles = [first, second]
         _ = model.cullingGridProjection(ratingFilter: .all)
         let initial = model.gridProjectionBuildCount
-        model.selectedFileID = first.id
-        model.selectedFileIDs = [first.id]
+        model.selection.selectedFileID = first.id
+        model.selection.selectedFileIDs = [first.id]
         #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, second.id])
         #expect(model.gridProjectionBuildCount == initial)
         model.sharpnessModel.scores = [first.id: 0.5]

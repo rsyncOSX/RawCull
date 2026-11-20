@@ -38,8 +38,8 @@ struct ExtractJPGsSelectionTests {
 
         viewModel.files = [first, second, third]
         viewModel.filteredFiles = [third, second, first]
-        viewModel.selectedFileID = first.id
-        viewModel.selectedFileIDs = [second.id, third.id]
+        viewModel.selection.selectedFileID = first.id
+        viewModel.selection.selectedFileIDs = [second.id, third.id]
 
         #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
         #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
@@ -56,8 +56,8 @@ struct ExtractJPGsSelectionTests {
 
         viewModel.files = [first, second]
         viewModel.filteredFiles = [second, first]
-        viewModel.selectedFileID = first.id
-        viewModel.selectedFileIDs = []
+        viewModel.selection.selectedFileID = first.id
+        viewModel.selection.selectedFileIDs = []
 
         #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.map(\.name) == ["A.ARW"])
         #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["A.ARW"])
@@ -90,7 +90,7 @@ struct ExtractJPGsSelectionTests {
         )
         viewModel.files = [file]
         viewModel.filteredFiles = [file]
-        viewModel.selectedFileID = file.id
+        viewModel.selection.selectedFileID = file.id
         viewModel.catalogLifecycle.startSecurityScopedResource = { _ in false }
 
         viewModel.fileOperations.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
@@ -119,7 +119,7 @@ struct ExtractJPGsSelectionTests {
         #expect(!viewModel.fileOperations.extractJPGSelectedOnly)
         #expect(viewModel.fileOperations.filesForJPGExtraction.map(\.name) == ["A.ARW"])
 
-        viewModel.selectedFileID = viewModel.files.first?.id
+        viewModel.selection.selectedFileID = viewModel.files.first?.id
         viewModel.fileOperations.presentExtractJPGsSheet()
         #expect(viewModel.fileOperations.extractJPGSelectedOnly)
     }

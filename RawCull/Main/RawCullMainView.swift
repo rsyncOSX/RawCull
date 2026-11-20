@@ -294,7 +294,7 @@ struct RawCullMainView: View {
                 semanticSearchFeature: semanticSearchFeature,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
-                selectedFileID: $viewModel.selectedFileID,
+                selectedFileID: Bindable(viewModel.selection).selectedFileID,
                 abort: abort,
             )
         }
@@ -381,7 +381,7 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             catalogURL: viewModel.selectedSource?.url,
             onPhotoSelected: { file in
-                viewModel.selectedFileID = file.id
+                viewModel.selection.selectedFileID = file.id
             },
         )
         .navigationTitle("Rated images")

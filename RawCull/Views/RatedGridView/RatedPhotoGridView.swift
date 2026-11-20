@@ -24,8 +24,8 @@ struct RatedPhotoGridView: View {
                             viewModel: viewModel,
                             file: file,
                             catalogURL: catalogURL,
-                            isSelected: viewModel.selectedFileID == file.id,
-                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                            isSelected: viewModel.selection.selectedFileID == file.id,
+                            isMultiSelected: viewModel.selection.selectedFileIDs.contains(file.id),
                             onSelected: { handleToggleSelection(for: file) },
                             onDoubleSelected: { handleDoubleSelect(for: file) },
                         )
@@ -34,7 +34,7 @@ struct RatedPhotoGridView: View {
                 }
                 .padding()
             }
-            .onChange(of: viewModel.selectedFileID) { _, id in
+            .onChange(of: viewModel.selection.selectedFileID) { _, id in
                 guard let id else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     proxy.scrollTo(id, anchor: .center)
@@ -42,7 +42,7 @@ struct RatedPhotoGridView: View {
             }
         }
         .task(id: catalogURL) {
-            viewModel.selectedFileIDs = []
+            viewModel.selection.selectedFileIDs = []
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid) { ratedFiles }
     }
@@ -68,32 +68,32 @@ struct RatedPhotoGridView: View {
     private func handleToggleSelection(for file: FileItem) {
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
-            if viewModel.selectedFileIDs.contains(file.id) {
-                viewModel.selectedFileIDs.remove(file.id)
+            if viewModel.selection.selectedFileIDs.contains(file.id) {
+                viewModel.selection.selectedFileIDs.remove(file.id)
             } else {
-                viewModel.selectedFileIDs.insert(file.id)
-                if let anchor = viewModel.selectedFileID {
-                    viewModel.selectedFileIDs.insert(anchor)
+                viewModel.selection.selectedFileIDs.insert(file.id)
+                if let anchor = viewModel.selection.selectedFileID {
+                    viewModel.selection.selectedFileIDs.insert(anchor)
                 }
             }
-            viewModel.selectedFileID = file.id
+            viewModel.selection.selectedFileID = file.id
             onPhotoSelected(file)
-        } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
+        } else if flags.contains(.shift), let anchorID = viewModel.selection.selectedFileID {
             let ids = ratedFiles.map(\.id)
             if let from = ids.firstIndex(of: anchorID),
                let to = ids.firstIndex(of: file.id) {
                 let range = from <= to ? from ... to : to ... from
-                viewModel.selectedFileIDs = Set(ids[range])
+                viewModel.selection.selectedFileIDs = Set(ids[range])
             }
         } else {
-            viewModel.selectedFileIDs = []
-            viewModel.selectedFileID = file.id
+            viewModel.selection.selectedFileIDs = []
+            viewModel.selection.selectedFileID = file.id
             onPhotoSelected(file)
         }
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        viewModel.selectedFileID = file.id
+        viewModel.selection.selectedFileID = file.id
         viewModel.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
     }
 }

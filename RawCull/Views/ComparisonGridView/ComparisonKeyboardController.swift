@@ -10,7 +10,7 @@ struct ComparisonKeyboardController {
 
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
-            filteredFiles: viewModel.filteredFiles, comparisonFileIDs: viewModel.comparisonFileIDs,
+            filteredFiles: viewModel.filteredFiles, comparisonFileIDs: viewModel.selection.comparisonFileIDs,
             activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
             burstAnalysisResult: viewModel.burstAnalysisResult(for:),
         )
@@ -132,7 +132,7 @@ struct ComparisonKeyboardController {
 
     @discardableResult
     private func selectedFileIDForInteraction() -> FileItem.ID? {
-        guard let selectedID = viewModel.selectedFileID,
+        guard let selectedID = viewModel.selection.selectedFileID,
               files.contains(where: { $0.id == selectedID })
         else { return nil }
 

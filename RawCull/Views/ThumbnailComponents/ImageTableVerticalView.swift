@@ -30,20 +30,20 @@ struct ImageTableVerticalView: View {
                                     ImageItemView(
                                         viewModel: viewModel,
                                         file: file,
-                                        isSelected: viewModel.selectedFileID == file.id,
+                                        isSelected: viewModel.selection.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         ratingValue: ratingValue(for: file),
                                         ratingDisplay: ratingDisplay(for: file),
                                         ratingColor: ratingColor(for: file),
                                         onSelect: {
-                                            viewModel.selectFile(file)
+                                            viewModel.selection.select(file)
                                         },
                                         /*
                                             // Double clik for tag Image
                                             onSelected: {
 
                                                  Task {
-                                                     viewModel.selectFile(file)
+                                                     viewModel.selection.select(file)
                                                      await viewModel.toggleTag(for: file)
                                                  }
                                             },
@@ -69,7 +69,7 @@ struct ImageTableVerticalView: View {
                                 }
                             }
                         })
-                        .onChange(of: viewModel.selectedFileID) { _, newID in
+                        .onChange(of: viewModel.selection.selectedFileID) { _, newID in
                             guard let newID else { return }
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 proxy.scrollTo(newID, anchor: .center)
@@ -148,14 +148,14 @@ struct ImageTableVerticalView: View {
     }
 
     private func selectAndScroll(file: FileItem) {
-        viewModel.selectFile(file)
-        // Scrolling is handled by onChange(of: viewModel.selectedFileID) to avoid double animation
+        viewModel.selection.select(file)
+        // Scrolling is handled by onChange(of: viewModel.selection.selectedFileID) to avoid double animation
     }
 
     private func moveSelectionUp() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
-        let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+        let currentIndex = files.firstIndex { $0.id == viewModel.selection.selectedFileID } ?? 0
         let nextIndex = max(0, currentIndex - 1)
         selectAndScroll(file: files[nextIndex])
     }
@@ -163,7 +163,7 @@ struct ImageTableVerticalView: View {
     private func moveSelectionDown() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
-        let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
+        let currentIndex = files.firstIndex { $0.id == viewModel.selection.selectedFileID } ?? -1
         let nextIndex = min(files.count - 1, currentIndex + 1)
         selectAndScroll(file: files[nextIndex])
     }

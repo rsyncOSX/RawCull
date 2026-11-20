@@ -81,8 +81,8 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                            viewModel.showsBurstGroups,
                            !viewModel.similarityFeature.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
-                            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
-                                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+                            if !viewModel.selection.cullingGridRenderedFileIDs.isEmpty {
+                                return viewModel.selection.cullingGridRenderedFileIDs.compactMap { visible[$0] }
                             }
                             return viewModel.similarityFeature.burstGroups.flatMap { group in
                                 group.fileIDs.compactMap { visible[$0] }
@@ -116,21 +116,21 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx > 0 else { return nil }
-                        viewModel.selectedFileID = files[idx - 1].id
+                        viewModel.selection.selectedFileID = files[idx - 1].id
                         return nil
 
                     case _ where isNext:
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx + 1 < files.count else { return nil }
-                        viewModel.selectedFileID = files[idx + 1].id
+                        viewModel.selection.selectedFileID = files[idx + 1].id
                         return nil
 
                     case 7: // x / X — reject (rating −1, red), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
-                            viewModel.selectedFileIDs = []
+                            viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
@@ -139,10 +139,10 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 35: // p / P — keep (rating 0), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
-                            viewModel.selectedFileIDs = []
+                            viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
@@ -151,10 +151,10 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 29: // 0 — keep (rating 0), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
-                            viewModel.selectedFileIDs = []
+                            viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
@@ -170,10 +170,10 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         case 21: 4
                         default: 5 // 23
                         }
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
-                            viewModel.selectedFileIDs = []
+                            viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
@@ -182,10 +182,10 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 17: // t — default tag (rating 3, green), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = viewModel.selection.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
-                            viewModel.selectedFileIDs = []
+                            viewModel.selection.selectedFileIDs = []
                             return nil
                         }
                         guard let current = viewModel.selectedFile,

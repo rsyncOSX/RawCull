@@ -12,15 +12,15 @@ nonisolated enum AIAnalysisInputSource: String, CaseIterable, Identifiable, Send
 extension RawCullViewModel {
     /// Keep the grid batch independent of focus changes while browsing tagged images.
     func preserveAIAnalysisGridSelection() {
-        guard selectedFileIDs.isEmpty else { return }
-        selectedFileIDs = Set(aiAnalysisFiles(for: .gridSelection).map(\.id))
+        guard selection.selectedFileIDs.isEmpty else { return }
+        selection.selectedFileIDs = Set(aiAnalysisFiles(for: .gridSelection).map(\.id))
     }
 
     func aiAnalysisFiles(for source: AIAnalysisInputSource) -> [FileItem] {
         switch source {
         case .gridSelection:
-            var selectedIDs = selectedFileIDs
-            if selectedIDs.isEmpty, let selectedFileID {
+            var selectedIDs = selection.selectedFileIDs
+            if selectedIDs.isEmpty, let selectedFileID = selection.selectedFileID {
                 selectedIDs.insert(selectedFileID)
             }
             return filteredFiles.filter { selectedIDs.contains($0.id) }

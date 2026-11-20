@@ -281,7 +281,7 @@ extension CatalogPerformanceTests {
         for index in 0 ..< steps {
             let position = index % files.count
             start = ProcessInfo.processInfo.systemUptime
-            model.selectedFileID = files[position].id
+            model.selection.selectedFileID = files[position].id
             let actual = navigation.currentZoomIndex
             let previous = navigation.canNavigatePrevious
             let next = navigation.canNavigateNext
@@ -295,9 +295,9 @@ extension CatalogPerformanceTests {
             )
         }
         try #require(model.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
-        model.selectedFileIDs = Set(files.prefix(3).map(\.id))
+        model.selection.selectedFileIDs = Set(files.prefix(3).map(\.id))
         try #require(model.sharpnessScoringTargetCount == min(3, files.count))
-        model.selectedFileIDs = []
+        model.selection.selectedFileIDs = []
         start = ProcessInfo.processInfo.systemUptime
         model.ratings.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })
         model.ratings.ratingFilter = .stars(5)

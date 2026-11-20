@@ -173,7 +173,7 @@ struct BurstGroupsHomeView: View {
             BurstRecentGroupsCard(picks: suggestedPicks) { pick in
                 viewModel.burstReviewQueueFilter = .all
                 viewModel.similarityFeature.burstModeActive = true
-                viewModel.selectedFileID = pick.file.id
+                viewModel.selection.selectedFileID = pick.file.id
             }
         }
     }

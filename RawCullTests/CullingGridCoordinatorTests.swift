@@ -522,7 +522,7 @@ struct CullingGridCoordinatorTests {
 
         #expect(viewModel.advanceToNextBurstGroup(after: 1))
         #expect(viewModel.activeBurstComparisonGroupID == 4)
-        #expect(viewModel.selectedFileID == next[0].id)
+        #expect(viewModel.selection.selectedFileID == next[0].id)
         #expect(!viewModel.advanceToNextBurstGroup(after: 4))
         #expect(viewModel.activeBurstComparisonGroupID == 4)
     }

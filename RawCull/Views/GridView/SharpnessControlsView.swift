@@ -107,7 +107,7 @@ struct SharpnessControlsView: View {
                 }
             }
         }
-        .onChange(of: viewModel.selectedFileID) { oldID, newID in
+        .onChange(of: viewModel.selection.selectedFileID) { oldID, newID in
             guard oldID != newID,
                   similarityFeature.isSimilaritySortingActive
             else { return }

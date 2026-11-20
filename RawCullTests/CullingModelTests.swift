@@ -182,7 +182,7 @@ struct CullingModelTests {
         let candidate = makeCullingTestFile("fresh-candidate.ARW")
         viewModel.files = [anchor, candidate]
         viewModel.filteredFiles = [anchor, candidate]
-        viewModel.selectedFileID = anchor.id
+        viewModel.selection.selectedFileID = anchor.id
 
         #expect(!viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
 

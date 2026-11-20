@@ -32,7 +32,7 @@ struct CombinedReviewView: View {
     @State private var settingsExpanded = false
 
     private var selectedResult: CombinedReviewResult? {
-        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: viewModel.selectedFileID)
+        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: viewModel.selection.selectedFileID)
     }
 
     var body: some View {
@@ -53,7 +53,7 @@ struct CombinedReviewView: View {
                         }
                     }
                     if !feature.displayedResults.isEmpty {
-                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: $viewModel.selectedFileID)
+                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(viewModel.selection).selectedFileID)
                     }
                     if let result = selectedResult {
                         let presentation = CombinedReviewPresentation(result: result)
@@ -113,8 +113,8 @@ struct CombinedReviewView: View {
             selectedRegionID = ""
         }
         .onChange(of: feature.displayedResults.map(\.file.fileID), initial: true) { _, ids in
-            if viewModel.selectedFileID == nil {
-                viewModel.selectedFileID = ids.first
+            if viewModel.selection.selectedFileID == nil {
+                viewModel.selection.selectedFileID = ids.first
             }
         }
         .sheet(isPresented: $showInput) {

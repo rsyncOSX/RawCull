@@ -45,14 +45,14 @@ struct SimilarityGridView: View {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index + 1 < sortedFiles.count else { return }
-        viewModel.selectedFileID = sortedFiles[index + 1].id
+        viewModel.selection.selectedFileID = sortedFiles[index + 1].id
     }
 
     private func navigateToPrevious() {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
-        viewModel.selectedFileID = sortedFiles[index - 1].id
+        viewModel.selection.selectedFileID = sortedFiles[index - 1].id
     }
 
     private var filteredFiles: [FileItem] {

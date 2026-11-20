@@ -16,18 +16,18 @@ struct ZoomNavigationProjectionTests {
         model.files = [second, first]
         model.filteredFiles = [second, first]
         let navigation = ZoomNavigationPresentation(viewModel: model)
-        model.selectedFileID = first.id
+        model.selection.selectedFileID = first.id
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
         #expect(navigation.currentZoomIndex == 0)
         #expect(!navigation.canNavigatePrevious)
         #expect(navigation.canNavigateNext)
         let builds = model.zoomNavigationBuildCount
-        model.selectedFileID = second.id
+        model.selection.selectedFileID = second.id
         #expect(navigation.currentZoomIndex == 1)
         #expect(navigation.canNavigatePrevious)
         #expect(!navigation.canNavigateNext)
         #expect(model.zoomNavigationBuildCount == builds)
-        model.selectedFileID = UUID()
+        model.selection.selectedFileID = UUID()
         #expect(navigation.currentZoomIndex == nil)
     }
 
@@ -77,7 +77,7 @@ struct ZoomNavigationProjectionTests {
         var file = makeCullingTestFile("A.ARW")
         model.files = [file]
         model.filteredFiles = [file]
-        model.selectedFileID = file.id
+        model.selection.selectedFileID = file.id
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [file.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
         #expect(navigation.orderedZoomFiles.first?.size == file.size)

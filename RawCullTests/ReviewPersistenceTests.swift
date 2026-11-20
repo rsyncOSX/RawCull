@@ -129,8 +129,8 @@ struct CullingRecoveryPresentationTests {
         model.files = [hidden, photo]
         model.filteredFiles = [hidden, photo]
         model.ratings.ratingFilter = .stars(5)
-        model.selectedFileID = hidden.id
-        model.selectedFileIDs = [hidden.id, photo.id]
+        model.selection.selectedFileID = hidden.id
+        model.selection.selectedFileIDs = [hidden.id, photo.id]
         let state = RecoveryFixtureState()
         let history = SavedFiles(catalog: catalog.url, dateStart: nil,
                                  filerecord: FileRecord(fileName: photo.name, dateTagged: "saved", dateCopied: nil, rating: 5))
@@ -145,8 +145,8 @@ struct CullingRecoveryPresentationTests {
         #expect(model.ratings.ratingCache == [photo.name: 5])
         #expect(model.ratings.taggedNamesCache == [photo.name])
         #expect(model.filteredFiles.map(\.id) == [photo.id])
-        #expect(model.selectedFileID == photo.id)
-        #expect(model.selectedFileIDs == [photo.id])
+        #expect(model.selection.selectedFileID == photo.id)
+        #expect(model.selection.selectedFileIDs == [photo.id])
         #expect(model.extractTaggedfilenames() == [photo.name])
     }
 
@@ -167,7 +167,7 @@ struct CullingRecoveryPresentationTests {
         model.ratings.ratingCache = [photo.name: 5]
         model.ratings.taggedNamesCache = [photo.name]
         model.sharpnessModel.scores = [photo.id: 0.5]
-        model.selectedFileID = photo.id
+        model.selection.selectedFileID = photo.id
         model.ratings.cullingModel = CullingModel(saveHandler: { _ in throw SaveFailure.blocked }, loadHandler: {
             .failed(.init(url: url, message: "damaged"))
         })
@@ -177,7 +177,7 @@ struct CullingRecoveryPresentationTests {
         #expect(model.ratings.taggedNamesCache.isEmpty)
         #expect(model.sharpnessModel.scores.isEmpty)
         #expect(model.filteredFiles.isEmpty)
-        #expect(model.selectedFileID == nil)
+        #expect(model.selection.selectedFileID == nil)
         #expect(model.ratings.cullingModel.persistenceError != nil)
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }

@@ -96,7 +96,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     }
                     .help("Compare selected thumbnails")
                     .disabled(isDisabled ||
-                        viewModel.selectedFileIDs.count <= 1 ||
+                        viewModel.selection.selectedFileIDs.count <= 1 ||
                         viewModel.selectedSource == nil ||
                         viewModel.isCreatingThumbnails)
                 }
@@ -276,11 +276,11 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private func selectComparisonGridMode() {
-        let selectedIDs = viewModel.selectedFileIDs
+        let selectedIDs = viewModel.selection.selectedFileIDs
         let orderedIDs = viewModel.filteredFiles
             .filter { selectedIDs.contains($0.id) }
             .map(\.id)
-        viewModel.comparisonFileIDs = Array(orderedIDs.prefix(4))
+        viewModel.selection.comparisonFileIDs = Array(orderedIDs.prefix(4))
         viewModel.selectMainViewMode(.comparisonGrid)
     }
 

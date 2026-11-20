@@ -84,7 +84,7 @@ struct AIAnalysisView: View {
                             viewModel: viewModel,
                             controller: deepAIReviewController,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
+                            selection: Bindable(viewModel.selection).selectedFileID,
                             focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
                             focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
@@ -94,7 +94,7 @@ struct AIAnalysisView: View {
                         QwenAnalysisView(
                             feature: qwenAnalysisFeature,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
+                            selection: Bindable(viewModel.selection).selectedFileID,
                         )
                         .disabled(combinedReviewFeature.lease.isHeld)
 
@@ -102,7 +102,7 @@ struct AIAnalysisView: View {
                         ObjectAnalysisView(
                             feature: objectAnalysisFeature,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
+                            selection: Bindable(viewModel.selection).selectedFileID,
                             focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
                             focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
@@ -132,8 +132,8 @@ struct AIAnalysisView: View {
         }
         .task(id: inputFiles.map(\.id)) {
             let availableIDs = Set(inputFiles.map(\.id))
-            if viewModel.selectedFileID.map(availableIDs.contains) != true {
-                viewModel.selectedFileID = inputFiles.first?.id
+            if viewModel.selection.selectedFileID.map(availableIDs.contains) != true {
+                viewModel.selection.selectedFileID = inputFiles.first?.id
             }
         }
         .onChange(of: selectedTool) { _, newTool in
@@ -219,12 +219,12 @@ struct AIAnalysisThumbnailStrip: View {
                             ImageItemView(
                                 viewModel: viewModel,
                                 file: file,
-                                isSelected: viewModel.selectedFileID == file.id,
+                                isSelected: viewModel.selection.selectedFileID == file.id,
                                 thumbnailSize: thumbnailSize,
                                 ratingValue: viewModel.ratings.getRating(for: file),
                                 ratingDisplay: ratingDisplay(for: file),
                                 ratingColor: ratingColor(for: file),
-                                onSelect: { viewModel.selectFile(file) },
+                                onSelect: { viewModel.selection.select(file) },
                             )
                             .id(file.id)
                         }
@@ -232,13 +232,13 @@ struct AIAnalysisThumbnailStrip: View {
                     .padding(.vertical, 2)
                 }
                 .onAppear {
-                    guard let selectedFileID = viewModel.selectedFileID,
+                    guard let selectedFileID = viewModel.selection.selectedFileID,
                           files.contains(where: { $0.id == selectedFileID }) else { return }
                     DispatchQueue.main.async {
                         proxy.scrollTo(selectedFileID, anchor: .center)
                     }
                 }
-                .onChange(of: viewModel.selectedFileID) { _, selectedFileID in
+                .onChange(of: viewModel.selection.selectedFileID) { _, selectedFileID in
                     guard let selectedFileID,
                           files.contains(where: { $0.id == selectedFileID }) else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -336,8 +336,8 @@ struct CombinedReviewWorkspaceView: View {
         }
         .task(id: inputFiles.map(\.id)) {
             let availableIDs = Set(inputFiles.map(\.id))
-            if viewModel.selectedFileID.map(availableIDs.contains) != true {
-                viewModel.selectedFileID = inputFiles.first?.id
+            if viewModel.selection.selectedFileID.map(availableIDs.contains) != true {
+                viewModel.selection.selectedFileID = inputFiles.first?.id
             }
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }

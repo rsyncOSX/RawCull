@@ -10,8 +10,7 @@ protocol FileOperationsCatalog: AnyObject {
     var selectedSource: ARWSourceCatalog? { get }
     var filteredFiles: [FileItem] { get }
     var activeCatalogFiles: [FileItem] { get }
-    var selectedFileID: FileItem.ID? { get }
-    var selectedFileIDs: Set<FileItem.ID> { get }
+    var selection: SelectionModel { get }
     /// The catalog scan is creating thumbnails; file operations must not start.
     var isCatalogThumbnailScanActive: Bool { get }
     var isCreatingThumbnails: Bool { get set }
@@ -58,11 +57,11 @@ final class FileOperationsModel {
 
     var selectedFilesForJPGExtraction: [FileItem] {
         guard let catalog else { return [] }
-        if !catalog.selectedFileIDs.isEmpty {
-            return catalog.filteredFiles.filter { catalog.selectedFileIDs.contains($0.id) }
+        if !catalog.selection.selectedFileIDs.isEmpty {
+            return catalog.filteredFiles.filter { catalog.selection.selectedFileIDs.contains($0.id) }
         }
 
-        guard let selectedFileID = catalog.selectedFileID else { return [] }
+        guard let selectedFileID = catalog.selection.selectedFileID else { return [] }
         if let file = catalog.filteredFiles.first(where: { $0.id == selectedFileID }) {
             return [file]
         }

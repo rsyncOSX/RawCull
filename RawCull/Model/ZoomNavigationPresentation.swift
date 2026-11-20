@@ -68,7 +68,7 @@ struct ZoomNavigationPresentation {
     }
 
     var currentZoomIndex: Int? {
-        guard let selectedID = viewModel.selectedFileID else { return nil }
+        guard let selectedID = viewModel.selection.selectedFileID else { return nil }
         let projection = viewModel.zoomNavigationProjection()
         guard projection.catalogIDs.contains(selectedID) else { return nil }
         return projection.indexByID[selectedID]

@@ -188,14 +188,14 @@ struct BurstCullingWorkspaceView: View {
                             model: closeUps, renderer: closeUpRenderer,
                             activate: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
-                                viewModel.selectedFileID = file.id
+                                viewModel.selection.selectedFileID = file.id
                                 viewModel.openZoomOverlay(
                                     navigationIDs: files.map(\.id),
                                     initialSource: sourceSelection.selected,
                                 )
                             }, onUseAFPoint: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
-                                viewModel.selectedFileID = file.id
+                                viewModel.selection.selectedFileID = file.id
                                 viewportState.showFocusPoints = true
                             }, onClose: { showCloseUps = false },
                         )
@@ -261,7 +261,7 @@ struct BurstCullingWorkspaceView: View {
             defer { isLoadingAFPointScores = false }
             await viewModel.sharpnessModel.loadMissingAFPointScores(for: files)
             guard !Task.isCancelled, sortByAFPoint else { return }
-            viewModel.selectedFileID = files.first?.id
+            viewModel.selection.selectedFileID = files.first?.id
         }
         .task(id: imageLoadKey) {
             await imageCoordinator.loadWindow(files: files, selectedFile: selectedFile, selectedIndex: selectedIndex)
@@ -315,7 +315,7 @@ struct BurstCullingWorkspaceView: View {
             session.invalidateFocusAnalysis()
         }
         .onChange(of: sortByAFPoint) { _, _ in
-            viewModel.selectedFileID = files.first?.id
+            viewModel.selection.selectedFileID = files.first?.id
         }
         .onChange(of: viewportState.showFocusPoints, initial: true) { _, enabled in
             if closeUps.usesAFPoint != enabled {
@@ -443,7 +443,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var selectedFile: FileItem? {
-        guard let selectedID = viewModel.selectedFileID else { return files.first }
+        guard let selectedID = viewModel.selection.selectedFileID else { return files.first }
         return files.first { $0.id == selectedID } ?? files.first
     }
 
@@ -471,10 +471,10 @@ struct BurstCullingWorkspaceView: View {
 
     private func selectFirstFileIfNeeded() {
         guard !files.isEmpty else { return }
-        if let selectedID = viewModel.selectedFileID, files.contains(where: { $0.id == selectedID }) {
+        if let selectedID = viewModel.selection.selectedFileID, files.contains(where: { $0.id == selectedID }) {
             return
         }
-        viewModel.selectedFileID = files[0].id
+        viewModel.selection.selectedFileID = files[0].id
     }
 
     private func navigationDestination(by delta: Int) -> FileItem? {
@@ -489,7 +489,7 @@ struct BurstCullingWorkspaceView: View {
             by: delta,
             from: selectedIndex,
             in: files,
-            using: viewModel,
+            using: viewModel.selection,
         ), followsActiveFrame {
             closeUpSelection = []
         }

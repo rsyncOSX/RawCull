@@ -40,9 +40,9 @@ extension RawCullViewModel {
             : catalogDisplayCandidates
         filteredFiles = applyFilters(to: candidates)
         let visibleIDs = Set(filteredFiles.map(\.id))
-        selectedFileIDs.formIntersection(visibleIDs)
-        if selectedFileID.map(visibleIDs.contains) != true {
-            selectedFileID = filteredFiles.first?.id
+        selection.selectedFileIDs.formIntersection(visibleIDs)
+        if selection.selectedFileID.map(visibleIDs.contains) != true {
+            selection.selectedFileID = filteredFiles.first?.id
         }
     }
 
@@ -89,7 +89,7 @@ extension RawCullViewModel {
         }
 
         if let nextFileID {
-            selectedFileID = nextFileID
+            selection.selectedFileID = nextFileID
         }
     }
 

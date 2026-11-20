@@ -107,7 +107,7 @@ struct ExtractJPGsSheetView: View {
         if !viewModel.fileOperations.extractJPGSelectedOnly {
             return "Complete catalog"
         }
-        if viewModel.selectedFileIDs.isEmpty {
+        if viewModel.selection.selectedFileIDs.isEmpty {
             return viewModel.selectedFile?.name ?? "No image selected"
         }
         return "Selected thumbnails"
