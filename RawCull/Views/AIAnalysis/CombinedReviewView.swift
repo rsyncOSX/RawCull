@@ -242,6 +242,7 @@ private struct CombinedReviewModePicker: View {
 private struct CombinedReviewRunControls: View {
     @Bindable var feature: CombinedReviewFeature
     let files: [FileItem]
+    @State private var clearError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             TextField("Review criteria", text: $feature.criteria, axis: .vertical).textFieldStyle(.roundedBorder)
@@ -285,8 +286,15 @@ private struct CombinedReviewRunControls: View {
             Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
-                Button("Clear rejected responses") { Task { await feature.clearRejectedResponses() } }.disabled(feature.isRunning)
-                Button("Clear retained inputs") { Task { await feature.clearRetainedInputs() } }.disabled(feature.isRunning)
+                Button("Clear rejected responses") {
+                    Task { await clear("rejected responses") { try await feature.clearRejectedResponses() } }
+                }.disabled(feature.isRunning)
+                Button("Clear retained inputs") {
+                    Task { await clear("retained inputs") { try await feature.clearRetainedInputs() } }
+                }.disabled(feature.isRunning)
+                if let clearError {
+                    Text(clearError).font(.caption).foregroundStyle(.red)
+                }
                 if feature.userRegion != nil {
                     Button("Clear chosen region") { feature.userRegion = nil }.disabled(feature.isRunning)
                 }
@@ -294,6 +302,15 @@ private struct CombinedReviewRunControls: View {
             if files.isEmpty || files.count > 8 {
                 Text("Select 1–8 images. Larger selections require an explicit expanded coverage plan; split this selection into smaller runs.").font(.caption)
             }
+        }
+    }
+
+    private func clear(_ what: String, _ action: () async throws -> Void) async {
+        do {
+            try await action()
+            clearError = nil
+        } catch {
+            clearError = "Could not clear \(what): \(error.localizedDescription)"
         }
     }
 }

@@ -169,6 +169,7 @@ nonisolated struct RawCullAICapabilities: Equatable, Sendable {
     ]
     let visionFeaturePrint: RawCullAICapabilityStatus
     let subjectMaskStorage: RawCullAICapabilityStatus
+    let objectMaskStorage: RawCullAICapabilityStatus
     let inProcessMaskGeneration: RawCullAICapabilityStatus
 
     func segmentationModelStatus(

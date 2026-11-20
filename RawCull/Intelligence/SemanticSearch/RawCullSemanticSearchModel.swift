@@ -231,12 +231,26 @@ final class RawCullSemanticSearchModel {
             ("landscape", "a landscape photo")
         ]
         var bestByID: [UUID: (label: String, score: Float)] = [:]
+        var loggedRankFailure = false
         for prompt in prompts {
             guard !Task.isCancelled else { return [:] }
-            guard let output = try? await service.rank(
-                query: prompt.text,
-                candidates: candidates,
-            ) else { continue }
+            let output: RawCullSemanticSearchOutput
+            do {
+                output = try await service.rank(
+                    query: prompt.text,
+                    candidates: candidates,
+                )
+            } catch {
+                // A failing prompt leaves its label out. Log the first failure
+                // of each run so an empty result is explainable.
+                if !loggedRankFailure {
+                    loggedRankFailure = true
+                    Logger.process.warning(
+                        "RawCullSemanticSearchModel: subject classification prompt failed: \(error.localizedDescription, privacy: .public)",
+                    )
+                }
+                continue
+            }
             for match in output.matches
                 where match.score > (bestByID[match.fileID]?.score ?? -.infinity) {
                 bestByID[match.fileID] = (prompt.label, match.score)

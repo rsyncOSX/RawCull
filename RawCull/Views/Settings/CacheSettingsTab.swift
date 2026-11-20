@@ -17,7 +17,8 @@ struct CacheSettingsTab: View {
     @State private var savedFilesDeletionError: String?
 
     let combinedReviewFeature: CombinedReviewFeature
-    @State private var combinedReviewSize = 0
+    /// `nil` when reading the store's usage failed; shown as "Unavailable", not "0 B".
+    @State private var combinedReviewSize: Int? = 0
     @State private var purgeError: String?
     @State private var currentThumbnailDiskCacheSize = 0
     @State private var currentFullSizeJPGCacheSize = 0
@@ -200,7 +201,11 @@ struct CacheSettingsTab: View {
         currentFullSizeJPGCacheSize = fullSizeJPG
         currentSimilarityArtifactCacheSize = similarityArtifacts.size
         currentBurstAnalysisCacheSize = burstAnalysis.size
-        combinedReviewSize = await (try? combinedReviewFeature.store.usage()) ?? 0
+        do {
+            combinedReviewSize = try await combinedReviewFeature.store.usage()
+        } catch {
+            combinedReviewSize = nil
+        }
         isLoadingDiskCaches = false
     }
 
@@ -230,14 +235,14 @@ struct CacheSettingsTab: View {
     private var totalCacheSize: Int {
         currentPreviewCacheSize + currentGridCacheSize + currentThumbnailDiskCacheSize
             + currentFullSizeJPGCacheSize + currentSimilarityArtifactCacheSize
-            + currentBurstAnalysisCacheSize + combinedReviewSize
+            + currentBurstAnalysisCacheSize + (combinedReviewSize ?? 0)
     }
 
-    private func cacheRow(_ title: LocalizedStringKey, size: Int) -> some View {
+    private func cacheRow(_ title: LocalizedStringKey, size: Int?) -> some View {
         HStack {
             Text(title)
             Spacer()
-            Text(isLoadingDiskCaches ? "Calculating…" : formatBytes(size))
+            Text(isLoadingDiskCaches ? "Calculating…" : size.map(formatBytes) ?? "Unavailable")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }

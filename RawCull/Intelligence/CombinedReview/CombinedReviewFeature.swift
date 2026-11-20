@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Observation
+import OSLog
 import RawParserKit
 
 nonisolated struct CombinedReviewResult: Sendable {
@@ -314,12 +315,16 @@ final class CombinedReviewFeature {
         try? await store.rejectedResponse(key)
     }
 
-    func clearRejectedResponses() async {
-        try? await store.clearRejectedResponses()
+    /// Throws so the settings action can report a failed clear instead of
+    /// looking successful.
+    func clearRejectedResponses() async throws {
+        try await store.clearRejectedResponses()
     }
 
-    func clearRetainedInputs() async {
-        try? await store.clearInputs()
+    /// Throws so the settings action can report a failed clear instead of
+    /// looking successful.
+    func clearRetainedInputs() async throws {
+        try await store.clearInputs()
     }
 
     func currentManifest() throws -> CombinedReviewRunV1 {
@@ -330,7 +335,13 @@ final class CombinedReviewFeature {
     func persistCancellation() async {
         manifest?.cancel()
         if let manifest {
-            try? await store.saveManifest(manifest)
+            do {
+                try await store.saveManifest(manifest)
+            } catch {
+                Logger.process.warning(
+                    "CombinedReviewFeature: could not persist cancelled run: \(error.localizedDescription, privacy: .public)",
+                )
+            }
         }
     }
 

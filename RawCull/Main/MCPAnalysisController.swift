@@ -883,15 +883,20 @@ final class MCPAnalysisController {
         let oneTimeApproval = setupApproval?.remember == false
         let jobPhotoAccess: Data?
         if oneTimeApproval {
-            let bookmark = try? url.bookmarkData(
-                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
-                includingResourceValuesForKeys: nil, relativeTo: nil,
-            )
+            let bookmark: Data?
+            do {
+                bookmark = try url.bookmarkData(
+                    options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                    includingResourceValuesForKeys: nil, relativeTo: nil,
+                )
+            } catch {
+                bookmark = nil
+                Logger.process.error(
+                    "Could not save read-only access for MCP photo assessments: \(error.localizedDescription, privacy: .public)",
+                )
+            }
             jobPhotoAccess = try bookmark.map {
                 try JSONEncoder().encode(MCPJobPhotoAccess(jobID: job.jobId, bookmark: $0))
-            }
-            if jobPhotoAccess == nil {
-                Logger.process.error("Could not save read-only access for MCP photo assessments.")
             }
         } else {
             jobPhotoAccess = nil

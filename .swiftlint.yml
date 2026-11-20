@@ -25,3 +25,13 @@ empty_count:
 line_length: 135
 type_body_length: 320
 function_body_length: 80
+
+custom_rules:
+  # A `try?` that falls back to empty data turns every encoding failure into
+  # one shared value (for example one cache key for every input). Throw or
+  # handle the error instead. See Docs/code-quality-followups-plan.md, Finding 5.
+  try_optional_empty_data_fallback:
+    name: "try? with empty Data fallback"
+    regex: 'try\?[^\n]*\?\?\s*Data\(\)'
+    message: "Don't fall back to Data() when try? fails; it collapses every failure into one value. Throw or handle the error."
+    severity: error
