@@ -17,9 +17,9 @@ We are refactoring RawCull following three plans in Docs/:
   - Docs/viewmodel-decomposition-plan.md    ("VM plan")
   - Docs/code-quality-followups-plan.md     ("QF plan")
 
-Do step <N> of Docs/refactoring-order-plan.md, and only that step.
+Do step all steps of Docs/refactoring-order-plan.md. 
 
-1. Read the master plan's row and section for step <N>, then read every section
+1. Read the master plan's row and section for steps , then read every section
    of the VM plan and the QF plan it links to, including the VM plan's
    "Rules for every slice" if the step is a slice.
 2. Use the graphify graph in graphify-out/ before touching code:
@@ -32,7 +32,7 @@ Do step <N> of Docs/refactoring-order-plan.md, and only that step.
      reports with grep before relying on it, and grep for consumers it might
      have missed.
    - From the graph and grep, list every file you will change before editing.
-3. Create a branch named refactor/step-<N>-<short-name> from the current branch.
+3. Commit changes after each update.
 4. Make the change in the small commits the plan describes. Change no behaviour.
    Build and run the RawCullTests test plan after each commit; every test must
    pass before the next commit.
@@ -63,7 +63,7 @@ Do step <N> of Docs/refactoring-order-plan.md, and only that step.
 
 ## The order
 
-One step = one branch = one PR, merged before the next step starts. The exception is the parallel track in phase 3, explained there.
+One step = one branch = one PR, commit all changes the current branch before the next step starts. The exception is the parallel track in phase 3, explained there.
 
 | Step | What | Reference | Size | Risk | Status |
 |---|---|---|---|---|---|
