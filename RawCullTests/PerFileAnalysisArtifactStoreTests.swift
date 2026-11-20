@@ -266,6 +266,51 @@ struct PerFileAnalysisArtifactStoreTests {
     }
 
     @Test
+    func `An unreadable record is reported but kept for a later load`() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let source = try fixture.source(named: "locked.raw")
+        _ = await fixture.store.upsert(
+            artifacts: [
+                source.id: fixture.artifact(
+                    source: source,
+                    backend: fixture.clipBackend,
+                    dimensions: 1,
+                    payload: Data([3]),
+                )
+            ],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
+        let record = try #require(fixture.recordURLs().first)
+
+        // A read failure (here: no read permission) stands in for an unmounted
+        // volume or a sandbox error. It must not be treated as corruption.
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: record.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: record.path) }
+
+        let unreadable = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(unreadable.artifacts[source.id] == nil)
+        #expect(unreadable.misses == [
+            PerFileAnalysisArtifactCacheMiss(sourceID: source.id, reason: .unreadable)
+        ])
+        #expect(FileManager.default.fileExists(atPath: record.path))
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: record.path)
+        let recovered = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+        #expect(recovered.artifacts[source.id] != nil)
+        #expect(recovered.misses.isEmpty)
+    }
+
+    @Test
     func `Usage and clear operate on individual records`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
