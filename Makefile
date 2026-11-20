@@ -18,7 +18,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 401
+SMOKE_EXPECTED_TESTS = 420
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
@@ -130,7 +130,8 @@ combinedselectiontest:
 		-parallel-testing-enabled NO -only-testing:RawCullTests/CombinedReviewRealModelTests
 
 test-full:
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES \
+		-parallel-testing-enabled NO
 
 verify-performance-manifest: build-test-enumeration-verifier
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \

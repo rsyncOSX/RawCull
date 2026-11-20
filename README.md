@@ -117,7 +117,7 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 | `eventsource` | `1.6.0` |
 | `parsersyncoutput` | `1.0.0` |
 | `photoaikit` | `1.0.0` |
-| `photoanalysiskit` | `1.3.7` |
+| `photoanalysiskit` | `1.3.9` |
 | `photoevidencekit` | `1.1.5` |
 | `rawcullcore` | `1.1.5` |
 | `rawparserkit` | `1.3.3` |
@@ -161,7 +161,7 @@ xcodebuild \
 
 ```bash
 make test-smoke        # Fast integration and critical-path coverage
-make test-full         # Full suite with Thread Sanitizer
+make test-full         # Full suite with Thread Sanitizer and serial test execution
 make test-performance  # Performance and extreme-concurrency coverage
 make test-scripts      # Python script checks; no models or photographs required
 ```
