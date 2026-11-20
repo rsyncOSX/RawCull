@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAnalysisKit.git",
       "state" : {
-        "revision" : "d717c529d22dcc74ba3661182e14d1f0ead5af0a",
-        "version" : "1.3.7"
+        "revision" : "db156bc5ff60b9ce3aec0229c04df9b0108e9e91",
+        "version" : "1.3.9"
       }
     },
     {
