@@ -479,6 +479,7 @@ final class RawCullAIModelRuntime {
                 }
             },
             availability: availability,
+            modelIdentity: provider?.modelIdentity,
         )
     }
 

@@ -193,6 +193,9 @@ final class DeepAIReviewFeature {
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
     @ObservationIgnored private var maskLoader: (any DeepAIReviewMaskLoading)?
+    /// Segmentation model behind `service`. Results and mask lookups are only valid
+    /// for the model that produced them.
+    @ObservationIgnored private var installedModelIdentity: ModelIdentity?
     @ObservationIgnored private var drainingTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
@@ -231,12 +234,35 @@ final class DeepAIReviewFeature {
         service: (any DeepAIReviewServicing)?,
         maskLoader: (any DeepAIReviewMaskLoading)?,
         availability: RawCullAICapabilityStatus,
+        modelIdentity: ModelIdentity? = nil,
     ) {
+        let modelChanged = modelIdentity != installedModelIdentity
+        installedModelIdentity = modelIdentity
         self.service = service
         self.maskLoader = maskLoader
         self.availability = availability
-        if !availability.isAvailable, isRunning {
+        if modelChanged {
+            // A run or result from the previous model would be shown as current while
+            // the mask overlay looks up the new model's cache keys.
+            Logger.process.debugMessageOnly(
+                "DeepAIReviewFeature.install(): segmentation model changed; invalidating Deep Review results",
+            )
+            if isRunning {
+                cancel()
+            }
+            invalidateResults()
+        } else if !availability.isAvailable, isRunning {
             cancel()
+        }
+    }
+
+    private func invalidateResults() {
+        results = [:]
+        completedCandidatesByFileID = [:]
+        completedFileIDsByPreset = [:]
+        maskCandidatesByFileID = [:]
+        if case .completed = state {
+            state = .idle
         }
     }
 
@@ -382,11 +408,8 @@ final class DeepAIReviewFeature {
             "DeepAIReviewFeature.reset(): resetting Deep Review state",
         )
         cancel()
+        invalidateResults()
         state = .idle
-        results = [:]
-        completedCandidatesByFileID = [:]
-        completedFileIDsByPreset = [:]
-        maskCandidatesByFileID = [:]
     }
 
     private func receive(_ progress: DeepAIReviewProgress, preset: DeepAIReviewPreset, generation: Int) {
