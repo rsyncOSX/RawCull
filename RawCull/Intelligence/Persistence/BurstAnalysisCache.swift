@@ -63,6 +63,12 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
     var analysisDescriptor: SharpnessAnalysisDescriptor?
     var scoringSource: SharpnessScoringSource
     var thumbnailMaxPixelSize: Int
+    /// App-owned revision of the inputs RawCull feeds the package scorer.
+    /// 0 (absent): sensor-space AF points and an untagged linear RAW render.
+    /// 1: AF points rotated into the upright image; RAW renders encoded to sRGB.
+    var inputPipelineVersion: Int
+
+    nonisolated static let currentInputPipelineVersion = 1
 
     @MainActor
     init(
@@ -73,12 +79,14 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
         analysisDescriptor = PhotoAnalyzer.sharpnessDescriptor(for: config)
         self.scoringSource = scoringSource
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        inputPipelineVersion = Self.currentInputPipelineVersion
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisDescriptor
         case scoringSource
         case thumbnailMaxPixelSize
+        case inputPipelineVersion
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +103,7 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
             Int.self,
             forKey: .thumbnailMaxPixelSize,
         )) ?? 0
+        inputPipelineVersion = (try? values.decode(Int.self, forKey: .inputPipelineVersion)) ?? 0
     }
 
     func encode(to encoder: Encoder) throws {
@@ -108,6 +117,7 @@ nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
             thumbnailMaxPixelSize,
             forKey: .thumbnailMaxPixelSize,
         )
+        try values.encode(inputPipelineVersion, forKey: .inputPipelineVersion)
     }
 }
 
