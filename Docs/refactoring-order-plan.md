@@ -137,7 +137,7 @@ Result: 2026-11-20. Three of the four targets are met:
 | Stored properties on the root (non-computed `var`/`let` in the class) | 91 (plan said 103) | 20 | yes |
 | Graph edges on the main `RawCullViewModel` node | 399 | 26 (no longer a god node) | yes |
 | `RawCullViewModel+BurstGrouping.swift` | 892 lines | gone (now `BurstWorkflowController` + `+Grouping`) | yes |
-| App files referencing `RawCullViewModel` | 73 | 57 | **no** (target ≤ 25) |
+| App files referencing `RawCullViewModel` | 73 | 44 | **no** (target ≤ 25) |
 
 `SelectionModel`, `CatalogWorkspace` and `BurstWorkflowController` own their state. `workspaceEnvironment(_:)` injects every slice plus the sharpness, similarity and Deep Review feature objects, and 12 view and modifier structs now read only from the environment or take a single slice. View mode and zoom navigation moved into `WorkspaceNavigationModel` (a deliberate change from this plan, which kept `mainViewMode` on the root), and the focus-point lookup moved to `CatalogWorkspace`. The remaining 57 files fall into three groups: views that call operations combining several slices (`updateRating`/`updateRatingAndAdvance`, which refresh the catalog projection and advance the selection; `handleSortOrderChange`; `startCatalogLoad`; `aiAnalysisFiles`; the culling retry and archive actions); parents that pass the root to those views; and non-view helpers that take the root as a parameter (`ComparisonGridImageCoordinator`, `ZoomNavigationPresentation`, `ZoomOverlayAnalysisCoordinator`, `ExecuteCopyFiles`, `thumbnailKeyNavigation`). Reaching ≤ 25 needs those catalog and rating operations moved out of the root, which is the "most of `+Catalog`" part of slice 6 that is still open. The burst controller reaches the root's cross-slice operations through the weak `BurstWorkflowHost` protocol, a deliberate exception to "no back-references". Catalog operations (load, sort, `applyFilters`) and the projection caches stay on the root because they combine several slices. The manual smoke test of every view mode and one end-to-end MCP job has not been done; it needs the app UI.
 
@@ -159,3 +159,4 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 | 2026-11-20 | 12 | 372 | 0.02 | 51 | 73 | steps 7–12 |
 | 2026-11-20 | 18 | 33 (main node) | 0.05 | 20 | 64 | steps 13–16, 18; 17 not started |
 | 2026-11-20 | 16 (continued) | 26 (main node) | 0.05 | 20 | 57 | environment-based views, `WorkspaceNavigationModel` |
+| 2026-11-20 | 16 (continued) | not re-measured | — | 20 | 44 | `CatalogController` and `CullingController` own the catalog and rating operations; grid and zoom projections moved there. Remaining: parent views that pass the root on, helper types that take it as a parameter, `thumbnailKeyNavigation` |
