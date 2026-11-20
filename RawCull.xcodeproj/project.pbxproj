@@ -57,6 +57,10 @@
 		E9AC00112F40000000000003 /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = E9AC00112F40000000000004 /* MCP */; };
 		E9AC00122F40000000000012 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00132F40000000000013 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift */; };
 		E9AC00222F40000000000022 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00232F40000000000023 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift */; };
+		E9AC00242F40000000000024 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00252F40000000000025 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift */; };
+		E9AC00262F40000000000026 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00272F40000000000027 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift */; };
+		E9AC00282F40000000000028 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC00292F40000000000029 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift */; };
+		E9AC002A2F4000000000002A /* Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AC002B2F4000000000002B /* Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift */; };
 		E9B1425F305826C5000D8EBA /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */; };
 		E9B14261305826C5000D8EBA /* CoreAIEfficientSAMBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14260305826C5000D8EBA /* CoreAIEfficientSAMBackend */; };
 		E9B14263305826C5000D8EBA /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14262305826C5000D8EBA /* CoreAISAM3Backend */; };
@@ -158,6 +162,10 @@
 		E9AC00112F40000000000011 /* Tools/RawCullMCP/RawCullMCP.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Tools/RawCullMCP/RawCullMCP.xcconfig; sourceTree = SOURCE_ROOT; };
 		E9AC00132F40000000000013 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift; sourceTree = SOURCE_ROOT; };
 		E9AC00232F40000000000023 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift; sourceTree = SOURCE_ROOT; };
+		E9AC00252F40000000000025 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift; sourceTree = SOURCE_ROOT; };
+		E9AC00272F40000000000027 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift"; sourceTree = SOURCE_ROOT; };
+		E9AC00292F40000000000029 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift; sourceTree = SOURCE_ROOT; };
+		E9AC002B2F4000000000002B /* Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift; sourceTree = SOURCE_ROOT; };
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
@@ -330,6 +338,10 @@
 				E9AC00112F40000000000011 /* Tools/RawCullMCP/RawCullMCP.xcconfig */,
 				E9AC00132F40000000000013 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift */,
 				E9AC00232F40000000000023 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift */,
+				E9AC00252F40000000000025 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift */,
+				E9AC00272F40000000000027 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift */,
+				E9AC00292F40000000000029 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift */,
+				E9AC002B2F4000000000002B /* Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift */,
 				E90B07A32F1E58EA00A95D4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -633,6 +645,10 @@
 			files = (
 				E9AC00122F40000000000012 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift in Sources */,
 				E9AC00222F40000000000022 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift in Sources */,
+				E9AC00242F40000000000024 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJob.swift in Sources */,
+				E9AC00262F40000000000026 /* Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore+FollowUps.swift in Sources */,
+				E9AC00282F40000000000028 /* Tools/RawCullMCP/Sources/RawCullMCP/CatalogSetupStore.swift in Sources */,
+				E9AC002A2F4000000000002A /* Tools/RawCullMCP/Sources/RawCullMCP/MCPAssessmentStopReason.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
