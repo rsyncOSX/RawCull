@@ -81,7 +81,7 @@ struct AIAnalysisView: View {
                     switch selectedTool {
                     case .samCLIP:
                         SAMCLIPAnalysisView(
-                            viewModel: viewModel,
+                            catalog: viewModel.catalog,
                             controller: deepAIReviewController,
                             files: inputFiles,
                             selection: Bindable(viewModel.selection).selectedFileID,
@@ -313,7 +313,7 @@ struct CombinedReviewWorkspaceView: View {
                     description: Text("Enable Combined Review in AI settings to use this workspace."),
                 )
             } else {
-                CombinedReviewView(feature: feature, viewModel: viewModel, files: inputFiles)
+                CombinedReviewView(feature: feature, selection: viewModel.selection, files: inputFiles)
             }
 
             if !inputFiles.isEmpty {

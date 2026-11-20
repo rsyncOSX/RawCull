@@ -4,8 +4,8 @@ import OSLog
 import PhotoAIContracts
 import RawCullCore
 
-/// Owns burst worker orchestration while application state and culling commands
-/// remain in `RawCullViewModel`.
+/// Owns burst worker orchestration; review state and culling commands live in
+/// `BurstWorkflowController`, which owns this coordinator.
 @MainActor
 struct BurstAnalysisRunCallbacks {
     let isCurrent: () -> Bool

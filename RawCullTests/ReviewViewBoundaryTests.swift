@@ -67,7 +67,7 @@ struct ReviewViewBoundaryTests {
         let content = VStack(spacing: 16) {
             BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
             BurstWorkspaceFilmstrip(
-                viewModel: viewModel, files: [], analysis: nil, burstNumber: 1,
+                selection: viewModel.selection, files: [], analysis: nil, burstNumber: 1,
                 canNavigatePrevious: false, canNavigateNext: false, navigate: { _ in },
             )
             ZoomOverlayControls(

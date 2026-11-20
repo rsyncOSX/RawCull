@@ -203,7 +203,7 @@ struct BurstCullingWorkspaceView: View {
                 }
                 Divider()
                 BurstWorkspaceFilmstrip(
-                    viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
+                    selection: viewModel.selection, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,

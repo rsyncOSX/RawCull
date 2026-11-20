@@ -11,7 +11,7 @@ import VisionFeaturePrintBackend
 /// Application-owned runtime for RawCull's AI model backends and resources.
 ///
 /// `RawCullApplicationState` constructs stateful features and binds them to the
-/// services they need. Views and `RawCullViewModel` do not traverse this object.
+/// services they need. Views and the workspace view model do not traverse this object.
 /// The container is main-actor isolated for configuration, while CLIP, SAM 3,
 /// and Qwen retain independent actor isolation for resource and inference work.
 @MainActor

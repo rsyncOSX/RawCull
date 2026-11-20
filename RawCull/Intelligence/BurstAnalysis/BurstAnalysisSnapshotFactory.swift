@@ -3,7 +3,7 @@
 //  RawCull
 //
 //  Pure builders for burst-analysis requests, contexts and cache snapshots.
-//  They used to live inside RawCullViewModel and read its models directly;
+//  They used to live inside the workspace view model and read its models directly;
 //  here every input is a parameter, so they can be tested and reused without
 //  constructing the view model.
 //

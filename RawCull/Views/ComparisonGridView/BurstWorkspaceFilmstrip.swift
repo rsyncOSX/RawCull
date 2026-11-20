@@ -3,7 +3,7 @@ import RawCullCore
 import SwiftUI
 
 struct BurstWorkspaceFilmstrip: View {
-    let viewModel: RawCullViewModel
+    let selection: SelectionModel
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
     let burstNumber: Int
@@ -20,7 +20,7 @@ struct BurstWorkspaceFilmstrip: View {
     var selectCloseUp: (URL, NSEvent.ModifierFlags) -> Void = { _, _ in }
 
     private var selectedIndex: Int {
-        files.firstIndex { $0.id == viewModel.selection.selectedFileID } ?? 0
+        files.firstIndex { $0.id == selection.selectedFileID } ?? 0
     }
 
     var body: some View {
@@ -49,7 +49,7 @@ struct BurstWorkspaceFilmstrip: View {
                                 VStack(spacing: 4) {
                                     BurstFilmstripThumbnail(
                                         file: file,
-                                        isSelected: file.id == viewModel.selection.selectedFileID,
+                                        isSelected: file.id == selection.selectedFileID,
                                         isSuggested: analysis?.recommendedFileID == file.id,
                                         isDeferred: analysis?.reviewState == .deferred,
                                         isIncludedInCloseUps: closeUpSelection.contains(file.url),
@@ -57,7 +57,7 @@ struct BurstWorkspaceFilmstrip: View {
                                         hasAIAssessment: assessedURLs.contains(file.url.standardizedFileURL),
                                     ) {
                                         selectCloseUp(file.url, NSEvent.modifierFlags)
-                                        viewModel.selection.selectedFileID = file.id
+                                        selection.selectedFileID = file.id
                                     }
                                     .help("Command-click to select multiple close-ups; Shift-click to select a range, then open Close-ups.")
                                     if mostFaceDetail != nil {
@@ -81,19 +81,19 @@ struct BurstWorkspaceFilmstrip: View {
                     .onAppear(perform: {
                         // Let the horizontal stack establish its scroll geometry first.
                         DispatchQueue.main.async {
-                            if let newID = viewModel.selection.selectedFileID {
+                            if let newID = selection.selectedFileID {
                                 proxy.scrollTo(newID, anchor: .center)
                             }
                         }
                     })
-                    .onChange(of: viewModel.selection.selectedFileID) { _, newID in
+                    .onChange(of: selection.selectedFileID) { _, newID in
                         guard let newID else { return }
                         withAnimation(.easeInOut(duration: 0.2)) {
                             proxy.scrollTo(newID, anchor: .center)
                         }
                     }
                     .onChange(of: files.map(\.id)) { _, _ in
-                        guard let selectedID = viewModel.selection.selectedFileID else { return }
+                        guard let selectedID = selection.selectedFileID else { return }
                         proxy.scrollTo(selectedID, anchor: .center)
                     }
                 }

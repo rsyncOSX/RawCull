@@ -159,7 +159,7 @@ struct RawCullApp: App {
                 assessmentPhotoAccess: appDelegate.assessmentPhotoAccess,
             )
             .background(.windowBackground)
-            .environment(viewModel)
+            .workspaceEnvironment(viewModel)
             .environment(assessmentNavigation)
             .task { await assessmentNavigation.observeResults() }
             .task {
@@ -186,13 +186,13 @@ struct RawCullApp: App {
 
         Settings {
             SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
-                .environment(viewModel)
+                .workspaceEnvironment(viewModel)
         }
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()
                 .background(.windowBackground)
-                .environment(viewModel)
+                .workspaceEnvironment(viewModel)
         }
         .defaultSize(width: 840, height: 720)
     }
@@ -207,5 +207,21 @@ private struct RawCullCommands: Commands {
                 openWindow(id: "about-window")
             }
         }
+    }
+}
+
+extension View {
+    /// Injects the workspace root and each of its slices, so a view can depend
+    /// on only the slice it reads: `@Environment(CatalogWorkspace.self)` etc.
+    func workspaceEnvironment(_ workspace: RawCullViewModel) -> some View {
+        environment(workspace)
+            .environment(workspace.catalog)
+            .environment(workspace.selection)
+            .environment(workspace.ratings)
+            .environment(workspace.presentation)
+            .environment(workspace.fileOperations)
+            .environment(workspace.zoomOverlay)
+            .environment(workspace.loupeViewport)
+            .environment(workspace.burstWorkflow)
     }
 }

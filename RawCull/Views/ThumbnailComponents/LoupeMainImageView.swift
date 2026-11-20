@@ -52,7 +52,7 @@ struct LoupeMainImageView: View {
                             currentImageSize: currentImageSize, sourceFailure: sourcePresentation.failure,
                         ) {
                             LoupeImageControls(
-                                viewModel: viewModel, session: session, file: file,
+                                loupeViewport: viewModel.loupeViewport, session: session, file: file,
                                 showFocusMask: $focusPresentation.isPresented,
                                 showSubjectOutline: $outlinePresentation.isPresented, showFocusPoints: $showFocusPoints,
                                 focusMaskAvailable: currentDisplayedImage != nil, outlineAvailable: subjectOutlineCandidate != nil,

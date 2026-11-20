@@ -21,7 +21,7 @@ enum CombinedReviewEvidenceTopic: String, CaseIterable {
 
 struct CombinedReviewView: View {
     @Bindable var feature: CombinedReviewFeature
-    @Bindable var viewModel: RawCullViewModel
+    let selection: SelectionModel
     let files: [FileItem]
     @State private var mode: CombinedReviewMode = .photo
     @State private var topic: CombinedReviewEvidenceTopic = .findings
@@ -32,7 +32,7 @@ struct CombinedReviewView: View {
     @State private var settingsExpanded = false
 
     private var selectedResult: CombinedReviewResult? {
-        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: viewModel.selection.selectedFileID)
+        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: selection.selectedFileID)
     }
 
     var body: some View {
@@ -53,7 +53,7 @@ struct CombinedReviewView: View {
                         }
                     }
                     if !feature.displayedResults.isEmpty {
-                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(viewModel.selection).selectedFileID)
+                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
                     }
                     if let result = selectedResult {
                         let presentation = CombinedReviewPresentation(result: result)
@@ -113,8 +113,8 @@ struct CombinedReviewView: View {
             selectedRegionID = ""
         }
         .onChange(of: feature.displayedResults.map(\.file.fileID), initial: true) { _, ids in
-            if viewModel.selection.selectedFileID == nil {
-                viewModel.selection.selectedFileID = ids.first
+            if selection.selectedFileID == nil {
+                selection.selectedFileID = ids.first
             }
         }
         .sheet(isPresented: $showInput) {

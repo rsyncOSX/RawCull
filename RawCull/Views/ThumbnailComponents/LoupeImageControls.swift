@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoupeImageControls: View {
-    let viewModel: RawCullViewModel
+    let loupeViewport: LoupeViewportModel
     let session: LoupeSessionModel
     let file: FileItem?
     @Binding var showFocusMask: Bool
@@ -37,21 +37,21 @@ struct LoupeImageControls: View {
                 set: { session.sourceSelection = $0 },
             ),
             imageSourceURL: file?.url,
-            scale: viewModel.loupeViewport.scale,
-            canZoomOut: viewModel.loupeViewport.scale > ImageReviewViewportPolicy.loupe.minimumScale,
-            canZoomIn: viewModel.loupeViewport.scale < ImageReviewViewportPolicy.loupe.maximumScale,
-            canReset: viewModel.loupeViewport.scale != 1.0 || viewModel.loupeViewport.offset != .zero,
+            scale: loupeViewport.scale,
+            canZoomOut: loupeViewport.scale > ImageReviewViewportPolicy.loupe.minimumScale,
+            canZoomIn: loupeViewport.scale < ImageReviewViewportPolicy.loupe.maximumScale,
+            canReset: loupeViewport.scale != 1.0 || loupeViewport.offset != .zero,
             onZoomOut: {
                 withAnimation(.spring()) {
-                    viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.loupeViewport.scale)
-                    viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
+                    loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: loupeViewport.scale)
+                    loupeViewport.lastScale = loupeViewport.scale
                 }
             },
-            onZoomReset: { withAnimation(.spring()) { viewModel.loupeViewport.reset() } },
+            onZoomReset: { withAnimation(.spring()) { loupeViewport.reset() } },
             onZoomIn: {
                 withAnimation(.spring()) {
-                    viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.loupeViewport.scale)
-                    viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
+                    loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: loupeViewport.scale)
+                    loupeViewport.lastScale = loupeViewport.scale
                 }
             },
         )
