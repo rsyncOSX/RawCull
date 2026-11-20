@@ -171,7 +171,7 @@ final class SharpnessScoringModel {
         let task = Task { [weak self] in
             defer { withExtendedLifetime(access) {} }
             guard let self, !Task.isCancelled else { return false }
-            guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
+            guard let result = await focusMaskModel.calibrateFromBurstParallel(
                 files: fileEntries,
                 baseConfigOverride: calibrationConfig,
                 thumbnailMaxPixelSize: FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
@@ -186,7 +186,10 @@ final class SharpnessScoringModel {
                 )
                 return true
             }
-            guard !Task.isCancelled else { return false }
+            // Apply only while this is still the active calibration; a run that was
+            // superseded just as its package call returned must not win.
+            guard !Task.isCancelled, activeCalibrationGeneration == generation else { return false }
+            focusMaskModel.applyCalibration(result)
 
             Logger.process.debugMessageOnly(
                 "SharpnessScoringModel.calibrateFromBurst(): visual calibration applied — "
