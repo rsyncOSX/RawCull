@@ -170,6 +170,20 @@ final class MCPAnalysisController {
         }
     }
 
+    /// The follow-up source or the follow-up feature went away; the running
+    /// assessment should stop. Kept as one `switch` rather than a multi-pattern
+    /// `catch`, which the tree-sitter Swift grammar used by code tools cannot parse.
+    private static func isFollowUpUnavailable(_ error: any Error) -> Bool {
+        switch error {
+        case FollowUpSourceSnapshot.SourceError.unavailable,
+             AnalysisJobStore.FollowUpError.unavailable,
+             AnalysisJobStore.FollowUpError.disabled:
+            true
+        default:
+            false
+        }
+    }
+
     private func pollFollowUp(
         qwen: QwenInferenceRuntime, viewModel: any MCPAnalysisWorkspace, prepare: @escaping @MainActor () async -> Void,
         canStart: @MainActor () -> Bool,
@@ -185,8 +199,7 @@ final class MCPAnalysisController {
         }
         if let followUpID {
             let status: AnalysisJobStore.FollowUpRecord
-            do { status = try jobs.followUpStatus(followUpID) } catch FollowUpSourceSnapshot.SourceError.unavailable, AnalysisJobStore.FollowUpError.unavailable,
-                AnalysisJobStore.FollowUpError.disabled {
+            do { status = try jobs.followUpStatus(followUpID) } catch where Self.isFollowUpUnavailable(error) {
                 followUp?.cancel()
                 return
             }
