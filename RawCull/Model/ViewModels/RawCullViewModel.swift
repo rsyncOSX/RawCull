@@ -91,7 +91,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     private(set) var catalogContentRevision: UInt64 = 0
-    private(set) var zoomContextRevision: UInt64 = 0
     @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
     @ObservationIgnored var zoomNavigationBuildCount = 0
     private(set) var gridContentRevision: UInt64 = 0
@@ -160,20 +159,68 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         mainViewMode == .similarityGrid && similarityModel.burstModeActive
     }
 
-    // In-window zoom overlay (replaces the old separate zoom windows).
-    var zoomOverlayVisible: Bool = false
-    var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
-    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext? {
-        didSet { zoomContextRevision &+= 1 }
+    /// In-window zoom overlay state.
+    let zoomOverlay = ZoomOverlayModel()
+
+    // Temporary forwarders while call sites move to `zoomOverlay`.
+    var zoomOverlayVisible: Bool {
+        get { zoomOverlay.isVisible }
+        set { zoomOverlay.isVisible = newValue }
     }
 
-    var zoomOverlayLaunchContext: ZoomOverlayLaunchContext = .default
-    var zoomOverlayNativeSize: CGSize?
-    var zoomOverlayRAWIsReduced: Bool?
-    var zoomOverlayRAWRenderSeconds: Double?
-    var zoomOverlayCGImage: CGImage?
-    var zoomOverlayAnalysisCGImage: CGImage?
-    var zoomOverlayNSImage: NSImage?
+    var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis {
+        get { zoomOverlay.navigationAxis }
+        set { zoomOverlay.navigationAxis = newValue }
+    }
+
+    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext? {
+        get { zoomOverlay.navigationContext }
+        set { zoomOverlay.navigationContext = newValue }
+    }
+
+    var zoomOverlayLaunchContext: ZoomOverlayLaunchContext {
+        get { zoomOverlay.launchContext }
+        set { zoomOverlay.launchContext = newValue }
+    }
+
+    var zoomOverlayNativeSize: CGSize? {
+        get { zoomOverlay.nativeSize }
+        set { zoomOverlay.nativeSize = newValue }
+    }
+
+    var zoomOverlayRAWIsReduced: Bool? {
+        get { zoomOverlay.rawIsReduced }
+        set { zoomOverlay.rawIsReduced = newValue }
+    }
+
+    var zoomOverlayRAWRenderSeconds: Double? {
+        get { zoomOverlay.rawRenderSeconds }
+        set { zoomOverlay.rawRenderSeconds = newValue }
+    }
+
+    var zoomOverlayCGImage: CGImage? {
+        get { zoomOverlay.cgImage }
+        set { zoomOverlay.cgImage = newValue }
+    }
+
+    var zoomOverlayAnalysisCGImage: CGImage? {
+        get { zoomOverlay.analysisCGImage }
+        set { zoomOverlay.analysisCGImage = newValue }
+    }
+
+    var zoomOverlayNSImage: NSImage? {
+        get { zoomOverlay.nsImage }
+        set { zoomOverlay.nsImage = newValue }
+    }
+
+    var zoomExtractionTask: Task<Void, Never>? {
+        get { zoomOverlay.extractionTask }
+        set { zoomOverlay.extractionTask = newValue }
+    }
+
+    var zoomContextRevision: UInt64 {
+        zoomOverlay.contextRevision
+    }
 
     // Thumbnail preview zoom state
     var scale: CGFloat = 1.0
@@ -275,9 +322,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Full name-sorted/search-filtered catalog projection before rating,
     /// sharpness, and similarity filters are applied.
     @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
-    /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
-    /// Cancelled when the zoom window closes or a new file is opened for zoom.
-    var zoomExtractionTask: Task<Void, Never>?
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     init(
         similarityModel: SimilarityScoringModel,
@@ -349,29 +393,18 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         showFocusPointsOnOpen: Bool = false,
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.openZoomOverlay()")
-        zoomOverlayNavigationAxis = mainViewMode == .loupe ? .vertical : .horizontal
-        zoomOverlayNavigationContext = navigationIDs.map(ZoomOverlayNavigationContext.init(orderedFileIDs:))
-        zoomOverlayLaunchContext = ZoomOverlayLaunchContext(
+        zoomOverlay.open(
+            axis: mainViewMode == .loupe ? .vertical : .horizontal,
+            navigationIDs: navigationIDs,
             initialSource: initialSource,
             initialZoomMode: initialZoomMode,
             showFocusPointsOnOpen: showFocusPointsOnOpen,
         )
-        zoomOverlayVisible = true
     }
 
     func closeZoomOverlay() {
         Logger.process.debugMessageOnly("RawCullViewModel.closeZoomOverlay()")
-        zoomExtractionTask?.cancel()
-        zoomExtractionTask = nil
-        zoomOverlayVisible = false
-        zoomOverlayNavigationContext = nil
-        zoomOverlayLaunchContext = .default
-        zoomOverlayCGImage = nil
-        zoomOverlayNativeSize = nil
-        zoomOverlayRAWIsReduced = nil
-        zoomOverlayRAWRenderSeconds = nil
-        zoomOverlayAnalysisCGImage = nil
-        zoomOverlayNSImage = nil
+        zoomOverlay.close()
     }
 
     // MARK: - File Selection
