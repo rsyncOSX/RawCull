@@ -103,7 +103,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     var searchText = ""
     var selectedFileID: FileItem.ID?
-    var previouslySelectedFileID: FileItem.ID?
     @ObservationIgnored var sortGeneration: UInt64 = 0
     @ObservationIgnored var sortFiles: @MainActor (
         [FileItem], FileItemSortDescriptor, String,
@@ -148,10 +147,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var sheetType: SheetType? = .copytasksview
     var remoteDataNumbers: RemoteDataNumbers?
     var ratingFilter: RatingFilter = .all
-
-    // Zoom window state
-    var zoomCGImageWindowFocused: Bool = false
-    var zoomNSImageWindowFocused: Bool = false
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
