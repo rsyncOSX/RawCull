@@ -14,11 +14,15 @@ struct MCPAnalysisAuthorization: Codable {
     let fingerprint: Data
 
     static var savedData: Data? {
-        UserDefaults.standard.data(forKey: preferenceKey)
+        savedData(in: .standard)
     }
 
-    static func save(_ data: Data?) {
-        UserDefaults.standard.set(data, forKey: preferenceKey)
+    static func savedData(in defaults: UserDefaults) -> Data? {
+        defaults.data(forKey: preferenceKey)
+    }
+
+    static func save(_ data: Data?, in defaults: UserDefaults = .standard) {
+        defaults.set(data, forKey: preferenceKey)
     }
 
     static func fingerprint(for files: [FileItem]) throws -> Data {
@@ -45,19 +49,66 @@ struct MCPJobPhotoAccess: Codable {
     let bookmark: Data
 
     static var saved: Self? {
-        guard let data = UserDefaults.standard.data(forKey: preferenceKey) else { return nil }
+        saved(in: .standard)
+    }
+
+    static func saved(in defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: preferenceKey) else { return nil }
         return try? JSONDecoder().decode(Self.self, from: data)
     }
 
-    static func save(_ data: Data?) {
-        UserDefaults.standard.set(data, forKey: preferenceKey)
+    static func save(_ data: Data?, in defaults: UserDefaults = .standard) {
+        defaults.set(data, forKey: preferenceKey)
+    }
+}
+
+/// The Qwen surface MCP photo assessments use; `QwenInferenceRuntime` in the app.
+nonisolated protocol MCPPhotoAssessing: Sendable {
+    func assessmentIdentity() async -> QwenInferenceRuntime.Identity?
+    func assessForMCP(
+        rubric: [String], image: CGImage, identity: QwenInferenceRuntime.Identity,
+    ) async throws -> QwenPhotoAssessment
+}
+
+extension QwenInferenceRuntime: MCPPhotoAssessing {}
+
+/// Everything `MCPAnalysisController` reads from outside the workspace. The
+/// defaults are the live app values; tests substitute temporary stores, clocks
+/// and sheet presentation so they never touch the shared app group, the user's
+/// preferences or real windows.
+struct MCPAnalysisEnvironment {
+    var grants: CatalogGrantStore
+    /// `nil` uses `AnalysisJobStore(directory: grants.directory)`.
+    var jobs: AnalysisJobStore?
+    var defaults: UserDefaults
+    var now: @MainActor () -> Date
+    var instant: @MainActor () -> ContinuousClock.Instant
+    var hostBundlePath: @MainActor () -> String
+    var hostWindow: @MainActor () -> NSWindow?
+    var activateApp: @MainActor () -> Void
+    /// Presents a setup sheet and returns its response. `nil` uses AppKit.
+    var presentSetupSheet: (@MainActor (_ sheet: NSWindow, _ parent: NSWindow) async -> NSApplication.ModalResponse)?
+
+    static var live: Self {
+        Self(
+            grants: .shared(),
+            jobs: nil,
+            defaults: .standard,
+            now: { .now },
+            instant: { .now },
+            hostBundlePath: { Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path },
+            hostWindow: { NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) },
+            activateApp: { NSApp.activate() },
+            presentSetupSheet: nil,
+        )
     }
 }
 
 @MainActor
 final class MCPAnalysisController {
-    private let grants = CatalogGrantStore.shared()
-    private lazy var jobs = AnalysisJobStore(directory: grants.directory)
+    private let environment: MCPAnalysisEnvironment
+    private let grants: CatalogGrantStore
+    private let jobs: AnalysisJobStore
     private var activeJob: AnalysisJob?
     private var analysis: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
@@ -82,69 +133,110 @@ final class MCPAnalysisController {
 
     private var approvedSetup: SetupApproval?
     private var inactiveRevision: AnalysisJobStore.Revision?
+    private var nextSetupMaintenance = Date.distantPast
+    private var storageFailureSince: ContinuousClock.Instant?
+
+    /// What `start` was given; `tick()` reads it on every iteration.
+    private struct MonitorContext {
+        weak var viewModel: (any MCPAnalysisWorkspace)?
+        let qwen: (any MCPPhotoAssessing)?
+        let prepare: @MainActor () async -> Void
+        let preparePhotoAssessment: @MainActor () async -> Void
+        let canStart: @MainActor () -> Bool
+    }
+
+    private var context: MonitorContext?
+
+    init(environment: MCPAnalysisEnvironment = .live) {
+        self.environment = environment
+        grants = environment.grants
+        jobs = environment.jobs ?? AnalysisJobStore(directory: environment.grants.directory)
+    }
 
     func start(
         viewModel: any MCPAnalysisWorkspace,
-        qwen: QwenInferenceRuntime? = nil,
+        qwen: (any MCPPhotoAssessing)? = nil,
         prepare: @escaping @MainActor () async -> Void,
         preparePhotoAssessment: @escaping @MainActor () async -> Void = {},
         canStart: @escaping @MainActor () -> Bool,
     ) {
         guard monitor == nil, grants.directory != nil else { return }
-        monitor = Task { [weak self, weak viewModel] in
-            var nextSetupMaintenance = Date.distantPast
-            var storageFailureSince: ContinuousClock.Instant?
-            while !Task.isCancelled, let self, let viewModel {
-                if let setupDeadline, Date.now >= setupDeadline {
-                    cancelSetup()
-                }
-                do {
-                    if let qwen {
-                        try pollFollowUp(qwen: qwen, viewModel: viewModel, prepare: preparePhotoAssessment, canStart: canStart)
-                    }
-                    if followUp == nil {
-                        try poll(viewModel, prepare: prepare, canStart: canStart)
-                    }
-                    storageFailureSince = nil
-                    if setup == nil, analysis == nil, Date.now >= nextSetupMaintenance {
-                        nextSetupMaintenance = .now.addingTimeInterval(60)
-                        try setupStore.maintain()
-                    }
-                    if !isTerminationPending, setup == nil, analysis == nil, followUp == nil,
-                       let request = try setupStore.pending() {
-                        setupDeadline = request.expiresAt
-                        setup = Task { [weak self, weak viewModel] in
-                            guard let self else { return }
-                            defer {
-                                setup = nil
-                                setupDeadline = nil
-                            }
-                            guard let viewModel else { return }
-                            await respond(to: request, viewModel: viewModel, canStart: canStart)
-                        }
-                    }
-                } catch AnalysisJobStore.StoreError.unsupportedFormat {
-                    Logger.process.error("MCP analysis job uses an unsupported format. Use the helper bundled with this RawCull installation.")
-                    analysis?.cancel()
-                } catch where AnalysisJobStore.StoreError.isRetryable(error) {
-                    let now = ContinuousClock.now
-                    let since = storageFailureSince ?? now
-                    storageFailureSince = since
-                    if let job = activeJob, now - since >= .seconds(5) {
-                        await finish(job, as: .failed, message: storageFailureMessage(error))
-                        if activeJob?.jobId == job.jobId {
-                            analysis?.cancel()
-                        }
-                    }
-                } catch {
-                    Logger.process.error("Could not update the MCP analysis job.")
-                    if let job = activeJob {
-                        await finish(job, as: .failed, message: storageFailureMessage(error))
-                    }
-                    analysis?.cancel()
-                }
+        attach(viewModel: viewModel, qwen: qwen, prepare: prepare,
+               preparePhotoAssessment: preparePhotoAssessment, canStart: canStart)
+        monitor = Task { [weak self] in
+            while !Task.isCancelled, let self, self.context?.viewModel != nil {
+                await tick()
                 try? await Task.sleep(for: .seconds(1))
             }
+        }
+    }
+
+    /// Binds the workspace without starting the polling loop. Tests call this
+    /// and then drive the controller with `tick()`.
+    func attach(
+        viewModel: any MCPAnalysisWorkspace,
+        qwen: (any MCPPhotoAssessing)? = nil,
+        prepare: @escaping @MainActor () async -> Void,
+        preparePhotoAssessment: @escaping @MainActor () async -> Void = {},
+        canStart: @escaping @MainActor () -> Bool,
+    ) {
+        context = MonitorContext(viewModel: viewModel, qwen: qwen, prepare: prepare,
+                                 preparePhotoAssessment: preparePhotoAssessment, canStart: canStart)
+    }
+
+    /// One iteration of the polling loop.
+    func tick() async {
+        guard let context, let viewModel = context.viewModel else { return }
+        let prepare = context.prepare
+        let canStart = context.canStart
+        if let setupDeadline, environment.now() >= setupDeadline {
+            cancelSetup()
+        }
+        do {
+            if let qwen = context.qwen {
+                try pollFollowUp(qwen: qwen, viewModel: viewModel, prepare: context.preparePhotoAssessment,
+                                 canStart: canStart)
+            }
+            if followUp == nil {
+                try poll(viewModel, prepare: prepare, canStart: canStart)
+            }
+            storageFailureSince = nil
+            if setup == nil, analysis == nil, environment.now() >= nextSetupMaintenance {
+                nextSetupMaintenance = environment.now().addingTimeInterval(60)
+                try setupStore.maintain()
+            }
+            if !isTerminationPending, setup == nil, analysis == nil, followUp == nil,
+               let request = try setupStore.pending() {
+                setupDeadline = request.expiresAt
+                setup = Task { [weak self, weak viewModel] in
+                    guard let self else { return }
+                    defer {
+                        setup = nil
+                        setupDeadline = nil
+                    }
+                    guard let viewModel else { return }
+                    await respond(to: request, viewModel: viewModel, canStart: canStart)
+                }
+            }
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            Logger.process.error("MCP analysis job uses an unsupported format. Use the helper bundled with this RawCull installation.")
+            analysis?.cancel()
+        } catch where AnalysisJobStore.StoreError.isRetryable(error) {
+            let now = environment.instant()
+            let since = storageFailureSince ?? now
+            storageFailureSince = since
+            if let job = activeJob, now - since >= .seconds(5) {
+                await finish(job, as: .failed, message: storageFailureMessage(error))
+                if activeJob?.jobId == job.jobId {
+                    analysis?.cancel()
+                }
+            }
+        } catch {
+            Logger.process.error("Could not update the MCP analysis job.")
+            if let job = activeJob {
+                await finish(job, as: .failed, message: storageFailureMessage(error))
+            }
+            analysis?.cancel()
         }
     }
 
@@ -185,17 +277,16 @@ final class MCPAnalysisController {
     }
 
     private func pollFollowUp(
-        qwen: QwenInferenceRuntime, viewModel: any MCPAnalysisWorkspace, prepare: @escaping @MainActor () async -> Void,
+        qwen: any MCPPhotoAssessing, viewModel: any MCPAnalysisWorkspace, prepare: @escaping @MainActor () async -> Void,
         canStart: @MainActor () -> Bool,
     ) throws {
         guard try jobs.followUpsEnabled() else {
             followUp?.cancel()
             return
         }
-        if !isTerminationPending, Date.now >= nextHostPublication {
-            let path = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path
-            try jobs.publishFollowUpHost(bundlePath: path)
-            nextHostPublication = .now.addingTimeInterval(2)
+        if !isTerminationPending, environment.now() >= nextHostPublication {
+            try jobs.publishFollowUpHost(bundlePath: environment.hostBundlePath())
+            nextHostPublication = environment.now().addingTimeInterval(2)
         }
         if let followUpID {
             let status: AnalysisJobStore.FollowUpRecord
@@ -205,14 +296,14 @@ final class MCPAnalysisController {
             }
             if status.cancellationRequested {
                 followUp?.cancel()
-            } else if let followUpDeadline, ContinuousClock.now >= followUpDeadline {
+            } else if let followUpDeadline, environment.instant() >= followUpDeadline {
                 followUpStopCode = "executionTimeout"
                 followUp?.cancel()
             }
             return
         }
         guard !isTerminationPending, setup == nil, analysis == nil,
-              let pending = try jobs.queuedFollowUp(), Date.now.timeIntervalSince(pending.createdAt) < 120,
+              let pending = try jobs.queuedFollowUp(), environment.now().timeIntervalSince(pending.createdAt) < 120,
               case let .started(worker) = try jobs.beginFollowUp(pending.request) else { return }
 
         let id = worker.request.id
@@ -224,7 +315,7 @@ final class MCPAnalysisController {
             return
         }
         followUpID = id
-        followUpDeadline = .now.advanced(by: .seconds(180))
+        followUpDeadline = environment.instant().advanced(by: .seconds(180))
         lease.invalidateOwner = { [weak self] in
             self?.followUpStopCode = "modelChanged"
             self?.followUp?.cancel()
@@ -279,7 +370,7 @@ final class MCPAnalysisController {
     }
 
     private func assessFollowUp(
-        _ worker: AnalysisJobStore.FollowUpWorker, qwen: QwenInferenceRuntime,
+        _ worker: AnalysisJobStore.FollowUpWorker, qwen: any MCPPhotoAssessing,
     ) async throws -> MCPPhotoAssessmentResult {
         guard let identity = await qwen.assessmentIdentity() else { throw QwenModelError.modelUnavailable }
         let access = try await retryStorage { try followUpCatalogAccess(for: worker.request) }
@@ -343,7 +434,11 @@ final class MCPAnalysisController {
         sheet.preventsApplicationTerminationWhenModal = false
         setupSheet = (parent, sheet)
         defer { setupSheet = nil }
-        let response = await present()
+        let response = if let presentSetupSheet = environment.presentSetupSheet {
+            await presentSetupSheet(sheet, parent)
+        } else {
+            await present()
+        }
         guard !request.isExpired else { throw JobError("The catalog setup request expired. Start a new request.") }
         try Task.checkCancellation()
         return response
@@ -366,9 +461,9 @@ final class MCPAnalysisController {
             inactiveRevision = revision
             throw AnalysisJobStore.StoreError.unsupportedFormat
         }
-        if let photoAccess = MCPJobPhotoAccess.saved,
+        if let photoAccess = MCPJobPhotoAccess.saved(in: environment.defaults),
            storedJob?.jobId != photoAccess.jobID || storedJob?.hasShareableResult != true {
-            MCPJobPhotoAccess.save(nil)
+            MCPJobPhotoAccess.save(nil, in: environment.defaults)
         }
         guard let job = storedJob else {
             approvedSetup = nil
@@ -475,11 +570,11 @@ final class MCPAnalysisController {
                 return
             }
 
-            guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) else {
+            guard let window = environment.hostWindow() else {
                 throw JobError("Open RawCull's main window and start a new request.")
             }
 
-            NSApp.activate()
+            environment.activateApp()
 
             // Keep the same scope from folder validation through the queued handoff.
             let url: URL
@@ -554,7 +649,7 @@ final class MCPAnalysisController {
 
     private func savedCatalog() throws -> (grant: CatalogGrant, url: URL)? {
         guard let grant = try grants.authorizedCatalog(), grant.analysisEnabled == true,
-              grant.summary?.photos != nil, let data = MCPAnalysisAuthorization.savedData,
+              grant.summary?.photos != nil, let data = MCPAnalysisAuthorization.savedData(in: environment.defaults),
               let authorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
               authorization.catalogId == grant.id else { return nil }
 
@@ -578,7 +673,7 @@ final class MCPAnalysisController {
     func followUpCatalogAccess(for request: AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant {
         _ = try jobs.readFollowUpSource(catalogID: request.catalogID, jobID: request.sourceJobID)
         let url: URL
-        if let jobAccess = MCPJobPhotoAccess.saved, jobAccess.jobID == request.sourceJobID {
+        if let jobAccess = MCPJobPhotoAccess.saved(in: environment.defaults), jobAccess.jobID == request.sourceJobID {
             var stale = false
             guard let resolved = try? URL(
                 resolvingBookmarkData: jobAccess.bookmark,
@@ -787,7 +882,7 @@ final class MCPAnalysisController {
         } else {
             guard let savedGrant = try grants.authorizedCatalog(), savedGrant.id == job.catalogId,
                   savedGrant.analysisEnabled == true, savedGrant.summary?.photos != nil,
-                  let data = MCPAnalysisAuthorization.savedData,
+                  let data = MCPAnalysisAuthorization.savedData(in: environment.defaults),
                   let savedAuthorization = try? JSONDecoder().decode(MCPAnalysisAuthorization.self, from: data),
                   savedAuthorization.catalogId == savedGrant.id
             else { throw JobError("Authorize the loaded catalog for analysis in RawCull's MCP settings.") }
@@ -912,7 +1007,7 @@ final class MCPAnalysisController {
                 do {
                     try jobs.stageFollowUpSourceLocked(source)
                     if let jobPhotoAccess {
-                        MCPJobPhotoAccess.save(jobPhotoAccess)
+                        MCPJobPhotoAccess.save(jobPhotoAccess, in: environment.defaults)
                         current.allowsJobPhotoAccess = true
                     }
                 } catch {
