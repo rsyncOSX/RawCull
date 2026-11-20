@@ -74,7 +74,9 @@ struct ZoomOverlayView: View {
     }
 
     private var navigation: ZoomNavigationPresentation {
-        ZoomNavigationPresentation(viewModel: viewModel)
+        ZoomNavigationPresentation(
+            catalogController: viewModel.catalogController, selection: viewModel.selection,
+        )
     }
 
     private var keyboardController: ZoomKeyboardController {
@@ -86,7 +88,11 @@ struct ZoomOverlayView: View {
     }
 
     private var analysisCoordinator: ZoomOverlayAnalysisCoordinator {
-        ZoomOverlayAnalysisCoordinator(viewModel: viewModel, session: session)
+        ZoomOverlayAnalysisCoordinator(
+            catalogController: viewModel.catalogController,
+            deepAIReviewController: viewModel.deepAIReviewController,
+            session: session,
+        )
     }
 
     private var sourcePresentation: ImageReviewSourcePresentation {
@@ -288,7 +294,7 @@ struct ZoomOverlayView: View {
         viewModel.zoomOverlay.extractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
             source: session.sourceSelection.selected,
-            viewModel: viewModel,
+            zoomOverlay: viewModel.zoomOverlay,
             evaluateExposure: session.evaluateRAWExposure,
             exposureEV: session.committedRAWExposureEV,
             maximumDimension: dimension,

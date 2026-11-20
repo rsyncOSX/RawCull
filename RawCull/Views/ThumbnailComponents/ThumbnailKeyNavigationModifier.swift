@@ -216,12 +216,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
 
 extension View {
     func thumbnailKeyNavigation(
-        viewModel: RawCullViewModel,
         axis: ThumbnailNavigationAxis,
         files: (() -> [FileItem])? = nil,
         onBurstKeyPress: ((String) -> KeyPress.Result)? = nil,
     ) -> some View {
-        modifier(ThumbnailKeyNavigationModifier(axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
+        modifier(ThumbnailKeyNavigationModifier(
+            axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
         ))
     }
 }

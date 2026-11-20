@@ -102,7 +102,7 @@ struct ImageTableVerticalView: View {
                 }
             }
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .vertical)
+        .thumbnailKeyNavigation(axis: .vertical)
     }
 
     // MARK: - Private Helpers

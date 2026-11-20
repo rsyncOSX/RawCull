@@ -42,7 +42,7 @@ struct RatedPhotoGridView: View {
         .task(id: catalogURL) {
             viewModel.selection.selectedFileIDs = []
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid) { ratedFiles }
+        .thumbnailKeyNavigation(axis: .grid) { ratedFiles }
     }
 
     var cullingModel: CullingModel {

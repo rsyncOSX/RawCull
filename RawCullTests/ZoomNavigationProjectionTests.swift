@@ -15,7 +15,9 @@ struct ZoomNavigationProjectionTests {
         let second = makeCullingTestFile("B.ARW")
         model.catalog.files = [second, first]
         model.catalog.filteredFiles = [second, first]
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         model.selection.selectedFileID = first.id
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
         #expect(navigation.currentZoomIndex == 0)
@@ -40,7 +42,9 @@ struct ZoomNavigationProjectionTests {
         model.catalog.filteredFiles = [first, second]
         model.ratings.ratingFilter = .stars(5)
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [second.id, UUID(), first.id])
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [UUID()])
         #expect(navigation.orderedZoomFiles.isEmpty)
@@ -55,7 +59,9 @@ struct ZoomNavigationProjectionTests {
         let second = makeCullingTestFile("B.ARW")
         model.catalog.files = [second, first]
         model.catalog.filteredFiles = [second, first]
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
         model.sharpnessModel.sortBySharpness = true
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
@@ -79,7 +85,9 @@ struct ZoomNavigationProjectionTests {
         model.catalog.filteredFiles = [file]
         model.selection.selectedFileID = file.id
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [file.id])
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         #expect(navigation.orderedZoomFiles.first?.size == file.size)
         file = FileItem(
             id: file.id,

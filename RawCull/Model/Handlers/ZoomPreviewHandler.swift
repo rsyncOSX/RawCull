@@ -22,7 +22,7 @@ enum ZoomPreviewHandler {
         file: FileItem,
         source: ImagePreviewSource = .embeddedJPG,
         thumbnailSizePreview: Int = 1616,
-        viewModel: RawCullViewModel,
+        zoomOverlay: ZoomOverlayModel,
         evaluateExposure: Bool = false,
         exposureEV: Double = 0,
         maximumDimension: Int? = nil,
@@ -45,12 +45,12 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlay.cgImage = nil
-                    viewModel.zoomOverlay.nativeSize = nil
-                    viewModel.zoomOverlay.rawIsReduced = nil
-                    viewModel.zoomOverlay.rawRenderSeconds = nil
-                    viewModel.zoomOverlay.analysisCGImage = nil
-                    viewModel.zoomOverlay.nsImage = nil
+                    zoomOverlay.cgImage = nil
+                    zoomOverlay.nativeSize = nil
+                    zoomOverlay.rawIsReduced = nil
+                    zoomOverlay.rawRenderSeconds = nil
+                    zoomOverlay.analysisCGImage = nil
+                    zoomOverlay.nsImage = nil
                 }
 
                 let cgThumb = await RequestThumbnail.shared.requestThumbnail(
@@ -79,11 +79,11 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlay.analysisCGImage = cgThumb
+                    zoomOverlay.analysisCGImage = cgThumb
                     if let displayImage {
-                        viewModel.zoomOverlay.nsImage = NSImage(cgImage: displayImage, size: .zero)
+                        zoomOverlay.nsImage = NSImage(cgImage: displayImage, size: .zero)
                     }
-                    viewModel.zoomOverlay.isVisible = true
+                    zoomOverlay.isVisible = true
                 }
             }
         } else {
@@ -93,14 +93,14 @@ enum ZoomPreviewHandler {
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
                     if !preservingImage {
-                        viewModel.zoomOverlay.nsImage = nil
-                        viewModel.zoomOverlay.cgImage = nil
-                        viewModel.zoomOverlay.nativeSize = nil
-                        viewModel.zoomOverlay.rawIsReduced = nil
-                        viewModel.zoomOverlay.rawRenderSeconds = nil
-                        viewModel.zoomOverlay.analysisCGImage = nil
+                        zoomOverlay.nsImage = nil
+                        zoomOverlay.cgImage = nil
+                        zoomOverlay.nativeSize = nil
+                        zoomOverlay.rawIsReduced = nil
+                        zoomOverlay.rawRenderSeconds = nil
+                        zoomOverlay.analysisCGImage = nil
                     }
-                    viewModel.zoomOverlay.isVisible = true
+                    zoomOverlay.isVisible = true
                 }
 
                 guard !Task.isCancelled else { return }
@@ -144,15 +144,15 @@ enum ZoomPreviewHandler {
                 if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlay.nativeSize = nativeSize
-                        viewModel.zoomOverlay.rawIsReduced = isReducedRAW
-                        viewModel.zoomOverlay.rawRenderSeconds = renderSeconds
-                        viewModel.zoomOverlay.cgImage = image
+                        zoomOverlay.nativeSize = nativeSize
+                        zoomOverlay.rawIsReduced = isReducedRAW
+                        zoomOverlay.rawRenderSeconds = renderSeconds
+                        zoomOverlay.cgImage = image
                     }
                 }
                 let resolvedAnalysisImage = await analysisImage
                 guard !Task.isCancelled else { return }
-                viewModel.zoomOverlay.analysisCGImage = resolvedAnalysisImage ?? image
+                zoomOverlay.analysisCGImage = resolvedAnalysisImage ?? image
             }
         }
     }

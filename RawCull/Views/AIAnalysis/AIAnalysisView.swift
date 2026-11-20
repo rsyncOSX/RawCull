@@ -152,7 +152,7 @@ struct AIAnalysisView: View {
             qwenAnalysisFeature.cancel()
             objectAnalysisFeature.cancel()
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
+        .thumbnailKeyNavigation(axis: .horizontal) { inputFiles }
     }
 
     private var emptyDescription: String {
@@ -245,7 +245,7 @@ struct AIAnalysisThumbnailStrip: View {
                 }
             }
             .frame(height: CGFloat(thumbnailSize) + 30)
-            .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal)
+            .thumbnailKeyNavigation(axis: .horizontal)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -338,6 +338,6 @@ struct CombinedReviewWorkspaceView: View {
                 viewModel.selection.selectedFileID = inputFiles.first?.id
             }
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
+        .thumbnailKeyNavigation(axis: .horizontal) { inputFiles }
     }
 }

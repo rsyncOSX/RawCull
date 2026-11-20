@@ -63,7 +63,7 @@ struct CopyCompletionTests {
         }
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), dryrun: false, rating: 0,
-            copyTaggedFiles: false, sidebarRawCullViewModel: viewModel,
+            copyTaggedFiles: false, catalogController: viewModel.catalogController,
             includeListDirectory: root, bookmarkStore: CopyBookmarkStore(defaults: defaults),
         )
         defer { manager.close() }

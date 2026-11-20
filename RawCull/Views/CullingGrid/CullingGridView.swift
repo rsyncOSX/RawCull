@@ -155,7 +155,6 @@ struct CullingGridView<Header: View>: View {
             recomputeGridCache()
         }
         .thumbnailKeyNavigation(
-            viewModel: viewModel,
             axis: .grid,
             files: { visibleSelectionFiles },
             onBurstKeyPress: handleBurstKeyPress,

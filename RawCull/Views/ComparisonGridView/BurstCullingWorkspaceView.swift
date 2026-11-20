@@ -39,14 +39,16 @@ struct BurstCullingWorkspaceView: View {
 
     private var keyboardController: BurstKeyboardController {
         BurstKeyboardController(
-            viewModel: viewModel, session: session, groupID: groupID,
+            burstWorkflow: viewModel.burstWorkflow,
+            deepAIReviewController: viewModel.deepAIReviewController,
+            session: session, groupID: groupID,
             selectedFile: selectedFile, hasImage: imageState?.cgImage != nil,
             navigate: navigate(by:), applyRating: applyRating,
         )
     }
 
     private var imageCoordinator: BurstWorkspaceImageCoordinator {
-        BurstWorkspaceImageCoordinator(session: session, viewModel: viewModel)
+        BurstWorkspaceImageCoordinator(session: session, sharpnessModel: viewModel.sharpnessModel)
     }
 
     private var imageCache: [BurstFrameCacheKey: ComparisonImageState] {

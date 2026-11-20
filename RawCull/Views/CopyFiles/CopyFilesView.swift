@@ -146,7 +146,7 @@ struct CopyFilesView: View {
             dryrun: dryrun,
             rating: copyratedfiles,
             copyTaggedFiles: copyTaggedFiles,
-            sidebarRawCullViewModel: viewModel,
+            catalogController: viewModel.catalogController,
             bookmarkStore: bookmarkStore,
         )
 

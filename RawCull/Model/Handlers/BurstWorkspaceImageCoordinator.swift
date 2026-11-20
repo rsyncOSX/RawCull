@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 struct BurstWorkspaceImageCoordinator {
     let session: BurstWorkspaceSessionModel
-    let viewModel: RawCullViewModel
+    let sharpnessModel: SharpnessScoringModel
 
     func loadWindow(files: [FileItem], selectedFile: FileItem?, selectedIndex: Int) async {
         guard let selectedFile else {
@@ -91,7 +91,7 @@ struct BurstWorkspaceImageCoordinator {
         let analyzedState = await ComparisonGridImageCoordinator.analyzeFocus(
             for: file,
             state: state,
-            viewModel: viewModel,
+            sharpnessModel: sharpnessModel,
         )
         guard !Task.isCancelled, session.imageCache[key] != nil else { return }
         Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Mask returned: \(analyzedState.focusMask != nil)")

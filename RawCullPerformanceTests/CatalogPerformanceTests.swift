@@ -273,11 +273,13 @@ extension CatalogPerformanceTests {
         let model = makeModel(directory: artifactDirectory)
         model.catalog.files = files
         model.catalog.filteredFiles = files
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         var start = ProcessInfo.processInfo.systemUptime
         _ = navigation.orderedZoomFiles
         await journal.record("navigation.build", since: start, succeeded: navigation.orderedZoomFiles.count == files.count)
-        let builds = model.zoomNavigationBuildCount
+        let builds = model.catalogController.zoomNavigationBuildCount
         for index in 0 ..< steps {
             let position = index % files.count
             start = ProcessInfo.processInfo.systemUptime
@@ -294,7 +296,7 @@ extension CatalogPerformanceTests {
                     && next == (position + 1 < files.count) && count == files.count && !description.isEmpty,
             )
         }
-        try #require(model.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
+        try #require(model.catalogController.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
         model.selection.selectedFileIDs = Set(files.prefix(3).map(\.id))
         try #require(model.catalogController.sharpnessScoringTargetCount == min(3, files.count))
         model.selection.selectedFileIDs = []
@@ -305,7 +307,7 @@ extension CatalogPerformanceTests {
         await journal.record(
             "navigation.ratingFilter",
             since: start,
-            succeeded: filtered.count == min(3, files.count) && model.zoomNavigationBuildCount > builds,
+            succeeded: filtered.count == min(3, files.count) && model.catalogController.zoomNavigationBuildCount > builds,
         )
         model.ratings.ratingFilter = .all
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
@@ -369,7 +371,7 @@ extension CatalogPerformanceTests {
             deepAIReviewController: DeepAIReviewController(),
         )
         model.ratings.cullingModel = CullingModel(saveHandler: { _ in })
-        semantic.bindApplicationTarget(model)
+        semantic.bindApplicationTarget(model.catalogController)
         return model
     }
 

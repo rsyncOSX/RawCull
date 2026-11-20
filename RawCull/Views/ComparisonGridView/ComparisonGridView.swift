@@ -20,7 +20,7 @@ struct ComparisonGridView: View {
         _showCandidateInspector = showCandidateInspector
         _session = State(
             initialValue: ComparisonSessionModel(
-                imageService: imageService ?? LiveComparisonSessionImageService(viewModel: viewModel),
+                imageService: imageService ?? LiveComparisonSessionImageService(sharpnessModel: viewModel.sharpnessModel),
                 selection: viewModel.selection,
             ),
         )
@@ -121,7 +121,10 @@ struct ComparisonGridView: View {
             guard canHandleKeyboardShortcut(event: event) else { return .ignored }
 
             return ComparisonKeyboardController(
-                viewModel: viewModel, session: session, showCandidateInspector: $showCandidateInspector,
+                catalog: viewModel.catalog, selection: viewModel.selection,
+                burstWorkflow: viewModel.burstWorkflow, navigation: viewModel.navigation,
+                culling: viewModel.culling, sharpnessModel: viewModel.sharpnessModel,
+                session: session, showCandidateInspector: $showCandidateInspector,
             ).handleKeyEvent(event)
         }
     }

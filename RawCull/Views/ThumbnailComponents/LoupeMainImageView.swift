@@ -61,7 +61,7 @@ struct LoupeMainImageView: View {
                         } metadata: {
                             if let file {
                                 LoupeMetadataOverlay(
-                                    viewModel: viewModel, file: file, image: currentDisplayedImage,
+                                    file: file, image: currentDisplayedImage,
                                     previewSource: session.sourceSelection.selected,
                                     semanticSearchFeature: semanticSearchFeature,
                                 )
@@ -158,7 +158,8 @@ struct LoupeMainImageView: View {
 
     private var keyboardController: LoupeKeyboardController {
         LoupeKeyboardController(
-            viewModel: viewModel, session: session,
+            presentation: viewModel.presentation, loupeViewport: viewModel.loupeViewport,
+            navigation: viewModel.navigation, session: session,
             focusPresentation: focusPresentation, outlinePresentation: outlinePresentation,
             hasSubjectOutline: subjectOutlineCandidate != nil, showFocusPoints: $showFocusPoints,
         )

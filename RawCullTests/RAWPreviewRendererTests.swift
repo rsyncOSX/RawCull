@@ -118,10 +118,10 @@ struct RAWPreviewRendererTests {
         let fast = RAWPreviewRenderer.Preview(image: pixels.image, nativeSize: pixels.nativeSize,
                                               isReducedResolution: true)
         let file = makeCullingTestFile("badge.ARW")
-        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                renderRAW: { _, _, _ in fast }, loadAnalysis: { _, _ in nil }).value
         #expect(model.zoomOverlay.rawIsReduced == true)
-        let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                     preservingImage: true, renderRAW: { _, _, _ in
                                                         await gate.wait()
                                                         return pixels
@@ -131,7 +131,7 @@ struct RAWPreviewRendererTests {
         await gate.release()
         await full.value
         #expect(model.zoomOverlay.rawIsReduced == false)
-        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                renderRAW: { _, _, _ in throw RAWPreviewRenderer.RenderError.decodingFailed },
                                                loadAnalysis: { _, _ in nil }).value
         #expect(model.zoomOverlay.rawIsReduced == nil)
@@ -150,7 +150,7 @@ struct RAWPreviewRendererTests {
                 continuation.resume()
             }
             task = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("display.ARW"), source: .developedRAW,
-                                                    viewModel: model, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in
+                                                    zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in
                                                         await gate.wait()
                                                         return pixels.image
                                                     })
@@ -210,14 +210,14 @@ struct RAWPreviewRendererTests {
         let pixels = try preview()
         let oldPixels = try preview()
         let old = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("old.ARW"), source: .developedRAW,
-                                                   viewModel: model, renderRAW: { _, _, _ in
+                                                   zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in
                                                        await gate.wait()
                                                        return oldPixels // Deliberately ignores cancellation, like an in-progress Core Image render.
                                                    }, loadAnalysis: { _, _ in nil })
         await gate.waitUntilEntered()
         old.cancel()
         let next = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("next.ARW"), source: .developedRAW,
-                                                    viewModel: model, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in nil })
+                                                    zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in nil })
         await next.value
         let current = model.zoomOverlay.cgImage
         await gate.release()

@@ -61,15 +61,16 @@ extension CatalogController {
 
 @MainActor
 struct ZoomNavigationPresentation {
-    let viewModel: RawCullViewModel
+    let catalogController: CatalogController
+    let selection: SelectionModel
 
     var orderedZoomFiles: [FileItem] {
-        viewModel.catalogController.zoomNavigationProjection().files
+        catalogController.zoomNavigationProjection().files
     }
 
     var currentZoomIndex: Int? {
-        guard let selectedID = viewModel.selection.selectedFileID else { return nil }
-        let projection = viewModel.catalogController.zoomNavigationProjection()
+        guard let selectedID = selection.selectedFileID else { return nil }
+        let projection = catalogController.zoomNavigationProjection()
         guard projection.catalogIDs.contains(selectedID) else { return nil }
         return projection.indexByID[selectedID]
     }

@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct LoupeMetadataOverlay: View {
-    let viewModel: RawCullViewModel
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(WorkspacePresentationModel.self) private var presentation
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
     let file: FileItem
     let image: NSImage?
     let previewSource: ImagePreviewSource
@@ -10,26 +14,27 @@ struct LoupeMetadataOverlay: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             CurrentRatingBadgeView(
-                rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel.ratings),
+                rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: ratings),
                 density: .compact,
             )
 
-            if viewModel.presentation.showsLoupeMetadataPanel {
+            if presentation.showsLoupeMetadataPanel {
                 ZoomMetadataPanel(
                     file: file,
                     image: image,
                     cullingMetadata: ZoomCullingMetadata.make(
                         for: file,
-                        viewModel: viewModel,
+                        sharpnessModel: sharpnessModel,
+                        similarityFeature: similarityFeature,
                         semanticSearchFeature: semanticSearchFeature,
                     ),
                     onHide: {
                         withAnimation(.snappy) {
-                            viewModel.presentation.showsLoupeMetadataPanel = false
+                            presentation.showsLoupeMetadataPanel = false
                         }
                     },
                     previewSource: previewSource,
-                    onOpenZoom: { viewModel.navigation.openZoomOverlay(initialSource: .embeddedJPG) },
+                    onOpenZoom: { navigation.openZoomOverlay(initialSource: .embeddedJPG) },
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }

@@ -2,7 +2,9 @@ import SwiftUI
 
 @MainActor
 struct LoupeKeyboardController {
-    let viewModel: RawCullViewModel
+    let presentation: WorkspacePresentationModel
+    let loupeViewport: LoupeViewportModel
+    let navigation: WorkspaceNavigationModel
     let session: LoupeSessionModel
     let focusPresentation: LoupeFocusPresentationModel
     let outlinePresentation: SubjectOutlinePresentationModel
@@ -14,15 +16,15 @@ struct LoupeKeyboardController {
         switch action {
         case .zoomIn:
             withAnimation(.spring()) {
-                viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.loupeViewport.scale)
-                viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
+                loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: loupeViewport.scale)
+                loupeViewport.lastScale = loupeViewport.scale
             }
             return .handled
 
         case .zoomOut:
             withAnimation(.spring()) {
-                viewModel.loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.loupeViewport.scale)
-                viewModel.loupeViewport.lastScale = viewModel.loupeViewport.scale
+                loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: loupeViewport.scale)
+                loupeViewport.lastScale = loupeViewport.scale
             }
             return .handled
 
@@ -49,12 +51,12 @@ struct LoupeKeyboardController {
 
         case .toggleMetadata:
             withAnimation(.snappy) {
-                viewModel.presentation.showsLoupeMetadataPanel.toggle()
+                presentation.showsLoupeMetadataPanel.toggle()
             }
             return .handled
 
         case .inspectActualPixels:
-            viewModel.navigation.openZoomOverlay(
+            navigation.openZoomOverlay(
                 initialSource: .embeddedJPG,
                 initialZoomMode: .actualPixels,
                 showFocusPointsOnOpen: true,

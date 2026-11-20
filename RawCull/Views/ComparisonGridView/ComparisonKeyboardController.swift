@@ -4,15 +4,20 @@ import SwiftUI
 
 @MainActor
 struct ComparisonKeyboardController {
-    let viewModel: RawCullViewModel
+    let catalog: CatalogWorkspace
+    let selection: SelectionModel
+    let burstWorkflow: BurstWorkflowController
+    let navigation: WorkspaceNavigationModel
+    let culling: CullingController
+    let sharpnessModel: SharpnessScoringModel
     let session: ComparisonSessionModel
     @Binding var showCandidateInspector: Bool
 
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
-            filteredFiles: viewModel.catalog.filteredFiles, comparisonFileIDs: viewModel.selection.comparisonFileIDs,
-            activeBurstComparisonGroupID: viewModel.burstWorkflow.activeBurstComparisonGroupID,
-            burstAnalysisResult: viewModel.burstWorkflow.burstAnalysisResult(for:),
+            filteredFiles: catalog.filteredFiles, comparisonFileIDs: selection.comparisonFileIDs,
+            activeBurstComparisonGroupID: burstWorkflow.activeBurstComparisonGroupID,
+            burstAnalysisResult: burstWorkflow.burstAnalysisResult(for:),
         )
     }
 
@@ -30,28 +35,28 @@ struct ComparisonKeyboardController {
 
     private var canApplyOneClickCulling: Bool {
         presentation.burstComparisonResult?.canApplyOneClickCulling(
-            hasSharpnessScores: !viewModel.sharpnessModel.scores.isEmpty,
+            hasSharpnessScores: !sharpnessModel.scores.isEmpty,
         ) ?? false
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let file = selectedComparisonFile else { return .ignored }
-        viewModel.culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
+        culling.updateRatingAndAdvance(for: file, rating: rating, in: files)
         return .handled
     }
 
     private func applyBurstKeepBest() -> KeyPress.Result {
-        guard viewModel.burstWorkflow.activeBurstComparisonGroupID != nil,
+        guard burstWorkflow.activeBurstComparisonGroupID != nil,
               canApplyOneClickCulling,
               !allComparisonFiles.isEmpty
         else { return .ignored }
-        viewModel.burstWorkflow.keepBestInGroup(from: allComparisonFiles)
+        burstWorkflow.keepBestInGroup(from: allComparisonFiles)
         return .handled
     }
 
     func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
         let burstAction =
-            viewModel.burstWorkflow.activeBurstComparisonGroupID == nil
+            burstWorkflow.activeBurstComparisonGroupID == nil
                 ? nil
                 : BurstReviewKeyAction.resolve(characters: event.characters)
         if let burstAction {
@@ -77,8 +82,8 @@ struct ComparisonKeyboardController {
             navigate(.right)
 
         case .nextGroup:
-            guard let groupID = viewModel.burstWorkflow.activeBurstComparisonGroupID else { return .ignored }
-            viewModel.burstWorkflow.advanceToNextBurstGroup(after: groupID)
+            guard let groupID = burstWorkflow.activeBurstComparisonGroupID else { return .ignored }
+            burstWorkflow.advanceToNextBurstGroup(after: groupID)
         }
         return .handled
     }
@@ -90,8 +95,8 @@ struct ComparisonKeyboardController {
             return .handled
 
         case .escape:
-            if viewModel.burstWorkflow.activeBurstComparisonGroupID != nil {
-                viewModel.burstWorkflow.returnToActiveBurstGroupView()
+            if burstWorkflow.activeBurstComparisonGroupID != nil {
+                burstWorkflow.returnToActiveBurstGroupView()
                 return .handled
             }
             return .ignored
@@ -132,7 +137,7 @@ struct ComparisonKeyboardController {
 
     @discardableResult
     private func selectedFileIDForInteraction() -> FileItem.ID? {
-        guard let selectedID = viewModel.selection.selectedFileID,
+        guard let selectedID = selection.selectedFileID,
               files.contains(where: { $0.id == selectedID })
         else { return nil }
 
@@ -166,7 +171,7 @@ struct ComparisonKeyboardController {
 
     private func inspectSelectedActualPixels() -> KeyPress.Result {
         guard selectedFileIDForInteraction() != nil else { return .ignored }
-        viewModel.navigation.openZoomOverlay(
+        navigation.openZoomOverlay(
             navigationIDs: files.map(\.id),
             initialSource: .embeddedJPG,
             initialZoomMode: .actualPixels,

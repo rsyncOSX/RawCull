@@ -3,7 +3,8 @@ import SwiftUI
 
 @MainActor
 struct BurstKeyboardController {
-    let viewModel: RawCullViewModel
+    let burstWorkflow: BurstWorkflowController
+    let deepAIReviewController: DeepAIReviewController
     let session: BurstWorkspaceSessionModel
     let groupID: Int
     let selectedFile: FileItem?
@@ -22,7 +23,7 @@ struct BurstKeyboardController {
             navigate(1)
 
         case .escape:
-            viewModel.burstWorkflow.returnToActiveBurstGroupView()
+            burstWorkflow.returnToActiveBurstGroupView()
 
         case .zoomIn:
             withAnimation(.spring()) {
@@ -48,7 +49,7 @@ struct BurstKeyboardController {
 
         case .toggleSubjectOutline:
             guard let selectedFile,
-                  viewModel.deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
+                  deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
             else { return .ignored }
             session.showSubjectOutline.toggle()
 
@@ -71,7 +72,7 @@ struct BurstKeyboardController {
                 navigate(1)
 
             case .nextGroup:
-                viewModel.burstWorkflow.advanceToNextBurstGroup(after: groupID)
+                burstWorkflow.advanceToNextBurstGroup(after: groupID)
             }
             return .handled
         }
