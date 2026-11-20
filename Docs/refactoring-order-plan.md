@@ -79,12 +79,12 @@ One step = one branch = one PR, commit all changes the current branch before the
 | 10 | Explicit MCP state (`Activity` / `Lifecycle` enums) | QF → Finding 3, step 3.3 | M | medium | done |
 | 11 | `RatingsModel` | VM → [Slice 5](viewmodel-decomposition-plan.md#slice-5-ratingsmodel-medium-risk-the-hot-path) | M | medium | done |
 | 12 | Typed MCP stop reasons + split the MCP files | QF → Finding 3, steps 3.4–3.5 | S | low | done |
-| 13 | `SelectionModel` | VM → [Slice 6](viewmodel-decomposition-plan.md#slice-6-catalogworkspace--selectionmodel-high-risk-the-most-read-state) (first PR) | M | high | todo |
-| 14 | `CatalogWorkspace` | VM → Slice 6 (second PR) | L | high | todo |
-| 15 | `BurstWorkflowController` | VM → [Slice 7](viewmodel-decomposition-plan.md#slice-7-burstworkflowcontroller-high-risk-the-biggest-win) | L | high | todo |
-| 16 | Shrink the root and verify against targets | VM → [Slice 8](viewmodel-decomposition-plan.md#slice-8-shrink-the-root-and-verify) | S | low | todo |
-| 17 | *Optional:* shared MCP IPC module | QF → Finding 3, step 3.6 | M | low | todo |
-| 18 | *Optional:* `CombinedReview/` subfolders | QF → [4.2](code-quality-followups-plan.md#42-optional-tidy-combinedreview-subfolders-xs) | XS | none | todo |
+| 13 | `SelectionModel` | VM → [Slice 6](viewmodel-decomposition-plan.md#slice-6-catalogworkspace--selectionmodel-high-risk-the-most-read-state) (first PR) | M | high | done |
+| 14 | `CatalogWorkspace` | VM → Slice 6 (second PR) | L | high | done |
+| 15 | `BurstWorkflowController` | VM → [Slice 7](viewmodel-decomposition-plan.md#slice-7-burstworkflowcontroller-high-risk-the-biggest-win) | L | high | done |
+| 16 | Shrink the root and verify against targets | VM → [Slice 8](viewmodel-decomposition-plan.md#slice-8-shrink-the-root-and-verify) | S | low | partly done |
+| 17 | *Optional:* shared MCP IPC module | QF → Finding 3, step 3.6 | M | low | not started |
+| 18 | *Optional:* `CombinedReview/` subfolders | QF → [4.2](code-quality-followups-plan.md#42-optional-tidy-combinedreview-subfolders-xs) | XS | none | done |
 | — | Decide: does Deep AI Review fold into Combined Review? | QF → [4.3](code-quality-followups-plan.md#43-product-decision-yours-not-a-refactor) | decision | — | open |
 | — | Check identity-only `==` on `RawCullFileItem` | QF → [Finding 2](code-quality-followups-plan.md#finding-2-rawcullfileitem-no-refactor-one-check) | XS | — | open |
 | — | Process habits | QF → [Finding 6](code-quality-followups-plan.md#finding-6-change-rate-process-only) | ongoing | — | open |
@@ -130,11 +130,21 @@ Result: done 2026-11-20. The controller takes an injected `MCPAnalysisEnvironmen
 
 *Done when:* the targets in the VM plan's [Goal and non-goals](viewmodel-decomposition-plan.md#goal-and-non-goals) are met: ≤ 20 stored properties, ≤ 25 files referencing `RawCullViewModel`, ≤ 150 graph edges, and `+BurstGrouping.swift` is gone.
 
-Result: —
+Result: 2026-11-20. Three of the four targets are met:
+
+| Target | Baseline | Now | Met |
+|---|---|---|---|
+| Stored properties on the root (non-computed `var`/`let` in the class) | 91 (plan said 103) | 20 | yes |
+| Graph edges on the main `RawCullViewModel` node | 399 | 33 (no longer a god node) | yes |
+| `RawCullViewModel+BurstGrouping.swift` | 892 lines | gone (now `BurstWorkflowController` + `+Grouping`) | yes |
+| App files referencing `RawCullViewModel` | 73 | 64 | **no** (target ≤ 25) |
+
+`SelectionModel`, `CatalogWorkspace` and `BurstWorkflowController` own their state, and every slice is in the environment (`workspaceEnvironment(_:)`). Four single-slice views take their slice instead of the root. The file count stays high because most views are still handed the root through `viewModel:` init parameters and read several slices plus root operations. Getting to 25 or fewer means changing each view's initializer and every call site to take the slices it needs (or `@Environment(<Slice>.self)`), which is the remaining work for step 16. The burst controller reaches the root's cross-slice operations through the weak `BurstWorkflowHost` protocol, a deliberate exception to "no back-references". Catalog operations (load, sort, `applyFilters`) and the projection caches stay on the root because they combine several slices. The manual smoke test of every view mode and one end-to-end MCP job has not been done; it needs the app UI.
 
 ### Phase 5: Optional and open items
 
 - Steps 17–18 only if you want them; they're tidiness, not risk.
+- Step 18 is done. Step 17 is not started: the app target and the helper's Xcode tool target would both need a local-package product dependency, about 400 declarations would need `public`, and `TestMCPRelease.sh` and the app's MCP tests would need restructuring. It changes how the signed helper is built, so it needs an archive, sign and notarize check that was not possible here.
 - **The Deep AI Review / Combined Review decision** can be made at any time. If the answer is "fold it in", do that *after* step 15. The burst workflow is the code that calls Deep Review, so it's simpler to change once it's in its own owner.
 - Re-run graphify at every release, and add a row to the table below.
 
@@ -147,3 +157,4 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 | 2026-11-20 | baseline | 399 | 0.02 | 103 | 73 | |
 | 2026-11-20 | 6 | 385 | 0.03 | 63 (91 at baseline by the same count) | 73 | steps 1–6 |
 | 2026-11-20 | 12 | 372 | 0.02 | 51 | 73 | steps 7–12 |
+| 2026-11-20 | 18 | 33 (main node) | 0.05 | 20 | 64 | steps 13–16, 18; 17 not started |

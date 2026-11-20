@@ -35,3 +35,7 @@ custom_rules:
     regex: 'try\?[^\n]*\?\?\s*Data\(\)'
     message: "Don't fall back to Data() when try? fails; it collapses every failure into one value. Throw or handle the error."
     severity: error
+
+excluded:
+  - Tools/RawCullMCP/.build
+  - build
