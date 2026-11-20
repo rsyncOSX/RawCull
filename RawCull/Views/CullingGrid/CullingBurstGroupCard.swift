@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CullingBurstGroupCard: View {
-    let viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
     let group: CullingGridVisibleBurstGroup
     let number: Int
     let select: (FileItem) -> Void
@@ -9,7 +9,7 @@ struct CullingBurstGroupCard: View {
     let deferBurstGroup: (Int) -> Void
 
     var body: some View {
-        let analysis = viewModel.burstWorkflow.burstAnalysisResult(for: group.id)
+        let analysis = burstWorkflow.burstAnalysisResult(for: group.id)
 
         return VStack(alignment: .leading, spacing: 0) {
             if group.id == -1 || group.files.count > 1 {
@@ -20,7 +20,6 @@ struct CullingBurstGroupCard: View {
                     analysis: analysis,
                     onReviewed: markBurstGroupReviewed,
                     onDeferred: deferBurstGroup,
-                    viewModel: viewModel,
                 )
             }
 
@@ -33,7 +32,7 @@ struct CullingBurstGroupCard: View {
                     ForEach(group.files, id: \.id) { file in
                         CullingGridThumbnail(file: file, doubleSelectActionName: "Open burst",
                             onSelect: { select(file) },
-                            onDoubleSelect: { viewModel.burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) },
+                            onDoubleSelect: { burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) },
                         )
                         .id(file.id)
                     }

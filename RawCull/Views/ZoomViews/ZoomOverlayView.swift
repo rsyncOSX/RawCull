@@ -13,7 +13,15 @@ import SwiftUI
 
 struct ZoomOverlayView: View {
     @Environment(\.displayScale) private var displayScale
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
+    @Environment(WorkspaceNavigationModel.self) private var workspaceNavigation
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(CullingController.self) private var culling
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(DeepAIReviewController.self) private var deepAIReviewController
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = ZoomSessionModel()
     @State private var rawClippingOverlay: CGImage?
@@ -25,13 +33,13 @@ struct ZoomOverlayView: View {
 
     private var clippingTaskID: ClippingTaskID {
         ClippingTaskID(
-            imageID: viewModel.zoomOverlay.cgImage.map(ObjectIdentifier.init),
+            imageID: zoomOverlay.cgImage.map(ObjectIdentifier.init),
             enabled: session.sourceSelection.selected == .developedRAW && session.showRAWClippingWarning,
         )
     }
 
     private var focusPoints: [FocusPoint]? {
-        viewModel.catalog.focusPoints(forFileWithID: viewModel.selection.selectedFileID)
+        catalog.focusPoints(forFileWithID: selection.selectedFileID)
     }
 
     private struct FocusMaskTaskID: Hashable {
@@ -48,18 +56,18 @@ struct ZoomOverlayView: View {
         FocusMaskTaskID(
             imageID: maskAnalysisImage.map(ObjectIdentifier.init),
             source: session.sourceSelection.selected,
-            fileID: viewModel.selectedFile?.id,
+            fileID: catalogController.selectedFile?.id,
         )
     }
 
     private var subjectOutlineCandidate: DeepAIReviewCandidate? {
-        guard let fileID = viewModel.selectedFile?.id else { return nil }
-        return viewModel.deepAIReviewController.maskCandidate(for: fileID)
+        guard let fileID = catalogController.selectedFile?.id else { return nil }
+        return deepAIReviewController.maskCandidate(for: fileID)
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         ImageReviewSubjectOutlineRequestContext(
-            fileID: viewModel.selectedFile?.id,
+            fileID: catalogController.selectedFile?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
             isPresented: session.showSubjectOutline,
             maskStorageKey: subjectOutlineCandidate?.maskStorageKey,
@@ -68,14 +76,14 @@ struct ZoomOverlayView: View {
 
     private var maskAnalysisImage: CGImage? {
         ZoomOverlayImagePolicy.analysisImage(
-            dedicatedAnalysisImage: viewModel.zoomOverlay.analysisCGImage,
-            displayImage: viewModel.zoomOverlay.cgImage,
+            dedicatedAnalysisImage: zoomOverlay.analysisCGImage,
+            displayImage: zoomOverlay.cgImage,
         )
     }
 
     private var navigation: ZoomNavigationPresentation {
         ZoomNavigationPresentation(
-            catalogController: viewModel.catalogController, selection: viewModel.selection,
+            catalogController: catalogController, selection: selection,
         )
     }
 
@@ -89,8 +97,8 @@ struct ZoomOverlayView: View {
 
     private var analysisCoordinator: ZoomOverlayAnalysisCoordinator {
         ZoomOverlayAnalysisCoordinator(
-            catalogController: viewModel.catalogController,
-            deepAIReviewController: viewModel.deepAIReviewController,
+            catalogController: catalogController,
+            deepAIReviewController: deepAIReviewController,
             session: session,
         )
     }
@@ -104,8 +112,8 @@ struct ZoomOverlayView: View {
             Color.black.opacity(0.97).ignoresSafeArea()
 
             ZoomImageCanvas(
-                cgImage: viewModel.zoomOverlay.cgImage, nsImage: viewModel.zoomOverlay.nsImage,
-                nativeImageSize: viewModel.zoomOverlay.nativeSize,
+                cgImage: zoomOverlay.cgImage, nsImage: zoomOverlay.nsImage,
+                nativeImageSize: zoomOverlay.nativeSize,
                 focusMask: session.focusMask, subjectOutline: session.subjectOutline,
                 clippingOverlay: rawClippingOverlay, showsSubjectOutline: session.showSubjectOutline,
                 focusTarget: focusTarget, viewport: $session.viewport,
@@ -123,15 +131,15 @@ struct ZoomOverlayView: View {
 
             VStack {
                 ZoomOverlayChrome(
-                    dimensions: viewModel.zoomOverlay.nativeSize
-                        ?? viewModel.zoomOverlay.cgImage.map { CGSize(width: $0.width, height: $0.height) }
-                        ?? viewModel.zoomOverlay.nsImage?.size,
-                    rating: viewModel.selectedFile.map(ratingDisplay(for:)),
-                    isReducedRAWPreview: viewModel.zoomOverlay.rawIsReduced,
-                    rawRenderSeconds: viewModel.zoomOverlay.rawRenderSeconds,
+                    dimensions: zoomOverlay.nativeSize
+                        ?? zoomOverlay.cgImage.map { CGSize(width: $0.width, height: $0.height) }
+                        ?? zoomOverlay.nsImage?.size,
+                    rating: catalogController.selectedFile.map(ratingDisplay(for:)),
+                    isReducedRAWPreview: zoomOverlay.rawIsReduced,
+                    rawRenderSeconds: zoomOverlay.rawRenderSeconds,
                     isPreparingRAW: session.isLoadingRAWPreview,
                     isPreparingRAWPreview: session.rawPreviewMaximumDimension != nil,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                     isInspectingExposure: session.evaluateRAWExposure,
                     canNavigatePrevious: navigation.canNavigatePrevious, canNavigateNext: navigation.canNavigateNext,
                     navigate: navigateSelection(by:), dismiss: dismiss,
@@ -140,8 +148,9 @@ struct ZoomOverlayView: View {
                 Spacer()
 
                 ZoomOverlayControls(
-                    viewModel: viewModel, session: session,
-                    hasFocusTarget: focusTarget != nil,
+                    zoomOverlay: zoomOverlay, catalogController: catalogController,
+                    deepAIReviewController: deepAIReviewController,
+                    session: session, hasFocusTarget: focusTarget != nil,
                     onRate: { rating in _ = applyRating(rating) },
                     onZoomOut: decreaseZoom,
                     onZoomReset: { withAnimation(.spring()) { resetToFit() } },
@@ -174,7 +183,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 123,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -183,7 +192,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 124,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -192,7 +201,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 126,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -201,7 +210,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 125,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -214,7 +223,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: press.characters,
                     keyCode: 0,
-                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                    navigationAxis: zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -246,10 +255,10 @@ struct ZoomOverlayView: View {
                 reload()
             }
         }
-        .onChange(of: viewModel.selectedFile) { _, _ in
-            guard viewModel.zoomOverlay.isVisible else { return }
+        .onChange(of: catalogController.selectedFile) { _, _ in
+            guard zoomOverlay.isVisible else { return }
             session.resetForSelectedFile(
-                initialZoomMode: viewModel.zoomOverlay.launchContext.initialZoomMode,
+                initialZoomMode: zoomOverlay.launchContext.initialZoomMode,
             )
             reload()
         }
@@ -260,7 +269,7 @@ struct ZoomOverlayView: View {
         }
         .task(id: clippingTaskID) {
             rawClippingOverlay = nil
-            guard clippingTaskID.enabled, let image = viewModel.zoomOverlay.cgImage else { return }
+            guard clippingTaskID.enabled, let image = zoomOverlay.cgImage else { return }
             let overlay = await RAWPreviewClippingOverlay.make(from: image)
             guard !Task.isCancelled else { return }
             rawClippingOverlay = overlay
@@ -268,7 +277,7 @@ struct ZoomOverlayView: View {
         .task(id: subjectOutlineTaskID) {
             await analysisCoordinator.loadSubjectOutline()
         }
-        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
+        .onChange(of: sharpnessModel.effectiveFocusConfig) { _, _ in
             session.maskTask?.cancel()
             session.maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -281,27 +290,27 @@ struct ZoomOverlayView: View {
     // MARK: - Reload
 
     private func applyLaunchContext() {
-        let context = viewModel.zoomOverlay.launchContext
+        let context = zoomOverlay.launchContext
         session.applyLaunchContext(context, hasFocusTarget: focusTarget != nil)
     }
 
     private func reload(preservingImage: Bool = false) {
-        guard let file = viewModel.selectedFile else { return }
+        guard let file = catalogController.selectedFile else { return }
         // Finish the current image before following a resize; avoid cancelling every window pixel.
         guard let loadID = session.beginPreviewLoad(preservingImage: preservingImage) else { return }
         let dimension = session.rawPreviewMaximumDimension
-        viewModel.zoomOverlay.extractionTask?.cancel()
-        viewModel.zoomOverlay.extractionTask = ZoomPreviewHandler.handleOverlay(
+        zoomOverlay.extractionTask?.cancel()
+        zoomOverlay.extractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
             source: session.sourceSelection.selected,
-            zoomOverlay: viewModel.zoomOverlay,
+            zoomOverlay: zoomOverlay,
             evaluateExposure: session.evaluateRAWExposure,
             exposureEV: session.committedRAWExposureEV,
             maximumDimension: dimension,
             preservingImage: preservingImage,
             onFinished: {
                 guard session.finishPreviewLoad(loadID) else { return }
-                if !Task.isCancelled, viewModel.zoomOverlay.isVisible,
+                if !Task.isCancelled, zoomOverlay.isVisible,
                    session.sourceSelection.selected == .developedRAW,
                    dimension != session.rawPreviewMaximumDimension {
                     reload(preservingImage: true)
@@ -320,7 +329,7 @@ struct ZoomOverlayView: View {
             by: delta,
             from: currentZoomIndex,
             in: navigation.orderedZoomFiles,
-            using: viewModel.selection,
+            using: selection,
         ) {
             prepareForNavigatedImage()
         }
@@ -328,7 +337,7 @@ struct ZoomOverlayView: View {
 
     private func installKeyMonitor() {
         session.keyMonitor.install { event in
-            guard viewModel.zoomOverlay.isVisible,
+            guard zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event)
             else { return .ignored }
@@ -346,19 +355,19 @@ struct ZoomOverlayView: View {
             ZoomOverlayKeyAction.resolve(
                 characters: event.characters,
                 keyCode: event.keyCode,
-                navigationAxis: viewModel.zoomOverlay.navigationAxis,
+                navigationAxis: zoomOverlay.navigationAxis,
             ),
         )
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
-        guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        session.applyRating(rating, to: selectedFile, in: navigation.orderedZoomFiles, using: viewModel.culling)
+        guard let selectedFile = catalogController.selectedFile else { return .ignored }
+        session.applyRating(rating, to: selectedFile, in: navigation.orderedZoomFiles, using: culling)
         return .handled
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        session.ratingDisplay(for: file, using: viewModel.ratings)
+        session.ratingDisplay(for: file, using: ratings)
     }
 
     // MARK: - Dismiss
@@ -368,7 +377,7 @@ struct ZoomOverlayView: View {
             session.endRAWExposureInspection()
             return
         }
-        viewModel.navigation.closeZoomOverlay()
+        workspaceNavigation.closeZoomOverlay()
         resetToFit()
         session.focusMask = nil
         session.subjectOutline = nil
@@ -388,7 +397,7 @@ struct ZoomOverlayView: View {
         if let point = focusPoints?.first {
             return CGPoint(x: point.normalizedX, y: point.normalizedY)
         }
-        return viewModel.selectedFile?.afFocusNormalized
+        return catalogController.selectedFile?.afFocusNormalized
     }
 
     // MARK: - Toolbar button
@@ -402,7 +411,7 @@ struct ZoomOverlayView: View {
     private func prepareForNavigatedImage() {
         session.viewport.offset = .zero
         session.viewport.lastOffset = .zero
-        session.pendingInitialZoomMode = viewModel.zoomOverlay.launchContext.initialZoomMode
+        session.pendingInitialZoomMode = zoomOverlay.launchContext.initialZoomMode
     }
 
     private func zoomToTarget() {

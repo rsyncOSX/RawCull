@@ -3,7 +3,9 @@ import RawCullCore
 import SwiftUI
 
 struct ZoomOverlayControls: View {
-    let viewModel: RawCullViewModel
+    let zoomOverlay: ZoomOverlayModel
+    let catalogController: CatalogController
+    let deepAIReviewController: DeepAIReviewController
     let session: ZoomSessionModel
     let hasFocusTarget: Bool
     let onRate: (Int) -> Void
@@ -13,14 +15,14 @@ struct ZoomOverlayControls: View {
 
     private var maskAnalysisImage: CGImage? {
         ZoomOverlayImagePolicy.analysisImage(
-            dedicatedAnalysisImage: viewModel.zoomOverlay.analysisCGImage,
-            displayImage: viewModel.zoomOverlay.cgImage,
+            dedicatedAnalysisImage: zoomOverlay.analysisCGImage,
+            displayImage: zoomOverlay.cgImage,
         )
     }
 
     private var subjectOutlineAvailable: Bool {
-        guard let file = viewModel.selectedFile else { return false }
-        return viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
+        guard let file = catalogController.selectedFile else { return false }
+        return deepAIReviewController.maskCandidate(for: file.id) != nil
     }
 
     private var useThumbnailSourceBinding: Binding<Bool> {
@@ -42,7 +44,7 @@ struct ZoomOverlayControls: View {
                         .background(.regularMaterial, in: Capsule())
                 }
 
-                RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlay.cgImage)
+                RAWExposureInspectionControls(session: session, image: zoomOverlay.cgImage)
             }
             if !session.evaluateRAWExposure {
                 HStack(spacing: 12) {
@@ -59,7 +61,7 @@ struct ZoomOverlayControls: View {
                         showImageSourceToggle: true,
                         useThumbnailSource: useThumbnailSourceBinding,
                         imageSourceSelection: $session.sourceSelection,
-                        imageSourceURL: viewModel.selectedFile?.url,
+                        imageSourceURL: catalogController.selectedFile?.url,
                         scale: session.viewport.scale,
                         canZoomOut: session.viewport.scale > 0.5,
                         canZoomIn: session.viewport.scale < 5.0,
@@ -78,7 +80,7 @@ struct ZoomOverlayControls: View {
                     ))
                     .toggleStyle(.button)
                     .buttonStyle(.plain)
-                    .disabled(viewModel.selectedFile == nil || session.sourceSelection.rawUnavailable)
+                    .disabled(catalogController.selectedFile == nil || session.sourceSelection.rawUnavailable)
                     .help("Inspect highlights and shadows in the current RAW image")
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)

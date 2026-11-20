@@ -169,13 +169,13 @@ final class AIAssessmentNavigation {
 }
 
 struct BurstAssessmentButton: View {
-    let viewModel: RawCullViewModel
+    let catalog: CatalogWorkspace
     let files: [FileItem]
     @Environment(AIAssessmentNavigation.self) private var navigation: AIAssessmentNavigation?
 
     var body: some View {
-        if let navigation, let catalog = viewModel.catalog.selectedSource?.url,
-           let entry = navigation.entry(matching: files, catalog: catalog)
+        if let navigation, let catalogURL = catalog.selectedSource?.url,
+           let entry = navigation.entry(matching: files, catalog: catalogURL)
         {
             Button {
                 navigation.openFromBurstList(entry.id)

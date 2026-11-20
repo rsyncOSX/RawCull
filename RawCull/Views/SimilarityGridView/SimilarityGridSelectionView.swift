@@ -9,7 +9,7 @@ import AppKit
 import SwiftUI
 
 struct SimilarityGridSelectionView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
@@ -33,7 +33,6 @@ struct SimilarityGridSelectionView: View {
             switch semanticSearchFeature.state {
             case .idle:
                 OrdinarySimilarityWorkflowView(
-                    viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                     analyzeBurstsRequested: $analyzeBurstsRequested,
@@ -51,7 +50,6 @@ struct SimilarityGridSelectionView: View {
 
             case let .results(summary):
                 CullingGridView(
-                    viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                 ) {
@@ -97,13 +95,12 @@ struct SimilarityGridSelectionView: View {
             if Task.isCancelled {
                 return
             }
-            await viewModel.burstWorkflow.reGroupBursts()
+            await burstWorkflow.reGroupBursts()
         }
     }
 }
 
 private struct OrdinarySimilarityWorkflowView: View {
-    @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
@@ -112,7 +109,6 @@ private struct OrdinarySimilarityWorkflowView: View {
     var body: some View {
         if similarityFeature.burstModeActive {
             CullingGridView(
-                viewModel: viewModel,
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
             ) {
@@ -122,7 +118,6 @@ private struct OrdinarySimilarityWorkflowView: View {
             }
         } else {
             BurstGroupsHomeView(
-                viewModel: viewModel,
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
                 analyzeBurstsRequested: $analyzeBurstsRequested,

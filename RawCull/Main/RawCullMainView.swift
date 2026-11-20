@@ -39,7 +39,6 @@ struct RawCullMainView: View {
             if assessmentNavigation.presentedID != nil {
                 AIAssessmentWorkspace(
                     navigation: assessmentNavigation,
-                    viewModel: viewModel,
                     photoAccess: assessmentPhotoAccess,
                 )
                 .navigationTitle("AI Assessment")
@@ -69,7 +68,7 @@ struct RawCullMainView: View {
             }
 
             if viewModel.zoomOverlay.isVisible {
-                ZoomOverlayView(viewModel: viewModel)
+                ZoomOverlayView()
                     .transition(.opacity)
                     .zIndex(10)
             }
@@ -101,7 +100,7 @@ struct RawCullMainView: View {
         .sheet(item: Bindable(viewModel.presentation).activeSheet) { sheet in
             switch sheet {
             case .stats:
-                ScanStatsSheetView(viewModel: viewModel)
+                ScanStatsSheetView()
 
             case .scoringParams:
                 ScoringParametersSheetView(
@@ -112,12 +111,11 @@ struct RawCullMainView: View {
                 )
 
             case .extractJPGs:
-                ExtractJPGsSheetView(viewModel: viewModel)
+                ExtractJPGsSheetView()
             }
         }
         .sheet(isPresented: Bindable(viewModel.presentation).showCopyARWFilesView) {
             CopyARWFilesView(
-                viewModel: viewModel,
                 sheetType: Bindable(viewModel.presentation).sheetType,
                 remoteDataNumbers: Bindable(viewModel.fileOperations).remoteDataNumbers,
                 showcopytask: Bindable(viewModel.presentation).showCopyARWFilesView,
@@ -256,7 +254,6 @@ struct RawCullMainView: View {
             )
         } content: {
             SidebarARWCatalogFileView(
-                viewModel: viewModel,
                 selectedSource: Bindable(viewModel.catalog).selectedSource,
                 scanning: Bindable(viewModel.catalog).scanning,
                 creatingThumbnails: Bindable(viewModel.catalog).isCreatingThumbnails,
@@ -346,7 +343,6 @@ struct RawCullMainView: View {
 
     private var gridSplit: some View {
         GridThumbnailView(
-            viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             nsImage: $nsImage,
@@ -361,7 +357,6 @@ struct RawCullMainView: View {
 
     private var similarityGridSplit: some View {
         SimilarityGridView(
-            viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             nsImage: $nsImage,
@@ -376,7 +371,6 @@ struct RawCullMainView: View {
 
     private var ratedGridSplit: some View {
         RatedPhotoGridView(
-            viewModel: viewModel,
             catalogURL: viewModel.catalog.selectedSource?.url,
             onPhotoSelected: { file in
                 viewModel.selection.selectedFileID = file.id
@@ -393,7 +387,6 @@ struct RawCullMainView: View {
         if let groupID = viewModel.burstWorkflow.activeBurstComparisonGroupID,
            !viewModel.burstWorkflow.showsDetailedBurstComparison {
             BurstCullingWorkspaceView(
-                viewModel: viewModel,
                 groupID: groupID,
                 onCompare: { viewModel.burstWorkflow.showsDetailedBurstComparison = true },
             )
@@ -408,7 +401,8 @@ struct RawCullMainView: View {
                 )
             } detail: {
                 ComparisonGridView(
-                    viewModel: viewModel,
+                    sharpnessModel: viewModel.sharpnessModel,
+                    selection: viewModel.selection,
                     showCandidateInspector: $showCandidateInspector,
                 )
                 .navigationTitle("Compare images")
@@ -434,7 +428,6 @@ struct RawCullMainView: View {
 
     private var aiAnalysisSplit: some View {
         AIAnalysisView(
-            viewModel: viewModel,
             qwenAnalysisFeature: qwenAnalysisFeature,
             objectAnalysisFeature: objectAnalysisFeature,
             combinedReviewFeature: combinedReviewFeature,
@@ -446,7 +439,6 @@ struct RawCullMainView: View {
 
     private var combinedReviewSplit: some View {
         CombinedReviewWorkspaceView(
-            viewModel: viewModel,
             feature: combinedReviewFeature,
             isEnabled: aiSettingsModel.combinedReviewEnabled,
         )

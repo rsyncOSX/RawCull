@@ -13,7 +13,9 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let session = ZoomSessionModel()
         let controls = ZoomOverlayControls(
-            viewModel: viewModel, session: session, hasFocusTarget: false,
+            zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
+            deepAIReviewController: viewModel.deepAIReviewController,
+            session: session, hasFocusTarget: false,
             onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
         )
         let changes = Mutex(0)
@@ -30,7 +32,11 @@ struct ReviewViewBoundaryTests {
 
     @Test func `burst header observes catalog changes independently of viewport changes`() {
         let viewModel = makeRawCullViewModel()
-        let header = BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
+        let header = BurstWorkspaceHeader(
+            catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
+            similarityFeature: viewModel.similarityFeature, similarityModel: viewModel.similarityModel,
+            groupID: 1, sortByAFPoint: .constant(false),
+        )
         let changes = Mutex(0)
         withObservationTracking {
             _ = header.body
@@ -65,13 +71,19 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let session = ZoomSessionModel()
         let content = VStack(spacing: 16) {
-            BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
+            BurstWorkspaceHeader(
+                catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
+                similarityFeature: viewModel.similarityFeature, similarityModel: viewModel.similarityModel,
+                groupID: 1, sortByAFPoint: .constant(false),
+            )
             BurstWorkspaceFilmstrip(
                 selection: viewModel.selection, files: [], analysis: nil, burstNumber: 1,
                 canNavigatePrevious: false, canNavigateNext: false, navigate: { _ in },
             )
             ZoomOverlayControls(
-                viewModel: viewModel, session: session, hasFocusTarget: false,
+                zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
+                deepAIReviewController: viewModel.deepAIReviewController,
+                session: session, hasFocusTarget: false,
                 onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
             )
         }

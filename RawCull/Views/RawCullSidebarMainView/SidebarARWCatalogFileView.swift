@@ -6,7 +6,11 @@ struct SidebarARWCatalogFileView: View {
         SettingsViewModel.shared
     }
 
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(WorkspacePresentationModel.self) private var presentation
+    @Environment(FileOperationsModel.self) private var fileOperations
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
     @Binding var selectedSource: ARWSourceCatalog?
 
     @Binding var scanning: Bool
@@ -30,8 +34,8 @@ struct SidebarARWCatalogFileView: View {
                 Text("Select a folder to start culling your photos.")
             }
         } else if scanning {
-            ProgressView("Scanning images: \(viewModel.catalog.scanDiscoveredCount)")
-        } else if viewModel.catalog.files.isEmpty {
+            ProgressView("Scanning images: \(catalog.scanDiscoveredCount)")
+        } else if catalog.files.isEmpty {
             ContentUnavailableView {
                 Label {
                     Text("No Files Found")
@@ -56,10 +60,10 @@ struct SidebarARWCatalogFileView: View {
                             text: "Clear",
                             helpText: "Clear rated files",
                         ) {
-                            viewModel.presentation.alertType = .clearRatedFiles
-                            viewModel.presentation.showingAlert = true
+                            presentation.alertType = .clearRatedFiles
+                            presentation.showingAlert = true
                         }
-                        .disabled(viewModel.catalog.isCreatingThumbnails)
+                        .disabled(catalog.isCreatingThumbnails)
 
                         LoupeSortBadge(status: sortStatus)
                     }
@@ -70,16 +74,16 @@ struct SidebarARWCatalogFileView: View {
                         // left side. If verticalimage == false then show ARW
                         // files in a table view
 
-                        ImageTableVerticalView(viewModel: viewModel)
+                        ImageTableVerticalView()
                     }
                     .frame(width: thumbnailSizeGrid + 20)
                     .fixedSize(horizontal: true, vertical: false)
 
                     if creatingThumbnails {
                         ProgressCount(
-                            completed: viewModel.fileOperations.fileOperationCompleted,
-                            total: viewModel.fileOperations.fileOperationTotal,
-                            estimatedSeconds: viewModel.fileOperations.fileOperationEstimatedSeconds,
+                            completed: fileOperations.fileOperationCompleted,
+                            total: fileOperations.fileOperationTotal,
+                            estimatedSeconds: fileOperations.fileOperationEstimatedSeconds,
                             statusText: progressStatusText,
                         )
                     }
@@ -106,7 +110,7 @@ struct SidebarARWCatalogFileView: View {
 
     private var addCatalogIcon: some View {
         Button {
-            viewModel.presentation.isShowingPicker = true
+            presentation.isShowingPicker = true
         } label: {
             Image(systemName: "folder.badge.plus")
                 .symbolRenderingMode(.monochrome)
@@ -120,7 +124,7 @@ struct SidebarARWCatalogFileView: View {
     }
 
     var files: [FileItem] {
-        viewModel.catalog.filteredFiles
+        catalog.filteredFiles
     }
 
     var thumbnailSizeGrid: CGFloat {
@@ -128,20 +132,20 @@ struct SidebarARWCatalogFileView: View {
     }
 
     private var progressStatusText: String {
-        if viewModel.catalog.currentScanAndCreateThumbnailsActor != nil {
+        if catalog.currentScanAndCreateThumbnailsActor != nil {
             return "Creating Thumbnails"
         }
-        if viewModel.fileOperations.currentScanAndExtractJPGsActor != nil {
+        if fileOperations.currentScanAndExtractJPGsActor != nil {
             return "Caching JPGs"
         }
         return "Extracting JPGs"
     }
 
     private var sortStatus: LoupeSortStatus {
-        if viewModel.similarityFeature.isSimilaritySortingActive {
+        if similarityFeature.isSimilaritySortingActive {
             return .similarity
         }
-        if viewModel.sharpnessModel.sortBySharpness {
+        if sharpnessModel.sortBySharpness {
             return .sharpness
         }
         return .name

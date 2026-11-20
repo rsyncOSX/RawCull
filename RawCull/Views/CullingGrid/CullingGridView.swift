@@ -23,7 +23,13 @@ import SwiftUI
 // MARK: - CullingGridView
 
 struct CullingGridView<Header: View>: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(CullingController.self) private var culling
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @ViewBuilder let header: () -> Header
@@ -33,7 +39,7 @@ struct CullingGridView<Header: View>: View {
     @State private var batchRating: Int = 3
 
     private var projection: CullingGridProjection {
-        viewModel.catalogController.cullingGridProjection(ratingFilter: ratingFilter)
+        catalogController.cullingGridProjection(ratingFilter: ratingFilter)
     }
 
     private var visibleBurstGroups: [CullingGridVisibleBurstGroup] {
@@ -51,7 +57,7 @@ struct CullingGridView<Header: View>: View {
                 if batchBadgeSelectionEnabled(), !badgeSelectionItems.isEmpty {
                     BatchBadgeSelectionControlsView(
                         items: badgeSelectionItems,
-                        selectedCount: viewModel.selection.selectedFileIDs.count,
+                        selectedCount: selection.selectedFileIDs.count,
                         rating: $batchRating,
                         onSelectBadge: selectFiles(matchingBadge:),
                         onApplyRating: applyBatchRating,
@@ -63,11 +69,11 @@ struct CullingGridView<Header: View>: View {
             .padding(.vertical, 12)
             .background(.ultraThinMaterial)
 
-            if viewModel.navigation.showsBurstGroups {
+            if navigation.showsBurstGroups {
                 CullingQueueHeader(
-                    title: reviewQueueTitle, isSingleImages: viewModel.burstWorkflow.burstReviewQueueFilter == .singleImages,
+                    title: reviewQueueTitle, isSingleImages: burstWorkflow.burstReviewQueueFilter == .singleImages,
                     burstCount: visibleBurstGroups.count,
-                    onBack: { viewModel.similarityFeature.burstModeActive = false },
+                    onBack: { similarityFeature.burstModeActive = false },
                 )
             }
 
@@ -76,11 +82,11 @@ struct CullingGridView<Header: View>: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         Group {
-                            if viewModel.navigation.showsBurstGroups {
+                            if navigation.showsBurstGroups {
                                 LazyVStack(spacing: 16) {
                                     ForEach(renderedBurstGroups) { group in
                                         CullingBurstGroupCard(
-                                            viewModel: viewModel, group: group, number: burstNumber(for: group.id),
+                                            group: group, number: burstNumber(for: group.id),
                                             select: handleToggleSelection(for:),
                                             markBurstGroupReviewed: markBurstGroupReviewed,
                                             deferBurstGroup: deferBurstGroup,
@@ -110,13 +116,13 @@ struct CullingGridView<Header: View>: View {
                         .padding(.bottom, 20)
                     }
                     .onAppear {
-                        guard let id = viewModel.selection.selectedFileID else { return }
+                        guard let id = selection.selectedFileID else { return }
                         // Defer one runloop cycle so LazyVGrid has laid out before scrolling
                         Task { @MainActor in
                             proxy.scrollTo(id, anchor: .top)
                         }
                     }
-                    .onChange(of: viewModel.selection.selectedFileID) { _, newID in
+                    .onChange(of: selection.selectedFileID) { _, newID in
                         guard let newID else { return }
                         withAnimation(.easeInOut(duration: 0.2)) {
                             proxy.scrollTo(newID, anchor: .center)
@@ -126,8 +132,8 @@ struct CullingGridView<Header: View>: View {
                         guard
                             let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
                                 state: newState,
-                                selectedFileID: viewModel.selection.selectedFileID,
-                                showsBurstGroups: viewModel.navigation.showsBurstGroups,
+                                selectedFileID: selection.selectedFileID,
+                                showsBurstGroups: navigation.showsBurstGroups,
                             )
                         else { return }
 
@@ -146,9 +152,9 @@ struct CullingGridView<Header: View>: View {
             }
         }
         .frame(minWidth: 400, minHeight: 400)
-        .animation(.easeInOut(duration: 0.15), value: viewModel.navigation.showsBurstGroups)
+        .animation(.easeInOut(duration: 0.15), value: navigation.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .task(id: viewModel.catalog.selectedSource) {
+        .task(id: catalog.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
         .onChange(of: gridCacheKey, initial: true) { _, _ in
@@ -174,17 +180,17 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        viewModel.selection.selectedFileID = file.id
-        viewModel.navigation.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
+        selection.selectedFileID = file.id
+        navigation.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
     }
 
     private func selectFiles(matchingBadge badge: String) {
         let matchingIDs = CullingGridSelectionCoordinator.matchingIDs(
             forBadge: badge,
             visibleFiles: visibleSelectionFiles,
-            burstGroupLookup: viewModel.similarityFeature.burstGroupLookup,
-            burstAnalysisResults: viewModel.burstWorkflow.burstAnalysisResults,
-            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
+            burstGroupLookup: similarityFeature.burstGroupLookup,
+            burstAnalysisResults: burstWorkflow.burstAnalysisResults,
+            saliencyInfo: sharpnessModel.saliencyInfo,
         )
         let next = CullingGridSelectionCoordinator.selectFiles(
             matchingIDs: matchingIDs,
@@ -196,14 +202,14 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func applyBatchRating() {
-        let selectedIDs = viewModel.selection.selectedFileIDs
+        let selectedIDs = selection.selectedFileIDs
         guard !selectedIDs.isEmpty else { return }
         let selectedFiles = CullingGridSelectionCoordinator.actionFiles(
             requestedIDs: selectedIDs,
             renderedFiles: visibleSelectionFiles,
         )
         guard !selectedFiles.isEmpty else { return }
-        viewModel.culling.updateRating(for: selectedFiles, rating: batchRating)
+        culling.updateRating(for: selectedFiles, rating: batchRating)
     }
 
     private var visibleSelectionFiles: [FileItem] {
@@ -221,7 +227,7 @@ struct CullingGridView<Header: View>: View {
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
         CullingGridSelectionCoordinator.zoomNavigationIDs(
             for: file,
-            showsBurstGroups: viewModel.navigation.showsBurstGroups,
+            showsBurstGroups: navigation.showsBurstGroups,
             visibleBurstGroups: renderedBurstGroups,
             files: files,
         )
@@ -233,19 +239,19 @@ struct CullingGridView<Header: View>: View {
 
     private var selectionState: CullingGridSelectionState {
         CullingGridSelectionState(
-            selectedFileID: viewModel.selection.selectedFileID,
-            selectedFileIDs: viewModel.selection.selectedFileIDs,
+            selectedFileID: selection.selectedFileID,
+            selectedFileIDs: selection.selectedFileIDs,
         )
     }
 
     private func applySelectionState(_ state: CullingGridSelectionState) {
-        viewModel.selection.selectedFileID = state.selectedFileID
-        viewModel.selection.selectedFileIDs = state.selectedFileIDs
+        selection.selectedFileID = state.selectedFileID
+        selection.selectedFileIDs = state.selectedFileIDs
     }
 
     private func synchronizeSelectionWithRenderedFiles() {
         let renderedIDs = visibleSelectionIDs
-        viewModel.selection.cullingGridRenderedFileIDs = renderedIDs
+        selection.cullingGridRenderedFileIDs = renderedIDs
         applySelectionState(
             CullingGridSelectionCoordinator.reconcileSelection(
                 selectionState,
@@ -265,7 +271,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var reviewQueueTitle: String {
-        switch viewModel.burstWorkflow.burstReviewQueueFilter {
+        switch burstWorkflow.burstReviewQueueFilter {
         case .all: "All bursts"
         case .singleImages: "Single Images"
         case .needsReview: "Needs Review"
@@ -280,21 +286,21 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func markBurstGroupReviewed(_ groupID: Int) {
-        viewModel.burstWorkflow.toggleBurstGroupReviewed(groupID: groupID)
+        burstWorkflow.toggleBurstGroupReviewed(groupID: groupID)
     }
 
     private func deferBurstGroup(_ groupID: Int) {
-        viewModel.burstWorkflow.toggleBurstGroupDeferred(groupID: groupID)
+        burstWorkflow.toggleBurstGroupDeferred(groupID: groupID)
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
-        guard viewModel.navigation.showsBurstGroups else { return .ignored }
+        guard navigation.showsBurstGroups else { return .ignored }
         if characters == "\u{1b}" {
-            viewModel.similarityFeature.burstModeActive = false
+            similarityFeature.burstModeActive = false
             return .handled
         }
         if characters == "u" || characters == "U" {
-            viewModel.burstWorkflow.undoLastBurstAction()
+            burstWorkflow.undoLastBurstAction()
             return .handled
         }
         guard let groupFiles = currentBurstGroupFiles
@@ -302,17 +308,17 @@ struct CullingGridView<Header: View>: View {
 
         switch characters {
         case "\r":
-            viewModel.burstWorkflow.compareBurstGroup(groupFiles)
+            burstWorkflow.compareBurstGroup(groupFiles)
             return .handled
 
         case "B", "b":
             guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
-            viewModel.burstWorkflow.keepBestInGroup(from: groupFiles)
+            burstWorkflow.keepBestInGroup(from: groupFiles)
             return .handled
 
         case "2":
             guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
-            viewModel.burstWorkflow.keepTopTwoInGroup(from: groupFiles)
+            burstWorkflow.keepTopTwoInGroup(from: groupFiles)
             return .handled
 
         default:
@@ -321,18 +327,18 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var currentBurstGroupFiles: [FileItem]? {
-        if viewModel.burstWorkflow.burstReviewQueueFilter == .singleImages {
+        if burstWorkflow.burstReviewQueueFilter == .singleImages {
             return renderedBurstGroups.first?.files
         }
-        guard let selectedID = viewModel.selection.selectedFileID,
-              let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
+        guard let selectedID = selection.selectedFileID,
+              let groupID = similarityFeature.burstGroupLookup[selectedID]
         else { return nil }
         return renderedBurstGroups.first { $0.id == groupID }?.files
     }
 
     private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
-        guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityFeature.burstGroupLookup[$0.id] }).first,
-              let result = viewModel.burstWorkflow.burstAnalysisResult(for: groupID)
+        guard let groupID = groupFiles.lazy.compactMap({ similarityFeature.burstGroupLookup[$0.id] }).first,
+              let result = burstWorkflow.burstAnalysisResult(for: groupID)
         else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)
     }
@@ -345,14 +351,14 @@ struct CullingGridView<Header: View>: View {
 
     private var sortScrollState: CullingGridSortScrollState {
         CullingGridSortScrollState(
-            isSharpnessSortingActive: viewModel.sharpnessModel.sortBySharpness,
+            isSharpnessSortingActive: sharpnessModel.sortBySharpness,
             isSimilaritySortingActive: similarityFeature.isSimilaritySortingActive,
             orderedFileIDs: projection.fileIDs,
         )
     }
 
     private var semanticResultCount: Int? {
-        guard !viewModel.navigation.showsBurstGroups,
+        guard !navigation.showsBurstGroups,
               let summary = semanticSearchFeature.resultSummary,
               summary.resultCount > 0
         else { return nil }

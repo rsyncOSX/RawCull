@@ -8,7 +8,12 @@
 import SwiftUI
 
 struct GridThumbnailView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
@@ -18,9 +23,8 @@ struct GridThumbnailView: View {
     var body: some View {
         // let _ = Self._printChanges()
         Group {
-            if viewModel.navigation.canShowThumbnailWorkspace {
+            if navigation.canShowThumbnailWorkspace {
                 GridThumbnailSelectionView(
-                    viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                     nsImage: $nsImage,
@@ -41,35 +45,35 @@ struct GridThumbnailView: View {
     }
 
     private func navigateToNext() {
-        guard let current = viewModel.selectedFile,
+        guard let current = catalogController.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index + 1 < sortedFiles.count else { return }
-        viewModel.selection.selectedFileID = sortedFiles[index + 1].id
+        selection.selectedFileID = sortedFiles[index + 1].id
     }
 
     private func navigateToPrevious() {
-        guard let current = viewModel.selectedFile,
+        guard let current = catalogController.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
-        viewModel.selection.selectedFileID = sortedFiles[index - 1].id
+        selection.selectedFileID = sortedFiles[index - 1].id
     }
 
     private var filteredFiles: [FileItem] {
-        viewModel.catalog.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
+        catalog.filteredFiles.filter { ratings.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {
-        if viewModel.navigation.showsBurstGroups,
-           !viewModel.similarityFeature.burstGroups.isEmpty {
+        if navigation.showsBurstGroups,
+           !similarityFeature.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
-            if !viewModel.selection.cullingGridRenderedFileIDs.isEmpty {
-                return viewModel.selection.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+            if !selection.cullingGridRenderedFileIDs.isEmpty {
+                return selection.cullingGridRenderedFileIDs.compactMap { visible[$0] }
             }
-            return viewModel.similarityFeature.burstGroups.flatMap { group in
+            return similarityFeature.burstGroups.flatMap { group in
                 group.fileIDs.compactMap { visible[$0] }
             }
         }
-        guard !viewModel.sharpnessModel.sortBySharpness else { return filteredFiles }
+        guard !sharpnessModel.sortBySharpness else { return filteredFiles }
         return filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }

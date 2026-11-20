@@ -16,7 +16,12 @@ struct ImageTableVerticalView: View {
         SettingsViewModel.shared
     }
 
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
 
     var body: some View {
         VStack(alignment: .center) {
@@ -28,21 +33,23 @@ struct ImageTableVerticalView: View {
                             LazyVStack(alignment: .center, spacing: 10) {
                                 ForEach(sortedFiles, id: \.id) { file in
                                     ImageItemView(file: file,
-                                        isSelected: viewModel.selection.selectedFileID == file.id,
+                                        isSelected: selection.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         ratingValue: ratingValue(for: file),
                                         ratingDisplay: ratingDisplay(for: file),
                                         ratingColor: ratingColor(for: file),
                                         onSelect: {
-                                            viewModel.selection.select(file)
+                                            selection.select(file)
                                         },
                                         /*
                                             // Double clik for tag Image
                                             onSelected: {
 
                                                  Task {
-                                                     viewModel.selection.select(file)
-                                                     await viewModel.toggleTag(for: file)
+                                                     selection.select(file)
+                                                     // The root's toggleTag(for:) is gone; tagging is a
+                                                     // rating change on CullingController (default tag = 3).
+                                                     culling.updateRating(for: [file], rating: 3)
                                                  }
                                             },
                                              */
@@ -60,14 +67,14 @@ struct ImageTableVerticalView: View {
                         .onAppear(perform: {
                             // Defer one run loop so LazyVStack IDs are registered in scroll geometry
                             DispatchQueue.main.async {
-                                if let newID = viewModel.selectedFile?.id {
+                                if let newID = catalogController.selectedFile?.id {
                                     withAnimation {
                                         proxy.scrollTo(newID, anchor: .center)
                                     }
                                 }
                             }
                         })
-                        .onChange(of: viewModel.selection.selectedFileID) { _, newID in
+                        .onChange(of: selection.selectedFileID) { _, newID in
                             guard let newID else { return }
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 proxy.scrollTo(newID, anchor: .center)
@@ -108,7 +115,7 @@ struct ImageTableVerticalView: View {
     // MARK: - Private Helpers
 
     private var filteredFiles: [FileItem] {
-        viewModel.catalog.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
+        catalog.filteredFiles.filter { ratings.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {
@@ -119,18 +126,18 @@ struct ImageTableVerticalView: View {
     }
 
     private var usesAnalysisSortOrder: Bool {
-        viewModel.sharpnessModel.sortBySharpness
-            || viewModel.similarityFeature.isSimilaritySortingActive
+        sharpnessModel.sortBySharpness
+            || similarityFeature.isSimilaritySortingActive
     }
 
     private func ratingValue(for file: FileItem) -> Int {
-        viewModel.ratings.getRating(for: file)
+        ratings.getRating(for: file)
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
             rating: ratingValue(for: file),
-            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
+            isExplicit: ratings.taggedNamesCache.contains(file.name),
         )
     }
 
@@ -146,14 +153,14 @@ struct ImageTableVerticalView: View {
     }
 
     private func selectAndScroll(file: FileItem) {
-        viewModel.selection.select(file)
-        // Scrolling is handled by onChange(of: viewModel.selection.selectedFileID) to avoid double animation
+        selection.select(file)
+        // Scrolling is handled by onChange(of: selection.selectedFileID) to avoid double animation
     }
 
     private func moveSelectionUp() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
-        let currentIndex = files.firstIndex { $0.id == viewModel.selection.selectedFileID } ?? 0
+        let currentIndex = files.firstIndex { $0.id == selection.selectedFileID } ?? 0
         let nextIndex = max(0, currentIndex - 1)
         selectAndScroll(file: files[nextIndex])
     }
@@ -161,7 +168,7 @@ struct ImageTableVerticalView: View {
     private func moveSelectionDown() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
-        let currentIndex = files.firstIndex { $0.id == viewModel.selection.selectedFileID } ?? -1
+        let currentIndex = files.firstIndex { $0.id == selection.selectedFileID } ?? -1
         let nextIndex = min(files.count - 1, currentIndex + 1)
         selectAndScroll(file: files[nextIndex])
     }

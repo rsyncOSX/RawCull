@@ -10,7 +10,15 @@ import SwiftUI
 extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
-            viewModel: viewModel,
+            catalog: viewModel.catalog,
+            selection: viewModel.selection,
+            ratings: viewModel.ratings,
+            presentation: viewModel.presentation,
+            burstWorkflow: viewModel.burstWorkflow,
+            navigation: viewModel.navigation,
+            catalogController: viewModel.catalogController,
+            sharpnessModel: viewModel.sharpnessModel,
+            similarityFeature: viewModel.similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             combinedReviewEnabled: aiSettingsModel.combinedReviewEnabled,
             isDisabled: deepAIReviewController.isRunning

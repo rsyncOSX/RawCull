@@ -10,7 +10,10 @@ import SwiftUI
 struct ScanStatsSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +50,7 @@ struct ScanStatsSheetView: View {
                 catalogSummarySection
                 Divider()
                 sharpnessSummarySection
-                if !viewModel.burstWorkflow.burstAnalysisResults.isEmpty {
+                if !burstWorkflow.burstAnalysisResults.isEmpty {
                     Divider()
                     burstReviewSummarySection
                 }
@@ -143,10 +146,10 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                if let catalog = viewModel.catalog.selectedSource {
+                if let catalog = catalog.selectedSource {
                     minorInfoRow("Name", catalog.name)
                 }
-                minorInfoRow("Files scanned", "\(viewModel.catalog.files.count) RAW")
+                minorInfoRow("Files scanned", "\(catalog.files.count) RAW")
                 minorInfoRow("Total size", totalSize)
                 if let range = dateRange {
                     minorInfoRow("Date range", range)
@@ -169,13 +172,13 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                let scores = Array(viewModel.sharpnessModel.scores.values)
+                let scores = Array(sharpnessModel.scores.values)
                 if scores.isEmpty {
                     minorInfoRow("Status", "Not scored")
-                    minorInfoRow("Scored", "0 of \(viewModel.catalog.files.count)")
+                    minorInfoRow("Scored", "0 of \(catalog.files.count)")
                 } else {
                     let scored = scores.count
-                    let total = viewModel.catalog.files.count
+                    let total = catalog.files.count
                     let mean = scores.reduce(0, +) / Float(scores.count)
                     let minScore = scores.min() ?? 0
                     let maxScore = scores.max() ?? 0
@@ -196,7 +199,7 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                let summary = viewModel.burstWorkflow.burstReviewSummary
+                let summary = burstWorkflow.burstReviewSummary
                 minorInfoRow("Burst groups", "\(summary.burstGroups)")
                 minorInfoRow("Single images", "\(summary.singleImages)")
                 minorInfoRow("Needs review", "\(summary.needsReview)")
@@ -274,16 +277,16 @@ struct ScanStatsSheetView: View {
     }
 
     private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
-        guard let catalog = viewModel.catalog.selectedSource?.url else {
-            let n = viewModel.catalog.files.count
+        guard let catalogURL = catalog.selectedSource?.url else {
+            let n = catalog.files.count
             return (0, 0, 0, 0, 0, 0, n, n)
         }
         var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
-        for file in viewModel.catalog.files {
-            if viewModel.ratings.cullingModel.isUnrated(photo: file.name, in: catalog) {
+        for file in catalog.files {
+            if ratings.cullingModel.isUnrated(photo: file.name, in: catalogURL) {
                 unrated += 1
             } else {
-                switch viewModel.ratings.rating(for: file) {
+                switch ratings.rating(for: file) {
                 case -1: rejected += 1
                 case 0: kept += 1
                 case 2: r2 += 1
@@ -294,16 +297,16 @@ struct ScanStatsSheetView: View {
                 }
             }
         }
-        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.catalog.files.count)
+        return (rejected, kept, r2, r3, r4, r5, unrated, catalog.files.count)
     }
 
     private var totalSize: String {
-        let bytes = viewModel.catalog.files.reduce(Int64(0)) { $0 + $1.size }
+        let bytes = catalog.files.reduce(Int64(0)) { $0 + $1.size }
         return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     private var dateRange: String? {
-        let dates = viewModel.catalog.files.map(\.dateModified)
+        let dates = catalog.files.map(\.dateModified)
         guard let first = dates.min(), let last = dates.max() else { return nil }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -315,13 +318,13 @@ struct ScanStatsSheetView: View {
     }
 
     private var uniqueCameras: String? {
-        let names = Set(viewModel.catalog.files.compactMap(\.exifData?.camera))
+        let names = Set(catalog.files.compactMap(\.exifData?.camera))
         guard !names.isEmpty else { return nil }
         return names.sorted().joined(separator: ", ")
     }
 
     private var uniqueLenses: String? {
-        let names = Set(viewModel.catalog.files.compactMap(\.exifData?.lensModel))
+        let names = Set(catalog.files.compactMap(\.exifData?.lensModel))
         guard !names.isEmpty else { return nil }
         return names.sorted().joined(separator: ", ")
     }
