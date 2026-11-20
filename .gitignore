@@ -77,3 +77,7 @@ fastlane/test_output/
 # Python generated files
 __pycache__/
 *.py[cod]
+
+# graphify knowledge graph outputs
+graphify-out/
+graphify-out-rawcull/
