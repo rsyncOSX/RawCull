@@ -103,7 +103,7 @@ struct CombinedReviewView: View {
         }
         .task { await feature.restoreStoredRun() }
         .task(id: "\(files.map { "\($0.id)-\($0.url.absoluteString)-\(String(describing: $0.afFocusNormalized))" })-\(feature.isRunning)") {
-            await feature.prepareParameters(files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized) })
+            await feature.prepareParameters(files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized, iso: $0.exifData?.isoValue) })
         }
         .task(id: "\(feature.manifest?.snapshot.id.uuidString ?? "none")-\(feature.isRunning)") {
             await feature.prepareResumeParameters()
@@ -180,10 +180,10 @@ private struct CombinedReviewRunActions: View {
     var body: some View {
         HStack {
             Button("Review") {
-                let selected = files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized) }
+                let selected = files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized, iso: $0.exifData?.isoValue) }
                 Task { await feature.analyze(selected) }
             }.buttonStyle(.borderedProminent)
-                .disabled(!feature.canStartReview(for: files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized) }))
+                .disabled(!feature.canStartReview(for: files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized, iso: $0.exifData?.isoValue) }))
             if feature.isRunning {
                 Button("Cancel", action: feature.cancel)
             } else if feature.manifest != nil {

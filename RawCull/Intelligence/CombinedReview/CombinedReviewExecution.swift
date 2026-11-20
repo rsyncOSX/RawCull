@@ -293,7 +293,7 @@ extension CombinedReviewFeature {
                       mask.width == technical.image.width, mask.height == technical.image.height,
                       let contract = subject.maskContract else { throw SubjectMaskDecodingError.unsafeRegistration }
                 try contract.validate(mask: mask, sourceIdentity: source.metadata.identity)
-                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: file.normalizedAFPoint) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
+                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: file.normalizedAFPoint, iso: file.iso) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
                 var values = ["subjectDetail": Double(measured.finalScore), "fineDetail": Double(measured.fineDetailScore), "maskCoverage": Double(measured.maskCoverage)]
                 guard measured.scorerVersion == SubjectMaskFocusScorer.semanticsVersion else { throw ReviewRunError.incompatible }
                 if let count = measured.foregroundCount {

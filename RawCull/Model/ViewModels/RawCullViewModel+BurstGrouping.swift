@@ -617,6 +617,7 @@ extension RawCullViewModel {
                 subjectLabel: clipSubjectLabels[file.id]
                     ?? sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
                 normalizedAFPoint: file.afFocusNormalized,
+                iso: file.exifData?.isoValue,
             )
         }
         let context = DeepAIReviewGroupContext(

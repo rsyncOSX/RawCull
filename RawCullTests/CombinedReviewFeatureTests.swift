@@ -794,7 +794,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
 }
 
 private nonisolated struct ReviewFakeScorer: SubjectMaskFocusScoring {
-    func score(image _: CGImage, subjectMask _: CGImage, normalizedAFPoint _: CGPoint?) async throws -> SubjectMaskFocusEvidence? {
+    func score(image _: CGImage, subjectMask _: CGImage, normalizedAFPoint _: CGPoint?, iso _: Int?) async throws -> SubjectMaskFocusEvidence? {
         .init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, finalScore: 0.5, broadSubjectScore: 0.4, localDetailScore: 0.5, fineDetailScore: 0.6, maskCoverage: 0.25,
               autofocusInsideMask: nil, usableLocalPatch: true, backgroundDominancePenaltyApplied: false)
     }

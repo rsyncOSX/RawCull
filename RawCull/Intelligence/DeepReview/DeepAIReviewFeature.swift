@@ -54,6 +54,7 @@ nonisolated struct DeepAIReviewInputCandidate: Equatable, Identifiable, Sendable
     let normalSharpnessScore: Float?
     let subjectLabel: String?
     let normalizedAFPoint: CGPoint?
+    var iso: Int? = nil
 }
 
 nonisolated struct DeepAIReviewRequest: Equatable, Sendable {
@@ -796,6 +797,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
                     image: image,
                     subjectMask: selected.result.mask,
                     normalizedAFPoint: candidate.normalizedAFPoint,
+                    iso: candidate.iso,
                 )
             } catch is CancellationError {
                 throw CancellationError()
