@@ -33,8 +33,8 @@ extension RawCullMainView {
 
         if case let .success(url) = result {
             let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
-            viewModel.sources.append(source)
-            viewModel.selectedSource = source
+            viewModel.catalog.sources.append(source)
+            viewModel.catalog.selectedSource = source
         }
     }
 }

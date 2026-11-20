@@ -14,7 +14,7 @@ final class FakeMCPWorkspace: MCPAnalysisWorkspace {
     var loadedSource: ARWSourceCatalog?
     var files: [FileItem] = []
     var scanDiscoveredCount = 0
-    var catalogLoadFailure: RawCullViewModel.CatalogLoadFailure?
+    var catalogLoadFailure: CatalogLoadFailure?
     var catalogPersistenceError: String?
     var isCatalogTransitionActive = false
     var isScanningCatalog = false

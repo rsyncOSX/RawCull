@@ -519,8 +519,8 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: service,
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         await viewModel.semanticSearchFeature.search(for: " \n ")
         #expect(await provider.queries().isEmpty)
         #expect(viewModel.semanticSearchFeature.state == .idle)
@@ -531,15 +531,15 @@ struct RawCullSemanticSearchTests {
         )
 
         await viewModel.semanticSearchFeature.search(for: "wildlife")
-        #expect(viewModel.filteredFiles.count == 20)
+        #expect(viewModel.catalog.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
 
         await viewModel.semanticSearchFeature.setShowsAllResults(true)
-        #expect(viewModel.filteredFiles.count == 25)
+        #expect(viewModel.catalog.filteredFiles.count == 25)
         #expect(await provider.queries() == ["wildlife"])
 
         await viewModel.semanticSearchFeature.setShowsAllResults(false)
-        #expect(viewModel.filteredFiles.count == 20)
+        #expect(viewModel.catalog.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
     }
 
@@ -563,8 +563,8 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: service,
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         #expect(
             await viewModel.similarityModel.hydrateSemanticArtifacts(
                 fixture.files,
@@ -572,20 +572,20 @@ struct RawCullSemanticSearchTests {
         )
 
         await viewModel.semanticSearchFeature.search(for: "wildlife")
-        #expect(viewModel.filteredFiles.count == 20)
+        #expect(viewModel.catalog.filteredFiles.count == 20)
         #expect(viewModel.activeCatalogFiles.count == 20)
 
         await viewModel.semanticSearchFeature.adjustSelection(by: -13)
 
-        let selectedIDs = Set(viewModel.filteredFiles.map(\.id))
-        #expect(viewModel.filteredFiles.count == 7)
+        let selectedIDs = Set(viewModel.catalog.filteredFiles.map(\.id))
+        #expect(viewModel.catalog.filteredFiles.count == 7)
         #expect(Set(viewModel.activeCatalogFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
         #expect(viewModel.sharpnessScoringTargetCount == selectedIDs.count)
         #expect(await provider.queries() == ["wildlife"])
 
-        let selectedFile = try #require(viewModel.filteredFiles.first)
+        let selectedFile = try #require(viewModel.catalog.filteredFiles.first)
         let outsideFile = try #require(
             fixture.files.first { !selectedIDs.contains($0.id) },
         )
@@ -596,16 +596,16 @@ struct RawCullSemanticSearchTests {
 
         await viewModel.semanticSearchFeature.adjustSelection(by: -1)
 
-        #expect(viewModel.filteredFiles.count == 6)
+        #expect(viewModel.catalog.filteredFiles.count == 6)
         #expect(viewModel.selection.selectedFileIDs == [selectedFile.id])
-        #expect(viewModel.selection.selectedFileID == viewModel.filteredFiles.first?.id)
+        #expect(viewModel.selection.selectedFileID == viewModel.catalog.filteredFiles.first?.id)
         #expect(viewModel.selection.comparisonFileIDs.isEmpty)
         #expect(viewModel.mainViewMode == .similarityGrid)
         #expect(await provider.queries() == ["wildlife"])
 
         await viewModel.semanticSearchFeature.adjustSelection(by: 1)
 
-        #expect(viewModel.filteredFiles.count == 7)
+        #expect(viewModel.catalog.filteredFiles.count == 7)
         #expect(viewModel.activeCatalogFiles.count == 7)
         #expect(await provider.queries() == ["wildlife"])
 
@@ -659,9 +659,9 @@ struct RawCullSemanticSearchTests {
             ),
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
-        viewModel.selectedSource = ARWSourceCatalog(
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
+        viewModel.catalog.selectedSource = ARWSourceCatalog(
             name: "Semantic fixture",
             url: fixture.root,
         )
@@ -673,7 +673,7 @@ struct RawCullSemanticSearchTests {
         await viewModel.semanticSearchFeature.search(for: "wildlife")
         await viewModel.semanticSearchFeature.adjustSelection(by: -2)
 
-        let selected = viewModel.filteredFiles
+        let selected = viewModel.catalog.filteredFiles
         let outside = try #require(
             fixture.files.first { candidate in
                 !selected.contains(where: { $0.id == candidate.id })
@@ -723,8 +723,8 @@ struct RawCullSemanticSearchTests {
             ),
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         viewModel.selection.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
         #expect(
             await viewModel.similarityModel.hydrateSemanticArtifacts(
@@ -740,7 +740,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.similarityModel.semanticSearchState == .idle)
         #expect(viewModel.selection.selectedFileIDs.isEmpty)
         #expect(viewModel.activeCatalogFiles.count == 25)
-        #expect(viewModel.filteredFiles.count == 25)
+        #expect(viewModel.catalog.filteredFiles.count == 25)
         #expect(viewModel.fullCatalogBurstAnalysisFiles.count == 25)
     }
 
@@ -760,8 +760,8 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: service,
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         #expect(await viewModel.similarityModel.hydrateSemanticArtifacts(fixture.files) == 1)
 
         let oldTask = Task {
@@ -784,7 +784,7 @@ struct RawCullSemanticSearchTests {
             viewModel.semanticSearchFeature
                 .resultEvidence(for: fixture.files[0].id)?.score == 0.9,
         )
-        #expect(viewModel.filteredFiles.map(\.id) == fixture.files.map(\.id))
+        #expect(viewModel.catalog.filteredFiles.map(\.id) == fixture.files.map(\.id))
     }
 
     @MainActor
@@ -803,8 +803,8 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: service,
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         #expect(await viewModel.similarityModel.hydrateSemanticArtifacts(fixture.files) == 1)
 
         let searchTask = Task {
@@ -817,13 +817,13 @@ struct RawCullSemanticSearchTests {
 
         await viewModel.semanticSearchFeature.cancel()
         #expect(viewModel.semanticSearchFeature.state == .idle)
-        #expect(viewModel.filteredFiles == fixture.files)
+        #expect(viewModel.catalog.filteredFiles == fixture.files)
 
         await gate.release("cancel me", score: 0.9)
         await searchTask.value
         #expect(viewModel.semanticSearchFeature.state == .idle)
         #expect(viewModel.semanticSearchFeature.selectedFileIDs.isEmpty)
-        #expect(viewModel.filteredFiles == fixture.files)
+        #expect(viewModel.catalog.filteredFiles == fixture.files)
     }
 
     @MainActor
@@ -847,8 +847,8 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: semanticService,
             similarityArtifactStore: fixture.store,
         )
-        viewModel.files = fixture.files
-        viewModel.filteredFiles = fixture.files
+        viewModel.catalog.files = fixture.files
+        viewModel.catalog.filteredFiles = fixture.files
         viewModel.selection.selectedFileID = fixture.files[1].id
         viewModel.ratings.ratingCache = [
             "c.raw": 5,
@@ -864,15 +864,15 @@ struct RawCullSemanticSearchTests {
 
         await viewModel.semanticSearchFeature.search(for: "night wildlife")
 
-        #expect(viewModel.filteredFiles.map(\.name) == ["c.raw", "b.raw"])
-        let semanticFocusedID = viewModel.filteredFiles.first?.id
+        #expect(viewModel.catalog.filteredFiles.map(\.name) == ["c.raw", "b.raw"])
+        let semanticFocusedID = viewModel.catalog.filteredFiles.first?.id
         #expect(viewModel.selection.selectedFileID == semanticFocusedID)
         #expect(await provider.queries() == ["night wildlife"])
 
         viewModel.ratings.ratingFilter = .all
         await viewModel.semanticSearchFeature.clear()
 
-        #expect(viewModel.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])
+        #expect(viewModel.catalog.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])
         #expect(viewModel.selection.selectedFileID == semanticFocusedID)
     }
 

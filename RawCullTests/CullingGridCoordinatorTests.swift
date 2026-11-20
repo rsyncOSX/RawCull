@@ -109,8 +109,8 @@ struct CullingGridCoordinatorTests {
         let session = model.burstReviewSession
         let first = makeGridTestFile("first.ARW")
         let second = makeGridTestFile("second.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
-        model.filteredFiles = [first, second]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.catalog.filteredFiles = [first, second]
         model.mainViewMode = .similarityGrid
         model.similarityModel.burstModeActive = true
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, second.id])]
@@ -152,8 +152,8 @@ struct CullingGridCoordinatorTests {
         let model = makeRawCullViewModel()
         let first = makeGridTestFile("first.ARW")
         let second = makeGridTestFile("second.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
-        model.files = [first, second]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.catalog.files = [first, second]
         model.updateRating(for: first, rating: 2)
         model.updateRating(for: second, rating: 0)
         model.burstReviewSession.replaceRankings([1: makeReviewQueueResult(
@@ -176,14 +176,14 @@ struct CullingGridCoordinatorTests {
     @Test func `thumbnail workspace follows the current catalog across view switches`() {
         let viewModel = makeRawCullViewModel()
         #expect(!viewModel.canShowThumbnailWorkspace)
-        viewModel.selectedSource = ARWSourceCatalog(name: "First", url: URL(fileURLWithPath: "/tmp/first"))
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "First", url: URL(fileURLWithPath: "/tmp/first"))
         for mode in [MainViewMode.grid, .loupe, .similarityGrid, .combinedReview, .grid] {
             viewModel.selectMainViewMode(mode)
             #expect(viewModel.canShowThumbnailWorkspace)
         }
-        viewModel.selectedSource = ARWSourceCatalog(name: "Second", url: URL(fileURLWithPath: "/tmp/second"))
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Second", url: URL(fileURLWithPath: "/tmp/second"))
         #expect(viewModel.canShowThumbnailWorkspace)
-        viewModel.selectedSource = nil
+        viewModel.catalog.selectedSource = nil
         #expect(!viewModel.canShowThumbnailWorkspace)
     }
 
@@ -354,7 +354,7 @@ struct CullingGridCoordinatorTests {
         let model = makeRawCullViewModel()
         let first = makeGridTestFile("first.ARW"), middle = makeGridTestFile("middle.ARW")
         let replacement = makeGridTestFile("replacement.ARW"), last = makeGridTestFile("last.ARW")
-        model.filteredFiles = [first, middle, last, replacement]
+        model.catalog.filteredFiles = [first, middle, last, replacement]
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, middle.id, last.id])]
         model.sharpnessModel.scores = [first.id: 0.8]
         let baseline = model.cullingGridProjection(ratingFilter: .all)
@@ -364,7 +364,7 @@ struct CullingGridCoordinatorTests {
         #expect(model.cullingGridProjection(ratingFilter: .all).key != baseline.key)
         model.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]
         #expect(model.cullingGridProjection(ratingFilter: .all).groups.first?.files.map(\.id) == [first.id, replacement.id, last.id])
-        model.filteredFiles = [first, replacement, last]
+        model.catalog.filteredFiles = [first, replacement, last]
         #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id, last.id])
     }
 
@@ -496,7 +496,7 @@ struct CullingGridCoordinatorTests {
         let reviewed = [makeGridTestFile("reviewed-a.ARW"), makeGridTestFile("reviewed-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
         let viewModel = makeRawCullViewModel()
-        viewModel.files = first + [single] + reviewed + next
+        viewModel.catalog.files = first + [single] + reviewed + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: first.map(\.id)),
             BurstGroup(id: 2, fileIDs: [single.id]),
@@ -532,7 +532,7 @@ struct CullingGridCoordinatorTests {
         let current = [makeGridTestFile("current-a.ARW"), makeGridTestFile("current-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
         let viewModel = makeRawCullViewModel()
-        viewModel.files = current + next
+        viewModel.catalog.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))
@@ -557,9 +557,9 @@ struct CullingGridCoordinatorTests {
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
-        viewModel.selectedSource = catalog
+        viewModel.catalog.selectedSource = catalog
         viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.files = current + next
+        viewModel.catalog.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))
@@ -585,13 +585,13 @@ struct CullingGridCoordinatorTests {
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
-        viewModel.selectedSource = catalog
+        viewModel.catalog.selectedSource = catalog
         viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.ratings.cullingModel.mergeScoringResults(
             [CullingScoringResult(fileName: current[0].name, score: 0.75, saliencySubject: nil)],
             in: catalog.url,
         )
-        viewModel.files = current + next
+        viewModel.catalog.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
             BurstGroup(id: 2, fileIDs: next.map(\.id))

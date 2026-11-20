@@ -89,7 +89,7 @@ struct CacheSettingsTab: View {
                         Button("Delete Saved Files", role: .destructive) {
                             showDeleteSavedFiles = true
                         }
-                        .disabled(viewModel.isCreatingThumbnails || isDeletingSavedFiles
+                        .disabled(viewModel.catalog.isCreatingThumbnails || isDeletingSavedFiles
                             || viewModel.ratings.cullingModel.persistenceError != nil)
                     }
                 }

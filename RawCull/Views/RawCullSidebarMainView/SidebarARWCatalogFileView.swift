@@ -30,8 +30,8 @@ struct SidebarARWCatalogFileView: View {
                 Text("Select a folder to start culling your photos.")
             }
         } else if scanning {
-            ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
-        } else if viewModel.files.isEmpty {
+            ProgressView("Scanning images: \(viewModel.catalog.scanDiscoveredCount)")
+        } else if viewModel.catalog.files.isEmpty {
             ContentUnavailableView {
                 Label {
                     Text("No Files Found")
@@ -59,7 +59,7 @@ struct SidebarARWCatalogFileView: View {
                             viewModel.presentation.alertType = .clearRatedFiles
                             viewModel.presentation.showingAlert = true
                         }
-                        .disabled(viewModel.isCreatingThumbnails)
+                        .disabled(viewModel.catalog.isCreatingThumbnails)
 
                         LoupeSortBadge(status: sortStatus)
                     }
@@ -120,7 +120,7 @@ struct SidebarARWCatalogFileView: View {
     }
 
     var files: [FileItem] {
-        viewModel.filteredFiles
+        viewModel.catalog.filteredFiles
     }
 
     var thumbnailSizeGrid: CGFloat {
@@ -128,7 +128,7 @@ struct SidebarARWCatalogFileView: View {
     }
 
     private var progressStatusText: String {
-        if viewModel.currentScanAndCreateThumbnailsActor != nil {
+        if viewModel.catalog.currentScanAndCreateThumbnailsActor != nil {
             return "Creating Thumbnails"
         }
         if viewModel.fileOperations.currentScanAndExtractJPGsActor != nil {

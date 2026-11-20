@@ -11,16 +11,16 @@ struct SharpnessTargetPresentationTests {
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
         let third = makeCullingTestFile("C.ARW")
-        model.files = [third, second, first]
-        model.filteredFiles = [third, first]
+        model.catalog.files = [third, second, first]
+        model.catalog.filteredFiles = [third, first]
         model.ratings.ratingCache = [first.name: 3, second.name: 3, third.name: -1]
         model.ratings.ratingFilter = filter
         for selection in [Set<UUID>(), [first.id, second.id], [UUID()]] {
             model.selection.selectedFileIDs = selection
             #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
-            model.filteredFiles = []
+            model.catalog.filteredFiles = []
             #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
-            model.filteredFiles = [third, first]
+            model.catalog.filteredFiles = [third, first]
         }
     }
 
@@ -30,8 +30,8 @@ struct SharpnessTargetPresentationTests {
         #expect(model.sharpnessScoringTargetCount == 0)
         #expect(model.sharpnessScoringTargetDescription == "0 catalog files")
         let file = makeCullingTestFile("A.ARW")
-        model.files = [file]
-        model.filteredFiles = [file]
+        model.catalog.files = [file]
+        model.catalog.filteredFiles = [file]
         #expect(model.sharpnessScoringTargetDescription == "1 catalog file")
         model.selection.selectedFileIDs = [file.id]
         #expect(model.sharpnessScoringTargetDescription == "1 selected file")

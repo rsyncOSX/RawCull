@@ -41,9 +41,9 @@ struct SettingsView: View {
 
                     Tab("MCP", systemImage: "link") {
                         MCPSettingsTab(
-                            selectedCatalogName: viewModel.selectedSource?.name,
-                            selectedCatalogURL: viewModel.selectedSource?.url,
-                            canAuthorizeAnalysis: !viewModel.scanning && !viewModel.files.isEmpty,
+                            selectedCatalogName: viewModel.catalog.selectedSource?.name,
+                            selectedCatalogURL: viewModel.catalog.selectedSource?.url,
+                            canAuthorizeAnalysis: !viewModel.catalog.scanning && !viewModel.catalog.files.isEmpty,
                             authorizeCatalog: viewModel.authorizeMCPCatalog,
                         )
                     }

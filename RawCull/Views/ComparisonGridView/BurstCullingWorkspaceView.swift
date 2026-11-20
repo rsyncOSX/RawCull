@@ -113,7 +113,7 @@ struct BurstCullingWorkspaceView: View {
 
     var body: some View {
         let displayedFiles = files
-        let catalog = viewModel.selectedSource?.url
+        let catalog = viewModel.catalog.selectedSource?.url
         let assessment = catalog.flatMap { assessmentNavigation?.entry(matching: displayedFiles, catalog: $0) }
         let assessedFrame = selectedFile.flatMap { file in catalog.flatMap { assessment?.frame(for: file, in: $0) } }
         let assessedURLs = catalog.map { url in
@@ -524,7 +524,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
-        guard let points = viewModel.focusPoints?.first(where: { $0.sourceFile == file.name }) else { return nil }
+        guard let points = viewModel.catalog.focusPoints?.first(where: { $0.sourceFile == file.name }) else { return nil }
         return points.focusPoints
     }
 

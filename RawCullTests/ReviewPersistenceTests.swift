@@ -125,9 +125,9 @@ struct CullingRecoveryPresentationTests {
         let photo = file("saved.ARW")
         let hidden = file("hidden.ARW")
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.selectedSource = catalog
-        model.files = [hidden, photo]
-        model.filteredFiles = [hidden, photo]
+        model.catalog.selectedSource = catalog
+        model.catalog.files = [hidden, photo]
+        model.catalog.filteredFiles = [hidden, photo]
         model.ratings.ratingFilter = .stars(5)
         model.selection.selectedFileID = hidden.id
         model.selection.selectedFileIDs = [hidden.id, photo.id]
@@ -139,12 +139,12 @@ struct CullingRecoveryPresentationTests {
         })
         #expect(await !model.ratings.cullingModel.ensureLoaded())
         #expect(await !model.retryCullingPersistence())
-        #expect(model.filteredFiles.count == 2)
+        #expect(model.catalog.filteredFiles.count == 2)
         state.isRepaired = true
         #expect(await model.retryCullingPersistence())
         #expect(model.ratings.ratingCache == [photo.name: 5])
         #expect(model.ratings.taggedNamesCache == [photo.name])
-        #expect(model.filteredFiles.map(\.id) == [photo.id])
+        #expect(model.catalog.filteredFiles.map(\.id) == [photo.id])
         #expect(model.selection.selectedFileID == photo.id)
         #expect(model.selection.selectedFileIDs == [photo.id])
         #expect(model.extractTaggedfilenames() == [photo.name])
@@ -160,9 +160,9 @@ struct CullingRecoveryPresentationTests {
         try Data("damaged".utf8).write(to: url)
         let model = makeRawCullViewModel()
         let photo = file("saved.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.files = [photo]
-        model.filteredFiles = [photo]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
+        model.catalog.files = [photo]
+        model.catalog.filteredFiles = [photo]
         model.ratings.ratingFilter = .stars(5)
         model.ratings.ratingCache = [photo.name: 5]
         model.ratings.taggedNamesCache = [photo.name]
@@ -176,7 +176,7 @@ struct CullingRecoveryPresentationTests {
         #expect(model.ratings.ratingCache.isEmpty)
         #expect(model.ratings.taggedNamesCache.isEmpty)
         #expect(model.sharpnessModel.scores.isEmpty)
-        #expect(model.filteredFiles.isEmpty)
+        #expect(model.catalog.filteredFiles.isEmpty)
         #expect(model.selection.selectedFileID == nil)
         #expect(model.ratings.cullingModel.persistenceError != nil)
         #expect(!FileManager.default.fileExists(atPath: url.path))
@@ -187,8 +187,8 @@ struct CullingRecoveryPresentationTests {
         let model = makeRawCullViewModel()
         let photos = (0 ..< 100).map { file("photo\($0).ARW") }
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.selectedSource = catalog
-        model.files = photos
+        model.catalog.selectedSource = catalog
+        model.catalog.files = photos
         let signature = model.sharpnessModel.scoringSignature
         var records = photos.map { photo in
             FileRecord(fileName: photo.name, sharpnessScore: 0.5,

@@ -272,7 +272,7 @@ extension CatalogPerformanceTests {
         defer { try? FileManager.default.removeItem(at: artifactDirectory) }
         let model = makeModel(directory: artifactDirectory)
         model.files = files
-        model.filteredFiles = files
+        model.catalog.filteredFiles = files
         let navigation = ZoomNavigationPresentation(viewModel: model)
         var start = ProcessInfo.processInfo.systemUptime
         _ = navigation.orderedZoomFiles
@@ -311,7 +311,7 @@ extension CatalogPerformanceTests {
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
         try #require(navigation.orderedZoomFiles.map(\.id) == files.reversed().map(\.id))
         model.files = []
-        model.filteredFiles = []
+        model.catalog.filteredFiles = []
         try #require(navigation.orderedZoomFiles.isEmpty && navigation.currentZoomIndex == nil)
         // Keep a structural regression visible in the machine-readable report.
         await journal.record(

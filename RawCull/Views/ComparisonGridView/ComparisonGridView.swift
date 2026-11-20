@@ -90,7 +90,7 @@ struct ComparisonGridView: View {
 
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
-            filteredFiles: viewModel.filteredFiles,
+            filteredFiles: viewModel.catalog.filteredFiles,
             comparisonFileIDs: viewModel.selection.comparisonFileIDs,
             activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
             burstAnalysisResult: viewModel.burstAnalysisResult(for:),

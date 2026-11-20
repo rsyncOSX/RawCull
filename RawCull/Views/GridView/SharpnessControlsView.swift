@@ -146,7 +146,7 @@ struct SharpnessControlsView: View {
     }
 
     private var needsSimilarityIndex: Bool {
-        !similarityFeature.hasCompleteIndex(for: viewModel.files)
+        !similarityFeature.hasCompleteIndex(for: viewModel.catalog.files)
     }
 
     private var similarityHelp: String {

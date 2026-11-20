@@ -151,7 +151,7 @@ struct CullingGridView<Header: View>: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .task(id: viewModel.selectedSource) {
+        .task(id: viewModel.catalog.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
         .onChange(of: gridCacheKey, initial: true) { _, _ in

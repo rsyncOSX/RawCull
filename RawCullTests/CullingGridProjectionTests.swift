@@ -14,8 +14,8 @@ struct CullingGridProjectionTests {
     func `rating changes rebuild the grid and zoom projections exactly once`() {
         let model = makeRawCullViewModel()
         let first = file("first.ARW"), second = file("second.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
-        model.filteredFiles = [first, second]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.catalog.filteredFiles = [first, second]
         _ = model.cullingGridProjection(ratingFilter: .rating(3))
         _ = model.zoomNavigationProjection()
         let gridBuilds = model.gridProjectionBuildCount
@@ -37,7 +37,7 @@ struct CullingGridProjectionTests {
     func `selection and score-value changes reuse the projection while membership changes rebuild`() {
         let model = makeRawCullViewModel()
         let first = file("first.ARW"), second = file("second.ARW"), replacement = file("replacement.ARW")
-        model.filteredFiles = [first, second]
+        model.catalog.filteredFiles = [first, second]
         _ = model.cullingGridProjection(ratingFilter: .all)
         let initial = model.gridProjectionBuildCount
         model.selection.selectedFileID = first.id
@@ -50,7 +50,7 @@ struct CullingGridProjectionTests {
         model.sharpnessModel.scores[first.id] = 0.9
         _ = model.cullingGridProjection(ratingFilter: .all)
         #expect(model.gridProjectionBuildCount == scored)
-        model.filteredFiles = [first, replacement]
+        model.catalog.filteredFiles = [first, replacement]
         #expect(model.cullingGridProjection(ratingFilter: .all).fileIDs == [first.id, replacement.id])
         #expect(model.gridProjectionBuildCount == scored + 1)
     }
@@ -59,8 +59,8 @@ struct CullingGridProjectionTests {
     func `rating review-group and saliency mutations invalidate cached projections`() {
         let model = makeRawCullViewModel()
         let first = file("first.ARW"), second = file("second.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
-        model.filteredFiles = [first, second]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.catalog.filteredFiles = [first, second]
         #expect(model.cullingGridProjection(ratingFilter: .unrated).files.count == 2)
         model.ratings.ratingCache[first.name] = 0
         #expect(model.cullingGridProjection(ratingFilter: .unrated).fileIDs == [second.id])

@@ -15,7 +15,7 @@ struct CatalogConcurrencyTests {
         let old = catalogTestFile("old.arw")
         let new = catalogTestFile("new.arw")
         var calls = 0
-        model.sortFiles = { files, _, _ in
+        model.catalog.sortFiles = { files, _, _ in
             calls += 1
             if calls == 1 {
                 firstStarted.open(); await firstRelease.wait()
@@ -24,20 +24,20 @@ struct CatalogConcurrencyTests {
             }
             return files
         }
-        model.files = [old]
+        model.catalog.files = [old]
         let first = Task { await model.handleSortOrderChange() }
         await firstStarted.wait()
-        model.files = [new]
+        model.catalog.files = [new]
         let second = Task { await model.handleSortOrderChange() }
         await secondStarted.wait()
         firstRelease.open()
         await first.value
-        #expect(model.filteredFiles.isEmpty)
-        #expect(model.isSorting)
+        #expect(model.catalog.filteredFiles.isEmpty)
+        #expect(model.catalog.isSorting)
         secondRelease.open()
         await second.value
-        #expect(model.filteredFiles.map(\.id) == [new.id])
-        #expect(!model.isSorting)
+        #expect(model.catalog.filteredFiles.map(\.id) == [new.id])
+        #expect(!model.catalog.isSorting)
     }
 
     @Test(arguments: [false, true])
@@ -45,8 +45,8 @@ struct CatalogConcurrencyTests {
         let model = makeRawCullViewModel()
         let started = CatalogTestGate()
         let release = CatalogTestGate()
-        model.files = [catalogTestFile("old.arw")]
-        model.sortFiles = { files, _, _ in
+        model.catalog.files = [catalogTestFile("old.arw")]
+        model.catalog.sortFiles = { files, _, _ in
             started.open()
             await release.wait()
             return files
@@ -54,15 +54,15 @@ struct CatalogConcurrencyTests {
         let task = Task { await model.handleSortOrderChange() }
         await started.wait()
         if switchCatalog {
-            model.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
+            model.catalog.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
             model.similarityCatalogGeneration &+= 1
         } else {
             task.cancel()
         }
         release.open()
         await task.value
-        #expect(model.filteredFiles.isEmpty)
-        #expect(!model.isSorting)
+        #expect(model.catalog.filteredFiles.isEmpty)
+        #expect(!model.catalog.isSorting)
     }
 
     @Test(arguments: [false, true])
@@ -83,7 +83,7 @@ struct CatalogConcurrencyTests {
         let old = ARWSourceCatalog(name: "old", url: URL(filePath: "/tmp/old"))
         let new = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
         viewModel.catalogLifecycle.currentSource = old
-        viewModel.selectedSource = new
+        viewModel.catalog.selectedSource = new
         viewModel.ratings.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
         var starts: [URL] = []
         viewModel.catalogLifecycle.startSecurityScopedResource = { starts.append($0); return true }
@@ -97,8 +97,8 @@ struct CatalogConcurrencyTests {
         #expect(starts.isEmpty)
         #expect(viewModel.catalogLifecycle.transitionTask == nil)
         #expect(viewModel.catalogLifecycle.loadTask == nil)
-        #expect(viewModel.selectedSource == new)
-        #expect(!viewModel.scanning)
+        #expect(viewModel.catalog.selectedSource == new)
+        #expect(!viewModel.catalog.scanning)
     }
 }
 

@@ -73,62 +73,22 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Owns catalog transitions, scan task lifetime, and security-scoped access.
     @ObservationIgnored let catalogLifecycle = CatalogLifecycleCoordinator()
 
-    var sources: [ARWSourceCatalog] = []
-    var selectedSource: ARWSourceCatalog?
-    @ObservationIgnored var pendingCatalogTransitionSource: ARWSourceCatalog?
-    @ObservationIgnored var catalogLoadFailure: CatalogLoadFailure?
-
-    enum CatalogLoadFailure {
-        case folderAccess
-        case noPhotos
-    }
-
-    var files: [FileItem] = [] {
-        didSet {
-            catalogContentRevision &+= 1
-            zoomNavigationCache = nil
-        }
-    }
-
-    private(set) var catalogContentRevision: UInt64 = 0
     @ObservationIgnored var zoomNavigationCache: ZoomNavigationProjection?
     @ObservationIgnored var zoomNavigationBuildCount = 0
-    private(set) var gridContentRevision: UInt64 = 0
     @ObservationIgnored var gridProjectionCache: CullingGridProjection?
     @ObservationIgnored var gridProjectionBuildCount = 0
-    var filteredFiles: [FileItem] = [] {
-        didSet { gridContentRevision &+= 1 }
-    }
 
-    var searchText = ""
-    @ObservationIgnored var sortGeneration: UInt64 = 0
-    @ObservationIgnored var sortFiles: @MainActor (
-        [FileItem], FileItemSortDescriptor, String,
-    ) async -> [FileItem] = { files, order, text in
-        await ScanFiles.sortFiles(files, by: order, searchText: text)
-    }
+    /// The open catalog: sources, files, sorted and filtered projection, scan progress.
+    let catalog = CatalogWorkspace()
 
-    var sortOrder = FileItemSortDescriptor()
     var selectedFile: FileItem? {
-        files.first { $0.id == selection.selectedFileID }
+        catalog.file(withID: selection.selectedFileID)
     }
-
-    var isSorting: Bool = false
-    /// Number of RAW files discovered by the active catalog scan. This is
-    /// reset with the catalog working set and is the source of truth for the
-    /// scanning progress label.
-    @ObservationIgnored var metadataProgress: CatalogProgressCoalescer<Int>?
-    @ObservationIgnored var thumbnailProgress: CatalogProgressCoalescer<CatalogThumbnailProgress>?
-    var scanDiscoveredCount: Int = 0
-    var isCreatingThumbnails: Bool = false
-    var scanning: Bool = true
-
-
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
     var canShowThumbnailWorkspace: Bool {
-        selectedSource != nil
+        catalog.selectedSource != nil
     }
 
     var showsDetailedBurstComparison = false
@@ -213,18 +173,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var isPreparingBurstCatalog = false
     @ObservationIgnored var burstCatalogPreparationGeneration = 0
 
-    /// URLs whose thumbnails have already been preloaded — skip on revisit.
-    @ObservationIgnored var processedURLs: Set<URL> = []
-
-    /// Focus points created by exiftool, if available.
-    var focusPoints: [FocusPointsModel]?
-
-    var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
-    var preloadTask: Task<Void, Never>?
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
-    /// Full name-sorted/search-filtered catalog projection before rating,
-    /// sharpness, and similarity filters are applied.
-    @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     init(
         similarityModel: SimilarityScoringModel,
@@ -300,7 +249,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     func getFocusPoints() -> [FocusPoint]? {
         // Logger.process.debugMessageOnly("RawCullViewModel.getFocusPoints()")
         guard let imageName = selectedFile?.name else { return nil }
-        let points = focusPoints?
+        let points = catalog.focusPoints?
             .filter { $0.sourceFile == imageName }
             .flatMap(\.focusPoints) ?? []
         return points.isEmpty ? nil : points

@@ -36,8 +36,8 @@ struct ExtractJPGsSelectionTests {
         let second = makeExtractJPGTestFile("B.ARW")
         let third = makeExtractJPGTestFile("C.ARW")
 
-        viewModel.files = [first, second, third]
-        viewModel.filteredFiles = [third, second, first]
+        viewModel.catalog.files = [first, second, third]
+        viewModel.catalog.filteredFiles = [third, second, first]
         viewModel.selection.selectedFileID = first.id
         viewModel.selection.selectedFileIDs = [second.id, third.id]
 
@@ -54,8 +54,8 @@ struct ExtractJPGsSelectionTests {
         let first = makeExtractJPGTestFile("A.ARW")
         let second = makeExtractJPGTestFile("B.ARW")
 
-        viewModel.files = [first, second]
-        viewModel.filteredFiles = [second, first]
+        viewModel.catalog.files = [first, second]
+        viewModel.catalog.filteredFiles = [second, first]
         viewModel.selection.selectedFileID = first.id
         viewModel.selection.selectedFileIDs = []
 
@@ -71,13 +71,13 @@ struct ExtractJPGsSelectionTests {
             url: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
         )
 
-        viewModel.files = [makeExtractJPGTestFile("A.ARW")]
-        viewModel.filteredFiles = viewModel.files
+        viewModel.catalog.files = [makeExtractJPGTestFile("A.ARW")]
+        viewModel.catalog.filteredFiles = viewModel.files
         viewModel.fileOperations.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 
         #expect(viewModel.fileOperations.selectedFilesForJPGExtraction.isEmpty)
         #expect(viewModel.fileOperations.currentExtractAndSaveJPGsActor == nil)
-        #expect(!viewModel.isCreatingThumbnails)
+        #expect(!viewModel.catalog.isCreatingThumbnails)
     }
 
     @Test
@@ -88,15 +88,15 @@ struct ExtractJPGsSelectionTests {
             name: "Destination",
             url: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
         )
-        viewModel.files = [file]
-        viewModel.filteredFiles = [file]
+        viewModel.catalog.files = [file]
+        viewModel.catalog.filteredFiles = [file]
         viewModel.selection.selectedFileID = file.id
         viewModel.catalogLifecycle.startSecurityScopedResource = { _ in false }
 
         viewModel.fileOperations.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 
         #expect(viewModel.fileOperations.currentExtractAndSaveJPGsActor == nil)
-        #expect(!viewModel.isCreatingThumbnails)
+        #expect(!viewModel.catalog.isCreatingThumbnails)
         #expect(viewModel.presentation.operationFailurePresentation?.title == "Export Not Started")
     }
 
@@ -108,9 +108,9 @@ struct ExtractJPGsSelectionTests {
             url: URL(fileURLWithPath: "/tmp/source", isDirectory: true),
         )
 
-        viewModel.sources = [source]
-        viewModel.selectedSource = source
-        viewModel.files = [makeExtractJPGTestFile("A.ARW")]
+        viewModel.catalog.sources = [source]
+        viewModel.catalog.selectedSource = source
+        viewModel.catalog.files = [makeExtractJPGTestFile("A.ARW")]
 
         viewModel.fileOperations.presentExtractJPGsSheet()
 
@@ -136,8 +136,8 @@ struct ExtractJPGsSelectionTests {
             url: URL(fileURLWithPath: "/tmp/exports", isDirectory: true),
         )
 
-        viewModel.sources = [source]
-        viewModel.selectedSource = source
+        viewModel.catalog.sources = [source]
+        viewModel.catalog.selectedSource = source
         viewModel.fileOperations.extractJPGDestination = externalDestination
 
         viewModel.fileOperations.presentExtractJPGsSheet()

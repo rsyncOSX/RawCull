@@ -55,9 +55,9 @@ struct CopyCompletionTests {
         try bytes.write(to: source.appendingPathComponent("Present.ARW"))
 
         let viewModel = makeRawCullViewModel()
-        viewModel.selectedSource = ARWSourceCatalog(name: "Source", url: scopedSource)
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Source", url: scopedSource)
         let names = missingFile ? ["Present.ARW", "Missing.ARW"] : ["Present.ARW"]
-        viewModel.filteredFiles = names.map { name in
+        viewModel.catalog.filteredFiles = names.map { name in
             FileItem(url: source.appendingPathComponent(name), name: name, size: 1,
                      dateModified: Date(), exifData: nil, afFocusNormalized: nil)
         }

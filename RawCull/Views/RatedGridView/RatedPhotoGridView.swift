@@ -60,7 +60,7 @@ struct RatedPhotoGridView: View {
             .compactMap(\.fileName)
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         let byName = Dictionary(
-            uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.name, $0) },
+            uniqueKeysWithValues: viewModel.catalog.filteredFiles.map { ($0.name, $0) },
         )
         return names.compactMap { byName[$0] }
     }

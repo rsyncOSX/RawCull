@@ -34,13 +34,13 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .help("Remove the lowest-ranked image from the semantic-search selection")
 
                 Text(
-                    "\(summary.resultCount) of \(viewModel.files.count) selected",
+                    "\(summary.resultCount) of \(viewModel.catalog.files.count) selected",
                     comment: "Semantic-search toolbar status: selected image count followed by total catalog image count.",
                 )
                 .font(.caption.monospacedDigit())
                 .accessibilityLabel("Semantic search selection")
                 .accessibilityValue(
-                    "\(summary.resultCount) of \(viewModel.files.count) catalog images",
+                    "\(summary.resultCount) of \(viewModel.catalog.files.count) catalog images",
                 )
 
                 Button {
@@ -79,7 +79,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         Label("Statistics", systemImage: "info.circle")
                     }
                     .help("Show scan statistics")
-                    .disabled(isDisabled || viewModel.files.isEmpty)
+                    .disabled(isDisabled || viewModel.catalog.files.isEmpty)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -97,8 +97,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     .help("Compare selected thumbnails")
                     .disabled(isDisabled ||
                         viewModel.selection.selectedFileIDs.count <= 1 ||
-                        viewModel.selectedSource == nil ||
-                        viewModel.isCreatingThumbnails)
+                        viewModel.catalog.selectedSource == nil ||
+                        viewModel.catalog.isCreatingThumbnails)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -132,10 +132,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Similarity & burst grouping grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
-                    viewModel.filteredFiles.isEmpty ||
+                    viewModel.catalog.selectedSource == nil ||
+                    viewModel.catalog.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .similarityGrid ||
-                    viewModel.isCreatingThumbnails)
+                    viewModel.catalog.isCreatingThumbnails)
 
                 Button {
                     selectGridMode()
@@ -144,10 +144,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Thumbnail grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
-                    viewModel.filteredFiles.isEmpty ||
+                    viewModel.catalog.selectedSource == nil ||
+                    viewModel.catalog.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .grid ||
-                    viewModel.isCreatingThumbnails)
+                    viewModel.catalog.isCreatingThumbnails)
 
                 Button {
                     viewModel.selectMainViewMode(.aiAnalysis)
@@ -156,10 +156,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
+                    viewModel.catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     viewModel.mainViewMode == .aiAnalysis ||
-                    viewModel.isCreatingThumbnails)
+                    viewModel.catalog.isCreatingThumbnails)
 
                 Button {
                     viewModel.selectMainViewMode(.combinedReview)
@@ -169,10 +169,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .help("Combined Review")
                 .disabled(isDisabled ||
                     !combinedReviewEnabled ||
-                    viewModel.selectedSource == nil ||
+                    viewModel.catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     viewModel.mainViewMode == .combinedReview ||
-                    viewModel.isCreatingThumbnails)
+                    viewModel.catalog.isCreatingThumbnails)
 
                 Button {
                     viewModel.selectMainViewMode(.ratedGrid)
@@ -181,10 +181,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Rated images grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
+                    viewModel.catalog.selectedSource == nil ||
                     !showGridtaggedThumbnailWindow() ||
                     viewModel.mainViewMode == .ratedGrid ||
-                    viewModel.isCreatingThumbnails)
+                    viewModel.catalog.isCreatingThumbnails)
             }
         }
     }
@@ -212,8 +212,8 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var reviewButtonIsDisabled: Bool {
-        guard viewModel.selectedSource != nil,
-              !viewModel.isCreatingThumbnails,
+        guard viewModel.catalog.selectedSource != nil,
+              !viewModel.catalog.isCreatingThumbnails,
               !semanticSelectionIsBusy
         else { return true }
 
@@ -277,7 +277,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectComparisonGridMode() {
         let selectedIDs = viewModel.selection.selectedFileIDs
-        let orderedIDs = viewModel.filteredFiles
+        let orderedIDs = viewModel.catalog.filteredFiles
             .filter { selectedIDs.contains($0.id) }
             .map(\.id)
         viewModel.selection.comparisonFileIDs = Array(orderedIDs.prefix(4))
@@ -285,7 +285,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {
-        guard let catalogURL = viewModel.selectedSource?.url,
+        guard let catalogURL = viewModel.catalog.selectedSource?.url,
               let index = viewModel.ratings.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
         else {
             return false
@@ -307,7 +307,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var hasExplicitRatings: Bool {
-        guard let catalog = viewModel.selectedSource?.url else { return false }
+        guard let catalog = viewModel.catalog.selectedSource?.url else { return false }
         return viewModel.ratings.cullingModel.hasExplicitRatings(in: catalog)
     }
 

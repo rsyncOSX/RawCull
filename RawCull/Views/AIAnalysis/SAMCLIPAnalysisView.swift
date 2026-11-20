@@ -20,11 +20,11 @@ struct SAMCLIPAnalysisView: View {
     }
 
     var body: some View {
-        if viewModel.selectedSource != nil || !controller.completedCandidates.isEmpty {
-            let runnableFiles = viewModel.selectedSource == nil ? [] : pendingFiles
+        if viewModel.catalog.selectedSource != nil || !controller.completedCandidates.isEmpty {
+            let runnableFiles = viewModel.catalog.selectedSource == nil ? [] : pendingFiles
             let signature = BurstGroupSignature(
                 files: runnableFiles,
-                catalog: viewModel.selectedSource?.url,
+                catalog: viewModel.catalog.selectedSource?.url,
             )
                 ?? BurstGroupSignature(memberKeys: [])
             DeepAIReviewSheetView(

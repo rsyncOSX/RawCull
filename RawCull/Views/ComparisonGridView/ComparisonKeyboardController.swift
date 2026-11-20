@@ -10,7 +10,7 @@ struct ComparisonKeyboardController {
 
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
-            filteredFiles: viewModel.filteredFiles, comparisonFileIDs: viewModel.selection.comparisonFileIDs,
+            filteredFiles: viewModel.catalog.filteredFiles, comparisonFileIDs: viewModel.selection.comparisonFileIDs,
             activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
             burstAnalysisResult: viewModel.burstAnalysisResult(for:),
         )

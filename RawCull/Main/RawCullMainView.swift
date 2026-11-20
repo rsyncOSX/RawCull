@@ -172,7 +172,7 @@ struct RawCullMainView: View {
             }
         } message: {
             Text(
-                "This will rescore sharpness and recompute similarity for all \(viewModel.files.count) catalog files. It may take several minutes. Clear Search never performs this operation.",
+                "This will rescore sharpness and recompute similarity for all \(viewModel.catalog.files.count) catalog files. It may take several minutes. Clear Search never performs this operation.",
             )
         }
         .transaction { transaction in
@@ -199,7 +199,7 @@ struct RawCullMainView: View {
         .focusedSceneValue(\.copyTaggedFiles, Bindable(viewModel.presentation).focusCopyTaggedFiles)
         .focusedSceneValue(
             \.canCopyTaggedFiles,
-            viewModel.selectedSource != nil && !viewModel.isCreatingThumbnails,
+            viewModel.catalog.selectedSource != nil && !viewModel.catalog.isCreatingThumbnails,
         )
         .onChange(of: viewModel.presentation.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
@@ -250,22 +250,22 @@ struct RawCullMainView: View {
     private var loupeSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
+                sources: Bindable(viewModel.catalog).sources,
+                selectedSource: Bindable(viewModel.catalog).selectedSource,
                 cullingModel: viewModel.ratings.cullingModel,
             )
         } content: {
             SidebarARWCatalogFileView(
                 viewModel: viewModel,
-                selectedSource: $viewModel.selectedSource,
-                scanning: $viewModel.scanning,
-                creatingThumbnails: $viewModel.isCreatingThumbnails,
+                selectedSource: Bindable(viewModel.catalog).selectedSource,
+                scanning: Bindable(viewModel.catalog).scanning,
+                creatingThumbnails: Bindable(viewModel.catalog).isCreatingThumbnails,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
-                isSorting: viewModel.isSorting,
+                isSorting: viewModel.catalog.isSorting,
             )
-            .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-                " (\(viewModel.filteredFiles.count) files)")
+            .navigationTitle((viewModel.catalog.selectedSource?.name ?? "Files") +
+                " (\(viewModel.catalog.filteredFiles.count) files)")
             .toolbar { toolbarContent }
             .alert(viewModel.presentation.alertTitle, isPresented: Bindable(viewModel.presentation).showingAlert) {
                 switch viewModel.presentation.alertType {
@@ -286,7 +286,7 @@ struct RawCullMainView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(viewModel.presentation.alertMessage(catalogFileCount: viewModel.files.count))
+                Text(viewModel.presentation.alertMessage(catalogFileCount: viewModel.catalog.files.count))
             }
         } detail: {
             RawCullDetailContainerView(
@@ -315,10 +315,10 @@ struct RawCullMainView: View {
         .fileImporter(isPresented: Bindable(viewModel.presentation).isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)
         }
-        .task(id: viewModel.selectedSource) {
-            viewModel.startCatalogLoad(for: viewModel.selectedSource)
+        .task(id: viewModel.catalog.selectedSource) {
+            viewModel.startCatalogLoad(for: viewModel.catalog.selectedSource)
         }
-        .onChange(of: viewModel.sortOrder) { _, _ in
+        .onChange(of: viewModel.catalog.sortOrder) { _, _ in
             Task(priority: .background) {
                 await viewModel.handleSortOrderChange()
             }
@@ -354,8 +354,8 @@ struct RawCullMainView: View {
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
-        .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-            " (\(viewModel.filteredFiles.count) files)")
+        .navigationTitle((viewModel.catalog.selectedSource?.name ?? "Files") +
+            " (\(viewModel.catalog.filteredFiles.count) files)")
         .toolbar { toolbarContent }
     }
 
@@ -369,8 +369,8 @@ struct RawCullMainView: View {
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
-        .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-            " (\(viewModel.filteredFiles.count) files)")
+        .navigationTitle((viewModel.catalog.selectedSource?.name ?? "Files") +
+            " (\(viewModel.catalog.filteredFiles.count) files)")
         .toolbar { toolbarContent }
     }
 
@@ -379,7 +379,7 @@ struct RawCullMainView: View {
     private var ratedGridSplit: some View {
         RatedPhotoGridView(
             viewModel: viewModel,
-            catalogURL: viewModel.selectedSource?.url,
+            catalogURL: viewModel.catalog.selectedSource?.url,
             onPhotoSelected: { file in
                 viewModel.selection.selectedFileID = file.id
             },
@@ -399,13 +399,13 @@ struct RawCullMainView: View {
                 groupID: groupID,
                 onCompare: { viewModel.showsDetailedBurstComparison = true },
             )
-            .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
+            .navigationTitle((viewModel.catalog.selectedSource?.name ?? "Catalog") + " — Burst")
             .toolbar { toolbarContent }
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 RAWCatalogSidebarView(
-                    sources: $viewModel.sources,
-                    selectedSource: $viewModel.selectedSource,
+                    sources: Bindable(viewModel.catalog).sources,
+                    selectedSource: Bindable(viewModel.catalog).selectedSource,
                     cullingModel: viewModel.ratings.cullingModel,
                 )
             } detail: {
@@ -426,8 +426,8 @@ struct RawCullMainView: View {
             .fileImporter(isPresented: Bindable(viewModel.presentation).isShowingPicker, allowedContentTypes: [.folder]) { result in
                 handlePickerResult(result)
             }
-            .task(id: viewModel.selectedSource) {
-                viewModel.startCatalogLoad(for: viewModel.selectedSource)
+            .task(id: viewModel.catalog.selectedSource) {
+                viewModel.startCatalogLoad(for: viewModel.catalog.selectedSource)
             }
         }
     }
@@ -461,11 +461,11 @@ struct RawCullMainView: View {
         return CandidateInspectorContext.make(
             selectedFile: viewModel.selectedFile,
             result: viewModel.burstAnalysisResult(for: groupID),
-            files: viewModel.files,
+            files: viewModel.catalog.files,
             saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
             sharpnessScores: viewModel.sharpnessModel.scores,
             sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
-            focusPoints: viewModel.focusPoints,
+            focusPoints: viewModel.catalog.focusPoints,
             rating: viewModel.selectedFile.map { viewModel.ratings.getRating(for: $0) } ?? 0,
         )
     }

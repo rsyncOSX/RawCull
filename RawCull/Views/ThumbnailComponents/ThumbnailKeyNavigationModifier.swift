@@ -76,7 +76,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         if let filesOverride {
                             return filesOverride()
                         }
-                        let filtered = viewModel.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
+                        let filtered = viewModel.catalog.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
                         if axis == .grid,
                            viewModel.showsBurstGroups,
                            !viewModel.similarityFeature.burstGroups.isEmpty {

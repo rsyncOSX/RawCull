@@ -13,8 +13,8 @@ struct ZoomNavigationProjectionTests {
         let model = makeRawCullViewModel()
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
-        model.files = [second, first]
-        model.filteredFiles = [second, first]
+        model.catalog.files = [second, first]
+        model.catalog.filteredFiles = [second, first]
         let navigation = ZoomNavigationPresentation(viewModel: model)
         model.selection.selectedFileID = first.id
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
@@ -36,8 +36,8 @@ struct ZoomNavigationProjectionTests {
         let model = makeRawCullViewModel()
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
-        model.files = [first, second]
-        model.filteredFiles = [first, second]
+        model.catalog.files = [first, second]
+        model.catalog.filteredFiles = [first, second]
         model.ratings.ratingFilter = .stars(5)
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [second.id, UUID(), first.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
@@ -53,8 +53,8 @@ struct ZoomNavigationProjectionTests {
         let model = makeRawCullViewModel()
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
-        model.files = [second, first]
-        model.filteredFiles = [second, first]
+        model.catalog.files = [second, first]
+        model.catalog.filteredFiles = [second, first]
         let navigation = ZoomNavigationPresentation(viewModel: model)
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
         model.sharpnessModel.sortBySharpness = true
@@ -67,7 +67,7 @@ struct ZoomNavigationProjectionTests {
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id])
         model.ratings.ratingCache[second.name] = 3
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
-        model.filteredFiles = [first, second]
+        model.catalog.filteredFiles = [first, second]
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
     }
 
@@ -75,8 +75,8 @@ struct ZoomNavigationProjectionTests {
     func `catalog replacement refreshes contextual values even for retained IDs`() {
         let model = makeRawCullViewModel()
         var file = makeCullingTestFile("A.ARW")
-        model.files = [file]
-        model.filteredFiles = [file]
+        model.catalog.files = [file]
+        model.catalog.filteredFiles = [file]
         model.selection.selectedFileID = file.id
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [file.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
@@ -90,11 +90,11 @@ struct ZoomNavigationProjectionTests {
             exifData: file.exifData,
             afFocusNormalized: file.afFocusNormalized,
         )
-        model.files = [file]
+        model.catalog.files = [file]
         #expect(navigation.orderedZoomFiles.first?.size == file.size)
-        model.files = []
+        model.catalog.files = []
         #expect(navigation.currentZoomIndex == nil)
-        model.filteredFiles = []
+        model.catalog.filteredFiles = []
         #expect(navigation.orderedZoomFiles.isEmpty)
         #expect(!navigation.canNavigateNext)
         #expect(!navigation.canNavigatePrevious)
@@ -104,8 +104,8 @@ struct ZoomNavigationProjectionTests {
     func `cache hits preserve observation of ordering inputs`() {
         let model = makeRawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        model.files = [file]
-        model.filteredFiles = [file]
+        model.catalog.files = [file]
+        model.catalog.filteredFiles = [file]
         _ = model.zoomNavigationProjection()
         let changed = Mutex(false)
         withObservationTracking {
@@ -113,7 +113,7 @@ struct ZoomNavigationProjectionTests {
         } onChange: {
             changed.withLock { $0 = true }
         }
-        model.filteredFiles = []
+        model.catalog.filteredFiles = []
         #expect(changed.withLock { $0 })
         #expect(model.zoomNavigationProjection().files.isEmpty)
     }

@@ -136,8 +136,8 @@ struct ExecuteCopyFilesStartupTests {
         let viewModel = makeRawCullViewModel()
         let file = FileItem(url: directory.appendingPathComponent("A.ARW"), name: "A.ARW", size: 1,
                             dateModified: Date(), exifData: nil, afFocusNormalized: nil)
-        viewModel.filteredFiles = [file]
-        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: scopedSource)
+        viewModel.catalog.filteredFiles = [file]
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Current", url: scopedSource)
         let bookmarkStore = CopyBookmarkStore(defaults: defaults)
         let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
                                        sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
@@ -176,8 +176,8 @@ struct ExecuteCopyFilesStartupTests {
         #expect(resolved.standardizedFileURL == currentCatalog.standardizedFileURL)
 
         let viewModel = makeRawCullViewModel()
-        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: resolved)
-        viewModel.filteredFiles = [FileItem(url: currentCatalog.appendingPathComponent("A.ARW"),
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Current", url: resolved)
+        viewModel.catalog.filteredFiles = [FileItem(url: currentCatalog.appendingPathComponent("A.ARW"),
                                             name: "A.ARW", size: 1, dateModified: Date(),
                                             exifData: nil, afFocusNormalized: nil)]
         let manager = ExecuteCopyFiles(

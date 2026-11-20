@@ -16,7 +16,7 @@ extension RawCullViewModel {
         await handleSortOrderChange()
         guard isEnabled,
               sharpnessModel.sortBySharpness,
-              let sharpestFile = filteredFiles.first
+              let sharpestFile = catalog.filteredFiles.first
         else { return }
         selection.selectedFileID = sharpestFile.id
     }
@@ -25,7 +25,7 @@ extension RawCullViewModel {
         let active = activeCatalogFiles
 
         if !selection.selectedFileIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selection.selectedFileIDs.contains($0.id) }
+            let visibleSelected = catalog.filteredFiles.filter { selection.selectedFileIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
             let hiddenSelected = active.filter {
                 selection.selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
@@ -34,8 +34,8 @@ extension RawCullViewModel {
         }
 
         if case let .stars(rating) = ratings.ratingFilter {
-            if !filteredFiles.isEmpty {
-                return filteredFiles.filter { self.ratings.rating(for: $0) == rating }
+            if !catalog.filteredFiles.isEmpty {
+                return catalog.filteredFiles.filter { self.ratings.rating(for: $0) == rating }
             }
             return active.filter { self.ratings.rating(for: $0) == rating }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -48,14 +48,14 @@ extension RawCullViewModel {
     var sharpnessScoringTargetCount: Int {
         let selectedIDs = selection.selectedFileIDs
         if !selectedIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selectedIDs.contains($0.id) }
+            let visibleSelected = catalog.filteredFiles.filter { selectedIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
             return visibleSelected.count + activeCatalogFiles.count {
                 selectedIDs.contains($0.id) && !visibleIDs.contains($0.id)
             }
         }
         if case let .stars(rating) = ratings.ratingFilter {
-            let candidates = filteredFiles.isEmpty ? activeCatalogFiles : filteredFiles
+            let candidates = catalog.filteredFiles.isEmpty ? activeCatalogFiles : catalog.filteredFiles
             let ratings = ratings.ratingCache
             return candidates.count { ratings[$0.name] == rating }
         }
@@ -122,14 +122,14 @@ extension RawCullViewModel {
     /// Merges current sharpness scores and saliency labels into ratings.cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
     func persistScoringResultsInMemory() {
-        persistScoringResultsInMemory(files: files)
+        persistScoringResultsInMemory(files: catalog.files)
     }
 
     private func persistScoringResultsInMemory(files: [FileItem]) {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
         )
-        guard let catalog = selectedSource?.url else { return }
+        guard let catalog = catalog.selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo
         let signature = sharpnessModel.scoringSignature
@@ -150,7 +150,7 @@ extension RawCullViewModel {
     }
 
     func loadPersistedScoringandSaliency() {
-        let records = ratings.cullingModel.savedFiles.first { $0.catalog == selectedSource?.url }?.filerecords ?? []
+        let records = ratings.cullingModel.savedFiles.first { $0.catalog == catalog.selectedSource?.url }?.filerecords ?? []
         // Keep the first legacy duplicate, matching the previous first(where:) policy.
         let recordsByName = Dictionary(records.compactMap { record in
             record.fileName.map { ($0, record) }
@@ -159,7 +159,7 @@ extension RawCullViewModel {
         var scores: [UUID: Float] = [:]
         var afScores: [UUID: Float] = [:]
         var saliency: [UUID: SaliencyInfo] = [:]
-        for file in files {
+        for file in catalog.files {
             guard let record = recordsByName[file.name],
                   record.sharpnessScoringSignature == signature,
                   record.sharpnessFileSize == file.size,

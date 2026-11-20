@@ -166,7 +166,7 @@ struct AIAssessmentComparison: View {
     }
 
     private var liveCatalog: URL? {
-        guard let access, let url = viewModel.selectedSource?.url, !viewModel.scanning,
+        guard let access, let url = viewModel.catalog.selectedSource?.url, !viewModel.catalog.scanning,
               viewModel.ratings.cullingModel.loadState == .ready, !viewModel.ratings.cullingModel.isTerminationPending,
               url.standardizedFileURL == access.url.standardizedFileURL else { return nil }
         return url
@@ -175,14 +175,14 @@ struct AIAssessmentComparison: View {
     private func liveFile(_ frame: AIAssessmentEntry.Frame) -> FileItem? {
         guard let liveCatalog else { return nil }
         let expected = liveCatalog.appendingPathComponent(frame.source.relativePath).standardizedFileURL
-        return viewModel.files.first {
+        return viewModel.catalog.files.first {
             $0.url.standardizedFileURL == expected && $0.size == frame.source.size && $0.dateModified == frame.source.modified
         }
     }
 
     private var verifiedGroupID: Int? {
         guard let liveCatalog else { return nil }
-        let filesByURL = Dictionary(viewModel.files.map { ($0.url.standardizedFileURL, $0) },
+        let filesByURL = Dictionary(viewModel.catalog.files.map { ($0.url.standardizedFileURL, $0) },
                                     uniquingKeysWith: { first, _ in first })
         let ids = entry.frames.compactMap { frame -> FileItem.ID? in
             let url = liveCatalog.appendingPathComponent(frame.source.relativePath).standardizedFileURL
@@ -203,7 +203,7 @@ struct AIAssessmentComparison: View {
     }
 
     private func hasDuplicateFilename(_ file: FileItem) -> Bool {
-        viewModel.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
+        viewModel.catalog.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
     }
 
     private func applyRating(_ rating: Int, to frame: AIAssessmentEntry.Frame) {

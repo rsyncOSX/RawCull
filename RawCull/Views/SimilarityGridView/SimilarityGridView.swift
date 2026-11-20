@@ -56,7 +56,7 @@ struct SimilarityGridView: View {
     }
 
     private var filteredFiles: [FileItem] {
-        viewModel.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
+        viewModel.catalog.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {

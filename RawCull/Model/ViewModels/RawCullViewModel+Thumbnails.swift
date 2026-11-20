@@ -13,7 +13,7 @@ extension RawCullViewModel {
 
     func extractionNeeded() {
         // Logger.process.debugMessageOnly("RawCullViewModel.extractionNeeded()")
-        isCreatingThumbnails = true
+        catalog.isCreatingThumbnails = true
     }
 
     func applyStoredScoringSettings() async {
@@ -47,15 +47,11 @@ extension RawCullViewModel {
 
         cancelCatalogLoad()
         fileOperations.cancelJPGOperations()
-        isCreatingThumbnails = false
+        catalog.isCreatingThumbnails = false
     }
 }
 
 extension RawCullViewModel: FileOperationsCatalog {
-    var isCatalogThumbnailScanActive: Bool {
-        currentScanAndCreateThumbnailsActor != nil
-    }
-
     func startSecurityScopedResource(_ url: URL) -> Bool {
         catalogLifecycle.startSecurityScopedResource(url)
     }

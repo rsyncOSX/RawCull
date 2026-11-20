@@ -22,7 +22,7 @@ protocol MCPAnalysisWorkspace: AnyObject {
     var loadedSource: ARWSourceCatalog? { get }
     var files: [FileItem] { get }
     var scanDiscoveredCount: Int { get }
-    var catalogLoadFailure: RawCullViewModel.CatalogLoadFailure? { get }
+    var catalogLoadFailure: CatalogLoadFailure? { get }
     var catalogPersistenceError: String? { get }
     /// A catalog transition or load task is running.
     var isCatalogTransitionActive: Bool { get }
@@ -71,6 +71,21 @@ protocol MCPAnalysisWorkspace: AnyObject {
 }
 
 extension RawCullViewModel: MCPAnalysisWorkspace {
+    // Catalog requirements; the state lives in `catalog`.
+    var sources: [ARWSourceCatalog] {
+        get { catalog.sources }
+        set { catalog.sources = newValue }
+    }
+
+    var selectedSource: ARWSourceCatalog? {
+        get { catalog.selectedSource }
+        set { catalog.selectedSource = newValue }
+    }
+
+    var files: [FileItem] { catalog.files }
+    var scanDiscoveredCount: Int { catalog.scanDiscoveredCount }
+    var catalogLoadFailure: CatalogLoadFailure? { catalog.catalogLoadFailure }
+
     var loadedSource: ARWSourceCatalog? { catalogLifecycle.currentSource }
     var catalogPersistenceError: String? { ratings.cullingModel.persistenceError }
 
@@ -78,10 +93,10 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
         catalogLifecycle.transitionTask != nil || catalogLifecycle.loadTask != nil
     }
 
-    var isScanningCatalog: Bool { scanning }
+    var isScanningCatalog: Bool { catalog.scanning }
 
     var isMCPWorkspaceLoading: Bool {
-        isCatalogTransitionActive || scanning || isCreatingThumbnails
+        isCatalogTransitionActive || catalog.scanning || catalog.isCreatingThumbnails
     }
 
     func retainSecurityScopedAccess(for url: URL) -> RawCullCatalogGrant? {

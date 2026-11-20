@@ -41,7 +41,7 @@ struct CopyFilesView: View {
             Divider()
 
             SourceAndDestinationSection(
-                sourceCatalog: viewModel.selectedSource?.url.path ?? "",
+                sourceCatalog: viewModel.catalog.selectedSource?.url.path ?? "",
                 destinationCatalog: $destinationCatalog,
                 bookmarkStore: bookmarkStore,
             )
@@ -69,12 +69,12 @@ struct CopyFilesView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
-                    guard viewModel.selectedSource != nil,
+                    guard viewModel.catalog.selectedSource != nil,
                           !destinationCatalog.isEmpty else { return }
                     showResult = false
                     executeCopyFiles()
                 }
-                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationCatalog.isEmpty)
+                .disabled(copyFilesinProgress || viewModel.catalog.selectedSource == nil || destinationCatalog.isEmpty)
             }
         }
         .onDisappear {

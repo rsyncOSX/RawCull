@@ -23,11 +23,11 @@ extension RawCullViewModel {
             if selectedIDs.isEmpty, let selectedFileID = selection.selectedFileID {
                 selectedIDs.insert(selectedFileID)
             }
-            return filteredFiles.filter { selectedIDs.contains($0.id) }
+            return catalog.filteredFiles.filter { selectedIDs.contains($0.id) }
 
         case .taggedImages:
             let taggedNames = Set(extractTaggedfilenames())
-            return files.filter { taggedNames.contains($0.name) }
+            return catalog.files.filter { taggedNames.contains($0.name) }
         }
     }
 }

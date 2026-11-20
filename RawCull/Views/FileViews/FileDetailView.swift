@@ -16,7 +16,7 @@ struct FileDetailView: View {
     }
 
     var files: [FileItem] {
-        viewModel.filteredFiles
+        viewModel.catalog.filteredFiles
     }
 
     @ViewBuilder

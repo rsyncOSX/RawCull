@@ -6,14 +6,10 @@ import RawCullCore
 /// What file operations read from, and report to, the catalog workspace.
 @MainActor
 protocol FileOperationsCatalog: AnyObject {
-    var sources: [ARWSourceCatalog] { get }
-    var selectedSource: ARWSourceCatalog? { get }
-    var filteredFiles: [FileItem] { get }
+    var catalog: CatalogWorkspace { get }
+    /// The catalog files, or the scoped files while a semantic selection is active.
     var activeCatalogFiles: [FileItem] { get }
     var selection: SelectionModel { get }
-    /// The catalog scan is creating thumbnails; file operations must not start.
-    var isCatalogThumbnailScanActive: Bool { get }
-    var isCreatingThumbnails: Bool { get set }
     var presentation: WorkspacePresentationModel { get }
     func startSecurityScopedResource(_ url: URL) -> Bool
     func stopSecurityScopedResource(_ url: URL)
@@ -23,7 +19,7 @@ protocol FileOperationsCatalog: AnyObject {
 /// operations and the catalog thumbnail scan.
 @Observable @MainActor
 final class FileOperationsModel {
-    @ObservationIgnored weak var catalog: (any FileOperationsCatalog)?
+    @ObservationIgnored weak var workspace: (any FileOperationsCatalog)?
 
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGSelectedOnly = true
@@ -38,8 +34,8 @@ final class FileOperationsModel {
     var currentScanAndExtractJPGsActor: ScanAndExtractJPGs?
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
 
-    func bind(_ catalog: any FileOperationsCatalog) {
-        self.catalog = catalog
+    func bind(_ workspace: any FileOperationsCatalog) {
+        self.workspace = workspace
     }
 
     func fileHandler(_ update: Int) {
@@ -56,40 +52,40 @@ final class FileOperationsModel {
     }
 
     var selectedFilesForJPGExtraction: [FileItem] {
-        guard let catalog else { return [] }
-        if !catalog.selection.selectedFileIDs.isEmpty {
-            return catalog.filteredFiles.filter { catalog.selection.selectedFileIDs.contains($0.id) }
+        guard let workspace else { return [] }
+        if !workspace.selection.selectedFileIDs.isEmpty {
+            return workspace.catalog.filteredFiles.filter { workspace.selection.selectedFileIDs.contains($0.id) }
         }
 
-        guard let selectedFileID = catalog.selection.selectedFileID else { return [] }
-        if let file = catalog.filteredFiles.first(where: { $0.id == selectedFileID }) {
+        guard let selectedFileID = workspace.selection.selectedFileID else { return [] }
+        if let file = workspace.catalog.filteredFiles.first(where: { $0.id == selectedFileID }) {
             return [file]
         }
-        return catalog.activeCatalogFiles
+        return workspace.activeCatalogFiles
             .first(where: { $0.id == selectedFileID })
             .map { [$0] } ?? []
     }
 
     var filesForJPGExtraction: [FileItem] {
-        extractJPGSelectedOnly ? selectedFilesForJPGExtraction : catalog?.activeCatalogFiles ?? []
+        extractJPGSelectedOnly ? selectedFilesForJPGExtraction : workspace?.activeCatalogFiles ?? []
     }
 
     func presentExtractJPGsSheet() {
         Logger.process.debugMessageOnly("FileOperationsModel.presentExtractJPGsSheet()")
-        guard let catalog, !catalog.sources.isEmpty else { return }
+        guard let workspace, !workspace.catalog.sources.isEmpty else { return }
         extractJPGSelectedOnly = !selectedFilesForJPGExtraction.isEmpty
         if extractJPGDestination == nil {
-            extractJPGDestination = catalog.selectedSource ?? catalog.sources.first
+            extractJPGDestination = workspace.catalog.selectedSource ?? workspace.catalog.sources.first
         }
-        catalog.presentation.activeSheet = .extractJPGs
+        workspace.presentation.activeSheet = .extractJPGs
     }
 
     func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
         Logger.process.debugMessageOnly("FileOperationsModel.startSelectedJPGExtraction()")
         let exportFiles = filesForJPGExtraction
-        guard let catalog,
+        guard let workspace,
               currentScanAndExtractJPGsActor == nil,
-              !catalog.isCatalogThumbnailScanActive,
+              workspace.catalog.currentScanAndCreateThumbnailsActor == nil,
               currentExtractAndSaveJPGsActor == nil,
               !exportFiles.isEmpty
         else { return }
@@ -97,7 +93,7 @@ final class FileOperationsModel {
         fileOperationCompleted = 0
         fileOperationTotal = exportFiles.count
         fileOperationEstimatedSeconds = 0
-        catalog.isCreatingThumbnails = true
+        workspace.catalog.isCreatingThumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
             fileHandler: fileHandler,
@@ -108,10 +104,10 @@ final class FileOperationsModel {
         )
 
         let destinationURL = destination.url
-        let destinationAccessStarted = catalog.startSecurityScopedResource(destinationURL)
+        let destinationAccessStarted = workspace.startSecurityScopedResource(destinationURL)
         guard destinationAccessStarted else {
-            catalog.isCreatingThumbnails = false
-            catalog.presentation.operationFailurePresentation = OperationFailurePresentation(
+            workspace.catalog.isCreatingThumbnails = false
+            workspace.presentation.operationFailurePresentation = OperationFailurePresentation(
                 title: "Export Not Started",
                 message: "RawCull could not access the selected destination folder. Choose the folder again and retry.",
             )
@@ -131,13 +127,13 @@ final class FileOperationsModel {
             let result = await extract.extractAndSavejpgs()
 
             await MainActor.run {
-                catalog.stopSecurityScopedResource(destinationURL)
+                workspace.stopSecurityScopedResource(destinationURL)
                 guard self.currentExtractAndSaveJPGsActor === extract else { return }
                 self.currentExtractAndSaveJPGsActor = nil
-                catalog.isCreatingThumbnails = false
+                workspace.catalog.isCreatingThumbnails = false
                 if !result.failures.isEmpty {
                     let firstFailure = result.failures[0]
-                    catalog.presentation.operationFailurePresentation = OperationFailurePresentation(
+                    workspace.presentation.operationFailurePresentation = OperationFailurePresentation(
                         title: "Export Incomplete",
                         message: "\(result.failures.count) of \(result.succeeded + result.failures.count) JPG files could not be saved. First failure: \(firstFailure.fileName): \(firstFailure.message)",
                     )
@@ -148,10 +144,10 @@ final class FileOperationsModel {
 
     func startScanAndExtractJPGs() {
         Logger.process.debugMessageOnly("FileOperationsModel.startScanAndExtractJPGs()")
-        guard let catalog else { return }
-        let extractionFiles = catalog.activeCatalogFiles
+        guard let workspace else { return }
+        let extractionFiles = workspace.activeCatalogFiles
         guard currentScanAndExtractJPGsActor == nil,
-              !catalog.isCatalogThumbnailScanActive,
+              workspace.catalog.currentScanAndCreateThumbnailsActor == nil,
               currentExtractAndSaveJPGsActor == nil,
               !extractionFiles.isEmpty
         else { return }
@@ -161,7 +157,7 @@ final class FileOperationsModel {
         fileOperationCompleted = 0
         fileOperationTotal = extractionFiles.count
         fileOperationEstimatedSeconds = 0
-        catalog.isCreatingThumbnails = true
+        workspace.catalog.isCreatingThumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
             fileHandler: fileHandler,
@@ -184,7 +180,7 @@ final class FileOperationsModel {
                 guard self.currentScanAndExtractJPGsActor === actor else { return }
                 self.currentScanAndExtractJPGsActor = nil
                 self.jpgCacheWarmTask = nil
-                catalog.isCreatingThumbnails = false
+                workspace.catalog.isCreatingThumbnails = false
             }
         }
     }

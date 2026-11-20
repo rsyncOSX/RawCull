@@ -283,7 +283,7 @@ struct RawCullIntelligenceRuntimeTests {
         let runtime = applicationState.intelligenceRuntime
         let viewModel = applicationState.viewModel
         let similarityModel = viewModel.similarityModel
-        viewModel.files = [
+        viewModel.catalog.files = [
             FileItem(
                 id: UUID(),
                 url: fixture.root.appendingPathComponent("hydration.raw"),

@@ -15,7 +15,7 @@ extension RawCullViewModel {
     func findSimilarToSelected() async {
         Logger.process.debugMessageOnly("RawCullViewModel.findSimilarToSelected()")
         guard let anchor = selectedFile else { return }
-        let catalogFiles = files
+        let catalogFiles = catalog.files
         let catalogIdentity = currentSimilarityCatalogSnapshot.identity
         let completion = await similarityFeature.rank(
             RawCullSimilarityRankingRequest(
@@ -76,9 +76,9 @@ extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
 extension RawCullViewModel: RawCullSimilarityApplicationContext {
     var currentSimilarityCatalogSnapshot: RawCullSimilarityCatalogSnapshot {
         RawCullSimilarityCatalogSnapshot(
-            files: files,
+            files: catalog.files,
             identity: RawCullSimilarityCatalogIdentity(
-                catalogURL: catalogLifecycle.activeLoadURL ?? selectedSource?.url,
+                catalogURL: catalogLifecycle.activeLoadURL ?? catalog.selectedSource?.url,
                 generation: similarityCatalogGeneration,
             ),
         )

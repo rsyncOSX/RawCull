@@ -30,12 +30,12 @@ extension RawCullViewModel {
     /// catalog membership or reconstructs a semantic selection set.
     func cullingGridProjection(ratingFilter: GridRatingFilter) -> CullingGridProjection {
         let key = CullingGridProjectionKey(
-            contentRevision: gridContentRevision,
+            contentRevision: catalog.gridRevision,
             ratingRevision: ratings.revision,
             reviewRevision: burstReviewSession.contentRevision,
             similarityRevision: similarityModel.gridContentRevision,
             saliencyRevision: sharpnessModel.saliencyRevision,
-            sourceURL: selectedSource?.url,
+            sourceURL: catalog.selectedSource?.url,
             ratingFilter: ratingFilter,
             reviewQueueFilter: burstReviewQueueFilter,
             showsBurstGroups: showsBurstGroups,
@@ -46,13 +46,13 @@ extension RawCullViewModel {
         }
         let visibleFiles: [FileItem] = switch ratingFilter {
         case .all:
-            filteredFiles
+            catalog.filteredFiles
 
         case .unrated:
-            selectedSource == nil ? filteredFiles : filteredFiles.filter { ratings.ratingCache[$0.name] == nil }
+            catalog.selectedSource == nil ? catalog.filteredFiles : catalog.filteredFiles.filter { ratings.ratingCache[$0.name] == nil }
 
         case let .rating(value):
-            filteredFiles.filter { ratings.ratingCache[$0.name] == value }
+            catalog.filteredFiles.filter { ratings.ratingCache[$0.name] == value }
         }
         let cache = CullingGridRenderCache.rebuild(
             files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,

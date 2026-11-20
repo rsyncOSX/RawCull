@@ -15,7 +15,7 @@ struct AIAnalysisSelectionTests {
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
         let third = makeFile("third.ARW")
-        state.viewModel.filteredFiles = [first, second, third]
+        state.viewModel.catalog.filteredFiles = [first, second, third]
         state.viewModel.selection.selectedFileIDs = [third.id, first.id]
 
         #expect(
@@ -32,7 +32,7 @@ struct AIAnalysisSelectionTests {
             userDefaults: isolatedUserDefaults(),
         )
         let file = makeFile("focused.ARW")
-        state.viewModel.filteredFiles = [file]
+        state.viewModel.catalog.filteredFiles = [file]
         state.viewModel.selection.selectedFileID = file.id
 
         #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == [file.id])
@@ -47,7 +47,7 @@ struct AIAnalysisSelectionTests {
         )
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
-        state.viewModel.filteredFiles = [first, second]
+        state.viewModel.catalog.filteredFiles = [first, second]
         state.viewModel.selection.selectedFileIDs = [first.id, second.id]
 
         state.viewModel.selectMainViewMode(.aiAnalysis)
@@ -71,7 +71,7 @@ struct AIAnalysisSelectionTests {
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
         let tagged = makeFile("tagged.ARW")
-        state.viewModel.filteredFiles = [first, second, tagged]
+        state.viewModel.catalog.filteredFiles = [first, second, tagged]
         state.viewModel.selection.selectedFileID = first.id
         if multipleSelection {
             state.viewModel.selection.selectedFileIDs = [first.id, second.id]

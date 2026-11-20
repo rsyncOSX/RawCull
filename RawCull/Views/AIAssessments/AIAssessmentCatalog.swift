@@ -174,7 +174,7 @@ struct BurstAssessmentButton: View {
     @Environment(AIAssessmentNavigation.self) private var navigation: AIAssessmentNavigation?
 
     var body: some View {
-        if let navigation, let catalog = viewModel.selectedSource?.url,
+        if let navigation, let catalog = viewModel.catalog.selectedSource?.url,
            let entry = navigation.entry(matching: files, catalog: catalog)
         {
             Button {

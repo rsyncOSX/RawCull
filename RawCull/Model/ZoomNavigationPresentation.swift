@@ -22,25 +22,25 @@ extension RawCullViewModel {
     func zoomNavigationProjection() -> ZoomNavigationProjection {
         // Read observable inputs even on cache hits so views retain dependencies.
         let key = ZoomNavigationProjectionKey(
-            catalogRevision: catalogContentRevision,
-            gridRevision: gridContentRevision,
+            catalogRevision: catalog.contentRevision,
+            gridRevision: catalog.gridRevision,
             ratingRevision: ratings.revision,
             contextRevision: zoomOverlay.contextRevision,
-            sourceURL: selectedSource?.url,
+            sourceURL: catalog.selectedSource?.url,
             ratingFilter: ratings.ratingFilter,
             usesAnalysisSortOrder: sharpnessModel.sortBySharpness || similarityFeature.isSimilaritySortingActive,
         )
         if let cached = zoomNavigationCache, cached.key == key {
             return cached
         }
-        let catalogIDs = Set(files.map(\.id))
+        let catalogIDs = Set(catalog.files.map(\.id))
         var ordered: [FileItem] = []
         if let context = zoomOverlay.navigationContext {
-            let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+            let filesByID = Dictionary(uniqueKeysWithValues: catalog.files.map { ($0.id, $0) })
             ordered = context.orderedFileIDs.compactMap { filesByID[$0] }
         }
         if ordered.isEmpty {
-            let filtered = filteredFiles.filter { ratings.passesRatingFilter($0) }
+            let filtered = catalog.filteredFiles.filter { ratings.passesRatingFilter($0) }
             ordered = key.usesAnalysisSortOrder
                 ? filtered
                 : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

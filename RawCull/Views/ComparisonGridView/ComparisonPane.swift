@@ -66,7 +66,7 @@ struct ComparisonPane: View {
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
         let points =
-            viewModel.focusPoints?
+            viewModel.catalog.focusPoints?
                 .filter { $0.sourceFile == file.name }
                 .flatMap(\.focusPoints) ?? []
         return points.isEmpty ? nil : points

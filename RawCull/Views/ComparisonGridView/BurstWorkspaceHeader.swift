@@ -26,7 +26,7 @@ struct BurstWorkspaceHeader: View {
             .controlSize(.regular)
             .help("Return to Burst list (R)")
 
-            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
+            Text("\(viewModel.catalog.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
                 .font(.callout.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -49,7 +49,7 @@ struct BurstWorkspaceHeader: View {
 
             BurstAssessmentButton(
                 viewModel: viewModel,
-                files: viewModel.files.filter { file in
+                files: viewModel.catalog.files.filter { file in
                     viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
                 },
             )

@@ -12,12 +12,12 @@ struct ExtractJPGsSheetView: View {
 
     private var destinationOptions: [ARWSourceCatalog] {
         guard let destination = viewModel.fileOperations.extractJPGDestination,
-              !viewModel.sources.contains(where: { $0.url == destination.url })
+              !viewModel.catalog.sources.contains(where: { $0.url == destination.url })
         else {
-            return viewModel.sources
+            return viewModel.catalog.sources
         }
 
-        return viewModel.sources + [destination]
+        return viewModel.catalog.sources + [destination]
     }
 
     private var canExtract: Bool {
