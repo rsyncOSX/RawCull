@@ -39,10 +39,10 @@ struct ZoomNavigationProjectionTests {
         model.files = [first, second]
         model.filteredFiles = [first, second]
         model.ratingFilter = .stars(5)
-        model.zoomOverlayNavigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [second.id, UUID(), first.id])
+        model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [second.id, UUID(), first.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
-        model.zoomOverlayNavigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [UUID()])
+        model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [UUID()])
         #expect(navigation.orderedZoomFiles.isEmpty)
         model.ratingFilter = .all
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
@@ -78,7 +78,7 @@ struct ZoomNavigationProjectionTests {
         model.files = [file]
         model.filteredFiles = [file]
         model.selectedFileID = file.id
-        model.zoomOverlayNavigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [file.id])
+        model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [file.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
         #expect(navigation.orderedZoomFiles.first?.size == file.size)
         file = FileItem(

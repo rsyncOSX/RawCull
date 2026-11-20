@@ -25,7 +25,7 @@ struct ZoomOverlayView: View {
 
     private var clippingTaskID: ClippingTaskID {
         ClippingTaskID(
-            imageID: viewModel.zoomOverlayCGImage.map(ObjectIdentifier.init),
+            imageID: viewModel.zoomOverlay.cgImage.map(ObjectIdentifier.init),
             enabled: session.sourceSelection.selected == .developedRAW && session.showRAWClippingWarning,
         )
     }
@@ -68,8 +68,8 @@ struct ZoomOverlayView: View {
 
     private var maskAnalysisImage: CGImage? {
         ZoomOverlayImagePolicy.analysisImage(
-            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
-            displayImage: viewModel.zoomOverlayCGImage,
+            dedicatedAnalysisImage: viewModel.zoomOverlay.analysisCGImage,
+            displayImage: viewModel.zoomOverlay.cgImage,
         )
     }
 
@@ -98,8 +98,8 @@ struct ZoomOverlayView: View {
             Color.black.opacity(0.97).ignoresSafeArea()
 
             ZoomImageCanvas(
-                cgImage: viewModel.zoomOverlayCGImage, nsImage: viewModel.zoomOverlayNSImage,
-                nativeImageSize: viewModel.zoomOverlayNativeSize,
+                cgImage: viewModel.zoomOverlay.cgImage, nsImage: viewModel.zoomOverlay.nsImage,
+                nativeImageSize: viewModel.zoomOverlay.nativeSize,
                 focusMask: session.focusMask, subjectOutline: session.subjectOutline,
                 clippingOverlay: rawClippingOverlay, showsSubjectOutline: session.showSubjectOutline,
                 focusTarget: focusTarget, viewport: $session.viewport,
@@ -117,15 +117,15 @@ struct ZoomOverlayView: View {
 
             VStack {
                 ZoomOverlayChrome(
-                    dimensions: viewModel.zoomOverlayNativeSize
-                        ?? viewModel.zoomOverlayCGImage.map { CGSize(width: $0.width, height: $0.height) }
-                        ?? viewModel.zoomOverlayNSImage?.size,
+                    dimensions: viewModel.zoomOverlay.nativeSize
+                        ?? viewModel.zoomOverlay.cgImage.map { CGSize(width: $0.width, height: $0.height) }
+                        ?? viewModel.zoomOverlay.nsImage?.size,
                     rating: viewModel.selectedFile.map(ratingDisplay(for:)),
-                    isReducedRAWPreview: viewModel.zoomOverlayRAWIsReduced,
-                    rawRenderSeconds: viewModel.zoomOverlayRAWRenderSeconds,
+                    isReducedRAWPreview: viewModel.zoomOverlay.rawIsReduced,
+                    rawRenderSeconds: viewModel.zoomOverlay.rawRenderSeconds,
                     isPreparingRAW: session.isLoadingRAWPreview,
                     isPreparingRAWPreview: session.rawPreviewMaximumDimension != nil,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                     isInspectingExposure: session.evaluateRAWExposure,
                     canNavigatePrevious: navigation.canNavigatePrevious, canNavigateNext: navigation.canNavigateNext,
                     navigate: navigateSelection(by:), dismiss: dismiss,
@@ -168,7 +168,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 123,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -177,7 +177,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 124,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -186,7 +186,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 126,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -195,7 +195,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: nil,
                     keyCode: 125,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -208,7 +208,7 @@ struct ZoomOverlayView: View {
                 ZoomOverlayKeyAction.resolve(
                     characters: press.characters,
                     keyCode: 0,
-                    navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                    navigationAxis: viewModel.zoomOverlay.navigationAxis,
                 ),
             )
         }
@@ -241,9 +241,9 @@ struct ZoomOverlayView: View {
             }
         }
         .onChange(of: viewModel.selectedFile) { _, _ in
-            guard viewModel.zoomOverlayVisible else { return }
+            guard viewModel.zoomOverlay.isVisible else { return }
             session.resetForSelectedFile(
-                initialZoomMode: viewModel.zoomOverlayLaunchContext.initialZoomMode,
+                initialZoomMode: viewModel.zoomOverlay.launchContext.initialZoomMode,
             )
             reload()
         }
@@ -254,7 +254,7 @@ struct ZoomOverlayView: View {
         }
         .task(id: clippingTaskID) {
             rawClippingOverlay = nil
-            guard clippingTaskID.enabled, let image = viewModel.zoomOverlayCGImage else { return }
+            guard clippingTaskID.enabled, let image = viewModel.zoomOverlay.cgImage else { return }
             let overlay = await RAWPreviewClippingOverlay.make(from: image)
             guard !Task.isCancelled else { return }
             rawClippingOverlay = overlay
@@ -275,7 +275,7 @@ struct ZoomOverlayView: View {
     // MARK: - Reload
 
     private func applyLaunchContext() {
-        let context = viewModel.zoomOverlayLaunchContext
+        let context = viewModel.zoomOverlay.launchContext
         session.applyLaunchContext(context, hasFocusTarget: focusTarget != nil)
     }
 
@@ -284,8 +284,8 @@ struct ZoomOverlayView: View {
         // Finish the current image before following a resize; avoid cancelling every window pixel.
         guard let loadID = session.beginPreviewLoad(preservingImage: preservingImage) else { return }
         let dimension = session.rawPreviewMaximumDimension
-        viewModel.zoomExtractionTask?.cancel()
-        viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
+        viewModel.zoomOverlay.extractionTask?.cancel()
+        viewModel.zoomOverlay.extractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
             source: session.sourceSelection.selected,
             viewModel: viewModel,
@@ -295,7 +295,7 @@ struct ZoomOverlayView: View {
             preservingImage: preservingImage,
             onFinished: {
                 guard session.finishPreviewLoad(loadID) else { return }
-                if !Task.isCancelled, viewModel.zoomOverlayVisible,
+                if !Task.isCancelled, viewModel.zoomOverlay.isVisible,
                    session.sourceSelection.selected == .developedRAW,
                    dimension != session.rawPreviewMaximumDimension {
                     reload(preservingImage: true)
@@ -322,7 +322,7 @@ struct ZoomOverlayView: View {
 
     private func installKeyMonitor() {
         session.keyMonitor.install { event in
-            guard viewModel.zoomOverlayVisible,
+            guard viewModel.zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event)
             else { return .ignored }
@@ -340,7 +340,7 @@ struct ZoomOverlayView: View {
             ZoomOverlayKeyAction.resolve(
                 characters: event.characters,
                 keyCode: event.keyCode,
-                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+                navigationAxis: viewModel.zoomOverlay.navigationAxis,
             ),
         )
     }
@@ -396,7 +396,7 @@ struct ZoomOverlayView: View {
     private func prepareForNavigatedImage() {
         session.viewport.offset = .zero
         session.viewport.lastOffset = .zero
-        session.pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
+        session.pendingInitialZoomMode = viewModel.zoomOverlay.launchContext.initialZoomMode
     }
 
     private func zoomToTarget() {

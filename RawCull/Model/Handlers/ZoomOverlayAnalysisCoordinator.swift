@@ -8,8 +8,8 @@ struct ZoomOverlayAnalysisCoordinator {
 
     private var maskAnalysisImage: CGImage? {
         ZoomOverlayImagePolicy.analysisImage(
-            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
-            displayImage: viewModel.zoomOverlayCGImage,
+            dedicatedAnalysisImage: viewModel.zoomOverlay.analysisCGImage,
+            displayImage: viewModel.zoomOverlay.cgImage,
         )
     }
 

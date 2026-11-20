@@ -308,7 +308,7 @@ extension CatalogPerformanceTests {
             succeeded: filtered.count == min(3, files.count) && model.zoomNavigationBuildCount > builds,
         )
         model.ratingFilter = .all
-        model.zoomOverlayNavigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
+        model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
         try #require(navigation.orderedZoomFiles.map(\.id) == files.reversed().map(\.id))
         model.files = []
         model.filteredFiles = []

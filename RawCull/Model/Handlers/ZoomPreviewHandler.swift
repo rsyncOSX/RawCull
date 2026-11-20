@@ -45,12 +45,12 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlayCGImage = nil
-                    viewModel.zoomOverlayNativeSize = nil
-                    viewModel.zoomOverlayRAWIsReduced = nil
-                    viewModel.zoomOverlayRAWRenderSeconds = nil
-                    viewModel.zoomOverlayAnalysisCGImage = nil
-                    viewModel.zoomOverlayNSImage = nil
+                    viewModel.zoomOverlay.cgImage = nil
+                    viewModel.zoomOverlay.nativeSize = nil
+                    viewModel.zoomOverlay.rawIsReduced = nil
+                    viewModel.zoomOverlay.rawRenderSeconds = nil
+                    viewModel.zoomOverlay.analysisCGImage = nil
+                    viewModel.zoomOverlay.nsImage = nil
                 }
 
                 let cgThumb = await RequestThumbnail.shared.requestThumbnail(
@@ -79,11 +79,11 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlayAnalysisCGImage = cgThumb
+                    viewModel.zoomOverlay.analysisCGImage = cgThumb
                     if let displayImage {
-                        viewModel.zoomOverlayNSImage = NSImage(cgImage: displayImage, size: .zero)
+                        viewModel.zoomOverlay.nsImage = NSImage(cgImage: displayImage, size: .zero)
                     }
-                    viewModel.zoomOverlayVisible = true
+                    viewModel.zoomOverlay.isVisible = true
                 }
             }
         } else {
@@ -93,14 +93,14 @@ enum ZoomPreviewHandler {
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
                     if !preservingImage {
-                        viewModel.zoomOverlayNSImage = nil
-                        viewModel.zoomOverlayCGImage = nil
-                        viewModel.zoomOverlayNativeSize = nil
-                        viewModel.zoomOverlayRAWIsReduced = nil
-                        viewModel.zoomOverlayRAWRenderSeconds = nil
-                        viewModel.zoomOverlayAnalysisCGImage = nil
+                        viewModel.zoomOverlay.nsImage = nil
+                        viewModel.zoomOverlay.cgImage = nil
+                        viewModel.zoomOverlay.nativeSize = nil
+                        viewModel.zoomOverlay.rawIsReduced = nil
+                        viewModel.zoomOverlay.rawRenderSeconds = nil
+                        viewModel.zoomOverlay.analysisCGImage = nil
                     }
-                    viewModel.zoomOverlayVisible = true
+                    viewModel.zoomOverlay.isVisible = true
                 }
 
                 guard !Task.isCancelled else { return }
@@ -144,15 +144,15 @@ enum ZoomPreviewHandler {
                 if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlayNativeSize = nativeSize
-                        viewModel.zoomOverlayRAWIsReduced = isReducedRAW
-                        viewModel.zoomOverlayRAWRenderSeconds = renderSeconds
-                        viewModel.zoomOverlayCGImage = image
+                        viewModel.zoomOverlay.nativeSize = nativeSize
+                        viewModel.zoomOverlay.rawIsReduced = isReducedRAW
+                        viewModel.zoomOverlay.rawRenderSeconds = renderSeconds
+                        viewModel.zoomOverlay.cgImage = image
                     }
                 }
                 let resolvedAnalysisImage = await analysisImage
                 guard !Task.isCancelled else { return }
-                viewModel.zoomOverlayAnalysisCGImage = resolvedAnalysisImage ?? image
+                viewModel.zoomOverlay.analysisCGImage = resolvedAnalysisImage ?? image
             }
         }
     }

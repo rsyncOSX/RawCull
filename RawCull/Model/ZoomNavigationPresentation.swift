@@ -23,7 +23,7 @@ extension RawCullViewModel {
         let key = ZoomNavigationProjectionKey(
             catalogRevision: catalogContentRevision,
             gridRevision: gridContentRevision,
-            contextRevision: zoomContextRevision,
+            contextRevision: zoomOverlay.contextRevision,
             sourceURL: selectedSource?.url,
             ratingFilter: ratingFilter,
             usesAnalysisSortOrder: sharpnessModel.sortBySharpness || similarityFeature.isSimilaritySortingActive,
@@ -33,7 +33,7 @@ extension RawCullViewModel {
         }
         let catalogIDs = Set(files.map(\.id))
         var ordered: [FileItem] = []
-        if let context = zoomOverlayNavigationContext {
+        if let context = zoomOverlay.navigationContext {
             let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
             ordered = context.orderedFileIDs.compactMap { filesByID[$0] }
         }

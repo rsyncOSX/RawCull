@@ -13,8 +13,8 @@ struct ZoomOverlayControls: View {
 
     private var maskAnalysisImage: CGImage? {
         ZoomOverlayImagePolicy.analysisImage(
-            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
-            displayImage: viewModel.zoomOverlayCGImage,
+            dedicatedAnalysisImage: viewModel.zoomOverlay.analysisCGImage,
+            displayImage: viewModel.zoomOverlay.cgImage,
         )
     }
 
@@ -42,7 +42,7 @@ struct ZoomOverlayControls: View {
                         .background(.regularMaterial, in: Capsule())
                 }
 
-                RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlayCGImage)
+                RAWExposureInspectionControls(session: session, image: viewModel.zoomOverlay.cgImage)
             }
             if !session.evaluateRAWExposure {
                 HStack(spacing: 12) {

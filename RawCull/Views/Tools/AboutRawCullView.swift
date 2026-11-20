@@ -10,8 +10,8 @@ struct AboutRawCullView: View {
     @Environment(RawCullViewModel.self) private var viewModel
 
     private var activeShortcutSection: ShortcutSection {
-        if viewModel.zoomOverlayVisible {
-            .zoomPreview(navigationAxis: viewModel.zoomOverlayNavigationAxis)
+        if viewModel.zoomOverlay.isVisible {
+            .zoomPreview(navigationAxis: viewModel.zoomOverlay.navigationAxis)
         } else if viewModel.mainViewMode == .comparisonGrid,
                   viewModel.activeBurstComparisonGroupID != nil {
             viewModel.showsDetailedBurstComparison ? .burstComparison : .burstReview

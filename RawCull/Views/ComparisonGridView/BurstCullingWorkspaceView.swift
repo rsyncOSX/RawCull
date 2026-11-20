@@ -530,7 +530,7 @@ struct BurstCullingWorkspaceView: View {
 
     private func installOverlayKeyMonitor() {
         session.keyMonitor.install { event in
-            guard !viewModel.zoomOverlayVisible,
+            guard !viewModel.zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   let characters = event.characters

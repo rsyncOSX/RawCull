@@ -173,7 +173,7 @@ struct LoupeMainImageView: View {
     private func installSubjectOutlineKeyMonitor() {
         subjectOutlineKeyMonitor.install { event in
             guard viewModel.mainViewMode == .loupe,
-                  !viewModel.zoomOverlayVisible,
+                  !viewModel.zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline

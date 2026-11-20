@@ -81,7 +81,7 @@ struct AIAssessmentWorkspace: View {
         .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             keyMonitor.install { event in
-                guard !viewModel.zoomOverlayVisible, keyboardScope.accepts(event) else { return .ignored }
+                guard !viewModel.zoomOverlay.isVisible, keyboardScope.accepts(event) else { return .ignored }
                 if event.charactersIgnoringModifiers?.lowercased() == "r" {
                     returnToBursts()
                     return .handled

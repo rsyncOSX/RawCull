@@ -59,7 +59,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     guard keyboardScope.accepts(event),
                           viewModel.mainViewMode != .comparisonGrid,
-                          !viewModel.zoomOverlayVisible,
+                          !viewModel.zoomOverlay.isVisible,
                           event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
 
                     if ThumbnailKeyboardRouting.handleBurstCommand(

@@ -68,7 +68,7 @@ struct RawCullMainView: View {
                 }
             }
 
-            if viewModel.zoomOverlayVisible {
+            if viewModel.zoomOverlay.isVisible {
                 ZoomOverlayView(viewModel: viewModel)
                     .transition(.opacity)
                     .zIndex(10)

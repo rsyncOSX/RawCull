@@ -162,66 +162,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// In-window zoom overlay state.
     let zoomOverlay = ZoomOverlayModel()
 
-    // Temporary forwarders while call sites move to `zoomOverlay`.
-    var zoomOverlayVisible: Bool {
-        get { zoomOverlay.isVisible }
-        set { zoomOverlay.isVisible = newValue }
-    }
-
-    var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis {
-        get { zoomOverlay.navigationAxis }
-        set { zoomOverlay.navigationAxis = newValue }
-    }
-
-    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext? {
-        get { zoomOverlay.navigationContext }
-        set { zoomOverlay.navigationContext = newValue }
-    }
-
-    var zoomOverlayLaunchContext: ZoomOverlayLaunchContext {
-        get { zoomOverlay.launchContext }
-        set { zoomOverlay.launchContext = newValue }
-    }
-
-    var zoomOverlayNativeSize: CGSize? {
-        get { zoomOverlay.nativeSize }
-        set { zoomOverlay.nativeSize = newValue }
-    }
-
-    var zoomOverlayRAWIsReduced: Bool? {
-        get { zoomOverlay.rawIsReduced }
-        set { zoomOverlay.rawIsReduced = newValue }
-    }
-
-    var zoomOverlayRAWRenderSeconds: Double? {
-        get { zoomOverlay.rawRenderSeconds }
-        set { zoomOverlay.rawRenderSeconds = newValue }
-    }
-
-    var zoomOverlayCGImage: CGImage? {
-        get { zoomOverlay.cgImage }
-        set { zoomOverlay.cgImage = newValue }
-    }
-
-    var zoomOverlayAnalysisCGImage: CGImage? {
-        get { zoomOverlay.analysisCGImage }
-        set { zoomOverlay.analysisCGImage = newValue }
-    }
-
-    var zoomOverlayNSImage: NSImage? {
-        get { zoomOverlay.nsImage }
-        set { zoomOverlay.nsImage = newValue }
-    }
-
-    var zoomExtractionTask: Task<Void, Never>? {
-        get { zoomOverlay.extractionTask }
-        set { zoomOverlay.extractionTask = newValue }
-    }
-
-    var zoomContextRevision: UInt64 {
-        zoomOverlay.contextRevision
-    }
-
     // Thumbnail preview zoom state
     var scale: CGFloat = 1.0
     var lastScale: CGFloat = 1.0
