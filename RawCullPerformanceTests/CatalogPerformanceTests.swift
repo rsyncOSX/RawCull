@@ -299,15 +299,15 @@ extension CatalogPerformanceTests {
         try #require(model.sharpnessScoringTargetCount == min(3, files.count))
         model.selectedFileIDs = []
         start = ProcessInfo.processInfo.systemUptime
-        model.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })
-        model.ratingFilter = .stars(5)
+        model.ratings.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })
+        model.ratings.ratingFilter = .stars(5)
         let filtered = navigation.orderedZoomFiles
         await journal.record(
             "navigation.ratingFilter",
             since: start,
             succeeded: filtered.count == min(3, files.count) && model.zoomNavigationBuildCount > builds,
         )
-        model.ratingFilter = .all
+        model.ratings.ratingFilter = .all
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
         try #require(navigation.orderedZoomFiles.map(\.id) == files.reversed().map(\.id))
         model.files = []
@@ -368,7 +368,7 @@ extension CatalogPerformanceTests {
             semanticSearchFeature: semantic,
             deepAIReviewController: DeepAIReviewController(),
         )
-        model.cullingModel = CullingModel(saveHandler: { _ in })
+        model.ratings.cullingModel = CullingModel(saveHandler: { _ in })
         semantic.bindApplicationTarget(model)
         return model
     }

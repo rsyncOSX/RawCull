@@ -110,7 +110,7 @@ struct ImageTableVerticalView: View {
     // MARK: - Private Helpers
 
     private var filteredFiles: [FileItem] {
-        viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
+        viewModel.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {
@@ -126,13 +126,13 @@ struct ImageTableVerticalView: View {
     }
 
     private func ratingValue(for file: FileItem) -> Int {
-        viewModel.getRating(for: file)
+        viewModel.ratings.getRating(for: file)
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
             rating: ratingValue(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
         )
     }
 

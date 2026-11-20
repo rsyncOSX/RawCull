@@ -108,14 +108,14 @@ struct AIAssessmentComparison: View {
         let file = frame.flatMap(liveFile)
         return AIAssessmentPane(
             frame: frame, rubric: entry.request.rubric, access: access,
-            accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
+            accessChecked: accessChecked, isTagged: file.map { viewModel.ratings.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: {
                 if let frame {
                     toggleTag(frame)
                 }
             }, viewport: viewport, height: height,
-            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel) } ?? .unrated,
+            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel.ratings) } ?? .unrated,
             subjectLabel: file.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
             entryRecommendation: entry.recommendation, isActive: activeSide == side,
             activate: { activeSide = side; hasKeyboardFocus = true },
@@ -167,7 +167,7 @@ struct AIAssessmentComparison: View {
 
     private var liveCatalog: URL? {
         guard let access, let url = viewModel.selectedSource?.url, !viewModel.scanning,
-              viewModel.cullingModel.loadState == .ready, !viewModel.cullingModel.isTerminationPending,
+              viewModel.ratings.cullingModel.loadState == .ready, !viewModel.ratings.cullingModel.isTerminationPending,
               url.standardizedFileURL == access.url.standardizedFileURL else { return nil }
         return url
     }
@@ -222,8 +222,8 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            if viewModel.getRating(for: file) >= 2 {
-                viewModel.cullingModel.applyRatingStates([file.name: nil], in: catalog)
+            if viewModel.ratings.getRating(for: file) >= 2 {
+                viewModel.ratings.cullingModel.applyRatingStates([file.name: nil], in: catalog)
                 viewModel.refreshCullingDerivedState()
             } else {
                 viewModel.updateRating(for: file, rating: 2)

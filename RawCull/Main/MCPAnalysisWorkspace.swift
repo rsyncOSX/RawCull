@@ -72,7 +72,7 @@ protocol MCPAnalysisWorkspace: AnyObject {
 
 extension RawCullViewModel: MCPAnalysisWorkspace {
     var loadedSource: ARWSourceCatalog? { catalogLifecycle.currentSource }
-    var catalogPersistenceError: String? { cullingModel.persistenceError }
+    var catalogPersistenceError: String? { ratings.cullingModel.persistenceError }
 
     var isCatalogTransitionActive: Bool {
         catalogLifecycle.transitionTask != nil || catalogLifecycle.loadTask != nil
@@ -88,7 +88,7 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
         catalogLifecycle.retainSecurityScopedAccess(for: url)
     }
 
-    var isMCPTerminationPending: Bool { cullingModel.isTerminationPending }
+    var isMCPTerminationPending: Bool { ratings.cullingModel.isTerminationPending }
     var isSharpnessCalibrationRunning: Bool { sharpnessModel.isCalibratingSharpnessScoring }
 
     func authorizeCatalogForMCPJob(catalogId: UUID) throws {

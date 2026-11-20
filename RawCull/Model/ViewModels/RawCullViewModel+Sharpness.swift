@@ -33,11 +33,11 @@ extension RawCullViewModel {
             return visibleSelected + hiddenSelected
         }
 
-        if case let .stars(rating) = ratingFilter {
+        if case let .stars(rating) = ratings.ratingFilter {
             if !filteredFiles.isEmpty {
-                return filteredFiles.filter { self.rating(for: $0) == rating }
+                return filteredFiles.filter { self.ratings.rating(for: $0) == rating }
             }
-            return active.filter { self.rating(for: $0) == rating }
+            return active.filter { self.ratings.rating(for: $0) == rating }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
 
@@ -54,9 +54,9 @@ extension RawCullViewModel {
                 selectedIDs.contains($0.id) && !visibleIDs.contains($0.id)
             }
         }
-        if case let .stars(rating) = ratingFilter {
+        if case let .stars(rating) = ratings.ratingFilter {
             let candidates = filteredFiles.isEmpty ? activeCatalogFiles : filteredFiles
-            let ratings = ratingCache
+            let ratings = ratings.ratingCache
             return candidates.count { ratings[$0.name] == rating }
         }
         return activeCatalogFiles.count
@@ -70,7 +70,7 @@ extension RawCullViewModel {
             return "\(count) selected \(fileLabel)"
         }
 
-        if case let .stars(rating) = ratingFilter {
+        if case let .stars(rating) = ratings.ratingFilter {
             return "\(count) \(rating)-star \(fileLabel)"
         }
 
@@ -119,7 +119,7 @@ extension RawCullViewModel {
     }
 
     // periphery:ignore
-    /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
+    /// Merges current sharpness scores and saliency labels into ratings.cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
     func persistScoringResultsInMemory() {
         persistScoringResultsInMemory(files: files)
@@ -146,11 +146,11 @@ extension RawCullViewModel {
                 afPointScore: sharpnessModel.afPointScores[file.id],
             )
         }
-        cullingModel.mergeScoringResults(results, in: catalog)
+        ratings.cullingModel.mergeScoringResults(results, in: catalog)
     }
 
     func loadPersistedScoringandSaliency() {
-        let records = cullingModel.savedFiles.first { $0.catalog == selectedSource?.url }?.filerecords ?? []
+        let records = ratings.cullingModel.savedFiles.first { $0.catalog == selectedSource?.url }?.filerecords ?? []
         // Keep the first legacy duplicate, matching the previous first(where:) policy.
         let recordsByName = Dictionary(records.compactMap { record in
             record.fileName.map { ($0, record) }

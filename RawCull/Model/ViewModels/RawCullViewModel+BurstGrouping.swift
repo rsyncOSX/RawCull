@@ -279,7 +279,7 @@ extension RawCullViewModel {
             winnerFileName: winner.name,
             memberFileNames: groupFiles.map(\.name),
         )
-        cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
+        ratings.cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
         applyManualWinnerOverrides(files: files)
         updateRating(for: winner, rating: 3)
         markBurstGroupReviewed(groupID: groupID)
@@ -400,7 +400,7 @@ extension RawCullViewModel {
         guard let entry = lastBurstUndoEntry,
               let selectedSource
         else { return }
-        cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
+        ratings.cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
         refreshCullingDerivedState()
         lastBurstUndoEntry = nil
         burstReviewSession.synchronizeResultReviewStateAfterUndo(groupID: entry.groupID)
@@ -537,9 +537,9 @@ extension RawCullViewModel {
         let targets: [FileItem]
         if !selectedFileIDs.isEmpty {
             targets = activeFiles.filter { selectedFileIDs.contains($0.id) }
-        } else if case let .stars(rating) = ratingFilter {
+        } else if case let .stars(rating) = ratings.ratingFilter {
             let visible = filteredFiles.isEmpty ? activeFiles : filteredFiles
-            targets = visible.filter { self.rating(for: $0) == rating }
+            targets = visible.filter { self.ratings.rating(for: $0) == rating }
         } else {
             targets = activeFiles
         }
@@ -639,7 +639,7 @@ extension RawCullViewModel {
 
     func manualOverrideWinner(in groupFiles: [FileItem]) -> (file: FileItem, override: BurstWinnerOverride)? {
         guard let selectedSource,
-              let override = cullingModel.overrideWinner(for: groupFiles, in: selectedSource.url),
+              let override = ratings.cullingModel.overrideWinner(for: groupFiles, in: selectedSource.url),
               let file = groupFiles.first(where: { $0.name == override.winnerFileName })
         else { return nil }
         return (file, override)
@@ -647,7 +647,7 @@ extension RawCullViewModel {
 
     private func applyManualWinnerOverrides(files: [FileItem]) {
         guard let selectedSource else { return }
-        cullingModel.pruneStaleBurstOverrides(
+        ratings.cullingModel.pruneStaleBurstOverrides(
             validFileNames: Set(self.files.map(\.name)),
             in: selectedSource.url,
         )
@@ -663,7 +663,7 @@ extension RawCullViewModel {
     private func captureUndo(groupID: Int, files: [FileItem]) {
         lastBurstUndoEntry = BurstUndoEntry(
             groupID: groupID,
-            previousRatingsByFileName: Dictionary(uniqueKeysWithValues: files.map { ($0.name, rating(for: $0)) }),
+            previousRatingsByFileName: Dictionary(uniqueKeysWithValues: files.map { ($0.name, ratings.rating(for: $0)) }),
         )
     }
 

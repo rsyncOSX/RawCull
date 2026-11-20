@@ -90,7 +90,7 @@ struct CacheSettingsTab: View {
                             showDeleteSavedFiles = true
                         }
                         .disabled(viewModel.isCreatingThumbnails || isDeletingSavedFiles
-                            || viewModel.cullingModel.persistenceError != nil)
+                            || viewModel.ratings.cullingModel.persistenceError != nil)
                     }
                 }
 
@@ -109,7 +109,7 @@ struct CacheSettingsTab: View {
             Button("Delete Saved Files", role: .destructive) {
                 isDeletingSavedFiles = true
                 Task {
-                    let cullingModel = viewModel.cullingModel
+                    let cullingModel = viewModel.ratings.cullingModel
                     if await cullingModel.ensureLoaded() {
                         viewModel.clearAllCullingState()
                         if await !(cullingModel.flushPersistence()) {

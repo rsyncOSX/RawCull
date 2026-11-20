@@ -38,13 +38,13 @@ struct ZoomNavigationProjectionTests {
         let second = makeCullingTestFile("B.ARW")
         model.files = [first, second]
         model.filteredFiles = [first, second]
-        model.ratingFilter = .stars(5)
+        model.ratings.ratingFilter = .stars(5)
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [second.id, UUID(), first.id])
         let navigation = ZoomNavigationPresentation(viewModel: model)
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
         model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: [UUID()])
         #expect(navigation.orderedZoomFiles.isEmpty)
-        model.ratingFilter = .all
+        model.ratings.ratingFilter = .all
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])
     }
 
@@ -62,10 +62,10 @@ struct ZoomNavigationProjectionTests {
         model.sharpnessModel.sortBySharpness = false
         model.similarityModel.sortBySimilarity = true
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
-        model.ratingFilter = .stars(3)
-        model.ratingCache = [first.name: 3]
+        model.ratings.ratingFilter = .stars(3)
+        model.ratings.ratingCache = [first.name: 3]
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id])
-        model.ratingCache[second.name] = 3
+        model.ratings.ratingCache[second.name] = 3
         #expect(navigation.orderedZoomFiles.map(\.id) == [second.id, first.id])
         model.filteredFiles = [first, second]
         #expect(navigation.orderedZoomFiles.map(\.id) == [first.id, second.id])

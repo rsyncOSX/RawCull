@@ -129,7 +129,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var scanning: Bool = true
 
 
-    var ratingFilter: RatingFilter = .all
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
@@ -155,8 +154,8 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// JPG extraction, JPG cache warming and file-operation progress.
     let fileOperations = FileOperationsModel()
 
-    /// This is the only place CullingModel is initialised.
-    var cullingModel = CullingModel()
+    /// Culling store, rating lookup and rating filter.
+    let ratings = RatingsModel()
 
     /// Single shared instance — config changes here affect both the zoom
     /// overlay and the sharpness scoring pipeline.
@@ -219,15 +218,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// URLs whose thumbnails have already been preloaded — skip on revisit.
     @ObservationIgnored var processedURLs: Set<URL> = []
-
-    /// O(1) lookup: filename → rating for the current source catalog.
-    /// Rebuilt by rebuildRatingCache() after any culling state change.
-    var ratingCache: [String: Int] = [:] {
-        didSet { gridContentRevision &+= 1 }
-    }
-
-    /// Filenames that have an explicit record in the current catalog.
-    var taggedNamesCache: Set<String> = []
 
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?

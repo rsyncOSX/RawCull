@@ -48,7 +48,7 @@ struct RatedPhotoGridView: View {
     }
 
     var cullingModel: CullingModel {
-        viewModel.cullingModel
+        viewModel.ratings.cullingModel
     }
 
     private var ratedFiles: [FileItem] {

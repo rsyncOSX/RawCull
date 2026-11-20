@@ -4,6 +4,7 @@ import RawCullCore
 struct ZoomNavigationProjectionKey: Equatable {
     let catalogRevision: UInt64
     let gridRevision: UInt64
+    let ratingRevision: UInt64
     let contextRevision: UInt64
     let sourceURL: URL?
     let ratingFilter: RatingFilter
@@ -23,9 +24,10 @@ extension RawCullViewModel {
         let key = ZoomNavigationProjectionKey(
             catalogRevision: catalogContentRevision,
             gridRevision: gridContentRevision,
+            ratingRevision: ratings.revision,
             contextRevision: zoomOverlay.contextRevision,
             sourceURL: selectedSource?.url,
-            ratingFilter: ratingFilter,
+            ratingFilter: ratings.ratingFilter,
             usesAnalysisSortOrder: sharpnessModel.sortBySharpness || similarityFeature.isSimilaritySortingActive,
         )
         if let cached = zoomNavigationCache, cached.key == key {
@@ -38,7 +40,7 @@ extension RawCullViewModel {
             ordered = context.orderedFileIDs.compactMap { filesByID[$0] }
         }
         if ordered.isEmpty {
-            let filtered = filteredFiles.filter { passesRatingFilter($0) }
+            let filtered = filteredFiles.filter { ratings.passesRatingFilter($0) }
             ordered = key.usesAnalysisSortOrder
                 ? filtered
                 : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

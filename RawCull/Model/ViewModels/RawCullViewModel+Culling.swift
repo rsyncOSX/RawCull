@@ -8,8 +8,8 @@ import Foundation
 extension RawCullViewModel {
     @discardableResult
     func retryCullingPersistence() async -> Bool {
-        let wasLoadingStore = cullingModel.loadState != .ready
-        let succeeded = await cullingModel.retryPersistence()
+        let wasLoadingStore = ratings.cullingModel.loadState != .ready
+        let succeeded = await ratings.cullingModel.retryPersistence()
         if succeeded, wasLoadingStore {
             restoreCullingPresentation()
         }
@@ -18,9 +18,9 @@ extension RawCullViewModel {
 
     @discardableResult
     func archiveCullingStoreAndReset() async -> Bool {
-        let succeeded = await cullingModel.archiveCorruptStoreAndReset()
+        let succeeded = await ratings.cullingModel.archiveCorruptStoreAndReset()
         // Reset changes memory even if the subsequent disk write fails.
-        if cullingModel.loadState == .ready {
+        if ratings.cullingModel.loadState == .ready {
             restoreCullingPresentation()
         }
         return succeeded
@@ -46,80 +46,29 @@ extension RawCullViewModel {
         }
     }
 
-    /// Rebuilds the O(1) rating and tagged-names caches from the current catalog entry.
+    /// Rebuilds the rating lookup for the selected catalog.
     /// Must be called after any culling store mutation that affects ratings.
     func rebuildRatingCache() {
-        guard let catalog = selectedSource?.url,
-              let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }),
-              let records = cullingModel.savedFiles[index].filerecords
-        else {
-            ratingCache = [:]
-            taggedNamesCache = []
-            return
-        }
-        var cache: [String: Int] = [:]
-        var tagged: Set<String> = []
-        for record in records {
-            guard let name = record.fileName, let rating = record.rating else { continue }
-            cache[name] = rating
-            tagged.insert(name)
-        }
-        ratingCache = cache
-        taggedNamesCache = tagged
+        ratings.rebuildRatingCache(catalog: selectedSource?.url)
     }
 
     func extractRatedfilenames(_ rating: Int) -> [String] {
         filteredFiles
-            .filter { getRating(for: $0) >= rating }
+            .filter { ratings.getRating(for: $0) >= rating }
             .map(\.name)
     }
 
     func extractTaggedfilenames() -> [String] {
-        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
-              let taggedfilerecords = cullingModel.savedFiles[index].filerecords
-        else { return [] }
-        let activeNames = Set(activeCatalogFiles.map(\.name))
-        return taggedfilerecords
-            .filter {
-                ($0.rating ?? 0) >= 2
-                    && $0.fileName.map(activeNames.contains) == true
-            }
-            .compactMap(\.fileName)
-    }
-
-    func passesRatingFilter(_ file: FileItem) -> Bool {
-        switch ratingFilter {
-        case .all: true
-        case .rejected: rating(for: file) == -1
-        case .keepers: rating(for: file) == 0
-        case let .stars(n): rating(for: file) == n
-        }
-    }
-
-    func rating(for file: FileItem) -> Int? {
-        ratingCache[file.name]
-    }
-
-    func getRating(for file: FileItem) -> Int {
-        rating(for: file) ?? 0
+        ratings.taggedFileNames(catalog: selectedSource?.url, activeNames: Set(activeCatalogFiles.map(\.name)))
     }
 
     func hasRating(in files: [FileItem]) -> Bool {
-        guard !files.isEmpty,
-              let catalog = selectedSource?.url,
-              let records = cullingModel.savedFiles.first(where: { $0.catalog == catalog })?.filerecords
-        else { return false }
-
-        let fileNames = Set(files.map(\.name))
-        return records.contains { record in
-            guard let fileName = record.fileName else { return false }
-            return record.rating != nil && fileNames.contains(fileName)
-        }
+        ratings.hasRating(in: files, catalog: selectedSource?.url)
     }
 
     func updateRating(for file: FileItem, rating: Int) {
         guard let selectedSource else { return }
-        cullingModel.updateRating(fileName: file.name, rating: rating, in: selectedSource.url)
+        ratings.cullingModel.updateRating(fileName: file.name, rating: rating, in: selectedSource.url)
         refreshCullingDerivedState()
     }
 
@@ -146,20 +95,20 @@ extension RawCullViewModel {
 
     func updateRating(for files: [FileItem], rating: Int) {
         guard let selectedSource else { return }
-        cullingModel.updateRatings(fileNames: files.map(\.name), rating: rating, in: selectedSource.url)
+        ratings.cullingModel.updateRatings(fileNames: files.map(\.name), rating: rating, in: selectedSource.url)
         refreshCullingDerivedState()
     }
 
     func clearCurrentCatalogCullingState() {
         guard let selectedSource else { return }
-        cullingModel.resetSavedFiles(in: selectedSource.url)
+        ratings.cullingModel.resetSavedFiles(in: selectedSource.url)
         sharpnessModel.reset()
         similarityFeature.resetCatalogState()
         refreshCullingDerivedState()
     }
 
     func clearAllCullingState() {
-        cullingModel.resetAllSavedFiles()
+        ratings.cullingModel.resetAllSavedFiles()
         sharpnessModel.reset()
         similarityFeature.resetCatalogState()
         refreshCullingDerivedState()
@@ -169,7 +118,7 @@ extension RawCullViewModel {
     /// projection after every persisted culling mutation.
     func refreshCullingDerivedState() {
         rebuildRatingCache()
-        guard ratingFilter != .all else { return }
+        guard ratings.ratingFilter != .all else { return }
 
         let candidates = catalogDisplayCandidates.isEmpty
             ? sortOrder.sorted(files).filter {

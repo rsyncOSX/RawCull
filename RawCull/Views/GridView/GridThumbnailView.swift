@@ -55,7 +55,7 @@ struct GridThumbnailView: View {
     }
 
     private var filteredFiles: [FileItem] {
-        viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
+        viewModel.filteredFiles.filter { viewModel.ratings.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {

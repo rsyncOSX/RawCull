@@ -106,7 +106,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         activeRating: activeRatingInt,
                         onSelect: applyRatingFilter,
                         onClear: {
-                            viewModel.ratingFilter = .all
+                            viewModel.ratings.ratingFilter = .all
                             Task(priority: .background) { await viewModel.handleSortOrderChange() }
                         },
                     )
@@ -224,7 +224,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var activeRatingInt: Int? {
-        switch viewModel.ratingFilter {
+        switch viewModel.ratings.ratingFilter {
         case .all: nil
         case .rejected: -1
         case .keepers: 0
@@ -233,20 +233,20 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private func selectGridMode() {
-        viewModel.ratingFilter = .all
+        viewModel.ratings.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.grid)
     }
 
     private func selectSimilarityGridMode() {
-        viewModel.ratingFilter = .all
+        viewModel.ratings.ratingFilter = .all
         viewModel.burstReviewQueueFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
     }
 
     private func selectReviewQueueMode() {
-        viewModel.ratingFilter = .all
+        viewModel.ratings.ratingFilter = .all
         viewModel.selectMainViewMode(.similarityGrid)
         if semanticSelectionCount != nil {
             Task { @MainActor in
@@ -286,11 +286,11 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func showGridtaggedThumbnailWindow() -> Bool {
         guard let catalogURL = viewModel.selectedSource?.url,
-              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
+              let index = viewModel.ratings.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
         else {
             return false
         }
-        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
+        if let records = viewModel.ratings.cullingModel.savedFiles[index].filerecords {
             return !records.isEmpty
         }
         return false
@@ -302,13 +302,13 @@ struct SharedMainToolbarContent: ToolbarContent {
         case 0: .keepers
         default: .stars(rating)
         }
-        viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
+        viewModel.ratings.ratingFilter = viewModel.ratings.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
 
     private var hasExplicitRatings: Bool {
         guard let catalog = viewModel.selectedSource?.url else { return false }
-        return viewModel.cullingModel.hasExplicitRatings(in: catalog)
+        return viewModel.ratings.cullingModel.hasExplicitRatings(in: catalog)
     }
 
     private var hasAIAnalysisInput: Bool {

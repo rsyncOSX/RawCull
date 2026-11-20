@@ -136,7 +136,7 @@ struct RawCullMainView: View {
                     await viewModel.retryCullingPersistence()
                 }
             }
-            if viewModel.cullingModel.persistenceLoadFailure != nil {
+            if viewModel.ratings.cullingModel.persistenceLoadFailure != nil {
                 Button("Archive Damaged File and Reset", role: .destructive) {
                     Task {
                         await viewModel.archiveCullingStoreAndReset()
@@ -216,22 +216,22 @@ struct RawCullMainView: View {
 
     private var persistenceErrorIsPresented: Binding<Bool> {
         Binding(
-            get: { !viewModel.cullingModel.isTerminationPending && viewModel.cullingModel.persistenceError != nil },
+            get: { !viewModel.ratings.cullingModel.isTerminationPending && viewModel.ratings.cullingModel.persistenceError != nil },
             set: { _ in },
         )
     }
 
     private var persistenceAlertTitle: String {
-        viewModel.cullingModel.persistenceLoadFailure == nil
+        viewModel.ratings.cullingModel.persistenceLoadFailure == nil
             ? "Changes Not Saved"
             : "Saved Culling Data Is Damaged"
     }
 
     private var persistenceAlertMessage: String {
-        if viewModel.cullingModel.persistenceLoadFailure != nil {
-            return "RawCull preserved the damaged file and blocked rating changes so it cannot be overwritten. Retry after repairing the file, or archive it and start with an empty saved-data store.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
+        if viewModel.ratings.cullingModel.persistenceLoadFailure != nil {
+            return "RawCull preserved the damaged file and blocked rating changes so it cannot be overwritten. Retry after repairing the file, or archive it and start with an empty saved-data store.\n\n\(viewModel.ratings.cullingModel.persistenceError ?? "Unknown error")"
         }
-        return "RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
+        return "RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.ratings.cullingModel.persistenceError ?? "Unknown error")"
     }
 
     private var burstFullReindexIsPresented: Binding<Bool> {
@@ -252,7 +252,7 @@ struct RawCullMainView: View {
             RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
-                cullingModel: viewModel.cullingModel,
+                cullingModel: viewModel.ratings.cullingModel,
             )
         } content: {
             SidebarARWCatalogFileView(
@@ -406,7 +406,7 @@ struct RawCullMainView: View {
                 RAWCatalogSidebarView(
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
-                    cullingModel: viewModel.cullingModel,
+                    cullingModel: viewModel.ratings.cullingModel,
                 )
             } detail: {
                 ComparisonGridView(
@@ -466,7 +466,7 @@ struct RawCullMainView: View {
             sharpnessScores: viewModel.sharpnessModel.scores,
             sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
             focusPoints: viewModel.focusPoints,
-            rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+            rating: viewModel.selectedFile.map { viewModel.ratings.getRating(for: $0) } ?? 0,
         )
     }
 

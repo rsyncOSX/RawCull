@@ -10,7 +10,7 @@ struct LoupeMetadataOverlay: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             CurrentRatingBadgeView(
-                rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel),
+                rating: ImageReviewFeaturePolicy.ratingDisplay(for: file, using: viewModel.ratings),
                 density: .compact,
             )
 

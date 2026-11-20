@@ -160,7 +160,7 @@ struct BurstCullingWorkspaceView: View {
                         viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
                         useThumbnailSource: thumbnailSourceBinding,
                         rating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
-                        ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+                        ratingValue: selectedFile.map { viewModel.ratings.getRating(for: $0) } ?? 0,
                         metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
                         sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
                         assessmentSummary: assessment.flatMap { assessedFrame?.summary(for: $0.request.rubric) },
@@ -520,7 +520,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        session.ratingDisplay(for: file, using: viewModel)
+        session.ratingDisplay(for: file, using: viewModel.ratings)
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {

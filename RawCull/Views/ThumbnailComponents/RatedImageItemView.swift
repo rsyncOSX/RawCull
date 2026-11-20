@@ -159,7 +159,7 @@ struct RatedImageItemView: View {
     }
 
     var cullingModel: CullingModel {
-        viewModel.cullingModel
+        viewModel.ratings.cullingModel
     }
 
     func setbackground() -> Bool {

@@ -11,6 +11,29 @@ struct CullingGridProjectionTests {
     }
 
     @Test
+    func `rating changes rebuild the grid and zoom projections exactly once`() {
+        let model = makeRawCullViewModel()
+        let first = file("first.ARW"), second = file("second.ARW")
+        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
+        model.filteredFiles = [first, second]
+        _ = model.cullingGridProjection(ratingFilter: .rating(3))
+        _ = model.zoomNavigationProjection()
+        let gridBuilds = model.gridProjectionBuildCount
+        let zoomBuilds = model.zoomNavigationBuildCount
+        let revision = model.ratings.revision
+
+        model.ratings.ratingCache[first.name] = 3
+
+        #expect(model.ratings.revision == revision + 1)
+        #expect(model.cullingGridProjection(ratingFilter: .rating(3)).fileIDs == [first.id])
+        #expect(model.gridProjectionBuildCount == gridBuilds + 1)
+        _ = model.cullingGridProjection(ratingFilter: .rating(3))
+        #expect(model.gridProjectionBuildCount == gridBuilds + 1)
+        _ = model.zoomNavigationProjection()
+        #expect(model.zoomNavigationBuildCount == zoomBuilds + 1)
+    }
+
+    @Test
     func `selection and score-value changes reuse the projection while membership changes rebuild`() {
         let model = makeRawCullViewModel()
         let first = file("first.ARW"), second = file("second.ARW"), replacement = file("replacement.ARW")
@@ -39,7 +62,7 @@ struct CullingGridProjectionTests {
         model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test"))
         model.filteredFiles = [first, second]
         #expect(model.cullingGridProjection(ratingFilter: .unrated).files.count == 2)
-        model.ratingCache[first.name] = 0
+        model.ratings.ratingCache[first.name] = 0
         #expect(model.cullingGridProjection(ratingFilter: .unrated).fileIDs == [second.id])
         model.mainViewMode = .similarityGrid
         model.similarityModel.burstModeActive = true

@@ -98,7 +98,7 @@ struct AIAssessmentWorkspace: View {
         .task(id: currentAccess?.url) {
             guard let access = currentAccess,
                   viewModel.selectedSource?.url.standardizedFileURL == access.url.standardizedFileURL else { return }
-            if await viewModel.cullingModel.ensureLoaded() {
+            if await viewModel.ratings.cullingModel.ensureLoaded() {
                 viewModel.rebuildRatingCache()
                 viewModel.loadPersistedScoringandSaliency()
             }
@@ -142,9 +142,9 @@ struct AIAssessmentWorkspace: View {
                     .disabled(viewModel.scanning || viewModel.isPreparingBurstCatalog || viewModel.isDeepAIReviewBlockedByOtherWork)
                 }
                 .padding(12)
-            } else if viewModel.scanning || viewModel.cullingModel.loadState != .ready {
+            } else if viewModel.scanning || viewModel.ratings.cullingModel.loadState != .ready {
                 HStack {
-                    if viewModel.cullingModel.loadState == .failed {
+                    if viewModel.ratings.cullingModel.loadState == .failed {
                         Text("Saved ratings couldn’t be loaded.")
                         Button("Retry loading ratings") { Task { await viewModel.retryCullingPersistence() } }
                     } else {

@@ -13,8 +13,8 @@ struct SharpnessTargetPresentationTests {
         let third = makeCullingTestFile("C.ARW")
         model.files = [third, second, first]
         model.filteredFiles = [third, first]
-        model.ratingCache = [first.name: 3, second.name: 3, third.name: -1]
-        model.ratingFilter = filter
+        model.ratings.ratingCache = [first.name: 3, second.name: 3, third.name: -1]
+        model.ratings.ratingFilter = filter
         for selection in [Set<UUID>(), [first.id, second.id], [UUID()]] {
             model.selectedFileIDs = selection
             #expect(model.sharpnessScoringTargetCount == model.sharpnessScoringTargetFiles.count)
@@ -36,9 +36,9 @@ struct SharpnessTargetPresentationTests {
         model.selectedFileIDs = [file.id]
         #expect(model.sharpnessScoringTargetDescription == "1 selected file")
         model.selectedFileIDs = []
-        model.ratingFilter = .stars(3)
+        model.ratings.ratingFilter = .stars(3)
         #expect(model.sharpnessScoringTargetDescription == "0 3-star files")
-        model.ratingCache[file.name] = 3
+        model.ratings.ratingCache[file.name] = 3
         #expect(model.sharpnessScoringTargetDescription == "1 3-star file")
     }
 }

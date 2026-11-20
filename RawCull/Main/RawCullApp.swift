@@ -45,11 +45,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminate()")
         guard let viewModel else { return .terminateNow }
         return beginTermination(
-            flush: { await viewModel.cullingModel.flushPersistence() },
-            chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
+            flush: { await viewModel.ratings.cullingModel.flushPersistence() },
+            chooseRecovery: { Self.showQuitRecovery(error: viewModel.ratings.cullingModel.persistenceError) },
             setPending: { pending in
                 self.mcpAnalysis.setTerminationPending(pending)
-                viewModel.cullingModel.isTerminationPending = pending
+                viewModel.ratings.cullingModel.isTerminationPending = pending
             },
             releaseAccess: {
                 await self.mcpAnalysis.stopForQuit()
@@ -163,7 +163,7 @@ struct RawCullApp: App {
             .environment(assessmentNavigation)
             .task { await assessmentNavigation.observeResults() }
             .task {
-                await viewModel.cullingModel.ensureLoaded()
+                await viewModel.ratings.cullingModel.ensureLoaded()
             }
             .task {
                 await viewModel.applyStoredScoringSettings()

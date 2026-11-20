@@ -850,12 +850,12 @@ struct RawCullSemanticSearchTests {
         viewModel.files = fixture.files
         viewModel.filteredFiles = fixture.files
         viewModel.selectedFileID = fixture.files[1].id
-        viewModel.ratingCache = [
+        viewModel.ratings.ratingCache = [
             "c.raw": 5,
             "a.raw": 0,
             "b.raw": 5
         ]
-        viewModel.ratingFilter = .stars(5)
+        viewModel.ratings.ratingFilter = .stars(5)
         #expect(
             await viewModel.similarityModel.hydrateSemanticArtifacts(
                 fixture.files,
@@ -869,7 +869,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.selectedFileID == semanticFocusedID)
         #expect(await provider.queries() == ["night wildlife"])
 
-        viewModel.ratingFilter = .all
+        viewModel.ratings.ratingFilter = .all
         await viewModel.semanticSearchFeature.clear()
 
         #expect(viewModel.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])

@@ -166,8 +166,8 @@ struct CullingGridCoordinatorTests {
         model.updateRating(for: first, rating: 3)
         model.updateRating(for: second, rating: -1)
         model.undoLastBurstAction()
-        #expect(model.rating(for: first) == 2)
-        #expect(model.rating(for: second) == 0)
+        #expect(model.ratings.rating(for: first) == 2)
+        #expect(model.ratings.rating(for: second) == 0)
         #expect(model.burstReviewSession.lastUndoEntry == nil)
         #expect(model.burstAnalysisResults[1]?.reviewState == .decisionApplied)
         #expect(model.burstReviewStates[1] == .decisionApplied)
@@ -558,7 +558,7 @@ struct CullingGridCoordinatorTests {
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
         viewModel.selectedSource = catalog
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
@@ -586,8 +586,8 @@ struct CullingGridCoordinatorTests {
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
         viewModel.selectedSource = catalog
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.cullingModel.mergeScoringResults(
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.ratings.cullingModel.mergeScoringResults(
             [CullingScoringResult(fileName: current[0].name, score: 0.75, saliencySubject: nil)],
             in: catalog.url,
         )

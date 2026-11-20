@@ -3,6 +3,7 @@ import RawCullCore
 
 struct CullingGridProjectionKey: Equatable {
     let contentRevision: UInt64
+    let ratingRevision: UInt64
     let reviewRevision: UInt64
     let similarityRevision: UInt64
     let saliencyRevision: UInt64
@@ -30,6 +31,7 @@ extension RawCullViewModel {
     func cullingGridProjection(ratingFilter: GridRatingFilter) -> CullingGridProjection {
         let key = CullingGridProjectionKey(
             contentRevision: gridContentRevision,
+            ratingRevision: ratings.revision,
             reviewRevision: burstReviewSession.contentRevision,
             similarityRevision: similarityModel.gridContentRevision,
             saliencyRevision: sharpnessModel.saliencyRevision,
@@ -47,10 +49,10 @@ extension RawCullViewModel {
             filteredFiles
 
         case .unrated:
-            selectedSource == nil ? filteredFiles : filteredFiles.filter { ratingCache[$0.name] == nil }
+            selectedSource == nil ? filteredFiles : filteredFiles.filter { ratings.ratingCache[$0.name] == nil }
 
         case let .rating(value):
-            filteredFiles.filter { ratingCache[$0.name] == value }
+            filteredFiles.filter { ratings.ratingCache[$0.name] == value }
         }
         let cache = CullingGridRenderCache.rebuild(
             files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,

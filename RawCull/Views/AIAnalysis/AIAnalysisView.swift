@@ -221,7 +221,7 @@ struct AIAnalysisThumbnailStrip: View {
                                 file: file,
                                 isSelected: viewModel.selectedFileID == file.id,
                                 thumbnailSize: thumbnailSize,
-                                ratingValue: viewModel.getRating(for: file),
+                                ratingValue: viewModel.ratings.getRating(for: file),
                                 ratingDisplay: ratingDisplay(for: file),
                                 ratingColor: ratingColor(for: file),
                                 onSelect: { viewModel.selectFile(file) },
@@ -256,13 +256,13 @@ struct AIAnalysisThumbnailStrip: View {
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+            rating: viewModel.ratings.getRating(for: file),
+            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
         )
     }
 
     private func ratingColor(for file: FileItem) -> Color? {
-        switch viewModel.getRating(for: file) {
+        switch viewModel.ratings.getRating(for: file) {
         case -1: .red
         case 2: .yellow
         case 3: .green

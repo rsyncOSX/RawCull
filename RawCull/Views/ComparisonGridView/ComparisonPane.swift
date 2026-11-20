@@ -26,7 +26,7 @@ struct ComparisonPane: View {
             saliencyLabel: saliencyLabel(for: file),
             burstAnalysis: burstAnalysis,
             burstCandidate: burstCandidate(for: file, in: burstAnalysis),
-            burstRating: viewModel.getRating(for: file),
+            burstRating: viewModel.ratings.getRating(for: file),
             sharpnessContext: sharpnessContext(for: file),
             onSelect: { session.select(file.id) },
             onRate: { rating in
@@ -74,8 +74,8 @@ struct ComparisonPane: View {
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+            rating: viewModel.ratings.getRating(for: file),
+            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
         )
     }
 

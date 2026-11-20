@@ -26,13 +26,13 @@ struct CullingGridThumbnail: View {
     }
 
     private func ratingValue(for file: FileItem) -> Int {
-        viewModel.getRating(for: file)
+        viewModel.ratings.getRating(for: file)
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
             rating: ratingValue(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+            isExplicit: viewModel.ratings.taggedNamesCache.contains(file.name),
         )
     }
 

@@ -352,7 +352,7 @@ struct ZoomOverlayView: View {
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        session.ratingDisplay(for: file, using: viewModel)
+        session.ratingDisplay(for: file, using: viewModel.ratings)
     }
 
     // MARK: - Dismiss

@@ -70,7 +70,7 @@ struct CatalogConcurrencyTests {
         let viewModel = makeRawCullViewModel()
         let started = CatalogTestGate()
         let release = CatalogTestGate()
-        viewModel.cullingModel = CullingModel(
+        viewModel.ratings.cullingModel = CullingModel(
             saveDelayNanoseconds: 60_000_000_000,
             saveHandler: { _ in
                 await started.open()
@@ -84,7 +84,7 @@ struct CatalogConcurrencyTests {
         let new = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
         viewModel.catalogLifecycle.currentSource = old
         viewModel.selectedSource = new
-        viewModel.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
+        viewModel.ratings.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
         var starts: [URL] = []
         viewModel.catalogLifecycle.startSecurityScopedResource = { starts.append($0); return true }
         viewModel.catalogLifecycle.stopSecurityScopedResource = { _ in }

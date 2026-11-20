@@ -112,7 +112,7 @@ extension RawCullViewModel {
         catalogLifecycle.startTransition(
             flushPersistence: { [weak self] in
                 guard let self else { return false }
-                return await self.cullingModel.flushPersistence()
+                return await self.ratings.cullingModel.flushPersistence()
             },
             isStillSelected: { [weak self] in self?.selectedSource == source },
             onFailure: { [weak self] in self?.selectedSource = previousSource },
@@ -198,7 +198,7 @@ extension RawCullViewModel {
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
         similarityFeature.resetCatalogState()
-        ratingFilter = .all
+        ratings.resetForCatalogChange()
         burstReviewQueueFilter = .all
 
         let metadata = CatalogProgressCoalescer(initial: 0) { [weak self] count in
@@ -262,7 +262,7 @@ extension RawCullViewModel {
         }
 
         scanning = false
-        guard await cullingModel.ensureLoaded(), isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        guard await ratings.cullingModel.ensureLoaded(), isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
         sharpnessModel.applyPreloadedScores(
@@ -481,8 +481,8 @@ extension RawCullViewModel {
 
     private func applyNonSemanticFilters(to files: [FileItem]) -> [FileItem] {
         var result = files
-        if ratingFilter != .all {
-            result = result.filter { passesRatingFilter($0) }
+        if ratings.ratingFilter != .all {
+            result = result.filter { ratings.passesRatingFilter($0) }
         }
         if sharpnessModel.sortBySharpness {
             result = sharpnessModel.sortedByAFPointSharpness(result)
@@ -498,7 +498,7 @@ extension RawCullViewModel {
         filteredFiles = []
         scanDiscoveredCount = 0
         focusPoints = nil
-        ratingCache = [:]
-        taggedNamesCache = []
+        ratings.ratingCache = [:]
+        ratings.taggedNamesCache = []
     }
 }
