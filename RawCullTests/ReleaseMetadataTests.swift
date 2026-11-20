@@ -95,7 +95,17 @@ struct ReleaseMetadataTests {
             #expect(reasons.count == Set(reasons).count)
         }
         let readme = try repositoryText("README.md")
-        #expect(readme.contains("Current project version: **\(marketingVersion)**."))
+        #expect(
+            readme.contains("Current project version: **\(marketingVersion)**. Build **\(buildNumber)**."),
+            "README version line must match MARKETING_VERSION and CURRENT_PROJECT_VERSION",
+        )
+        // The Makefile names the DMG RawCull.<MARKETING_VERSION>.dmg; the documented example must match.
+        let documentedDMGs = readme.matches(of: /RawCull\.([0-9]+\.[0-9]+\.[0-9]+)\.dmg/).map { String($0.1) }
+        #expect(!documentedDMGs.isEmpty)
+        #expect(
+            documentedDMGs.allSatisfy { $0 == marketingVersion },
+            "README DMG examples must use version \(marketingVersion)",
+        )
 
         let about = try repositoryText("RawCull/Views/Tools/AboutRawCullView.swift")
         #expect(about.contains("CFBundleShortVersionString"))

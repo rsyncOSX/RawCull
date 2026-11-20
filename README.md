@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.4.8**. Build **460**.
+Current project version: **3.4.8**. Build **461**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -206,7 +206,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.3.6.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.8.dmg
 ```
 
 ### App Store Connect and TestFlight uploads
