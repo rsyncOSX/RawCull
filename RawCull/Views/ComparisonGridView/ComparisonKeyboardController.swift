@@ -11,8 +11,8 @@ struct ComparisonKeyboardController {
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
             filteredFiles: viewModel.catalog.filteredFiles, comparisonFileIDs: viewModel.selection.comparisonFileIDs,
-            activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
-            burstAnalysisResult: viewModel.burstAnalysisResult(for:),
+            activeBurstComparisonGroupID: viewModel.burstWorkflow.activeBurstComparisonGroupID,
+            burstAnalysisResult: viewModel.burstWorkflow.burstAnalysisResult(for:),
         )
     }
 
@@ -41,17 +41,17 @@ struct ComparisonKeyboardController {
     }
 
     private func applyBurstKeepBest() -> KeyPress.Result {
-        guard viewModel.activeBurstComparisonGroupID != nil,
+        guard viewModel.burstWorkflow.activeBurstComparisonGroupID != nil,
               canApplyOneClickCulling,
               !allComparisonFiles.isEmpty
         else { return .ignored }
-        viewModel.keepBestInGroup(from: allComparisonFiles)
+        viewModel.burstWorkflow.keepBestInGroup(from: allComparisonFiles)
         return .handled
     }
 
     func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
         let burstAction =
-            viewModel.activeBurstComparisonGroupID == nil
+            viewModel.burstWorkflow.activeBurstComparisonGroupID == nil
                 ? nil
                 : BurstReviewKeyAction.resolve(characters: event.characters)
         if let burstAction {
@@ -77,8 +77,8 @@ struct ComparisonKeyboardController {
             navigate(.right)
 
         case .nextGroup:
-            guard let groupID = viewModel.activeBurstComparisonGroupID else { return .ignored }
-            viewModel.advanceToNextBurstGroup(after: groupID)
+            guard let groupID = viewModel.burstWorkflow.activeBurstComparisonGroupID else { return .ignored }
+            viewModel.burstWorkflow.advanceToNextBurstGroup(after: groupID)
         }
         return .handled
     }
@@ -90,8 +90,8 @@ struct ComparisonKeyboardController {
             return .handled
 
         case .escape:
-            if viewModel.activeBurstComparisonGroupID != nil {
-                viewModel.returnToActiveBurstGroupView()
+            if viewModel.burstWorkflow.activeBurstComparisonGroupID != nil {
+                viewModel.burstWorkflow.returnToActiveBurstGroupView()
                 return .handled
             }
             return .ignored

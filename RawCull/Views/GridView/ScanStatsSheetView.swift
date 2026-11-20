@@ -47,7 +47,7 @@ struct ScanStatsSheetView: View {
                 catalogSummarySection
                 Divider()
                 sharpnessSummarySection
-                if !viewModel.burstAnalysisResults.isEmpty {
+                if !viewModel.burstWorkflow.burstAnalysisResults.isEmpty {
                     Divider()
                     burstReviewSummarySection
                 }
@@ -196,7 +196,7 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                let summary = viewModel.burstReviewSummary
+                let summary = viewModel.burstWorkflow.burstReviewSummary
                 minorInfoRow("Burst groups", "\(summary.burstGroups)")
                 minorInfoRow("Single images", "\(summary.singleImages)")
                 minorInfoRow("Needs review", "\(summary.needsReview)")

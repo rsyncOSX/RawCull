@@ -86,6 +86,18 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
     var scanDiscoveredCount: Int { catalog.scanDiscoveredCount }
     var catalogLoadFailure: CatalogLoadFailure? { catalog.catalogLoadFailure }
 
+    // Burst requirements; the state lives in `burstWorkflow`.
+    var isDeepAIReviewBlockedByOtherWork: Bool { burstWorkflow.isDeepAIReviewBlockedByOtherWork }
+    var isPreparingBurstCatalog: Bool { burstWorkflow.isPreparingBurstCatalog }
+    var fullCatalogBurstAnalysisFiles: [FileItem] { burstWorkflow.fullCatalogBurstAnalysisFiles }
+    var burstAnalysisGeneration: Int { burstWorkflow.burstAnalysisGeneration }
+    var burstAnalysisProgress: BurstAnalysisProgress { burstWorkflow.burstAnalysisProgress }
+    var currentBurstSimilaritySignature: BurstSimilaritySignature { burstWorkflow.currentBurstSimilaritySignature }
+
+    func startBurstAnalysis(catalog: URL, files: [FileItem]) async -> BurstAnalysisPipelineResult? {
+        await burstWorkflow.startBurstAnalysis(catalog: catalog, files: files)
+    }
+
     var loadedSource: ARWSourceCatalog? { catalogLifecycle.currentSource }
     var catalogPersistenceError: String? { ratings.cullingModel.persistenceError }
 
@@ -123,7 +135,7 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
     var similarityIndexingProgress: Int { similarityModel.indexingProgress }
 
     func presentBurstResultsAfterMCPJob() {
-        showsDetailedBurstComparison = false
-        useExistingBurstGroupIndex()
+        burstWorkflow.showsDetailedBurstComparison = false
+        burstWorkflow.useExistingBurstGroupIndex()
     }
 }

@@ -22,7 +22,7 @@ struct BurstKeyboardController {
             navigate(1)
 
         case .escape:
-            viewModel.returnToActiveBurstGroupView()
+            viewModel.burstWorkflow.returnToActiveBurstGroupView()
 
         case .zoomIn:
             withAnimation(.spring()) {
@@ -71,7 +71,7 @@ struct BurstKeyboardController {
                 navigate(1)
 
             case .nextGroup:
-                viewModel.advanceToNextBurstGroup(after: groupID)
+                viewModel.burstWorkflow.advanceToNextBurstGroup(after: groupID)
             }
             return .handled
         }

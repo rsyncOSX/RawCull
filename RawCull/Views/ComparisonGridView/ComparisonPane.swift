@@ -116,7 +116,7 @@ struct ComparisonPane: View {
     }
 
     private func comparisonWinnerFile() -> FileItem? {
-        if let manual = viewModel.manualOverrideWinner(in: files)?.file {
+        if let manual = viewModel.burstWorkflow.manualOverrideWinner(in: files)?.file {
             return manual
         }
         guard let winnerID = presentation.burstComparisonResult?.recommendedFileID else { return nil }

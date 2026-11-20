@@ -65,7 +65,7 @@ struct CullingGridView<Header: View>: View {
 
             if viewModel.showsBurstGroups {
                 CullingQueueHeader(
-                    title: reviewQueueTitle, isSingleImages: viewModel.burstReviewQueueFilter == .singleImages,
+                    title: reviewQueueTitle, isSingleImages: viewModel.burstWorkflow.burstReviewQueueFilter == .singleImages,
                     burstCount: visibleBurstGroups.count,
                     onBack: { viewModel.similarityFeature.burstModeActive = false },
                 )
@@ -187,7 +187,7 @@ struct CullingGridView<Header: View>: View {
             forBadge: badge,
             visibleFiles: visibleSelectionFiles,
             burstGroupLookup: viewModel.similarityFeature.burstGroupLookup,
-            burstAnalysisResults: viewModel.burstAnalysisResults,
+            burstAnalysisResults: viewModel.burstWorkflow.burstAnalysisResults,
             saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
         )
         let next = CullingGridSelectionCoordinator.selectFiles(
@@ -269,7 +269,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var reviewQueueTitle: String {
-        switch viewModel.burstReviewQueueFilter {
+        switch viewModel.burstWorkflow.burstReviewQueueFilter {
         case .all: "All bursts"
         case .singleImages: "Single Images"
         case .needsReview: "Needs Review"
@@ -284,11 +284,11 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func markBurstGroupReviewed(_ groupID: Int) {
-        viewModel.toggleBurstGroupReviewed(groupID: groupID)
+        viewModel.burstWorkflow.toggleBurstGroupReviewed(groupID: groupID)
     }
 
     private func deferBurstGroup(_ groupID: Int) {
-        viewModel.toggleBurstGroupDeferred(groupID: groupID)
+        viewModel.burstWorkflow.toggleBurstGroupDeferred(groupID: groupID)
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
@@ -298,7 +298,7 @@ struct CullingGridView<Header: View>: View {
             return .handled
         }
         if characters == "u" || characters == "U" {
-            viewModel.undoLastBurstAction()
+            viewModel.burstWorkflow.undoLastBurstAction()
             return .handled
         }
         guard let groupFiles = currentBurstGroupFiles
@@ -306,17 +306,17 @@ struct CullingGridView<Header: View>: View {
 
         switch characters {
         case "\r":
-            viewModel.compareBurstGroup(groupFiles)
+            viewModel.burstWorkflow.compareBurstGroup(groupFiles)
             return .handled
 
         case "B", "b":
             guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
-            viewModel.keepBestInGroup(from: groupFiles)
+            viewModel.burstWorkflow.keepBestInGroup(from: groupFiles)
             return .handled
 
         case "2":
             guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
-            viewModel.keepTopTwoInGroup(from: groupFiles)
+            viewModel.burstWorkflow.keepTopTwoInGroup(from: groupFiles)
             return .handled
 
         default:
@@ -325,7 +325,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var currentBurstGroupFiles: [FileItem]? {
-        if viewModel.burstReviewQueueFilter == .singleImages {
+        if viewModel.burstWorkflow.burstReviewQueueFilter == .singleImages {
             return renderedBurstGroups.first?.files
         }
         guard let selectedID = viewModel.selection.selectedFileID,
@@ -336,7 +336,7 @@ struct CullingGridView<Header: View>: View {
 
     private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
         guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityFeature.burstGroupLookup[$0.id] }).first,
-              let result = viewModel.burstAnalysisResult(for: groupID)
+              let result = viewModel.burstWorkflow.burstAnalysisResult(for: groupID)
         else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)
     }

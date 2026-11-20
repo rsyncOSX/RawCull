@@ -74,7 +74,7 @@ struct CullingGridProjectionTests {
         model.sharpnessModel.saliencyInfo[first.id] = SaliencyInfo(subjectLabel: "bird")
         _ = model.cullingGridProjection(ratingFilter: .all)
         #expect(model.gridProjectionBuildCount == count + 1)
-        model.burstReviewQueueFilter = .singleImages
+        model.burstWorkflow.burstReviewQueueFilter = .singleImages
         #expect(model.cullingGridProjection(ratingFilter: .all).groups.isEmpty)
     }
 }

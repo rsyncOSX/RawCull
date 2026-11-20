@@ -36,7 +36,7 @@ struct ComparisonGridView: View {
                     if burstComparisonResult != nil {
                         BurstComparisonEvidenceView(
                             inspectorIsPresented: showCandidateInspector,
-                            onBack: viewModel.returnToActiveBurstGroupView,
+                            onBack: viewModel.burstWorkflow.returnToActiveBurstGroupView,
                         )
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
@@ -79,7 +79,7 @@ struct ComparisonGridView: View {
             session.resetDisplayScope()
             selectFirstComparisonFileIfNeeded()
         }
-        .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
+        .onChange(of: viewModel.burstWorkflow.activeBurstComparisonGroupID) { _, _ in
             session.resetDisplayScope()
             showCandidateInspector = false
         }
@@ -92,8 +92,8 @@ struct ComparisonGridView: View {
         session.presentation(
             filteredFiles: viewModel.catalog.filteredFiles,
             comparisonFileIDs: viewModel.selection.comparisonFileIDs,
-            activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
-            burstAnalysisResult: viewModel.burstAnalysisResult(for:),
+            activeBurstComparisonGroupID: viewModel.burstWorkflow.activeBurstComparisonGroupID,
+            burstAnalysisResult: viewModel.burstWorkflow.burstAnalysisResult(for:),
         )
     }
 

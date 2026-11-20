@@ -164,7 +164,7 @@ struct RawCullViewModelCullingTests {
         viewModel.ratings.ratingFilter = .stars(2)
         viewModel.selection.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["A-selected.ARW", "C-selected.ARW"])
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == ["A-selected.ARW", "C-selected.ARW"])
     }
 
     @Test
@@ -180,7 +180,7 @@ struct RawCullViewModelCullingTests {
         ]
         viewModel.ratings.ratingFilter = .stars(2)
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["B-two-star.ARW"])
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == ["B-two-star.ARW"])
     }
 
     @Test
@@ -198,13 +198,13 @@ struct RawCullViewModelCullingTests {
         let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
 
         viewModel.ratings.ratingFilter = .all
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
 
         viewModel.ratings.ratingFilter = .keepers
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
 
         viewModel.ratings.ratingFilter = .rejected
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
     }
 
     @Test
@@ -215,7 +215,7 @@ struct RawCullViewModelCullingTests {
         let fallback = makeCullingTestFile("M-fallback.ARW", modificationSeconds: 20)
         viewModel.catalog.files = [latest, fallback, earliest]
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == [
             "Z-earliest.ARW",
             "M-fallback.ARW",
             "A-latest.ARW"
@@ -454,14 +454,14 @@ struct RawCullViewModelCullingTests {
         viewModel.similarityModel.burstGroupLookup = Dictionary(
             uniqueKeysWithValues: files.map { ($0.id, groupID) },
         )
-        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
         viewModel.updateRating(for: files[0], rating: 2)
 
-        viewModel.applyDeepAIReviewRecommendation(result, to: files)
+        viewModel.burstWorkflow.applyDeepAIReviewRecommendation(result, to: files)
 
         #expect(viewModel.ratings.ratingCache == [files[0].name: 2, winner.name: 3])
-        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
-        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+        #expect(viewModel.burstWorkflow.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults[groupID]?.reviewState == .reviewed)
         #expect(viewModel.ratings.cullingModel.overrideWinner(for: files, in: catalog.url)?.winnerFileName == winner.name)
     }
 
@@ -492,15 +492,15 @@ struct RawCullViewModelCullingTests {
         viewModel.catalog.selectedSource = catalog
         viewModel.catalog.files = files
         viewModel.selection.selectedFileID = files[0].id
-        viewModel.activeBurstComparisonGroupID = groupID
-        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
+        viewModel.burstWorkflow.activeBurstComparisonGroupID = groupID
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
         viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
         viewModel.updateRatingAndAdvance(for: files[0], rating: rating, in: files)
 
         #expect(viewModel.ratings.ratingCache == [files[0].name: rating])
-        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
-        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+        #expect(viewModel.burstWorkflow.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults[groupID]?.reviewState == .reviewed)
     }
 
     @Test
@@ -621,7 +621,7 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
         )
 
-        let states = viewModel.cachedReviewStates(from: snapshot)
+        let states = viewModel.burstWorkflow.cachedReviewStates(from: snapshot)
 
         #expect(states == [9: .decisionApplied])
     }
@@ -648,7 +648,7 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
         )
 
-        let states = viewModel.cachedReviewStates(from: snapshot)
+        let states = viewModel.burstWorkflow.cachedReviewStates(from: snapshot)
 
         #expect(states.isEmpty)
     }
@@ -684,43 +684,43 @@ struct RawCullViewModelCullingTests {
         viewModel.catalog.files = [first, second]
         viewModel.catalog.filteredFiles = [first, second]
         let analysis = Task {
-            await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
         }
         await gate.waitUntilStarted()
 
-        viewModel.cancelAndResetBurstAnalysis()
+        viewModel.burstWorkflow.cancelAndResetBurstAnalysis()
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
+        #expect(!viewModel.burstWorkflow.burstAnalysisCoordinator.hasActiveTask)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
-        #expect(viewModel.burstAnalysisResults.isEmpty)
-        #expect(viewModel.burstReviewStates.isEmpty)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewStates.isEmpty)
     }
 
     @Test
     func `catalog cancellation resets all burst analysis state`() {
         let viewModel = makeRawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        viewModel.burstAnalysisCoordinator.updateProgress(
+        viewModel.burstWorkflow.burstAnalysisCoordinator.updateProgress(
             BurstAnalysisProgress(step: .ranking),
         )
-        viewModel.burstReviewSession.replaceRankings([1: makeCullingBurstResult(groupID: 1, files: [file])])
-        viewModel.burstReviewSession.restoreReviewStates([1: .deferred])
-        viewModel.burstReviewQueueFilter = .deferred
-        viewModel.activeBurstComparisonGroupID = 1
-        viewModel.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([1: makeCullingBurstResult(groupID: 1, files: [file])])
+        viewModel.burstWorkflow.burstReviewSession.restoreReviewStates([1: .deferred])
+        viewModel.burstWorkflow.burstReviewQueueFilter = .deferred
+        viewModel.burstWorkflow.activeBurstComparisonGroupID = 1
+        viewModel.burstWorkflow.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])
         viewModel.selection.comparisonFileIDs = [file.id]
 
         viewModel.cancelCatalogLoad()
 
         #expect(!viewModel.burstAnalysisProgress.isRunning)
-        #expect(viewModel.burstAnalysisResults.isEmpty)
-        #expect(viewModel.burstReviewStates.isEmpty)
-        #expect(viewModel.burstReviewQueueFilter == .all)
-        #expect(viewModel.activeBurstComparisonGroupID == nil)
-        #expect(viewModel.lastBurstUndoEntry == nil)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewStates.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewQueueFilter == .all)
+        #expect(viewModel.burstWorkflow.activeBurstComparisonGroupID == nil)
+        #expect(viewModel.burstWorkflow.lastBurstUndoEntry == nil)
         #expect(viewModel.selection.comparisonFileIDs.isEmpty)
     }
 
@@ -796,10 +796,10 @@ struct RawCullViewModelCullingTests {
         viewModel.catalog.files = [first, second]
         viewModel.catalog.filteredFiles = [first, second]
 
-        let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+        let restored = await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
 
         #expect(restored)
-        #expect(viewModel.hasExistingFullCatalogBurstGroupIndex)
+        #expect(viewModel.burstWorkflow.hasExistingFullCatalogBurstGroupIndex)
         #expect(viewModel.similarityModel.burstGroups == [group])
         #expect(!viewModel.sharpnessModel.isScoring)
         #expect(!viewModel.similarityModel.isIndexing)
@@ -966,10 +966,10 @@ struct RawCullViewModelCullingTests {
         viewModel.catalog.files = [first, second]
         viewModel.catalog.filteredFiles = [first, second]
 
-        #expect(await viewModel.restoreExistingFullCatalogBurstAnalysis())
+        #expect(await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis())
         viewModel.selection.selectedFileIDs = [first.id]
         viewModel.catalog.filteredFiles = [first]
-        viewModel.markBurstGroupReviewed(groupID: 0)
+        viewModel.burstWorkflow.markBurstGroupReviewed(groupID: 0)
 
         let saved = try #require(await recorder.waitForSnapshot())
         #expect(saved.files.map(\.path) == [first.url.path, second.url.path])
@@ -991,7 +991,7 @@ struct RawCullViewModelCullingTests {
             originalSignature: .deferred
         ]
 
-        let restored = viewModel.restoredBurstReviewStates(
+        let restored = viewModel.burstWorkflow.restoredBurstReviewStates(
             savedStatesBySignature: saved,
             groups: [
                 BurstGroup(id: 7, fileIDs: [first.id, second.id]),
@@ -1015,7 +1015,7 @@ struct RawCullViewModelCullingTests {
             BurstGroupSignature(files: [first, second], catalog: catalog),
         )
 
-        let restored = viewModel.restoredBurstReviewStates(
+        let restored = viewModel.burstWorkflow.restoredBurstReviewStates(
             savedStatesBySignature: [originalSignature: .reviewed],
             groups: [BurstGroup(id: 0, fileIDs: [first.id, third.id])],
             files: [first, second, third],

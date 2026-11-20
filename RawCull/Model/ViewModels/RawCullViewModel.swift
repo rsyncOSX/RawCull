@@ -69,7 +69,7 @@ struct OperationFailurePresentation: Identifiable {
 }
 
 @Observable @MainActor
-final class RawCullViewModel: DeepAIReviewApplicationContext {
+final class RawCullViewModel {
     /// Owns catalog transitions, scan task lifetime, and security-scoped access.
     @ObservationIgnored let catalogLifecycle = CatalogLifecycleCoordinator()
 
@@ -79,7 +79,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored var gridProjectionBuildCount = 0
 
     /// The open catalog: sources, files, sorted and filtered projection, scan progress.
-    let catalog = CatalogWorkspace()
+    let catalog: CatalogWorkspace
 
     var selectedFile: FileItem? {
         catalog.file(withID: selection.selectedFileID)
@@ -91,7 +91,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         catalog.selectedSource != nil
     }
 
-    var showsDetailedBurstComparison = false
     var showsBurstGroups: Bool {
         mainViewMode == .similarityGrid && similarityModel.burstModeActive
     }
@@ -109,10 +108,10 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     let fileOperations = FileOperationsModel()
 
     /// Culling store, rating lookup and rating filter.
-    let ratings = RatingsModel()
+    let ratings: RatingsModel
 
     /// Current file, multi-selection, comparison set and rendered grid order.
-    let selection = SelectionModel()
+    let selection: SelectionModel
 
     /// Single shared instance — config changes here affect both the zoom
     /// overlay and the sharpness scoring pipeline.
@@ -132,49 +131,10 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// a user-confirmed recommendation.
     let deepAIReviewController: DeepAIReviewController
 
-    /// Stable worker boundary for burst cache and compute orchestration.
-    @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
-
-    /// Stable application session; viewport/image state has a separate owner.
-    let burstReviewSession = BurstReviewSessionModel()
-
-    var burstAnalysisResults: [Int: BurstAnalysisResult] {
-        burstReviewSession.results
-    }
-
-    var burstAnalysisProgress: BurstAnalysisProgress {
-        burstAnalysisCoordinator.progress
-    }
-
-    var burstAnalysisGeneration: Int {
-        burstAnalysisCoordinator.generation
-    }
-
-    var burstReviewStates: [Int: BurstReviewState] {
-        burstReviewSession.reviewStates
-    }
-
-    var burstReviewQueueFilter: BurstReviewQueueFilter {
-        get { burstReviewSession.queueFilter }
-        set { burstReviewSession.queueFilter = newValue }
-    }
-
-    var activeBurstComparisonGroupID: Int? {
-        get { burstReviewSession.activeComparisonGroupID }
-        set { burstReviewSession.activeComparisonGroupID = newValue }
-    }
-
-    var lastBurstUndoEntry: BurstUndoEntry? {
-        get { burstReviewSession.lastUndoEntry }
-        set { burstReviewSession.lastUndoEntry = newValue }
-    }
-
-    var burstFullReindexRequest: BurstFullReindexRequest?
-    var isPreparingBurstCatalog = false
-    @ObservationIgnored var burstCatalogPreparationGeneration = 0
+    /// Burst analysis, review queue, keep-best and undo, and Deep Review context.
+    let burstWorkflow: BurstWorkflowController
 
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
-    @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     init(
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature,
@@ -185,15 +145,25 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     ) {
         Logger.process.debugMessageOnly("RawCullViewModel.init()")
         let sharpnessModel = SharpnessScoringModel()
+        let catalog = CatalogWorkspace()
+        let ratings = RatingsModel()
+        let selection = SelectionModel()
+        self.catalog = catalog
+        self.ratings = ratings
+        self.selection = selection
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewController = deepAIReviewController
-        burstAnalysisCoordinator = BurstAnalysisCoordinator(
+        burstWorkflow = BurstWorkflowController(
+            catalog: catalog,
+            selection: selection,
+            ratings: ratings,
             sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,
             similarityModel: similarityModel,
+            deepAIReviewController: deepAIReviewController,
             cacheRepository: burstAnalysisCacheRepository,
         )
 
@@ -204,8 +174,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
             ),
         )
         similarityFeature.bindApplicationContext(self)
-        deepAIReviewController.bindApplicationContext(self)
+        deepAIReviewController.bindApplicationContext(burstWorkflow)
         fileOperations.bind(self)
+        burstWorkflow.bind(host: self)
     }
 
     // MARK: - Computed
@@ -270,3 +241,5 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         catalogLifecycle.stopActiveSecurityScopedAccess()
     }
 }
+
+extension RawCullViewModel: BurstWorkflowHost {}

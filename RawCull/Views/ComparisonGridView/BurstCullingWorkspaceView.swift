@@ -245,7 +245,7 @@ struct BurstCullingWorkspaceView: View {
         }
         .onKeyPress(.escape) {
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
-            viewModel.returnToActiveBurstGroupView()
+            viewModel.burstWorkflow.returnToActiveBurstGroupView()
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFsSaAxXpPnNgG012345tT")) { press in
@@ -407,7 +407,7 @@ struct BurstCullingWorkspaceView: View {
 
     private var bestFrameFiles: [FileItem] {
         if groupID == -1 {
-            return viewModel.singleImageReviewFiles
+            return viewModel.burstWorkflow.singleImageReviewFiles
         }
         guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
@@ -434,7 +434,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var analysis: BurstAnalysisResult? {
-        viewModel.burstAnalysisResult(for: groupID)
+        viewModel.burstWorkflow.burstAnalysisResult(for: groupID)
     }
 
     private var selectedCandidate: BurstCandidateScore? {
@@ -536,7 +536,7 @@ struct BurstCullingWorkspaceView: View {
                   let characters = event.characters
             else { return .ignored }
             if characters.lowercased() == "r" {
-                viewModel.returnToActiveBurstGroupView()
+                viewModel.burstWorkflow.returnToActiveBurstGroupView()
                 return .handled
             }
             guard ["s", "S", "f", "F"].contains(characters) else { return .ignored }

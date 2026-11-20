@@ -13,8 +13,8 @@ struct AboutRawCullView: View {
         if viewModel.zoomOverlay.isVisible {
             .zoomPreview(navigationAxis: viewModel.zoomOverlay.navigationAxis)
         } else if viewModel.mainViewMode == .comparisonGrid,
-                  viewModel.activeBurstComparisonGroupID != nil {
-            viewModel.showsDetailedBurstComparison ? .burstComparison : .burstReview
+                  viewModel.burstWorkflow.activeBurstComparisonGroupID != nil {
+            viewModel.burstWorkflow.showsDetailedBurstComparison ? .burstComparison : .burstReview
         } else if viewModel.showsBurstGroups {
             .burstGroups
         } else {

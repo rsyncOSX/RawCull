@@ -147,28 +147,28 @@ struct RawCullMainView: View {
             Text(persistenceAlertMessage)
         }
         .alert("Full Burst Re-index?", isPresented: burstFullReindexIsPresented) {
-            if viewModel.hasExistingBurstGroupIndex {
+            if viewModel.burstWorkflow.hasExistingBurstGroupIndex {
                 Button("Use Existing Index") {
-                    viewModel.burstFullReindexRequest = nil
-                    viewModel.useExistingBurstGroupIndex()
+                    viewModel.burstWorkflow.burstFullReindexRequest = nil
+                    viewModel.burstWorkflow.useExistingBurstGroupIndex()
                 }
             }
 
             Button("Full Re-index", role: .destructive) {
-                let request = viewModel.burstFullReindexRequest
-                viewModel.burstFullReindexRequest = nil
+                let request = viewModel.burstWorkflow.burstFullReindexRequest
+                viewModel.burstWorkflow.burstFullReindexRequest = nil
                 Task {
-                    await viewModel.reindexBurstAnalysis()
+                    await viewModel.burstWorkflow.reindexBurstAnalysis()
                     guard !Task.isCancelled,
                           request == .semanticReview,
-                          viewModel.hasExistingBurstGroupIndex
+                          viewModel.burstWorkflow.hasExistingBurstGroupIndex
                     else { return }
-                    viewModel.useExistingBurstGroupIndex()
+                    viewModel.burstWorkflow.useExistingBurstGroupIndex()
                 }
             }
 
             Button("Cancel", role: .cancel) {
-                viewModel.burstFullReindexRequest = nil
+                viewModel.burstWorkflow.burstFullReindexRequest = nil
             }
         } message: {
             Text(
@@ -188,9 +188,9 @@ struct RawCullMainView: View {
                 startMemoryWarningFlash()
             }
         }
-        .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
+        .onChange(of: viewModel.burstWorkflow.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
             if oldGroupID != newGroupID {
-                viewModel.showsDetailedBurstComparison = false
+                viewModel.burstWorkflow.showsDetailedBurstComparison = false
             }
         }
         .focusedSceneValue(\.extractJPGs, Bindable(viewModel.presentation).focusExtractJPGs)
@@ -236,10 +236,10 @@ struct RawCullMainView: View {
 
     private var burstFullReindexIsPresented: Binding<Bool> {
         Binding(
-            get: { viewModel.burstFullReindexRequest != nil },
+            get: { viewModel.burstWorkflow.burstFullReindexRequest != nil },
             set: { isPresented in
                 if !isPresented {
-                    viewModel.burstFullReindexRequest = nil
+                    viewModel.burstWorkflow.burstFullReindexRequest = nil
                 }
             },
         )
@@ -392,12 +392,12 @@ struct RawCullMainView: View {
 
     @ViewBuilder
     private var comparisonGridSplit: some View {
-        if let groupID = viewModel.activeBurstComparisonGroupID,
-           !viewModel.showsDetailedBurstComparison {
+        if let groupID = viewModel.burstWorkflow.activeBurstComparisonGroupID,
+           !viewModel.burstWorkflow.showsDetailedBurstComparison {
             BurstCullingWorkspaceView(
                 viewModel: viewModel,
                 groupID: groupID,
-                onCompare: { viewModel.showsDetailedBurstComparison = true },
+                onCompare: { viewModel.burstWorkflow.showsDetailedBurstComparison = true },
             )
             .navigationTitle((viewModel.catalog.selectedSource?.name ?? "Catalog") + " — Burst")
             .toolbar { toolbarContent }
@@ -457,10 +457,10 @@ struct RawCullMainView: View {
     }
 
     private var candidateInspectorContext: CandidateInspectorContext? {
-        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
+        guard let groupID = viewModel.burstWorkflow.activeBurstComparisonGroupID else { return nil }
         return CandidateInspectorContext.make(
             selectedFile: viewModel.selectedFile,
-            result: viewModel.burstAnalysisResult(for: groupID),
+            result: viewModel.burstWorkflow.burstAnalysisResult(for: groupID),
             files: viewModel.catalog.files,
             saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
             sharpnessScores: viewModel.sharpnessModel.scores,

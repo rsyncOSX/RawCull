@@ -190,11 +190,11 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var usesBurstWorkspaceChrome: Bool {
-        viewModel.activeBurstComparisonGroupID != nil
+        viewModel.burstWorkflow.activeBurstComparisonGroupID != nil
     }
 
     private var semanticSelectionIsBusy: Bool {
-        viewModel.burstAnalysisProgress.isRunning
+        viewModel.burstWorkflow.burstAnalysisProgress.isRunning
             || viewModel.sharpnessModel.isScoring
             || viewModel.similarityFeature.isBusy
     }
@@ -220,7 +220,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         if let semanticSelectionCount {
             return semanticSelectionCount < 2
         }
-        return viewModel.burstReviewSummary.needsReview == 0
+        return viewModel.burstWorkflow.burstReviewSummary.needsReview == 0
     }
 
     private var activeRatingInt: Int? {
@@ -240,7 +240,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectSimilarityGridMode() {
         viewModel.ratings.ratingFilter = .all
-        viewModel.burstReviewQueueFilter = .all
+        viewModel.burstWorkflow.burstReviewQueueFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
     }
@@ -253,21 +253,21 @@ struct SharedMainToolbarContent: ToolbarContent {
                 await viewModel.handleSortOrderChange()
                 guard !Task.isCancelled else { return }
 
-                if viewModel.canUseExistingBurstGroupIndexForActiveScope {
-                    viewModel.useExistingBurstGroupIndex()
+                if viewModel.burstWorkflow.canUseExistingBurstGroupIndexForActiveScope {
+                    viewModel.burstWorkflow.useExistingBurstGroupIndex()
                     return
                 }
 
-                if await viewModel.restoreExistingFullCatalogBurstAnalysis() {
+                if await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis() {
                     guard !Task.isCancelled else { return }
-                    viewModel.useExistingBurstGroupIndex()
+                    viewModel.burstWorkflow.useExistingBurstGroupIndex()
                     return
                 }
 
-                viewModel.burstFullReindexRequest = .semanticReview
+                viewModel.burstWorkflow.burstFullReindexRequest = .semanticReview
             }
         } else {
-            viewModel.burstReviewQueueFilter = .needsReview
+            viewModel.burstWorkflow.burstReviewQueueFilter = .needsReview
             viewModel.similarityFeature.burstModeActive = true
             Task(priority: .background) {
                 await viewModel.handleSortOrderChange()

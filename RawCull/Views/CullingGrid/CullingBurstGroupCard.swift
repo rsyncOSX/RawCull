@@ -9,7 +9,7 @@ struct CullingBurstGroupCard: View {
     let deferBurstGroup: (Int) -> Void
 
     var body: some View {
-        let analysis = viewModel.burstAnalysisResult(for: group.id)
+        let analysis = viewModel.burstWorkflow.burstAnalysisResult(for: group.id)
 
         return VStack(alignment: .leading, spacing: 0) {
             if group.id == -1 || group.files.count > 1 {
@@ -34,7 +34,7 @@ struct CullingBurstGroupCard: View {
                         CullingGridThumbnail(
                             viewModel: viewModel, file: file, doubleSelectActionName: "Open burst",
                             onSelect: { select(file) },
-                            onDoubleSelect: { viewModel.compareBurstGroup(group.files, startingAt: file.id) },
+                            onDoubleSelect: { viewModel.burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) },
                         )
                         .id(file.id)
                     }

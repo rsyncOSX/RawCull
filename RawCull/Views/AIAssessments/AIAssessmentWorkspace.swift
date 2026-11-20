@@ -139,7 +139,7 @@ struct AIAssessmentWorkspace: View {
                     Button("Open source catalog") {
                         openSourceCatalog(for: entry, access: access)
                     }
-                    .disabled(viewModel.catalog.scanning || viewModel.isPreparingBurstCatalog || viewModel.isDeepAIReviewBlockedByOtherWork)
+                    .disabled(viewModel.catalog.scanning || viewModel.burstWorkflow.isPreparingBurstCatalog || viewModel.burstWorkflow.isDeepAIReviewBlockedByOtherWork)
                 }
                 .padding(12)
             } else if viewModel.catalog.scanning || viewModel.ratings.cullingModel.loadState != .ready {
@@ -158,7 +158,7 @@ struct AIAssessmentWorkspace: View {
                     Text("The open catalog’s photos do not match this saved assessment. Reload the catalog to check for changes.")
                     Spacer()
                     Button("Reload source catalog") { openSourceCatalog(for: entry, access: access) }
-                        .disabled(viewModel.isPreparingBurstCatalog || viewModel.isDeepAIReviewBlockedByOtherWork)
+                        .disabled(viewModel.burstWorkflow.isPreparingBurstCatalog || viewModel.burstWorkflow.isDeepAIReviewBlockedByOtherWork)
                 }
                 .padding(12)
             }
@@ -200,7 +200,7 @@ struct AIAssessmentWorkspace: View {
 
     private func returnToBursts() {
         if !navigation.returnsToBurstViewer {
-            viewModel.returnToActiveBurstGroupView()
+            viewModel.burstWorkflow.returnToActiveBurstGroupView()
         }
         navigation.presentedID = nil
     }

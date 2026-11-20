@@ -26,7 +26,7 @@ struct AIAssessmentComparison: View {
                     LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
                         AIAssessmentComparisonHeader(
                             entry: entry, linked: $linked, isReviewed: verifiedGroupID.map {
-                                viewModel.burstGroupReviewState(groupID: $0) == .reviewed
+                                viewModel.burstWorkflow.burstGroupReviewState(groupID: $0) == .reviewed
                             }, isUpdatingReview: isUpdatingReview, toggleReviewed: toggleReviewed,
                         )
                         Section {
@@ -196,7 +196,7 @@ struct AIAssessmentComparison: View {
             $0.fileIDs.count == membership.count && Set($0.fileIDs) == membership
         }
         guard matches.count == 1, let group = matches.first,
-              viewModel.burstGroupsInActiveCatalogScope.contains(where: {
+              viewModel.burstWorkflow.burstGroupsInActiveCatalogScope.contains(where: {
                   $0.id == group.id && Set($0.fileIDs) == membership
               }) else { return nil }
         return group.id
@@ -238,7 +238,7 @@ struct AIAssessmentComparison: View {
             defer { isUpdatingReview = false }
             guard await entry.isAvailable(), let catalog = liveCatalog, let group = verifiedGroupID,
                   entry.frames.allSatisfy({ (try? $0.source.resolve(in: catalog)) != nil }) else { return }
-            if viewModel.toggleBurstGroupReviewed(groupID: group) {
+            if viewModel.burstWorkflow.toggleBurstGroupReviewed(groupID: group) {
                 onMarkedReviewed()
             }
         }

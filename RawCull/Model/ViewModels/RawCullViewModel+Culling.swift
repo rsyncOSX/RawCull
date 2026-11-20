@@ -84,8 +84,8 @@ extension RawCullViewModel {
 
         updateRating(for: file, rating: rating)
 
-        if let activeBurstComparisonGroupID {
-            markBurstGroupReviewed(groupID: activeBurstComparisonGroupID)
+        if let activeBurstComparisonGroupID = burstWorkflow.activeBurstComparisonGroupID {
+            burstWorkflow.markBurstGroupReviewed(groupID: activeBurstComparisonGroupID)
         }
 
         if let nextFileID {

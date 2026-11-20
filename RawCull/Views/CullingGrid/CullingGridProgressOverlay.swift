@@ -30,7 +30,7 @@ struct CullingGridProgressOverlay: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .fixedSize()
-                Text(viewModel.burstAnalysisProgress.statusText)
+                Text(viewModel.burstWorkflow.burstAnalysisProgress.statusText)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
             }
@@ -50,7 +50,7 @@ struct CullingGridProgressOverlay: View {
     }
 
     private var indeterminateBurstAnalysisRunning: Bool {
-        viewModel.burstAnalysisProgress.isRunning && !viewModel.burstAnalysisProgress.isCountBased
+        viewModel.burstWorkflow.burstAnalysisProgress.isRunning && !viewModel.burstWorkflow.burstAnalysisProgress.isCountBased
     }
 }
 

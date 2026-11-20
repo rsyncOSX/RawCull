@@ -37,9 +37,9 @@ extension RawCullViewModel {
     func refreshSemanticSearchSelection() async {
         Logger.process.debugMessageOnly("RawCullViewModel.refreshSemanticSearchSelection()")
         similarityModel.burstModeActive = false
-        if activeBurstComparisonGroupID != nil
+        if burstWorkflow.activeBurstComparisonGroupID != nil
             || mainViewMode == .comparisonGrid {
-            activeBurstComparisonGroupID = nil
+            burstWorkflow.activeBurstComparisonGroupID = nil
             selection.comparisonFileIDs = []
             selectMainViewMode(.similarityGrid)
         }
@@ -51,15 +51,15 @@ extension RawCullViewModel {
 extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
     func prepareApplicationForNewSemanticSearch() {
         Logger.process.debugMessageOnly("RawCullViewModel.prepareApplicationForNewSemanticSearch()")
-        discardScopedBurstAnalysisIfNeeded()
+        burstWorkflow.discardScopedBurstAnalysisIfNeeded()
         selection.selectedFileIDs = []
         similarityModel.burstModeActive = false
-        activeBurstComparisonGroupID = nil
+        burstWorkflow.activeBurstComparisonGroupID = nil
     }
 
     func invalidateScopedBurstAnalysisForSemanticSelectionChange() {
         Logger.process.debugMessageOnly("RawCullViewModel.invalidateScopedBurstAnalysisForSemanticSelectionChange()")
-        discardScopedBurstAnalysisIfNeeded()
+        burstWorkflow.discardScopedBurstAnalysisIfNeeded()
     }
 
     func applySemanticSearchSelection() async {
@@ -86,6 +86,6 @@ extension RawCullViewModel: RawCullSimilarityApplicationContext {
 
     func cancelAndResetBurstAnalysisForSimilarityBackendChange() {
         Logger.process.debugMessageOnly("RawCullViewModel.cancelAndResetBurstAnalysisForSimilarityBackendChange()")
-        cancelAndResetBurstAnalysis()
+        burstWorkflow.cancelAndResetBurstAnalysis()
     }
 }

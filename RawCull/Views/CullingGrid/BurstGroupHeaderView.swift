@@ -12,11 +12,11 @@ struct BurstGroupHeaderView: View {
     @Bindable var viewModel: RawCullViewModel
 
     private var isReviewed: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
+        viewModel.burstWorkflow.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     private var isDeferred: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .deferred
+        viewModel.burstWorkflow.burstGroupReviewState(groupID: groupID) == .deferred
     }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct BurstGroupHeaderView: View {
             Spacer(minLength: 12)
 
             Button {
-                viewModel.compareBurstGroup(files)
+                viewModel.burstWorkflow.compareBurstGroup(files)
             } label: {
                 Label("Open burst", systemImage: "arrow.right")
             }

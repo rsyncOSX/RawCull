@@ -1,5 +1,5 @@
 //
-//  RawCullViewModel+BurstGrouping.swift
+//  BurstWorkflowController+Grouping.swift
 //  RawCull
 //
 
@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import RawCullCore
 
-extension RawCullViewModel {
+extension BurstWorkflowController {
     // MARK: - Intelligent burst analysis
 
     @discardableResult
@@ -15,7 +15,7 @@ extension RawCullViewModel {
         catalog: URL,
         files sorted: [FileItem],
     ) async -> BurstAnalysisPipelineResult? {
-        Logger.process.debugMessageOnly("RawCullViewModel.startBurstAnalysis()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.startBurstAnalysis()")
         let generation = burstAnalysisCoordinator.beginGeneration()
         let request = makeBurstAnalysisPipelineRequest(
             catalog: catalog,
@@ -40,7 +40,7 @@ extension RawCullViewModel {
         let catalog = request.catalogIdentity
         let generation = request.generation
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.runBurstAnalysis(): running generation \(generation) for \(request.orderedFiles.count) files",
+            "BurstWorkflowController.runBurstAnalysis(): running generation \(generation) for \(request.orderedFiles.count) files",
         )
         let initialReviewStates = burstReviewStates
         let fullCatalogFileIDs = Set(self.catalog.files.map(\.id))
@@ -59,7 +59,7 @@ extension RawCullViewModel {
                     self?.burstAnalysisCoordinator.updateProgress(progress)
                 },
                 didScoreSharpness: { [weak self] scoredFiles in
-                    await self?.applyBurstSharpnessScoringSideEffects(scoredFiles)
+                    await self?.weakHostForCallbacks?.applyBurstSharpnessScoringSideEffects(scoredFiles)
                 },
                 applyResult: { [weak self] result in
                     guard let self,
@@ -83,7 +83,7 @@ extension RawCullViewModel {
 
     private func finishBurstAnalysis(generation: Int) {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.finishBurstAnalysis(): finishing generation \(generation)",
+            "BurstWorkflowController.finishBurstAnalysis(): finishing generation \(generation)",
         )
         burstAnalysisCoordinator.finish(generation: generation)
     }
@@ -101,7 +101,7 @@ extension RawCullViewModel {
     /// run a fresh analysis pass. Existing valid artifacts remain available if
     /// refreshing an individual file fails.
     func reindexBurstAnalysis() async {
-        Logger.process.debugMessageOnly("RawCullViewModel.reindexBurstAnalysis()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.reindexBurstAnalysis()")
         guard let catalog = self.catalog.selectedSource?.url, !self.catalog.files.isEmpty else { return }
 
         burstCatalogPreparationGeneration &+= 1
@@ -133,17 +133,17 @@ extension RawCullViewModel {
     }
 
     func prepareForFullCatalogReindex() async {
-        Logger.process.debugMessageOnly("RawCullViewModel.prepareForFullCatalogReindex()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.prepareForFullCatalogReindex()")
         selection.selectedFileIDs = []
         clearLoadedBurstAnalysisForReindex()
-        await handleSortOrderChange()
+        await host.handleSortOrderChange()
     }
 
     /// Restore a compatible full-catalog burst snapshot without reaching any
     /// sharpness or similarity computation path.
     @discardableResult
     func restoreExistingFullCatalogBurstAnalysis() async -> Bool {
-        Logger.process.debugMessageOnly("RawCullViewModel.restoreExistingFullCatalogBurstAnalysis()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.restoreExistingFullCatalogBurstAnalysis()")
         guard let catalog = self.catalog.selectedSource?.url, !self.catalog.files.isEmpty else { return false }
         if hasExistingFullCatalogBurstGroupIndex {
             return true
@@ -211,7 +211,7 @@ extension RawCullViewModel {
     /// Re-run burst clustering with the current sensitivity threshold.
     /// Requires embeddings to already be computed — no-ops otherwise.
     func reGroupBursts() async {
-        Logger.process.debugMessageOnly("RawCullViewModel.reGroupBursts()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.reGroupBursts()")
         // An active run groups with the threshold it captured at start and
         // would overwrite this regroup; replay it when the run finishes.
         if burstAnalysisProgress.isRunning {
@@ -261,7 +261,7 @@ extension RawCullViewModel {
         to groupFiles: [FileItem],
     ) {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.applyDeepAIReviewRecommendation(): applying the Deep Review recommendation",
+            "BurstWorkflowController.applyDeepAIReviewRecommendation(): applying the Deep Review recommendation",
         )
         let groupID = groupID(for: groupFiles)
         guard let selectedSource = catalog.selectedSource,
@@ -281,13 +281,13 @@ extension RawCullViewModel {
         )
         ratings.cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
         applyManualWinnerOverrides(files: catalog.files)
-        updateRating(for: winner, rating: 3)
+        host.updateRating(for: winner, rating: 3)
         markBurstGroupReviewed(groupID: groupID)
     }
 
     /// Rate the recommended frame in `groupFiles` at ★★★ and reject all others.
     func keepBestInGroup(from groupFiles: [FileItem]) {
-        Logger.process.debugMessageOnly("RawCullViewModel.keepBestInGroup()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.keepBestInGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
         guard canApplyOneClickCulling(groupID: groupID) else { return }
@@ -298,16 +298,16 @@ extension RawCullViewModel {
             ?? groupFiles[0]
         let others = groupFiles.filter { $0.id != best.id }
         captureUndo(groupID: groupID, files: groupFiles)
-        updateRating(for: best, rating: 3)
+        host.updateRating(for: best, rating: 3)
         if !others.isEmpty {
-            updateRating(for: others, rating: -1)
+            host.updateRating(for: others, rating: -1)
         }
         markDecisionApplied(groupID: groupID)
     }
 
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
     func keepTopTwoInGroup(from groupFiles: [FileItem]) {
-        Logger.process.debugMessageOnly("RawCullViewModel.keepTopTwoInGroup()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.keepTopTwoInGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
         guard canApplyOneClickCulling(groupID: groupID) else { return }
@@ -318,21 +318,21 @@ extension RawCullViewModel {
         let top = Set(rankedIDs.prefix(2))
         captureUndo(groupID: groupID, files: groupFiles)
         if let firstID = rankedIDs.first, let first = groupFiles.first(where: { $0.id == firstID }) {
-            updateRating(for: first, rating: 3)
+            host.updateRating(for: first, rating: 3)
         }
         if rankedIDs.count > 1,
            let second = groupFiles.first(where: { $0.id == rankedIDs[1] }) {
-            updateRating(for: second, rating: 2)
+            host.updateRating(for: second, rating: 2)
         }
         let others = groupFiles.filter { !top.contains($0.id) }
         if !others.isEmpty {
-            updateRating(for: others, rating: -1)
+            host.updateRating(for: others, rating: -1)
         }
         markDecisionApplied(groupID: groupID)
     }
 
     func compareBurstGroup(_ groupFiles: [FileItem], startingAt fileID: FileItem.ID? = nil) {
-        Logger.process.debugMessageOnly("RawCullViewModel.compareBurstGroup()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.compareBurstGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = burstReviewQueueFilter == .singleImages ? -1 : groupID(for: groupFiles)
         activateBurstGroup(groupID: groupID, groupFiles: groupFiles, startingAt: fileID)
@@ -340,7 +340,7 @@ extension RawCullViewModel {
 
     @discardableResult
     func advanceToNextBurstGroup(after currentGroupID: Int) -> Bool {
-        Logger.process.debugMessageOnly("RawCullViewModel.advanceToNextBurstGroup()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.advanceToNextBurstGroup()")
         let scopedGroups = burstGroupsInActiveCatalogScope
         guard let currentIndex = scopedGroups.firstIndex(where: { $0.id == currentGroupID })
         else { return false }
@@ -358,13 +358,13 @@ extension RawCullViewModel {
         else { return false }
 
         let filesByID = Dictionary(
-            uniqueKeysWithValues: activeCatalogFiles.map { ($0.id, $0) },
+            uniqueKeysWithValues: host.activeCatalogFiles.map { ($0.id, $0) },
         )
         let groupFiles = nextGroup.fileIDs.compactMap { filesByID[$0] }
         guard groupFiles.count > 1 else { return false }
 
         let currentGroupFiles = currentGroup.fileIDs.compactMap { filesByID[$0] }
-        if !hasRating(in: currentGroupFiles) {
+        if !host.hasRating(in: currentGroupFiles) {
             deferBurstGroup(groupID: currentGroupID)
         }
 
@@ -373,7 +373,7 @@ extension RawCullViewModel {
     }
 
     private func activateBurstGroup(groupID: Int, groupFiles: [FileItem], startingAt fileID: FileItem.ID? = nil) {
-        Logger.process.debugMessageOnly("RawCullViewModel.activateBurstGroup()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.activateBurstGroup()")
         activeBurstComparisonGroupID = groupID
         let groupFileIDs = Set(groupFiles.map(\.id))
         let savedRankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID)
@@ -384,24 +384,24 @@ extension RawCullViewModel {
         }
         selection.comparisonFileIDs = Array(rankedIDs.prefix(4))
         selection.selectedFileID = fileID.flatMap { groupFileIDs.contains($0) ? $0 : nil } ?? selection.comparisonFileIDs.first
-        selectMainViewMode(.comparisonGrid)
+        host.selectMainViewMode(.comparisonGrid)
     }
 
     func returnToActiveBurstGroupView() {
-        Logger.process.debugMessageOnly("RawCullViewModel.returnToActiveBurstGroupView()")
-        closeZoomOverlay()
+        Logger.process.debugMessageOnly("BurstWorkflowController.returnToActiveBurstGroupView()")
+        host.closeZoomOverlay()
         activeBurstComparisonGroupID = nil
-        mainViewMode = .similarityGrid
+        host.mainViewMode = .similarityGrid
         similarityModel.burstModeActive = true
     }
 
     func undoLastBurstAction() {
-        Logger.process.debugMessageOnly("RawCullViewModel.undoLastBurstAction()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.undoLastBurstAction()")
         guard let entry = lastBurstUndoEntry,
               let selectedSource = catalog.selectedSource
         else { return }
         ratings.cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
-        refreshCullingDerivedState()
+        host.refreshCullingDerivedState()
         lastBurstUndoEntry = nil
         burstReviewSession.synchronizeResultReviewStateAfterUndo(groupID: entry.groupID)
     }
@@ -441,14 +441,14 @@ extension RawCullViewModel {
 
         let indexedIDs = Set(context.orderedFileIDs)
         let fullCatalogIDs = Set(catalog.files.map(\.id))
-        let activeScopeIDs = Set(activeCatalogFiles.map(\.id))
+        let activeScopeIDs = Set(host.activeCatalogFiles.map(\.id))
         return indexedIDs == fullCatalogIDs || indexedIDs == activeScopeIDs
     }
 
     func useExistingBurstGroupIndex() {
-        Logger.process.debugMessageOnly("RawCullViewModel.useExistingBurstGroupIndex()")
+        Logger.process.debugMessageOnly("BurstWorkflowController.useExistingBurstGroupIndex()")
         burstReviewQueueFilter = .all
-        selectMainViewMode(.similarityGrid)
+        host.selectMainViewMode(.similarityGrid)
         similarityModel.burstModeActive = true
     }
 
@@ -457,11 +457,11 @@ extension RawCullViewModel {
     }
 
     var burstGroupsInActiveCatalogScope: [BurstGroup] {
-        guard hasActiveSemanticSearchSelection else {
+        guard host.hasActiveSemanticSearchSelection else {
             return similarityModel.burstGroups
         }
 
-        let activeIDs = Set(activeCatalogFiles.map(\.id))
+        let activeIDs = Set(host.activeCatalogFiles.map(\.id))
         return similarityModel.burstGroups.compactMap { group in
             let scopedIDs = group.fileIDs.filter(activeIDs.contains)
             guard !scopedIDs.isEmpty else { return nil }
@@ -516,7 +516,7 @@ extension RawCullViewModel {
 
     var singleImageReviewFiles: [FileItem] {
         let ids = Set(burstGroupsInActiveCatalogScope.filter { $0.fileIDs.count == 1 }.flatMap(\.fileIDs))
-        return activeCatalogFiles.filter { ids.contains($0.id) }
+        return host.activeCatalogFiles.filter { ids.contains($0.id) }
     }
 
     func burstAnalysisResult(for groupID: Int) -> BurstAnalysisResult? {
@@ -533,7 +533,7 @@ extension RawCullViewModel {
     }
 
     func burstAnalysisOrderedFiles() -> [FileItem] {
-        let activeFiles = activeCatalogFiles
+        let activeFiles = host.activeCatalogFiles
         let targets: [FileItem]
         if !selection.selectedFileIDs.isEmpty {
             targets = activeFiles.filter { selection.selectedFileIDs.contains($0.id) }
@@ -554,7 +554,7 @@ extension RawCullViewModel {
 
     private func recomputeBurstRankings(files: [FileItem]) {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.recomputeBurstRankings(): ranking \(similarityModel.burstGroups.count) groups",
+            "BurstWorkflowController.recomputeBurstRankings(): ranking \(similarityModel.burstGroups.count) groups",
         )
         let results = makeBurstRankings(files: files, reviewStates: burstReviewStates)
         burstReviewSession.replaceRankings(Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) }))
@@ -585,7 +585,7 @@ extension RawCullViewModel {
         for groupFiles: [FileItem],
     ) async -> DeepAIReviewGroupContext? {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.deepAIReviewContext(): collecting burst evidence from \(groupFiles.count) files",
+            "BurstWorkflowController.deepAIReviewContext(): collecting burst evidence from \(groupFiles.count) files",
         )
         guard let catalog = self.catalog.selectedSource?.url,
               let signature = BurstGroupSignature(files: groupFiles, catalog: catalog)
@@ -627,7 +627,7 @@ extension RawCullViewModel {
             scoringSource: sharpnessModel.scoringSource,
         )
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.deepAIReviewContext(): collected group \(groupID) with \(candidates.count) candidates",
+            "BurstWorkflowController.deepAIReviewContext(): collected group \(groupID) with \(candidates.count) candidates",
         )
         return context
     }
@@ -762,7 +762,7 @@ extension RawCullViewModel {
         configuration: BurstAnalysisPipelineConfiguration? = nil,
     ) async {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.saveBurstAnalysisCache(): preparing a snapshot for \(files.count) files",
+            "BurstWorkflowController.saveBurstAnalysisCache(): preparing a snapshot for \(files.count) files",
         )
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog),
               let context = completedBurstAnalysisContext,
@@ -772,7 +772,7 @@ extension RawCullViewModel {
 
         guard Set(files.map(\.id)) == Set(self.catalog.files.map(\.id)) else {
             Logger.process.debugMessageOnly(
-                "RawCullViewModel.saveBurstAnalysisCache(): preserving the full-catalog cache "
+                "BurstWorkflowController.saveBurstAnalysisCache(): preserving the full-catalog cache "
                     + "instead of replacing it with a scoped snapshot",
             )
             return
@@ -798,7 +798,7 @@ extension RawCullViewModel {
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         await burstAnalysisCoordinator.save(snapshot, catalog: catalog)
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.saveBurstAnalysisCache(): cache save returned",
+            "BurstWorkflowController.saveBurstAnalysisCache(): cache save returned",
         )
     }
 

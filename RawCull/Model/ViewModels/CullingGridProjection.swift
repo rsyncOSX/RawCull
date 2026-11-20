@@ -32,12 +32,12 @@ extension RawCullViewModel {
         let key = CullingGridProjectionKey(
             contentRevision: catalog.gridRevision,
             ratingRevision: ratings.revision,
-            reviewRevision: burstReviewSession.contentRevision,
+            reviewRevision: burstWorkflow.burstReviewSession.contentRevision,
             similarityRevision: similarityModel.gridContentRevision,
             saliencyRevision: sharpnessModel.saliencyRevision,
             sourceURL: catalog.selectedSource?.url,
             ratingFilter: ratingFilter,
-            reviewQueueFilter: burstReviewQueueFilter,
+            reviewQueueFilter: burstWorkflow.burstReviewQueueFilter,
             showsBurstGroups: showsBurstGroups,
             hasSharpnessScores: !sharpnessModel.scores.isEmpty,
         )
@@ -55,17 +55,17 @@ extension RawCullViewModel {
             catalog.filteredFiles.filter { ratings.ratingCache[$0.name] == value }
         }
         let cache = CullingGridRenderCache.rebuild(
-            files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,
+            files: visibleFiles, burstGroups: burstWorkflow.filteredBurstGroupsForReviewQueue,
             scores: sharpnessModel.scores,
         )
         let groups: [CullingGridVisibleBurstGroup]
-        if burstReviewQueueFilter == .singleImages {
+        if burstWorkflow.burstReviewQueueFilter == .singleImages {
             let singleFiles = cache.visibleBurstGroups.flatMap(\.files)
             groups = singleFiles.isEmpty ? [] : [CullingGridVisibleBurstGroup(id: -1, files: singleFiles)]
         } else {
             groups = cache.visibleBurstGroups.map { group in
                 CullingGridVisibleBurstGroup(id: group.id, files: BurstGroupFileOrderPolicy.orderedFiles(
-                    in: group.files, rankedFileIDs: burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
+                    in: group.files, rankedFileIDs: burstWorkflow.burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
                 ))
             }
         }
@@ -77,7 +77,7 @@ extension RawCullViewModel {
             selectionFiles: selectionFiles, selectionIDs: selectionFiles.map(\.id),
             badges: CullingGridSelectionCoordinator.badgeSelectionItems(
                 visibleFiles: selectionFiles, burstGroupLookup: similarityModel.burstGroupLookup,
-                burstAnalysisResults: burstAnalysisResults, saliencyInfo: sharpnessModel.saliencyInfo,
+                burstAnalysisResults: burstWorkflow.burstAnalysisResults, saliencyInfo: sharpnessModel.saliencyInfo,
             ),
         )
         // Memoization is not presentation state; cache writes are observation-ignored.

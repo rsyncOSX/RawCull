@@ -12,13 +12,13 @@ struct BurstWorkspaceHeader: View {
     }
 
     private var isReviewed: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
+        viewModel.burstWorkflow.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     var body: some View {
         HStack(spacing: 12) {
             Button {
-                viewModel.returnToActiveBurstGroupView()
+                viewModel.burstWorkflow.returnToActiveBurstGroupView()
             } label: {
                 Label("Burst list", systemImage: "chevron.left")
             }
@@ -73,7 +73,7 @@ struct BurstWorkspaceHeader: View {
 
     private var reviewButtonContent: some View {
         Button {
-            viewModel.toggleBurstGroupReviewed(groupID: groupID)
+            viewModel.burstWorkflow.toggleBurstGroupReviewed(groupID: groupID)
         } label: {
             Label(
                 "Mark Reviewed",

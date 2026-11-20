@@ -170,7 +170,7 @@ extension RawCullViewModel {
         catalogLifecycle.cancelLoad()
         similarityFeature.cancelHydration()
         similarityCatalogGeneration &+= 1
-        cancelAndResetBurstAnalysis()
+        burstWorkflow.cancelAndResetBurstAnalysis()
 
         catalog.preloadTask?.cancel()
         catalog.preloadTask = nil
@@ -199,7 +199,7 @@ extension RawCullViewModel {
         sharpnessModel.reset()
         similarityFeature.resetCatalogState()
         ratings.resetForCatalogChange()
-        burstReviewQueueFilter = .all
+        burstWorkflow.burstReviewQueueFilter = .all
 
         let metadata = CatalogProgressCoalescer(initial: 0) { [weak self] count in
             guard let self, self.isActiveCatalogLoad(url) else { return }

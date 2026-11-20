@@ -580,7 +580,7 @@ struct RawCullSemanticSearchTests {
         let selectedIDs = Set(viewModel.catalog.filteredFiles.map(\.id))
         #expect(viewModel.catalog.filteredFiles.count == 7)
         #expect(Set(viewModel.activeCatalogFiles.map(\.id)) == selectedIDs)
-        #expect(Set(viewModel.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
+        #expect(Set(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
         #expect(Set(viewModel.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
         #expect(viewModel.sharpnessScoringTargetCount == selectedIDs.count)
         #expect(await provider.queries() == ["wildlife"])
@@ -610,7 +610,7 @@ struct RawCullSemanticSearchTests {
         #expect(await provider.queries() == ["wildlife"])
 
         let scopedFiles = viewModel.activeCatalogFiles
-        viewModel.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
+        viewModel.burstWorkflow.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
             catalog: fixture.root,
             orderedFileIDs: scopedFiles.map(\.id),
             orderedFilePaths: scopedFiles.map(\.url.path),
@@ -625,7 +625,7 @@ struct RawCullSemanticSearchTests {
 
         #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
         #expect(
-            viewModel.completedBurstAnalysisContext
+            viewModel.burstWorkflow.completedBurstAnalysisContext
                 == CompletedBurstAnalysisContext(
                     catalog: fixture.root,
                     orderedFileIDs: scopedFiles.map(\.id),
@@ -690,7 +690,7 @@ struct RawCullSemanticSearchTests {
             ),
             BurstGroup(id: 3, fileIDs: [outside.id])
         ]
-        viewModel.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
+        viewModel.burstWorkflow.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
             catalog: fixture.root,
             orderedFileIDs: fixture.files.map(\.id),
             orderedFilePaths: fixture.files.map(\.url.path),
@@ -698,11 +698,11 @@ struct RawCullSemanticSearchTests {
             generation: viewModel.burstAnalysisGeneration,
         )
 
-        #expect(viewModel.burstGroupsInActiveCatalogScope == [
+        #expect(viewModel.burstWorkflow.burstGroupsInActiveCatalogScope == [
             BurstGroup(id: 1, fileIDs: [selected[0].id]),
             BurstGroup(id: 2, fileIDs: selected.map(\.id))
         ])
-        #expect(viewModel.canUseExistingBurstGroupIndexForActiveScope)
+        #expect(viewModel.burstWorkflow.canUseExistingBurstGroupIndexForActiveScope)
     }
 
     @MainActor
@@ -735,7 +735,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.activeCatalogFiles.count == 20)
 
         viewModel.selection.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
-        await viewModel.prepareForFullCatalogReindex()
+        await viewModel.burstWorkflow.prepareForFullCatalogReindex()
 
         #expect(viewModel.similarityModel.semanticSearchState == .idle)
         #expect(viewModel.selection.selectedFileIDs.isEmpty)

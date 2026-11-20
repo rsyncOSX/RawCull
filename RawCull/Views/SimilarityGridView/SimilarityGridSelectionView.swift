@@ -97,7 +97,7 @@ struct SimilarityGridSelectionView: View {
             if Task.isCancelled {
                 return
             }
-            await viewModel.reGroupBursts()
+            await viewModel.burstWorkflow.reGroupBursts()
         }
     }
 }
@@ -143,7 +143,7 @@ private struct BurstGroupHeaderControlsView: View {
         let sensitivity = similarityFeature.burstSensitivity.formatted(
             .number.precision(.fractionLength(2)),
         )
-        let groupCount = viewModel.burstReviewSummary.totalGroups
+        let groupCount = viewModel.burstWorkflow.burstReviewSummary.totalGroups
 
         HStack(spacing: 8) {
             HStack(spacing: 8) {
