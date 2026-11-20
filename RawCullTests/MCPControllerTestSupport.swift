@@ -111,6 +111,8 @@ final class MCPControllerFixture {
     let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 200, height: 200), styleMask: [], backing: .buffered, defer: true)
     /// Setup sheets presented so far, in order.
     private(set) var presentedSheets: [NSWindow] = []
+    /// Setup sheets whose presentation has returned (answered or dismissed).
+    private(set) var finishedSheets = 0
     /// Answers each setup sheet. The default waits until the setup task is cancelled.
     var answerSheet: @MainActor (NSWindow) async -> NSApplication.ModalResponse = { _ in
         while !Task.isCancelled {
@@ -148,9 +150,61 @@ final class MCPControllerFixture {
             activateApp: {},
             presentSetupSheet: { [unowned self] sheet, _ in
                 presentedSheets.append(sheet)
-                return await answerSheet(sheet)
+                let response = await answerSheet(sheet)
+                finishedSheets += 1
+                return response
             },
         ))
+    }
+
+    /// A readable catalog folder with one photo, inside the fixture directory.
+    func makeCatalog(name: String = "Fixture") throws -> (source: ARWSourceCatalog, files: [FileItem]) {
+        let folder = directory.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let photo = folder.appendingPathComponent("photo.ARW")
+        try Data([0]).write(to: photo)
+        let file = FileItem(
+            id: UUID(), url: photo, name: "photo.ARW", size: 1,
+            dateModified: .distantPast, exifData: nil, afFocusNormalized: nil,
+        )
+        return (ARWSourceCatalog(name: name, url: folder), [file])
+    }
+
+    func submitSetup(hint: String = "Fixture", createdAt: Date = .now) throws -> CatalogSetupRequest {
+        let request = CatalogSetupRequest(
+            requestId: UUID(), catalogHint: hint, jobType: "burstAnalysis", createdAt: createdAt, usesExactHint: true,
+        )
+        #expect(try setupStore.submit(request).wasAccepted)
+        return request
+    }
+
+    /// Publishes a completed one-time-approval job with a follow-up source and
+    /// queues an assessment of its only burst.
+    func queueFollowUp() throws -> AnalysisJobStore.FollowUpRequest {
+        let catalogID = UUID()
+        let jobID = UUID()
+        let now = Date()
+        var job = AnalysisJob(jobId: jobID, catalogId: catalogID, createdAt: now, updatedAt: now)
+        job.setupRequestId = UUID()
+        job.claim()
+        try jobs.update { _ in job }
+        let snapshot = FollowUpSourceSnapshot(jobID: jobID, catalogID: catalogID, photos: [
+            "photo-0": .init(relativePath: "photo.ARW", size: 1, modified: now)
+        ], bursts: [
+            "burst": .init(photoIDs: ["photo-0"], ranks: ["photo-0": 1], recommendedPhotoID: "photo-0", alternatePhotoID: nil)
+        ])
+        try jobs.withLock { try jobs.stageFollowUpSourceLocked(snapshot) }
+        job.coverage = .init(photoCount: 1, burstCount: 1, singletonCount: 0,
+                             unevaluatedCount: 0, skippedByReason: [:], similarityBackends: [:])
+        job.bursts = []
+        job.finish(.completed)
+        job.allowsJobPhotoAccess = true
+        try jobs.update { _ in job }
+        let request = AnalysisJobStore.FollowUpRequest(
+            id: UUID(), catalogID: catalogID, sourceJobID: jobID, target: .burst("burst"), rubric: ["exposure"],
+        )
+        #expect(try jobs.enqueueFollowUp(request).state == .queued)
+        return request
     }
 
     /// Lets tasks the controller started run until `condition` holds.
