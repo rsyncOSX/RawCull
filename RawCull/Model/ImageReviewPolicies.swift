@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import PhotoAIContracts
 
 nonisolated enum ImagePreviewSource: Hashable, Sendable {
     case thumbnail
@@ -291,4 +292,5 @@ nonisolated struct ImageReviewSubjectOutlineRequestContext: Hashable, Sendable {
     let fileID: UUID?
     let prompt: String?
     let isPresented: Bool
+    var maskStorageKey: SubjectMaskStorageKey? = nil
 }

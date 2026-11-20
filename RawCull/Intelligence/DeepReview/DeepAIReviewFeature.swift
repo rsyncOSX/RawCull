@@ -91,6 +91,7 @@ nonisolated struct DeepAIReviewCandidate: Equatable, Identifiable, Sendable {
 
     let usedFallbackMask: Bool
     let issues: [DeepAIReviewCandidateIssue]
+    var maskStorageKey: SubjectMaskStorageKey? = nil
 }
 
 nonisolated struct DeepAIReviewResult: Equatable, Sendable {
@@ -176,10 +177,7 @@ nonisolated protocol DeepAIReviewServicing: Sendable {
 }
 
 nonisolated protocol DeepAIReviewMaskLoading: Sendable {
-    func mask(
-        for source: AIImageSource,
-        prompt: SubjectSegmentationPrompt,
-    ) async -> CGImage?
+    func mask(for key: SubjectMaskStorageKey) async -> CGImage?
 }
 
 @Observable @MainActor
@@ -271,15 +269,18 @@ final class DeepAIReviewFeature {
         for candidate: DeepAIReviewCandidate,
         fileURL: URL,
     ) async -> CGImage? {
-        guard candidate.isCompleted, let prompt = candidate.maskPromptUsed else {
-            return nil
-        }
-        let source = AIImageSource(
-            id: candidate.fileID,
-            url: fileURL,
-            displayName: candidate.fileName,
-        )
-        return await maskLoader?.mask(for: source, prompt: prompt)
+        guard candidate.isCompleted,
+              let key = candidate.maskStorageKey,
+              key.source.url.deletingLastPathComponent().standardizedFileURL.path == fileURL.standardizedFileURL.path,
+              key.modelIdentity == installedModelIdentity
+        else { return nil }
+        let identity = await Task { @concurrent in
+            SourceFileIdentity.read(from: fileURL)
+        }.value
+        guard identity == key.sourceIdentity, key.modelIdentity == installedModelIdentity else { return nil }
+        let mask = await maskLoader?.mask(for: key)
+        guard key.modelIdentity == installedModelIdentity else { return nil }
+        return mask
     }
 
     func start(_ request: DeepAIReviewRequest) async {
@@ -515,67 +516,71 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
     }
 }
 
-/// Regenerates a subject mask when the cached one does not fit the decoded image.
-///
-/// The package mask cache is keyed by file, prompt, model and input size only, so a
-/// mask cached from one render (embedded preview at 1616 px, say) is returned for
-/// another (RAW Demosaic at 2048 px). Deep Review checks the size itself, regenerates
-/// without the cache and writes the fresh mask back so the overlay shows the mask
-/// that was scored.
-nonisolated struct DeepAIReviewMaskRegeneration: Sendable {
-    let selector: SubjectMaskSelector
-    let repository: SubjectMaskRepository
-    let stores: [any SubjectMaskStoring]
+/// Adapts package cache keys for Deep Review renders while preserving the
+/// identity of the real source file. The namespace is used only inside stores.
+nonisolated struct DeepAIReviewRenderMaskStore: SubjectMaskStoring {
+    let store: any SubjectMaskStoring
+    let render: Render
 
-    /// - Parameters:
-    ///   - provider: The active segmentation provider.
-    ///   - repository: The cached repository whose keys the fresh masks overwrite.
-    ///   - stores: The stores behind `repository`.
-    init(
-        provider: any SubjectSegmenting,
-        repository: SubjectMaskRepository,
-        stores: [any SubjectMaskStoring],
-        maxSide: Int,
-    ) {
-        let uncachedRepository = SubjectMaskRepository(configuration: repository.configuration, stores: [])
-        selector = SubjectMaskSelector(
-            repository: uncachedRepository,
-            segmentationService: SegmentationService(provider: provider, stores: [], maxSide: maxSide),
-        )
-        self.repository = repository
-        self.stores = stores
-    }
+    nonisolated struct Render: Sendable {
+        let source: SharpnessScoringSource
+        let maximumPixelSize: Int
+        let width: Int
+        let height: Int
 
-    init(selector: SubjectMaskSelector, repository: SubjectMaskRepository, stores: [any SubjectMaskStoring]) {
-        self.selector = selector
-        self.repository = repository
-        self.stores = stores
-    }
-
-    func replaceCachedMask(_ result: SubjectSegmentationResult, for source: AIImageSource) async {
-        let key = await repository.storageKey(for: source, prompt: result.prompt)
-        for store in stores {
-            try? await store.save(result, for: key)
+        func storageKey(for key: SubjectMaskStorageKey) -> SubjectMaskStorageKey {
+            let version = SharpnessScoringSignature.currentInputPipelineVersion
+            let namespace = "deep-review-v\(version)-\(source.rawValue)-\(maximumPixelSize)-\(width)x\(height)"
+            return SubjectMaskStorageKey(
+                source: AIImageSource(
+                    id: key.source.id,
+                    url: key.source.url.standardizedFileURL.appendingPathComponent(namespace),
+                    displayName: key.source.displayName,
+                ),
+                sourceIdentity: key.sourceIdentity,
+                prompt: key.prompt,
+                modelIdentity: key.modelIdentity,
+                inputMaxSide: key.inputMaxSide,
+            )
         }
+    }
+
+    func load(for key: SubjectMaskStorageKey) async -> SubjectSegmentationResult? {
+        guard let result = await store.load(for: render.storageKey(for: key)),
+              result.mask.width == render.width, result.mask.height == render.height
+        else { return nil }
+        return result
+    }
+
+    func contains(_ key: SubjectMaskStorageKey) async -> Bool {
+        await load(for: key) != nil
+    }
+
+    func save(_ result: SubjectSegmentationResult, for key: SubjectMaskStorageKey) async throws {
+        guard result.mask.width == render.width, result.mask.height == render.height else { return }
+        try await store.save(result, for: render.storageKey(for: key))
     }
 }
 
 nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable {
-    private let selector: SubjectMaskSelector
-    private let maskRegeneration: DeepAIReviewMaskRegeneration?
+    private let provider: any SubjectSegmenting
+    private let maskConfiguration: SubjectMaskRepositoryConfiguration
+    private let maskStores: [any SubjectMaskStoring]
     private let decoder: any DeepAIReviewImageDecoding
     private let focusScorer: any SubjectMaskFocusScoring
     private let maximumPixelSize: Int
 
     init(
-        selector: SubjectMaskSelector,
-        maskRegeneration: DeepAIReviewMaskRegeneration? = nil,
+        provider: any SubjectSegmenting,
+        maskConfiguration: SubjectMaskRepositoryConfiguration,
+        maskStores: [any SubjectMaskStoring],
         decoder: any DeepAIReviewImageDecoding = RawCullDeepReviewImageDecoder(),
         focusScorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(),
         maximumPixelSize: Int = SharpnessScoringSizeOption.maximumPixelSize,
     ) {
-        self.selector = selector
-        self.maskRegeneration = maskRegeneration
+        self.provider = provider
+        self.maskConfiguration = maskConfiguration
+        self.maskStores = maskStores
         self.decoder = decoder
         self.focusScorer = focusScorer
         self.maximumPixelSize = maximumPixelSize
@@ -706,7 +711,21 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             url: candidate.url,
             displayName: candidate.fileName,
         )
-        var selection: SubjectMaskSelection
+        let render = DeepAIReviewRenderMaskStore.Render(
+            source: request.scoringSource,
+            maximumPixelSize: maximumPixelSize,
+            width: image.width,
+            height: image.height,
+        )
+        let stores = maskStores.map { DeepAIReviewRenderMaskStore(store: $0, render: render) }
+        let repository = SubjectMaskRepository(configuration: maskConfiguration, stores: stores)
+        let selector = SubjectMaskSelector(
+            repository: repository,
+            segmentationService: SegmentationService(
+                provider: provider, stores: stores, maxSide: maskConfiguration.inputMaxSide,
+            ),
+        )
+        let selection: SubjectMaskSelection
         do {
             Logger.process.debugMessageOnly(
                 "RawCullDeepAIReviewPipeline.evaluate(): requesting a subject mask "
@@ -718,21 +737,6 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
                 acquisitionPolicy: .cacheFirstGenerateIfMissing,
             )
             selection = try await selector.select(for: source, image: image, strategy: strategy)
-            if !Self.maskFits(selection, image: image) {
-                // A cached mask from another render or decode size cannot be scored
-                // against this image. Regenerate instead of reporting missing detail.
-                Logger.process.debugMessageOnly(
-                    "RawCullDeepAIReviewPipeline.evaluate(): cached mask size does not match "
-                        + "\(image.width)x\(image.height) for \(candidate.fileName); regenerating",
-                )
-                if let maskRegeneration {
-                    let fresh = try await maskRegeneration.selector.select(for: source, image: image, strategy: strategy)
-                    if let result = fresh.selected?.result {
-                        await maskRegeneration.replaceCachedMask(result, for: source)
-                    }
-                    selection = fresh
-                }
-            }
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -822,6 +826,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             }
         }
 
+        let key = await repository.storageKey(for: source, prompt: selected.result.prompt)
         let result = DeepAIReviewCandidate(
             fileID: candidate.fileID,
             fileName: candidate.fileName,
@@ -839,6 +844,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             promptVerified: promptVerified,
             usedFallbackMask: usedFallback,
             issues: issues,
+            maskStorageKey: render.storageKey(for: key),
         )
         Logger.process.debugMessageOnly(
             "RawCullDeepAIReviewPipeline.evaluate(): finished \(candidate.fileName); score available: \(result.deepScore != nil)",

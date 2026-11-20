@@ -62,6 +62,7 @@ struct ZoomOverlayView: View {
             fileID: viewModel.selectedFile?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
             isPresented: session.showSubjectOutline,
+            maskStorageKey: subjectOutlineCandidate?.maskStorageKey,
         )
     }
 

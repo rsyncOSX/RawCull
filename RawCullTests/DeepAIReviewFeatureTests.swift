@@ -229,15 +229,12 @@ struct DeepAIReviewFeatureTests {
             for: subjectKey,
         )
 
-        let loader = DeepAIReviewDiskMaskLoader(
-            repository: repository,
-            diskStore: diskStore,
-        )
-        let loaded = await loader.mask(for: source, prompt: .bird)
+        let loader = DeepAIReviewDiskMaskLoader(diskStore: diskStore)
+        let loaded = await loader.mask(for: birdKey)
 
         #expect(loaded?.width == 32)
         #expect(loaded?.height == 24)
-        #expect(await loader.mask(for: source, prompt: .subject) == nil)
+        #expect(await loader.mask(for: subjectKey) == nil)
     }
 
     @Test
@@ -312,57 +309,49 @@ struct DeepAIReviewFeatureTests {
     }
 
     @Test
-    func `A cached mask from another decode size is regenerated instead of dropping the score`() async throws {
-        let request = await makeRequest(candidateCount: 2)
-        let modelIdentity = ModelIdentity(family: "sam3", name: "size-test", assetName: "size-test.aimodel")
+    func `Deep Review isolates masks for equal-sized preview and RAW renders`() async throws {
+        let preview = await makeRequest(candidateCount: 2)
+        let raw = DeepAIReviewRequest(
+            groupID: preview.groupID, groupSignature: preview.groupSignature,
+            candidates: preview.candidates, preset: preview.preset, scoringSource: .rawDemosaic,
+        )
+        let modelIdentity = ModelIdentity(family: "sam3", name: "render-test", assetName: "render-test.aimodel")
         let configuration = SubjectMaskRepositoryConfiguration(modelIdentity: modelIdentity, inputMaxSide: 1024)
         let memoryStore = SubjectMaskMemoryStore()
-        let repository = SubjectMaskRepository(configuration: configuration, stores: [memoryStore])
-        // Seed every prompt with a mask cached from a 32x24 render.
-        let staleMask = try #require(makeCenteredMask(width: 32, height: 24))
-        for candidate in request.candidates {
-            let source = AIImageSource(id: candidate.fileID, url: candidate.url, displayName: candidate.fileName)
-            for prompt in SubjectSegmentationPrompt.allCases {
-                let key = await repository.storageKey(for: source, prompt: prompt)
-                await memoryStore.save(makeSegmentationResult(
-                    sourceID: source.id, prompt: prompt, mask: staleMask, modelIdentity: modelIdentity,
-                ), for: key)
-            }
-        }
         let image = try #require(makeStripedImage(width: 64, height: 48))
-        let freshMask = try #require(makeCenteredMask(width: 64, height: 48))
-        let provider = FixedMaskSegmenter(modelIdentity: modelIdentity, mask: freshMask)
-        let cachedSelector = SubjectMaskSelector(
-            repository: repository,
-            segmentationService: SegmentationService(provider: provider, stores: [memoryStore], maxSide: 1024),
-        )
+        let mask = try #require(makeCenteredMask(width: 64, height: 48))
+        let provider = FixedMaskSegmenter(modelIdentity: modelIdentity, mask: mask)
         let pipeline = RawCullDeepAIReviewPipeline(
-            selector: cachedSelector,
-            maskRegeneration: DeepAIReviewMaskRegeneration(
-                provider: provider, repository: repository, stores: [memoryStore], maxSide: 1024,
-            ),
+            provider: provider,
+            maskConfiguration: configuration,
+            maskStores: [memoryStore],
             decoder: FixedImageDecoder(image: image),
             maximumPixelSize: 64,
         )
 
-        let result = try await pipeline.review(request) { _ in }
+        let previewResult = try await pipeline.review(preview) { _ in }
+        let firstCallCount = await provider.calls.value
+        #expect(firstCallCount > 0)
+        let rawResult = try await pipeline.review(raw) { _ in }
+        let secondCallCount = await provider.calls.value
+        #expect(secondCallCount == 2 * firstCallCount)
+        _ = try await pipeline.review(preview) { _ in }
+        #expect(await provider.calls.value == secondCallCount)
 
-        #expect(await provider.calls.value > 0)
-        for candidate in result.candidates {
-            #expect(candidate.deepScore != nil, "\(candidate.fileName) issues: \(candidate.issues)")
-            #expect(!candidate.issues.contains(.subjectDetailUnavailable))
-            let prompt = try #require(candidate.maskPromptUsed)
-            let source = AIImageSource(id: candidate.fileID, url: try #require(request.candidates.first { $0.fileID == candidate.fileID }?.url),
-                                       displayName: candidate.fileName)
-            // The stale entry was replaced, so the overlay shows the mask that was scored.
-            let stored = await memoryStore.load(for: repository.storageKey(for: source, prompt: prompt))
-            #expect(stored?.mask.width == 64)
-            #expect(stored?.mask.height == 48)
+        for candidate in previewResult.candidates {
+            let rawCandidate = try #require(rawResult.candidates.first { $0.fileID == candidate.fileID })
+            let previewKey = try #require(candidate.maskStorageKey)
+            let rawKey = try #require(rawCandidate.maskStorageKey)
+            #expect(candidate.deepScore != nil)
+            #expect(rawCandidate.deepScore != nil)
+            #expect(previewKey != rawKey)
+            #expect(await memoryStore.load(for: previewKey)?.mask.width == 64)
+            #expect(await memoryStore.load(for: rawKey)?.mask.width == 64)
         }
     }
 
     @Test
-    func `Without a regenerator a mismatched cached mask is reported explicitly`() async throws {
+    func `Mask registration requires matching image dimensions`() async throws {
         let mask = try #require(makeCenteredMask(width: 32, height: 24))
         let image = try #require(makeStripedImage(width: 64, height: 48))
         let modelIdentity = ModelIdentity(family: "sam3", name: "size-test", assetName: "size-test.aimodel")

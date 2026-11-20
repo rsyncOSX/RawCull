@@ -19,11 +19,6 @@ struct DeepAIReviewMaskPreview: View {
         return files.first { $0.id == candidate.fileID }
     }
 
-    private var loadIdentity: String? {
-        guard let candidate, let prompt = candidate.maskPromptUsed else { return nil }
-        return "\(candidate.fileID.uuidString):\(prompt.rawValue)"
-    }
-
     var body: some View {
         Group {
             if let candidate, file != nil {
@@ -87,11 +82,11 @@ struct DeepAIReviewMaskPreview: View {
             autofocusPoint = focus.autofocusPoint
             focusMap = focus.mask
         }
-        .task(id: loadIdentity) {
+        .task(id: candidate?.maskStorageKey) {
             maskOverlay = nil
             isOrganicOutline = false
             isLoading = false
-            guard let candidate, loadIdentity != nil else { return }
+            guard let candidate, candidate.maskStorageKey != nil else { return }
             isLoading = true
             let loadedMask = await controller.mask(for: candidate, in: files)
             guard !Task.isCancelled else {
