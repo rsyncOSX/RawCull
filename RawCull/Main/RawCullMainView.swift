@@ -287,11 +287,10 @@ struct RawCullMainView: View {
             }
         } detail: {
             RawCullDetailContainerView(semanticSearchFeature: semanticSearchFeature,
-                cgImage: $cgImage,
-                nsImage: $nsImage,
-                selectedFileID: Bindable(viewModel.selection).selectedFileID,
-                abort: abort,
-            )
+                                       cgImage: $cgImage,
+                                       nsImage: $nsImage,
+                                       selectedFileID: Bindable(viewModel.selection).selectedFileID,
+                                       abort: abort)
         }
         .toolbar(removing: .sidebarToggle)
         .task {

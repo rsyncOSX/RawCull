@@ -11,7 +11,7 @@ nonisolated struct DeepAIReviewSourceCandidate: Equatable, Sendable {
     let normalSharpnessScore: Float?
     let subjectLabel: String?
     let normalizedAFPoint: CGPoint?
-    var iso: Int? = nil
+    var iso: Int?
 }
 
 nonisolated struct DeepAIReviewGroupContext: Equatable, Sendable {

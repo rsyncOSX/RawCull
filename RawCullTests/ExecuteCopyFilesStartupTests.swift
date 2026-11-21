@@ -178,8 +178,8 @@ struct ExecuteCopyFilesStartupTests {
         let viewModel = makeRawCullViewModel()
         viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Current", url: resolved)
         viewModel.catalog.filteredFiles = [FileItem(url: currentCatalog.appendingPathComponent("A.ARW"),
-                                            name: "A.ARW", size: 1, dateModified: Date(),
-                                            exifData: nil, afFocusNormalized: nil)]
+                                                    name: "A.ARW", size: 1, dateModified: Date(),
+                                                    exifData: nil, afFocusNormalized: nil)]
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
             catalogController: viewModel.catalogController, includeListDirectory: directory,

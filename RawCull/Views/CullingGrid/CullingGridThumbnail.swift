@@ -13,16 +13,15 @@ struct CullingGridThumbnail: View {
 
     var body: some View {
         ImageItemView(file: file,
-            isSelected: selection.selectedFileID == file.id,
-            isMultiSelected: selection.selectedFileIDs.contains(file.id),
-            thumbnailSize: 200,
-            ratingValue: ratingValue(for: file), ratingDisplay: ratingDisplay(for: file),
-            ratingColor: ratingColor(for: file),
-            semanticResultRank: semanticResultRank, semanticResultCount: semanticResultCount,
-            semanticResultScore: semanticResultScore,
-            onSelect: onSelect, doubleSelectActionName: doubleSelectActionName,
-            onDoubleSelect: onDoubleSelect,
-        )
+                      isSelected: selection.selectedFileID == file.id,
+                      isMultiSelected: selection.selectedFileIDs.contains(file.id),
+                      thumbnailSize: 200,
+                      ratingValue: ratingValue(for: file), ratingDisplay: ratingDisplay(for: file),
+                      ratingColor: ratingColor(for: file),
+                      semanticResultRank: semanticResultRank, semanticResultCount: semanticResultCount,
+                      semanticResultScore: semanticResultScore,
+                      onSelect: onSelect, doubleSelectActionName: doubleSelectActionName,
+                      onDoubleSelect: onDoubleSelect)
     }
 
     private func ratingValue(for file: FileItem) -> Int {

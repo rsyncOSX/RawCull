@@ -113,8 +113,7 @@ private struct OrdinarySimilarityWorkflowView: View {
                 semanticSearchFeature: semanticSearchFeature,
             ) {
                 BurstGroupHeaderControlsView(similarityFeature: similarityFeature,
-                    similarityThresholdChanged: similarityThresholdChanged,
-                )
+                                             similarityThresholdChanged: similarityThresholdChanged)
             }
         } else {
             BurstGroupsHomeView(

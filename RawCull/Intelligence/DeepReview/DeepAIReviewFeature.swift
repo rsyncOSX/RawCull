@@ -54,7 +54,7 @@ nonisolated struct DeepAIReviewInputCandidate: Equatable, Identifiable, Sendable
     let normalSharpnessScore: Float?
     let subjectLabel: String?
     let normalizedAFPoint: CGPoint?
-    var iso: Int? = nil
+    var iso: Int?
 }
 
 nonisolated struct DeepAIReviewRequest: Equatable, Sendable {
@@ -91,7 +91,7 @@ nonisolated struct DeepAIReviewCandidate: Equatable, Identifiable, Sendable {
 
     let usedFallbackMask: Bool
     let issues: [DeepAIReviewCandidateIssue]
-    var maskStorageKey: SubjectMaskStorageKey? = nil
+    var maskStorageKey: SubjectMaskStorageKey?
 }
 
 nonisolated struct DeepAIReviewResult: Equatable, Sendable {

@@ -6,7 +6,7 @@ nonisolated struct ReviewSelectedFile: Equatable, Sendable {
     let url: URL
     let name: String
     var normalizedAFPoint: CGPoint?
-    var iso: Int? = nil
+    var iso: Int?
 }
 
 /// Native reads retain access until completion, including after catalog navigation.

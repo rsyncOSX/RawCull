@@ -33,7 +33,9 @@ final class FakeMCPWorkspace: MCPAnalysisWorkspace {
     /// Called by `startCatalogLoad`; the default finishes the load at once.
     var onCatalogLoad: (@MainActor (FakeMCPWorkspace, ARWSourceCatalog?, URL?) -> Void)? = { workspace, source, url in
         workspace.loadedSource = source
-        if let url { workspace.accessibleURLs.insert(url.standardizedFileURL) }
+        if let url {
+            workspace.accessibleURLs.insert(url.standardizedFileURL)
+        }
     }
 
     func startCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess _: RawCullCatalogGrant?) {
@@ -51,7 +53,9 @@ final class FakeMCPWorkspace: MCPAnalysisWorkspace {
     var isPreparingBurstCatalog = false
     var isSharpnessCalibrationRunning = false
 
-    func mcpCatalogSummary(scanId _: UUID?) -> CatalogSummary? { nil }
+    func mcpCatalogSummary(scanId _: UUID?) -> CatalogSummary? {
+        nil
+    }
 
     private(set) var authorizedCatalogIDs: [UUID] = []
     func authorizeCatalogForMCPJob(catalogId: UUID) throws {
@@ -63,7 +67,10 @@ final class FakeMCPWorkspace: MCPAnalysisWorkspace {
         isSemanticSearchActive = false
     }
 
-    var fullCatalogBurstAnalysisFiles: [FileItem] { files }
+    var fullCatalogBurstAnalysisFiles: [FileItem] {
+        files
+    }
+
     var burstAnalysisGeneration = 0
     var burstAnalysisProgress = BurstAnalysisProgress()
     var currentBurstSimilaritySignature: BurstSimilaritySignature
@@ -134,9 +141,17 @@ final class MCPControllerFixture {
         UserDefaults().removePersistentDomain(forName: defaultsSuite)
     }
 
-    var jobs: AnalysisJobStore { AnalysisJobStore(directory: directory) }
-    var grants: CatalogGrantStore { CatalogGrantStore(directory: directory) }
-    var setupStore: CatalogSetupStore { CatalogSetupStore(jobs: jobs) }
+    var jobs: AnalysisJobStore {
+        AnalysisJobStore(directory: directory)
+    }
+
+    var grants: CatalogGrantStore {
+        CatalogGrantStore(directory: directory)
+    }
+
+    var setupStore: CatalogSetupStore {
+        CatalogSetupStore(jobs: jobs)
+    }
 
     func makeController() -> MCPAnalysisController {
         MCPAnalysisController(environment: MCPAnalysisEnvironment(
@@ -214,7 +229,9 @@ final class MCPControllerFixture {
     ) async throws -> Bool {
         let deadline = ContinuousClock.now + timeout
         while ContinuousClock.now < deadline {
-            if try condition() { return true }
+            if try condition() {
+                return true
+            }
             try await Task.sleep(for: .milliseconds(10))
         }
         return try condition()

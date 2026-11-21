@@ -267,10 +267,7 @@ nonisolated enum BurstCloseUpAFPoint {
 
     static func availability(frame: CloseUpFrame, orientedPoint: CGPoint?) -> CloseUpAFPointAvailability {
         guard let center = orientedPoint else { return .unavailable(reason: "No usable recorded AF point is available.") }
-        guard center.x.isFinite, center.y.isFinite, (0 ... 1).contains(center.x), (0 ... 1).contains(center.y) else {
-            return .unavailable(reason: "Recorded AF coordinates are invalid.")
-        }
-        guard let target = CloseUpAFPoint(frame: frame, center: center) else {
+        guard center.x.isFinite, center.y.isFinite, (0 ... 1).contains(center.x), (0 ... 1).contains(center.y), let target = CloseUpAFPoint(frame: frame, center: center) else {
             return .unavailable(reason: "Recorded AF coordinates are invalid.")
         }
         return .available(target)

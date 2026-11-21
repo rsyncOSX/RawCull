@@ -73,7 +73,6 @@ final class RawCullViewModel {
     /// Owns catalog transitions, scan task lifetime, and security-scoped access.
     @ObservationIgnored let catalogLifecycle = CatalogLifecycleCoordinator()
 
-
     /// The open catalog: sources, files, sorted and filtered projection, scan progress.
     let catalog: CatalogWorkspace
 
@@ -198,7 +197,6 @@ final class RawCullViewModel {
 
     // MARK: - Computed
 
-
     // MARK: - Catalog access used by application workflows
 
     @discardableResult
@@ -214,4 +212,3 @@ final class RawCullViewModel {
         catalogLifecycle.stopActiveSecurityScopedAccess()
     }
 }
-

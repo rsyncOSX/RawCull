@@ -2,11 +2,12 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import OSLog
+import PhotoAIContracts
+import PhotoAIWorkflows
+
 // Scoped import: PhotoAnalysisKit also declares a `VisionFeaturePrintBackend`
 // type, so importing the whole module here would make that name ambiguous.
 import class PhotoAnalysisKit.VisionRequestGate
-import PhotoAIContracts
-import PhotoAIWorkflows
 import VisionFeaturePrintBackend
 
 /// Runs PhotoAIKit's Vision work through PhotoAnalysisKit's process-wide gate,

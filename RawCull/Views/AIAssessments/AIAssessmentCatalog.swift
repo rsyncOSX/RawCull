@@ -175,8 +175,7 @@ struct BurstAssessmentButton: View {
 
     var body: some View {
         if let navigation, let catalogURL = catalog.selectedSource?.url,
-           let entry = navigation.entry(matching: files, catalog: catalogURL)
-        {
+           let entry = navigation.entry(matching: files, catalog: catalogURL) {
             Button {
                 navigation.openFromBurstList(entry.id)
             } label: {

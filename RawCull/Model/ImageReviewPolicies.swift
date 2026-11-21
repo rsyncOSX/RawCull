@@ -292,5 +292,5 @@ nonisolated struct ImageReviewSubjectOutlineRequestContext: Hashable, Sendable {
     let fileID: UUID?
     let prompt: String?
     let isPresented: Bool
-    var maskStorageKey: SubjectMaskStorageKey? = nil
+    var maskStorageKey: SubjectMaskStorageKey?
 }

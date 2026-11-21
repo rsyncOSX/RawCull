@@ -24,13 +24,12 @@ struct RatedPhotoGridView: View {
                 ) {
                     ForEach(ratedFiles, id: \.id) { file in
                         RatedImageItemView(file: file,
-                            catalogURL: catalogURL,
-                            isSelected: selection.selectedFileID == file.id,
-                            isMultiSelected: selection.selectedFileIDs.contains(file.id),
-                            onSelected: { handleToggleSelection(for: file) },
-                            onDoubleSelected: { handleDoubleSelect(for: file) },
-                        )
-                        .id(file.id)
+                                           catalogURL: catalogURL,
+                                           isSelected: selection.selectedFileID == file.id,
+                                           isMultiSelected: selection.selectedFileIDs.contains(file.id),
+                                           onSelected: { handleToggleSelection(for: file) },
+                                           onDoubleSelected: { handleDoubleSelect(for: file) })
+                            .id(file.id)
                     }
                 }
                 .padding()

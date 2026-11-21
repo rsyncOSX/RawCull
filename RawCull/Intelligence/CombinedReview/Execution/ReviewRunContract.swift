@@ -64,7 +64,7 @@ nonisolated struct ReviewFileSnapshot: Codable, Equatable, Sendable {
     let displayName: String
     let fingerprint: String
     var normalizedAFPoint: CGPoint?
-    var iso: Int? = nil
+    var iso: Int?
 
     static func fingerprint(_ url: URL) throws -> String {
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])

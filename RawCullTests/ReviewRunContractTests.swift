@@ -157,7 +157,7 @@ struct ReviewRunContractTests {
         _ = try await store.retainInput(Data(repeating: 8, count: 6))
         #expect(await store.validArtifactKeys(for: run).isEmpty)
         var restored = run
-        restored.restore(expected: try run.expectedCompatibility(), validArtifacts: await store.validArtifactKeys(for: run))
+        try await restored.restore(expected: run.expectedCompatibility(), validArtifacts: store.validArtifactKeys(for: run))
         #expect(restored.work.first { $0.id == item.id }?.state == .pending)
     }
 
@@ -245,7 +245,7 @@ struct ReviewRunContractTests {
         }
         let segmentation = includeSegmentation ? [item("segment", .segmentation, [])] : []
         return try CombinedReviewRunV1(snapshot: snap, work: segmentation + [item("source", .source, []), item("measurement", .measurement, ["source"]),
-                                                              item("crop", .cropObservation, ["source"]), item("reconcile", .reconciliation, ["measurement", "crop"], terminal: true),
-                                                              item("report", .report, ["reconcile"], terminal: true)], budget: ReviewBudget(depth: .standard, images: 1))
+                                                                             item("crop", .cropObservation, ["source"]), item("reconcile", .reconciliation, ["measurement", "crop"], terminal: true),
+                                                                             item("report", .report, ["reconcile"], terminal: true)], budget: ReviewBudget(depth: .standard, images: 1))
     }
 }

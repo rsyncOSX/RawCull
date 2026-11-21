@@ -95,7 +95,9 @@ struct MCPAnalysisControllerTests {
         workspace.onCatalogLoad = { workspace, source, url in
             workspace.loadedSource = source
             workspace.files = catalog.files
-            if let url { workspace.accessibleURLs.insert(url.standardizedFileURL) }
+            if let url {
+                workspace.accessibleURLs.insert(url.standardizedFileURL)
+            }
         }
         fixture.answerSheet = { _ in .alertFirstButtonReturn }
         let request = try fixture.submitSetup()
@@ -332,7 +334,7 @@ struct MCPAssessmentStopReasonTests {
     @Test func `raw values are the wire contract`() {
         #expect(MCPAssessmentStopReason.allCases.map(\.rawValue) == [
             "busy", "executionTimeout", "modelChanged", "modelUnavailable",
-            "reauthorizationRequired", "assessmentFailed", "allPhotosFailed",
+            "reauthorizationRequired", "assessmentFailed", "allPhotosFailed"
         ])
     }
 }

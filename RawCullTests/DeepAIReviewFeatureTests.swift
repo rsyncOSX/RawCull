@@ -351,7 +351,7 @@ struct DeepAIReviewFeatureTests {
     }
 
     @Test
-    func `Mask registration requires matching image dimensions`() async throws {
+    func `Mask registration requires matching image dimensions`() throws {
         let mask = try #require(makeCenteredMask(width: 32, height: 24))
         let image = try #require(makeStripedImage(width: 64, height: 48))
         let modelIdentity = ModelIdentity(family: "sam3", name: "size-test", assetName: "size-test.aimodel")
@@ -359,11 +359,11 @@ struct DeepAIReviewFeatureTests {
         let geometry = SubjectMaskGeometry.measure(mask: mask)
         let selection = SubjectMaskSelection(
             selected: SubjectMaskSelectionCandidate(result: result, geometry: geometry,
-                                                   quality: SubjectMaskQuality(geometry: geometry), wasCached: true),
+                                                    quality: SubjectMaskQuality(geometry: geometry), wasCached: true),
             attempts: [], metMinimumQuality: true,
         )
         #expect(!RawCullDeepAIReviewPipeline.maskFits(selection, image: image))
-        #expect(RawCullDeepAIReviewPipeline.maskFits(selection, image: try #require(makeStripedImage(width: 32, height: 24))))
+        #expect(try RawCullDeepAIReviewPipeline.maskFits(selection, image: #require(makeStripedImage(width: 32, height: 24))))
     }
 
     @MainActor
@@ -651,7 +651,9 @@ private actor PartiallyCompletedDeepReviewService: DeepAIReviewServicing {
 
 private actor CallCounter {
     private(set) var value = 0
-    func increment() { value += 1 }
+    func increment() {
+        value += 1
+    }
 }
 
 private nonisolated struct FixedMaskSegmenter: SubjectSegmenting {

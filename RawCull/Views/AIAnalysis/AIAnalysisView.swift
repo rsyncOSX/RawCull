@@ -220,14 +220,13 @@ struct AIAnalysisThumbnailStrip: View {
                     LazyHStack(spacing: 8) {
                         ForEach(files) { file in
                             ImageItemView(file: file,
-                                isSelected: selection.selectedFileID == file.id,
-                                thumbnailSize: thumbnailSize,
-                                ratingValue: ratings.getRating(for: file),
-                                ratingDisplay: ratingDisplay(for: file),
-                                ratingColor: ratingColor(for: file),
-                                onSelect: { selection.select(file) },
-                            )
-                            .id(file.id)
+                                          isSelected: selection.selectedFileID == file.id,
+                                          thumbnailSize: thumbnailSize,
+                                          ratingValue: ratings.getRating(for: file),
+                                          ratingDisplay: ratingDisplay(for: file),
+                                          ratingColor: ratingColor(for: file),
+                                          onSelect: { selection.select(file) })
+                                .id(file.id)
                         }
                     }
                     .padding(.vertical, 2)

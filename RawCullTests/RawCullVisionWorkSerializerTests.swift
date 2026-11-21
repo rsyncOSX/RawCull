@@ -7,8 +7,8 @@ import Testing
 
 @Suite("RawCull Vision work serializer")
 struct RawCullVisionWorkSerializerTests {
-    @Test("PhotoAIKit Vision work waits behind PhotoAnalysisKit's shared gate")
-    func sharesPhotoAnalysisKitGate() async throws {
+    @Test
+    func `PhotoAIKit Vision work waits behind PhotoAnalysisKit's shared gate`() async throws {
         let release = DispatchSemaphore(value: 0)
         let blockerStarted = DispatchSemaphore(value: 0)
         let blockerFinished = Mutex(false)

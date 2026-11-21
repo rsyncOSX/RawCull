@@ -16,6 +16,7 @@ extension MCPAnalysisController {
              AnalysisJobStore.FollowUpError.unavailable,
              AnalysisJobStore.FollowUpError.disabled:
             true
+
         default:
             false
         }

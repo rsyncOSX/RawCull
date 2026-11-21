@@ -413,8 +413,7 @@ struct BurstCullingWorkspaceView: View {
             return sharpnessModel.sortedByAFPointSharpness(baseline)
         }
         if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
-           let peopleCandidate
-        {
+           let peopleCandidate {
             let byURL = Dictionary(uniqueKeysWithValues: baseline.map { ($0.url, $0) })
             return peopleCandidate.compactMap { byURL[$0] }
         }

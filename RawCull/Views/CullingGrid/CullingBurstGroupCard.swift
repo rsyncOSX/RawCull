@@ -31,10 +31,9 @@ struct CullingBurstGroupCard: View {
                 HStack(spacing: 12) {
                     ForEach(group.files, id: \.id) { file in
                         CullingGridThumbnail(file: file, doubleSelectActionName: "Open burst",
-                            onSelect: { select(file) },
-                            onDoubleSelect: { burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) },
-                        )
-                        .id(file.id)
+                                             onSelect: { select(file) },
+                                             onDoubleSelect: { burstWorkflow.compareBurstGroup(group.files, startingAt: file.id) })
+                            .id(file.id)
                     }
                 }
                 .padding(16)
