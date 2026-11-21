@@ -141,6 +141,8 @@ What was built:
 - The decision bar sits under the result header, not in `CombinedReviewInspector`, because the inspector only shows in the Evidence view when an input was retained. The bar shows in both views.
 - The grid's rating keys work in Review: X, P or 0, 1–5, and T.
 - Before any action, the photo must be in the open catalog, have a unique filename and be unchanged on disk since the review. Otherwise nothing changes and the bar says why.
+- Tag sets two stars, and Untag clears only a two-star tag. A photo rated three stars or more is tagged by its rating: the button reads "Tagged" and is disabled, so Untag can't erase its stars. The AI Assessments window follows the same rule.
+- A test runs a two-photo Full review and a Focus check, restores the saved run and reads every result screen value, then checks that the ratings store is byte-for-byte unchanged.
 
 ### Step 5: Make Review the default
 

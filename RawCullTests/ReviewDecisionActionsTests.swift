@@ -72,6 +72,23 @@ struct ReviewDecisionActionsTests {
         #expect(decisions.rating(for: fixture.file) == .stars(4))
     }
 
+    @Test(arguments: [3, 4, 5]) func `untag never erases a star rating`(stars: Int) throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let decisions = fixture.decisions
+        #expect(decisions.act(on: fixture.review) { file, _ in decisions.rate(file, stars) })
+        #expect(decisions.isTagged(fixture.file))
+        #expect(!decisions.canToggleTag(fixture.file))
+
+        #expect(decisions.act(on: fixture.review) { file, catalog in decisions.toggleTag(file, in: catalog) })
+        #expect(fixture.viewModel.ratings.rating(for: fixture.file) == stars)
+
+        // Rejects and keepers can still be tagged; tagging replaces them with two stars.
+        #expect(decisions.act(on: fixture.review) { file, _ in decisions.rate(file, -1) })
+        #expect(decisions.canToggleTag(fixture.file))
+        #expect(decisions.act(on: fixture.review) { file, catalog in decisions.toggleTag(file, in: catalog) })
+        #expect(fixture.viewModel.ratings.rating(for: fixture.file) == 2)
+    }
+
     @Test func `a photo that changed on disk after the review is not rated`() throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         try Data("edited after the review".utf8).write(to: fixture.file.url)
