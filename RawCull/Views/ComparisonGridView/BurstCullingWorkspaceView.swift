@@ -4,7 +4,17 @@ import RawCullCore
 import SwiftUI
 
 struct BurstCullingWorkspaceView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(CullingController.self) private var culling
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
+    @Environment(DeepAIReviewController.self) private var deepAIReviewController
     let groupID: Int
     let onCompare: () -> Void
     @Environment(AIAssessmentNavigation.self) private var assessmentNavigation: AIAssessmentNavigation?
@@ -39,14 +49,16 @@ struct BurstCullingWorkspaceView: View {
 
     private var keyboardController: BurstKeyboardController {
         BurstKeyboardController(
-            viewModel: viewModel, session: session, groupID: groupID,
+            burstWorkflow: burstWorkflow,
+            deepAIReviewController: deepAIReviewController,
+            session: session, groupID: groupID,
             selectedFile: selectedFile, hasImage: imageState?.cgImage != nil,
             navigate: navigate(by:), applyRating: applyRating,
         )
     }
 
     private var imageCoordinator: BurstWorkspaceImageCoordinator {
-        BurstWorkspaceImageCoordinator(session: session, viewModel: viewModel)
+        BurstWorkspaceImageCoordinator(session: session, sharpnessModel: sharpnessModel)
     }
 
     private var imageCache: [BurstFrameCacheKey: ComparisonImageState] {
@@ -85,7 +97,7 @@ struct BurstCullingWorkspaceView: View {
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         let candidate = selectedFile.flatMap {
-            viewModel.deepAIReviewController.maskCandidate(for: $0.id)
+            deepAIReviewController.maskCandidate(for: $0.id)
         }
         return ImageReviewSubjectOutlineRequestContext(
             fileID: selectedFile?.id,
@@ -113,19 +125,23 @@ struct BurstCullingWorkspaceView: View {
 
     var body: some View {
         let displayedFiles = files
-        let catalog = viewModel.selectedSource?.url
-        let assessment = catalog.flatMap { assessmentNavigation?.entry(matching: displayedFiles, catalog: $0) }
-        let assessedFrame = selectedFile.flatMap { file in catalog.flatMap { assessment?.frame(for: file, in: $0) } }
-        let assessedURLs = catalog.map { url in
+        let catalogURL = catalog.selectedSource?.url
+        let assessment = catalogURL.flatMap { assessmentNavigation?.entry(matching: displayedFiles, catalog: $0) }
+        let assessedFrame = selectedFile.flatMap { file in catalogURL.flatMap { assessment?.frame(for: file, in: $0) } }
+        let assessedURLs = catalogURL.map { url in
             Set((assessment?.frames ?? []).compactMap { frame in
                 frame.outcome?.findings == nil ? nil : url.appendingPathComponent(frame.source.relativePath).standardizedFileURL
             })
         } ?? []
         let sharpest = sharpnessLeader(in: displayedFiles)
-        let sharpestFrame = sharpest.flatMap { file in catalog.flatMap { assessment?.frame(for: file, in: $0) } }
+        let sharpestFrame = sharpest.flatMap { file in catalogURL.flatMap { assessment?.frame(for: file, in: $0) } }
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                BurstWorkspaceHeader(viewModel: viewModel, groupID: groupID, sortByAFPoint: $sortByAFPoint)
+                BurstWorkspaceHeader(
+                    catalog: catalog, burstWorkflow: burstWorkflow,
+                    similarityFeature: similarityFeature,
+                    groupID: groupID, sortByAFPoint: $sortByAFPoint,
+                )
                 if groupID != -1, !sortByAFPoint {
                     peopleRankingButton
                         .padding(.trailing, 12)
@@ -160,7 +176,7 @@ struct BurstCullingWorkspaceView: View {
                         viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
                         useThumbnailSource: thumbnailSourceBinding,
                         rating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
-                        ratingValue: selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+                        ratingValue: selectedFile.map { ratings.getRating(for: $0) } ?? 0,
                         metadataImage: metadataImage, rank: selectedIndex + 1, frameCount: files.count,
                         sharpness: selectedCandidate?.sharpnessComponent, overallScore: selectedCandidate?.overallScore,
                         assessmentSummary: assessment.flatMap { assessedFrame?.summary(for: $0.request.rubric) },
@@ -168,7 +184,7 @@ struct BurstCullingWorkspaceView: View {
                         showSubjectOutline: showSubjectOutline, subjectOutlineFileID: subjectOutlineFileID,
                         subjectOutline: subjectOutline,
                         isSuggested: selectedFile.map { analysis?.recommendedFileID == $0.id } ?? false,
-                        subjectLabel: selectedFile.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
+                        subjectLabel: selectedFile.flatMap { sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
                         canNavigatePrevious: navigationDestination(by: -1) != nil,
                         canNavigateNext: navigationDestination(by: 1) != nil,
                         navigate: navigate(by:), applyRating: applyRating,
@@ -183,19 +199,19 @@ struct BurstCullingWorkspaceView: View {
                             recordedAFPoints: Dictionary(uniqueKeysWithValues: files.compactMap { file in
                                 file.afFocusNormalized.map { (file.url, $0) }
                             }), currentURL: selectedFile?.url,
-                            isIndexing: viewModel.similarityModel.isIndexing,
+                            isIndexing: similarityFeature.isIndexing,
                             raw: sourceSelection.selected == .developedRAW,
                             model: closeUps, renderer: closeUpRenderer,
                             activate: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
-                                viewModel.selectedFileID = file.id
-                                viewModel.openZoomOverlay(
+                                selection.selectedFileID = file.id
+                                navigation.openZoomOverlay(
                                     navigationIDs: files.map(\.id),
                                     initialSource: sourceSelection.selected,
                                 )
                             }, onUseAFPoint: { url in
                                 guard let file = files.first(where: { $0.url == url }) else { return }
-                                viewModel.selectedFileID = file.id
+                                selection.selectedFileID = file.id
                                 viewportState.showFocusPoints = true
                             }, onClose: { showCloseUps = false },
                         )
@@ -203,7 +219,7 @@ struct BurstCullingWorkspaceView: View {
                 }
                 Divider()
                 BurstWorkspaceFilmstrip(
-                    viewModel: viewModel, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
+                    selection: selection, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
                     canNavigateNext: navigationDestination(by: 1) != nil,
                     navigate: navigate,
@@ -245,7 +261,7 @@ struct BurstCullingWorkspaceView: View {
         }
         .onKeyPress(.escape) {
             guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder) else { return .ignored }
-            viewModel.returnToActiveBurstGroupView()
+            burstWorkflow.returnToActiveBurstGroupView()
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFsSaAxXpPnNgG012345tT")) { press in
@@ -259,9 +275,9 @@ struct BurstCullingWorkspaceView: View {
             guard sortByAFPoint, groupID != -1 else { return }
             isLoadingAFPointScores = true
             defer { isLoadingAFPointScores = false }
-            await viewModel.sharpnessModel.loadMissingAFPointScores(for: files)
+            await sharpnessModel.loadMissingAFPointScores(for: files)
             guard !Task.isCancelled, sortByAFPoint else { return }
-            viewModel.selectedFileID = files.first?.id
+            selection.selectedFileID = files.first?.id
         }
         .task(id: imageLoadKey) {
             await imageCoordinator.loadWindow(files: files, selectedFile: selectedFile, selectedIndex: selectedIndex)
@@ -311,11 +327,11 @@ struct BurstCullingWorkspaceView: View {
             peopleProgress = 0
             peopleFailure = nil
         }
-        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
+        .onChange(of: sharpnessModel.effectiveFocusConfig) { _, _ in
             session.invalidateFocusAnalysis()
         }
         .onChange(of: sortByAFPoint) { _, _ in
-            viewModel.selectedFileID = files.first?.id
+            selection.selectedFileID = files.first?.id
         }
         .onChange(of: viewportState.showFocusPoints, initial: true) { _, enabled in
             if closeUps.usesAFPoint != enabled {
@@ -340,7 +356,7 @@ struct BurstCullingWorkspaceView: View {
 
     private func sharpnessLeader(in files: [FileItem]) -> FileItem? {
         guard groupID != -1 else { return nil }
-        let scores = viewModel.sharpnessModel.scores
+        let scores = sharpnessModel.scores
         let measured = files.compactMap { file -> (FileItem, Float)? in
             guard let score = scores[file.id], score.isFinite else { return nil }
             return (file, score)
@@ -394,7 +410,7 @@ struct BurstCullingWorkspaceView: View {
     private var files: [FileItem] {
         let baseline = bestFrameFiles
         if groupID != -1, sortByAFPoint {
-            return viewModel.sharpnessModel.sortedByAFPointSharpness(baseline)
+            return sharpnessModel.sortedByAFPointSharpness(baseline)
         }
         if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
            let peopleCandidate
@@ -407,11 +423,11 @@ struct BurstCullingWorkspaceView: View {
 
     private var bestFrameFiles: [FileItem] {
         if groupID == -1 {
-            return viewModel.singleImageReviewFiles
+            return burstWorkflow.singleImageReviewFiles
         }
-        guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
+        guard let group = similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
-            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+            uniqueKeysWithValues: catalogController.activeCatalogFiles.map { ($0.id, $0) },
         )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
         return rankedIDs.compactMap { filesByID[$0] }
@@ -434,7 +450,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var analysis: BurstAnalysisResult? {
-        viewModel.burstAnalysisResult(for: groupID)
+        burstWorkflow.burstAnalysisResult(for: groupID)
     }
 
     private var selectedCandidate: BurstCandidateScore? {
@@ -443,7 +459,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var selectedFile: FileItem? {
-        guard let selectedID = viewModel.selectedFileID else { return files.first }
+        guard let selectedID = selection.selectedFileID else { return files.first }
         return files.first { $0.id == selectedID } ?? files.first
     }
 
@@ -466,15 +482,15 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var burstNumber: Int {
-        (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
+        (similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
 
     private func selectFirstFileIfNeeded() {
         guard !files.isEmpty else { return }
-        if let selectedID = viewModel.selectedFileID, files.contains(where: { $0.id == selectedID }) {
+        if let selectedID = selection.selectedFileID, files.contains(where: { $0.id == selectedID }) {
             return
         }
-        viewModel.selectedFileID = files[0].id
+        selection.selectedFileID = files[0].id
     }
 
     private func navigationDestination(by delta: Int) -> FileItem? {
@@ -489,7 +505,7 @@ struct BurstCullingWorkspaceView: View {
             by: delta,
             from: selectedIndex,
             in: files,
-            using: viewModel,
+            using: selection,
         ), followsActiveFrame {
             closeUpSelection = []
         }
@@ -497,7 +513,7 @@ struct BurstCullingWorkspaceView: View {
 
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
-        session.applyRating(rating, to: selectedFile, in: files, using: viewModel)
+        session.applyRating(rating, to: selectedFile, in: files, using: culling)
     }
 
     private var imageLoadKey: String {
@@ -520,23 +536,23 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        session.ratingDisplay(for: file, using: viewModel)
+        session.ratingDisplay(for: file, using: ratings)
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
-        guard let points = viewModel.focusPoints?.first(where: { $0.sourceFile == file.name }) else { return nil }
+        guard let points = catalog.focusPoints?.first(where: { $0.sourceFile == file.name }) else { return nil }
         return points.focusPoints
     }
 
     private func installOverlayKeyMonitor() {
         session.keyMonitor.install { event in
-            guard !viewModel.zoomOverlayVisible,
+            guard !zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   let characters = event.characters
             else { return .ignored }
             if characters.lowercased() == "r" {
-                viewModel.returnToActiveBurstGroupView()
+                burstWorkflow.returnToActiveBurstGroupView()
                 return .handled
             }
             guard ["s", "S", "f", "F"].contains(characters) else { return .ignored }
@@ -553,10 +569,10 @@ struct BurstCullingWorkspaceView: View {
         subjectOutlineFileID = nil
         guard showSubjectOutline,
               let file = selectedFile,
-              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
+              let candidate = deepAIReviewController.maskCandidate(for: file.id)
         else { return }
         let outline = await ImageReviewSubjectOutlineLoader.load(
-            file: file, candidate: candidate, controller: viewModel.deepAIReviewController,
+            file: file, candidate: candidate, controller: deepAIReviewController,
         )
         guard !Task.isCancelled else { return }
         subjectOutline = outline

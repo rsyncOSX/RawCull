@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoupeImageControls: View {
-    let viewModel: RawCullViewModel
+    let loupeViewport: LoupeViewportModel
     let session: LoupeSessionModel
     let file: FileItem?
     @Binding var showFocusMask: Bool
@@ -37,21 +37,21 @@ struct LoupeImageControls: View {
                 set: { session.sourceSelection = $0 },
             ),
             imageSourceURL: file?.url,
-            scale: viewModel.scale,
-            canZoomOut: viewModel.scale > ImageReviewViewportPolicy.loupe.minimumScale,
-            canZoomIn: viewModel.scale < ImageReviewViewportPolicy.loupe.maximumScale,
-            canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
+            scale: loupeViewport.scale,
+            canZoomOut: loupeViewport.scale > ImageReviewViewportPolicy.loupe.minimumScale,
+            canZoomIn: loupeViewport.scale < ImageReviewViewportPolicy.loupe.maximumScale,
+            canReset: loupeViewport.scale != 1.0 || loupeViewport.offset != .zero,
             onZoomOut: {
                 withAnimation(.spring()) {
-                    viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.scale)
-                    viewModel.lastScale = viewModel.scale
+                    loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: loupeViewport.scale)
+                    loupeViewport.lastScale = loupeViewport.scale
                 }
             },
-            onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
+            onZoomReset: { withAnimation(.spring()) { loupeViewport.reset() } },
             onZoomIn: {
                 withAnimation(.spring()) {
-                    viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.scale)
-                    viewModel.lastScale = viewModel.scale
+                    loupeViewport.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: loupeViewport.scale)
+                    loupeViewport.lastScale = loupeViewport.scale
                 }
             },
         )

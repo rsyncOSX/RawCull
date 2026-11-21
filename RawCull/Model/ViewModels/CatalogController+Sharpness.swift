@@ -1,5 +1,5 @@
 //
-//  RawCullViewModel+Sharpness.swift
+//  CatalogController+Sharpness.swift
 //  RawCull
 //
 
@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import RawCullCore
 
-extension RawCullViewModel {
+extension CatalogController {
     /// Applies the current catalog ordering and, when sharpness sorting has
     /// just been enabled, focuses the visible image with strongest AF-center detail. Selecting the
     /// first sorted image also lets thumbnail views reset their scroll position
@@ -16,28 +16,28 @@ extension RawCullViewModel {
         await handleSortOrderChange()
         guard isEnabled,
               sharpnessModel.sortBySharpness,
-              let sharpestFile = filteredFiles.first
+              let sharpestFile = catalog.filteredFiles.first
         else { return }
-        selectedFileID = sharpestFile.id
+        selection.selectedFileID = sharpestFile.id
     }
 
     var sharpnessScoringTargetFiles: [FileItem] {
         let active = activeCatalogFiles
 
-        if !selectedFileIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selectedFileIDs.contains($0.id) }
+        if !selection.selectedFileIDs.isEmpty {
+            let visibleSelected = catalog.filteredFiles.filter { selection.selectedFileIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
             let hiddenSelected = active.filter {
-                selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
+                selection.selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
             }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             return visibleSelected + hiddenSelected
         }
 
-        if case let .stars(rating) = ratingFilter {
-            if !filteredFiles.isEmpty {
-                return filteredFiles.filter { self.rating(for: $0) == rating }
+        if case let .stars(rating) = ratings.ratingFilter {
+            if !catalog.filteredFiles.isEmpty {
+                return catalog.filteredFiles.filter { self.ratings.rating(for: $0) == rating }
             }
-            return active.filter { self.rating(for: $0) == rating }
+            return active.filter { self.ratings.rating(for: $0) == rating }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
 
@@ -46,17 +46,17 @@ extension RawCullViewModel {
 
     /// Presentation needs membership and count, never the scoring execution order.
     var sharpnessScoringTargetCount: Int {
-        let selectedIDs = selectedFileIDs
+        let selectedIDs = selection.selectedFileIDs
         if !selectedIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selectedIDs.contains($0.id) }
+            let visibleSelected = catalog.filteredFiles.filter { selectedIDs.contains($0.id) }
             let visibleIDs = Set(visibleSelected.map(\.id))
             return visibleSelected.count + activeCatalogFiles.count {
                 selectedIDs.contains($0.id) && !visibleIDs.contains($0.id)
             }
         }
-        if case let .stars(rating) = ratingFilter {
-            let candidates = filteredFiles.isEmpty ? activeCatalogFiles : filteredFiles
-            let ratings = ratingCache
+        if case let .stars(rating) = ratings.ratingFilter {
+            let candidates = catalog.filteredFiles.isEmpty ? activeCatalogFiles : catalog.filteredFiles
+            let ratings = ratings.ratingCache
             return candidates.count { ratings[$0.name] == rating }
         }
         return activeCatalogFiles.count
@@ -66,11 +66,11 @@ extension RawCullViewModel {
         let count = sharpnessScoringTargetCount
         let fileLabel = count == 1 ? "file" : "files"
 
-        if !selectedFileIDs.isEmpty {
+        if !selection.selectedFileIDs.isEmpty {
             return "\(count) selected \(fileLabel)"
         }
 
-        if case let .stars(rating) = ratingFilter {
+        if case let .stars(rating) = ratings.ratingFilter {
             return "\(count) \(rating)-star \(fileLabel)"
         }
 
@@ -85,7 +85,7 @@ extension RawCullViewModel {
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
+            "CatalogController.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
         )
         await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
@@ -102,7 +102,7 @@ extension RawCullViewModel {
 
     private func calibrateAndScoreFiles(_ files: [FileItem]) async {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
+            "CatalogController.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
         )
         let shouldContinue = await sharpnessModel.calibrateFromBurst(files)
         guard shouldContinue, !Task.isCancelled else { return }
@@ -114,22 +114,22 @@ extension RawCullViewModel {
         }
         await handleSortOrderChange()
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
+            "CatalogController.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
         )
     }
 
     // periphery:ignore
-    /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
+    /// Merges current sharpness scores and saliency labels into ratings.cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
     func persistScoringResultsInMemory() {
-        persistScoringResultsInMemory(files: files)
+        persistScoringResultsInMemory(files: catalog.files)
     }
 
     private func persistScoringResultsInMemory(files: [FileItem]) {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
+            "CatalogController.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
         )
-        guard let catalog = selectedSource?.url else { return }
+        guard let catalog = catalog.selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo
         let signature = sharpnessModel.scoringSignature
@@ -146,11 +146,11 @@ extension RawCullViewModel {
                 afPointScore: sharpnessModel.afPointScores[file.id],
             )
         }
-        cullingModel.mergeScoringResults(results, in: catalog)
+        ratings.cullingModel.mergeScoringResults(results, in: catalog)
     }
 
     func loadPersistedScoringandSaliency() {
-        let records = cullingModel.savedFiles.first { $0.catalog == selectedSource?.url }?.filerecords ?? []
+        let records = ratings.cullingModel.savedFiles.first { $0.catalog == catalog.selectedSource?.url }?.filerecords ?? []
         // Keep the first legacy duplicate, matching the previous first(where:) policy.
         let recordsByName = Dictionary(records.compactMap { record in
             record.fileName.map { ($0, record) }
@@ -159,7 +159,7 @@ extension RawCullViewModel {
         var scores: [UUID: Float] = [:]
         var afScores: [UUID: Float] = [:]
         var saliency: [UUID: SaliencyInfo] = [:]
-        for file in files {
+        for file in catalog.files {
             guard let record = recordsByName[file.name],
                   record.sharpnessScoringSignature == signature,
                   record.sharpnessFileSize == file.size,
@@ -184,5 +184,46 @@ extension RawCullViewModel {
             saliency: saliency,
             signature: signature,
         )
+    }
+
+    // MARK: - Scoring settings and cancellation
+
+    func extractionNeeded() {
+        // Logger.process.debugMessageOnly("CatalogController.extractionNeeded()")
+        catalog.isCreatingThumbnails = true
+    }
+
+    func applyStoredScoringSettings() async {
+        Logger.process.debugMessageOnly("CatalogController.applyStoredScoringSettings()")
+        // Wait for the initial settings load to complete before reading.
+        // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()
+        // and read default values from the JSON before the file I/O finishes.
+        await SettingsViewModel.shared.ensureLoaded()
+        let s = SettingsViewModel.shared
+        sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            s.scoringThumbnailMaxPixelSize,
+            for: s.scoringQuality,
+        )
+        sharpnessModel.focusMaskModel.config.borderInsetFraction = s.scoringBorderInsetFraction
+        sharpnessModel.focusMaskModel.config.enableSubjectClassification = s.scoringEnableSubjectClassification
+        sharpnessModel.focusMaskModel.config.salientWeight = s.scoringSalientWeight
+        sharpnessModel.focusMaskModel.config.subjectSizeFactor = s.scoringSubjectSizeFactor
+        sharpnessModel.focusMaskModel.config.preBlurRadius = s.focusMaskPreBlurRadius
+        sharpnessModel.photoType = s.scoringPhotoType
+        sharpnessModel.scoringQuality = s.scoringQuality
+        sharpnessModel.scoringSource = s.scoringSource
+        sharpnessModel.focusMaskModel.config.threshold = s.focusMaskThreshold
+        sharpnessModel.focusMaskModel.config.energyMultiplier = s.focusMaskEnergyMultiplier
+        sharpnessModel.focusMaskModel.config.erosionRadius = s.focusMaskErosionRadius
+        sharpnessModel.focusMaskModel.config.dilationRadius = s.focusMaskDilationRadius
+        sharpnessModel.focusMaskModel.config.featherRadius = s.focusMaskFeatherRadius
+    }
+
+    func abort() {
+        Logger.process.debugMessageOnly("CatalogController.abort()")
+
+        cancelCatalogLoad()
+        fileOperations.cancelJPGOperations()
+        catalog.isCreatingThumbnails = false
     }
 }

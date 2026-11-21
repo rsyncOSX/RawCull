@@ -1,7 +1,10 @@
 import SwiftUI
 
 struct AIAnalysisView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Bindable var qwenAnalysisFeature: RawCullQwenAnalysisFeature
     @Bindable var objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
@@ -11,7 +14,7 @@ struct AIAnalysisView: View {
     @State private var selectedTool = AIAnalysisTool.samCLIP
 
     private var inputFiles: [FileItem] {
-        viewModel.aiAnalysisFiles(for: inputSource)
+        catalogController.aiAnalysisFiles(for: inputSource)
     }
 
     private var isAnalysisRunning: Bool {
@@ -53,10 +56,10 @@ struct AIAnalysisView: View {
 
                     AIAnalysisInputPicker(
                         selection: $inputSource,
-                        selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
-                        taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
+                        selectedCount: catalogController.aiAnalysisFiles(for: .gridSelection).count,
+                        taggedCount: catalogController.aiAnalysisFiles(for: .taggedImages).count,
                         isRunning: isAnalysisRunning,
-                        preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                        preserveGridSelection: catalogController.preserveAIAnalysisGridSelection,
                     )
                     .frame(maxWidth: 220)
 
@@ -81,12 +84,12 @@ struct AIAnalysisView: View {
                     switch selectedTool {
                     case .samCLIP:
                         SAMCLIPAnalysisView(
-                            viewModel: viewModel,
+                            catalog: catalog,
                             controller: deepAIReviewController,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
-                            focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
-                            focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
+                            selection: Bindable(selection).selectedFileID,
+                            focusMaskModel: sharpnessModel.focusMaskModel,
+                            focusConfig: sharpnessModel.effectiveFocusConfig,
                         )
                         .disabled(combinedReviewFeature.lease.isHeld)
 
@@ -94,7 +97,7 @@ struct AIAnalysisView: View {
                         QwenAnalysisView(
                             feature: qwenAnalysisFeature,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
+                            selection: Bindable(selection).selectedFileID,
                         )
                         .disabled(combinedReviewFeature.lease.isHeld)
 
@@ -102,9 +105,9 @@ struct AIAnalysisView: View {
                         ObjectAnalysisView(
                             feature: objectAnalysisFeature,
                             files: inputFiles,
-                            selection: $viewModel.selectedFileID,
-                            focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
-                            focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
+                            selection: Bindable(selection).selectedFileID,
+                            focusMaskModel: sharpnessModel.focusMaskModel,
+                            focusConfig: sharpnessModel.effectiveFocusConfig,
                         )
                         .disabled(combinedReviewFeature.lease.isHeld)
                     }
@@ -116,7 +119,6 @@ struct AIAnalysisView: View {
             if !inputFiles.isEmpty {
                 Divider()
                 AIAnalysisThumbnailStrip(
-                    viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
                     thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
@@ -124,16 +126,16 @@ struct AIAnalysisView: View {
             }
         }
         .task {
-            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty, !catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 AIAnalysisInputSelection.binding(
-                    selection: $inputSource, preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    selection: $inputSource, preserveGridSelection: catalogController.preserveAIAnalysisGridSelection,
                 ).wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {
             let availableIDs = Set(inputFiles.map(\.id))
-            if viewModel.selectedFileID.map(availableIDs.contains) != true {
-                viewModel.selectedFileID = inputFiles.first?.id
+            if selection.selectedFileID.map(availableIDs.contains) != true {
+                selection.selectedFileID = inputFiles.first?.id
             }
         }
         .onChange(of: selectedTool) { _, newTool in
@@ -152,7 +154,7 @@ struct AIAnalysisView: View {
             qwenAnalysisFeature.cancel()
             objectAnalysisFeature.cancel()
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
+        .thumbnailKeyNavigation(axis: .horizontal) { inputFiles }
     }
 
     private var emptyDescription: String {
@@ -195,7 +197,8 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
 }
 
 struct AIAnalysisThumbnailStrip: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
     let files: [FileItem]
     let inputSource: AIAnalysisInputSource
     let thumbnailSize: Int
@@ -216,15 +219,13 @@ struct AIAnalysisThumbnailStrip: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 8) {
                         ForEach(files) { file in
-                            ImageItemView(
-                                viewModel: viewModel,
-                                file: file,
-                                isSelected: viewModel.selectedFileID == file.id,
+                            ImageItemView(file: file,
+                                isSelected: selection.selectedFileID == file.id,
                                 thumbnailSize: thumbnailSize,
-                                ratingValue: viewModel.getRating(for: file),
+                                ratingValue: ratings.getRating(for: file),
                                 ratingDisplay: ratingDisplay(for: file),
                                 ratingColor: ratingColor(for: file),
-                                onSelect: { viewModel.selectFile(file) },
+                                onSelect: { selection.select(file) },
                             )
                             .id(file.id)
                         }
@@ -232,13 +233,13 @@ struct AIAnalysisThumbnailStrip: View {
                     .padding(.vertical, 2)
                 }
                 .onAppear {
-                    guard let selectedFileID = viewModel.selectedFileID,
+                    guard let selectedFileID = selection.selectedFileID,
                           files.contains(where: { $0.id == selectedFileID }) else { return }
                     DispatchQueue.main.async {
                         proxy.scrollTo(selectedFileID, anchor: .center)
                     }
                 }
-                .onChange(of: viewModel.selectedFileID) { _, selectedFileID in
+                .onChange(of: selection.selectedFileID) { _, selectedFileID in
                     guard let selectedFileID,
                           files.contains(where: { $0.id == selectedFileID }) else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -247,7 +248,7 @@ struct AIAnalysisThumbnailStrip: View {
                 }
             }
             .frame(height: CGFloat(thumbnailSize) + 30)
-            .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal)
+            .thumbnailKeyNavigation(axis: .horizontal)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -256,13 +257,13 @@ struct AIAnalysisThumbnailStrip: View {
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+            rating: ratings.getRating(for: file),
+            isExplicit: ratings.taggedNamesCache.contains(file.name),
         )
     }
 
     private func ratingColor(for file: FileItem) -> Color? {
-        switch viewModel.getRating(for: file) {
+        switch ratings.getRating(for: file) {
         case -1: .red
         case 2: .yellow
         case 3: .green
@@ -274,14 +275,15 @@ struct AIAnalysisThumbnailStrip: View {
 }
 
 struct CombinedReviewWorkspaceView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(SelectionModel.self) private var selection
+    @Environment(CatalogController.self) private var catalogController
     let feature: CombinedReviewFeature
     let isEnabled: Bool
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
 
     private var inputFiles: [FileItem] {
-        viewModel.aiAnalysisFiles(for: inputSource)
+        catalogController.aiAnalysisFiles(for: inputSource)
     }
 
     var body: some View {
@@ -291,10 +293,10 @@ struct CombinedReviewWorkspaceView: View {
 
                 AIAnalysisInputPicker(
                     selection: $inputSource,
-                    selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
-                    taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
+                    selectedCount: catalogController.aiAnalysisFiles(for: .gridSelection).count,
+                    taggedCount: catalogController.aiAnalysisFiles(for: .taggedImages).count,
                     isRunning: feature.isRunning,
-                    preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    preserveGridSelection: catalogController.preserveAIAnalysisGridSelection,
                 )
                 .frame(maxWidth: 260)
 
@@ -313,13 +315,12 @@ struct CombinedReviewWorkspaceView: View {
                     description: Text("Enable Combined Review in AI settings to use this workspace."),
                 )
             } else {
-                CombinedReviewView(feature: feature, viewModel: viewModel, files: inputFiles)
+                CombinedReviewView(feature: feature, selection: selection, files: inputFiles)
             }
 
             if !inputFiles.isEmpty {
                 Divider()
                 AIAnalysisThumbnailStrip(
-                    viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
                     thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
@@ -328,18 +329,18 @@ struct CombinedReviewWorkspaceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
-            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty, !catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 AIAnalysisInputSelection.binding(
-                    selection: $inputSource, preserveGridSelection: viewModel.preserveAIAnalysisGridSelection,
+                    selection: $inputSource, preserveGridSelection: catalogController.preserveAIAnalysisGridSelection,
                 ).wrappedValue = .taggedImages
             }
         }
         .task(id: inputFiles.map(\.id)) {
             let availableIDs = Set(inputFiles.map(\.id))
-            if viewModel.selectedFileID.map(availableIDs.contains) != true {
-                viewModel.selectedFileID = inputFiles.first?.id
+            if selection.selectedFileID.map(availableIDs.contains) != true {
+                selection.selectedFileID = inputFiles.first?.id
             }
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
+        .thumbnailKeyNavigation(axis: .horizontal) { inputFiles }
     }
 }

@@ -66,7 +66,7 @@ Use a proposed 16 KiB serialized result limit per request and 240 Unicode scalar
 
 Publish input and output schemas. Keep status and result tools observational and mark them read-only. Run maintenance in the worker or admission path. Mark start and cancel as mutating, and local-only execution with `openWorldHint: false`. Tool annotations describe behavior. Authorization and protocol checks enforce it.
 
-See [worker recovery](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift), [catalog grants](../Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift), [catalog access](../RawCull/Model/RawImageLoading.swift), [app reservation](../RawCull/Intelligence/CombinedReview/CombinedReviewLease.swift), [model runtime](../RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift), [Qwen inference](../RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift), and [assessment validation](../RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift).
+See [worker recovery](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift), [catalog grants](../Tools/RawCullMCP/Sources/RawCullMCP/CatalogGrantStore.swift), [catalog access](../RawCull/Model/RawImageLoading.swift), [app reservation](../RawCull/Intelligence/CombinedReview/Storage/CombinedReviewLease.swift), [model runtime](../RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift), [Qwen inference](../RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift), and [assessment validation](../RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift).
 
 ## Implementation and release plan
 

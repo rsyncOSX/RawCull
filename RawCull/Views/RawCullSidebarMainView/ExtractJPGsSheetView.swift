@@ -2,28 +2,31 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ExtractJPGsSheetView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(FileOperationsModel.self) private var fileOperations
+    @Environment(CatalogController.self) private var catalogController
     @Environment(\.dismiss) private var dismiss
     @State private var isChoosingDestination = false
 
     private var selectedFiles: [FileItem] {
-        viewModel.filesForJPGExtraction
+        fileOperations.filesForJPGExtraction
     }
 
     private var destinationOptions: [ARWSourceCatalog] {
-        guard let destination = viewModel.extractJPGDestination,
-              !viewModel.sources.contains(where: { $0.url == destination.url })
+        guard let destination = fileOperations.extractJPGDestination,
+              !catalog.sources.contains(where: { $0.url == destination.url })
         else {
-            return viewModel.sources
+            return catalog.sources
         }
 
-        return viewModel.sources + [destination]
+        return catalog.sources + [destination]
     }
 
     private var canExtract: Bool {
         !selectedFiles.isEmpty &&
-            viewModel.extractJPGDestination != nil &&
-            viewModel.currentExtractAndSaveJPGsActor == nil
+            fileOperations.extractJPGDestination != nil &&
+            fileOperations.currentExtractAndSaveJPGsActor == nil
     }
 
     var body: some View {
@@ -32,22 +35,22 @@ struct ExtractJPGsSheetView: View {
                 .font(.title2.weight(.semibold))
 
             Form {
-                Picker("Images", selection: $viewModel.extractJPGSelectedOnly) {
-                    if !viewModel.selectedFilesForJPGExtraction.isEmpty {
+                Picker("Images", selection: Bindable(fileOperations).extractJPGSelectedOnly) {
+                    if !fileOperations.selectedFilesForJPGExtraction.isEmpty {
                         Text("Selected images").tag(true)
                     }
                     Text("Complete catalog").tag(false)
                 }
                 .pickerStyle(.segmented)
 
-                Picker("Export", selection: $viewModel.extractJPGExportMode) {
+                Picker("Export", selection: Bindable(fileOperations).extractJPGExportMode) {
                     ForEach(ExtractJPGExportMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
 
-                Picker("Destination", selection: $viewModel.extractJPGDestination) {
+                Picker("Destination", selection: Bindable(fileOperations).extractJPGDestination) {
                     ForEach(destinationOptions) { source in
                         Text(source.name).tag(Optional(source))
                     }
@@ -55,7 +58,7 @@ struct ExtractJPGsSheetView: View {
 
                 LabeledContent("Folder") {
                     HStack {
-                        Text(viewModel.extractJPGDestination?.url.path(percentEncoded: false) ?? "No folder selected")
+                        Text(fileOperations.extractJPGDestination?.url.path(percentEncoded: false) ?? "No folder selected")
                             .lineLimit(1)
                             .truncationMode(.middle)
 
@@ -79,10 +82,10 @@ struct ExtractJPGsSheetView: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button("Extract") {
-                    guard let destination = viewModel.extractJPGDestination else { return }
-                    viewModel.startSelectedJPGExtraction(
+                    guard let destination = fileOperations.extractJPGDestination else { return }
+                    fileOperations.startSelectedJPGExtraction(
                         destination: destination,
-                        exportMode: viewModel.extractJPGExportMode,
+                        exportMode: fileOperations.extractJPGExportMode,
                     )
                     dismiss()
                 }
@@ -95,7 +98,7 @@ struct ExtractJPGsSheetView: View {
         .frame(width: 440)
         .fileImporter(isPresented: $isChoosingDestination, allowedContentTypes: [.folder]) { result in
             if case let .success(url) = result {
-                viewModel.extractJPGDestination = ARWSourceCatalog(
+                fileOperations.extractJPGDestination = ARWSourceCatalog(
                     name: url.lastPathComponent,
                     url: url,
                 )
@@ -104,11 +107,11 @@ struct ExtractJPGsSheetView: View {
     }
 
     private var sourceSummary: String {
-        if !viewModel.extractJPGSelectedOnly {
+        if !fileOperations.extractJPGSelectedOnly {
             return "Complete catalog"
         }
-        if viewModel.selectedFileIDs.isEmpty {
-            return viewModel.selectedFile?.name ?? "No image selected"
+        if selection.selectedFileIDs.isEmpty {
+            return catalogController.selectedFile?.name ?? "No image selected"
         }
         return "Selected thumbnails"
     }

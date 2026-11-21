@@ -35,11 +35,11 @@ struct ZoomCullingMetadata: Equatable {
     @MainActor
     static func make(
         for file: FileItem,
-        viewModel: RawCullViewModel,
+        sharpnessModel: SharpnessScoringModel,
+        similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         burstAnalysis: BurstAnalysisResult? = nil,
     ) -> Self {
-        let sharpnessModel = viewModel.sharpnessModel
         let sharpnessScore = sharpnessModel.scores[file.id]
         let breakdown = sharpnessModel.breakdowns[file.id]
         let candidateIndex = burstAnalysis?.candidates.firstIndex { $0.fileID == file.id }
@@ -67,7 +67,7 @@ struct ZoomCullingMetadata: Equatable {
                 },
             clipSimilarity: clipSimilarity(
                 for: file,
-                similarityFeature: viewModel.similarityFeature,
+                similarityFeature: similarityFeature,
             ),
         )
     }

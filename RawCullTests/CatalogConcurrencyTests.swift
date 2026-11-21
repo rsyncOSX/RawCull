@@ -15,7 +15,7 @@ struct CatalogConcurrencyTests {
         let old = catalogTestFile("old.arw")
         let new = catalogTestFile("new.arw")
         var calls = 0
-        model.sortFiles = { files, _, _ in
+        model.catalog.sortFiles = { files, _, _ in
             calls += 1
             if calls == 1 {
                 firstStarted.open(); await firstRelease.wait()
@@ -24,20 +24,20 @@ struct CatalogConcurrencyTests {
             }
             return files
         }
-        model.files = [old]
-        let first = Task { await model.handleSortOrderChange() }
+        model.catalog.files = [old]
+        let first = Task { await model.catalogController.handleSortOrderChange() }
         await firstStarted.wait()
-        model.files = [new]
-        let second = Task { await model.handleSortOrderChange() }
+        model.catalog.files = [new]
+        let second = Task { await model.catalogController.handleSortOrderChange() }
         await secondStarted.wait()
         firstRelease.open()
         await first.value
-        #expect(model.filteredFiles.isEmpty)
-        #expect(model.isSorting)
+        #expect(model.catalog.filteredFiles.isEmpty)
+        #expect(model.catalog.isSorting)
         secondRelease.open()
         await second.value
-        #expect(model.filteredFiles.map(\.id) == [new.id])
-        #expect(!model.isSorting)
+        #expect(model.catalog.filteredFiles.map(\.id) == [new.id])
+        #expect(!model.catalog.isSorting)
     }
 
     @Test(arguments: [false, true])
@@ -45,24 +45,24 @@ struct CatalogConcurrencyTests {
         let model = makeRawCullViewModel()
         let started = CatalogTestGate()
         let release = CatalogTestGate()
-        model.files = [catalogTestFile("old.arw")]
-        model.sortFiles = { files, _, _ in
+        model.catalog.files = [catalogTestFile("old.arw")]
+        model.catalog.sortFiles = { files, _, _ in
             started.open()
             await release.wait()
             return files
         }
-        let task = Task { await model.handleSortOrderChange() }
+        let task = Task { await model.catalogController.handleSortOrderChange() }
         await started.wait()
         if switchCatalog {
-            model.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
-            model.similarityCatalogGeneration &+= 1
+            model.catalog.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
+            model.catalogController.similarityCatalogGeneration &+= 1
         } else {
             task.cancel()
         }
         release.open()
         await task.value
-        #expect(model.filteredFiles.isEmpty)
-        #expect(!model.isSorting)
+        #expect(model.catalog.filteredFiles.isEmpty)
+        #expect(!model.catalog.isSorting)
     }
 
     @Test(arguments: [false, true])
@@ -70,7 +70,7 @@ struct CatalogConcurrencyTests {
         let viewModel = makeRawCullViewModel()
         let started = CatalogTestGate()
         let release = CatalogTestGate()
-        viewModel.cullingModel = CullingModel(
+        viewModel.ratings.cullingModel = CullingModel(
             saveDelayNanoseconds: 60_000_000_000,
             saveHandler: { _ in
                 await started.open()
@@ -83,22 +83,22 @@ struct CatalogConcurrencyTests {
         let old = ARWSourceCatalog(name: "old", url: URL(filePath: "/tmp/old"))
         let new = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
         viewModel.catalogLifecycle.currentSource = old
-        viewModel.selectedSource = new
-        viewModel.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
+        viewModel.catalog.selectedSource = new
+        viewModel.ratings.cullingModel.updateRating(fileName: "photo.arw", rating: 1, in: old.url)
         var starts: [URL] = []
         viewModel.catalogLifecycle.startSecurityScopedResource = { starts.append($0); return true }
         viewModel.catalogLifecycle.stopSecurityScopedResource = { _ in }
-        viewModel.startCatalogLoad(for: new)
+        viewModel.catalogController.startCatalogLoad(for: new)
         let pending = try #require(viewModel.catalogLifecycle.transitionTask)
         await started.wait()
-        viewModel.abort()
+        viewModel.catalogController.abort()
         release.open()
         await pending.value
         #expect(starts.isEmpty)
         #expect(viewModel.catalogLifecycle.transitionTask == nil)
         #expect(viewModel.catalogLifecycle.loadTask == nil)
-        #expect(viewModel.selectedSource == new)
-        #expect(!viewModel.scanning)
+        #expect(viewModel.catalog.selectedSource == new)
+        #expect(!viewModel.catalog.scanning)
     }
 }
 

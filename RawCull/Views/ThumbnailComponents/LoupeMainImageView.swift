@@ -1,12 +1,19 @@
 import SwiftUI
 
 struct LoupeMainImageView: View {
-    @Environment(RawCullViewModel.self) private var viewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(WorkspacePresentationModel.self) private var presentation
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
+    @Environment(LoupeViewportModel.self) private var loupeViewport
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(DeepAIReviewController.self) private var deepAIReviewController
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = LoupeSessionModel()
 
     private var focusPoints: [FocusPoint]? {
-        viewModel.getFocusPoints()
+        catalog.focusPoints(forFileWithID: selection.selectedFileID)
     }
 
     let url: URL
@@ -24,7 +31,7 @@ struct LoupeMainImageView: View {
 
     private var subjectOutlineCandidate: DeepAIReviewCandidate? {
         guard let file else { return nil }
-        return viewModel.deepAIReviewController.maskCandidate(for: file.id)
+        return deepAIReviewController.maskCandidate(for: file.id)
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
@@ -37,22 +44,22 @@ struct LoupeMainImageView: View {
     }
 
     var body: some View {
-        @Bindable var viewModel = viewModel
+        @Bindable var viewport = loupeViewport
         ZStack {
             if let thumbnailSizePreview {
                 VStack {
                     GeometryReader { geo in
                         LoupeImageStage(
                             session: session, url: url, thumbnailSizePreview: thumbnailSizePreview, size: geo.size,
-                            scale: $viewModel.scale, lastScale: $viewModel.lastScale,
-                            offset: $viewModel.offset, lastOffset: $viewModel.lastOffset,
+                            scale: $viewport.scale, lastScale: $viewport.lastScale,
+                            offset: $viewport.offset, lastOffset: $viewport.lastOffset,
                             showsFocusMask: focusPresentation.isPresented, focusMask: focusPresentation.image,
                             showsSubjectOutline: outlinePresentation.isPresented, subjectOutlineImage: outlinePresentation.image,
                             showFocusPoints: showFocusPoints, focusPoints: focusPoints,
                             currentImageSize: currentImageSize, sourceFailure: sourcePresentation.failure,
                         ) {
                             LoupeImageControls(
-                                viewModel: viewModel, session: session, file: file,
+                                loupeViewport: loupeViewport, session: session, file: file,
                                 showFocusMask: $focusPresentation.isPresented,
                                 showSubjectOutline: $outlinePresentation.isPresented, showFocusPoints: $showFocusPoints,
                                 focusMaskAvailable: currentDisplayedImage != nil, outlineAvailable: subjectOutlineCandidate != nil,
@@ -61,7 +68,7 @@ struct LoupeMainImageView: View {
                         } metadata: {
                             if let file {
                                 LoupeMetadataOverlay(
-                                    viewModel: viewModel, file: file, image: currentDisplayedImage,
+                                    file: file, image: currentDisplayedImage,
                                     previewSource: session.sourceSelection.selected,
                                     semanticSearchFeature: semanticSearchFeature,
                                 )
@@ -114,7 +121,7 @@ struct LoupeMainImageView: View {
             else { return }
             generateFocusMaskIfNeeded()
         }
-        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
+        .onChange(of: sharpnessModel.effectiveFocusConfig) { _, _ in
             focusPresentation.reset()
             generateFocusMaskIfNeeded(delay: .milliseconds(400))
         }
@@ -158,7 +165,8 @@ struct LoupeMainImageView: View {
 
     private var keyboardController: LoupeKeyboardController {
         LoupeKeyboardController(
-            viewModel: viewModel, session: session,
+            presentation: presentation, loupeViewport: loupeViewport,
+            navigation: navigation, session: session,
             focusPresentation: focusPresentation, outlinePresentation: outlinePresentation,
             hasSubjectOutline: subjectOutlineCandidate != nil, showFocusPoints: $showFocusPoints,
         )
@@ -172,8 +180,8 @@ struct LoupeMainImageView: View {
     /// Match the zoom overlay's shortcut handling without intercepting text entry.
     private func installSubjectOutlineKeyMonitor() {
         subjectOutlineKeyMonitor.install { event in
-            guard viewModel.mainViewMode == .loupe,
-                  !viewModel.zoomOverlayVisible,
+            guard navigation.mainViewMode == .loupe,
+                  !zoomOverlay.isVisible,
                   event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   keyboardScope.accepts(event),
                   LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
@@ -222,7 +230,7 @@ struct LoupeMainImageView: View {
         await outlinePresentation.load {
             guard let file, let candidate else { return nil }
             return await ImageReviewSubjectOutlineLoader.load(
-                file: file, candidate: candidate, controller: viewModel.deepAIReviewController,
+                file: file, candidate: candidate, controller: deepAIReviewController,
             )
         }
     }
@@ -230,13 +238,13 @@ struct LoupeMainImageView: View {
     private func generateFocusMaskIfNeeded(delay: Duration? = nil) {
         guard let image = currentDisplayedImage else { return }
         let file = file
-        var config = viewModel.sharpnessModel.effectiveFocusConfig
+        var config = sharpnessModel.effectiveFocusConfig
         if let file {
             config.iso = file.exifData?.isoValue ?? 400
             config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
         }
-        let model = viewModel.sharpnessModel.focusMaskModel
-        let evidence = file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence }
+        let model = sharpnessModel.focusMaskModel
+        let evidence = file.flatMap { sharpnessModel.breakdowns[$0.id]?.focusEvidence }
         focusPresentation.request(url: url, source: session.sourceSelection.selected, delay: delay) {
             await model.generateFocusMask(
                 from: image, scale: 1.0, configOverride: config,

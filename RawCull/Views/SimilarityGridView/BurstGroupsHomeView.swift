@@ -2,7 +2,11 @@ import OSLog
 import SwiftUI
 
 struct BurstGroupsHomeView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(SelectionModel.self) private var selection
+    @Environment(WorkspacePresentationModel.self) private var presentation
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
@@ -24,7 +28,7 @@ struct BurstGroupsHomeView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         BurstGroupsHomeHeader(
                             maintenanceActionsAreDisabled: controlsAreBusy,
-                            showScoringParameters: { viewModel.activeSheet = .scoringParams },
+                            showScoringParameters: { presentation.activeSheet = .scoringParams },
                             reindex: reindex,
                             indexSimilarity: indexSimilarity,
                         )
@@ -65,7 +69,7 @@ struct BurstGroupsHomeView: View {
     private var nextUpCard: some View {
         BurstNextUpCard(
             resultsAreAvailable: resultsAreAvailable,
-            fileCount: viewModel.activeCatalogFiles.count,
+            fileCount: catalogController.activeCatalogFiles.count,
             completedCount: completedCount,
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
@@ -118,8 +122,8 @@ struct BurstGroupsHomeView: View {
     }
 
     private var burstDataStatus: some View {
-        let files = viewModel.activeCatalogFiles
-        let sharpness = viewModel.sharpnessModel
+        let files = catalogController.activeCatalogFiles
+        let sharpness = sharpnessModel
         let backend = similarityFeature.backend.kind
         return VStack(alignment: .leading, spacing: 12) {
             Text("Review data").font(.subheadline.weight(.semibold))
@@ -159,7 +163,7 @@ struct BurstGroupsHomeView: View {
                 detail: "Combines similarity and capture order.",
                 count: resultsAreAvailable ? files.count : 0,
                 total: files.count,
-                isRunning: similarityFeature.isGrouping || viewModel.burstAnalysisProgress.isRunning,
+                isRunning: similarityFeature.isGrouping || burstWorkflow.burstAnalysisProgress.isRunning,
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,19 +175,19 @@ struct BurstGroupsHomeView: View {
             BurstRecentGroupsEmptyState(resultsAreAvailable: resultsAreAvailable)
         } else {
             BurstRecentGroupsCard(picks: suggestedPicks) { pick in
-                viewModel.burstReviewQueueFilter = .all
-                viewModel.similarityFeature.burstModeActive = true
-                viewModel.selectedFileID = pick.file.id
+                burstWorkflow.burstReviewQueueFilter = .all
+                similarityFeature.burstModeActive = true
+                selection.selectedFileID = pick.file.id
             }
         }
     }
 
     private var summary: BurstReviewSummary {
-        viewModel.burstReviewSummary
+        burstWorkflow.burstReviewSummary
     }
 
     private var resultsAreAvailable: Bool {
-        viewModel.hasCompletedBurstAnalysis
+        burstWorkflow.hasCompletedBurstAnalysis
     }
 
     private var burstGroupCount: Int {
@@ -195,23 +199,22 @@ struct BurstGroupsHomeView: View {
     }
 
     private var burstAnalysisIsBusy: Bool {
-        analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
+        analyzeBurstsRequested || burstWorkflow.burstAnalysisProgress.isRunning
     }
 
     private var controlsAreBusy: Bool {
-        viewModel.isPreparingBurstCatalog
-            || viewModel.sharpnessModel.isCalibratingSharpnessScoring
-            || viewModel.sharpnessModel.isScoring
+        burstWorkflow.isPreparingBurstCatalog
+            || sharpnessModel.isCalibratingSharpnessScoring
+            || sharpnessModel.isScoring
             || similarityFeature.isBusy
             || burstAnalysisIsBusy
     }
 
     private var catalogPreparationPresentation: BurstCatalogPreparationPresentation {
         let indexing = similarityFeature.indexing
-        let sharpnessModel = viewModel.sharpnessModel
         return BurstCatalogPreparationPresentation(
-            isPreparingCatalog: viewModel.isPreparingBurstCatalog,
-            fileCount: viewModel.activeCatalogFiles.count,
+            isPreparingCatalog: burstWorkflow.isPreparingBurstCatalog,
+            fileCount: catalogController.activeCatalogFiles.count,
             semanticIndexedCount: semanticSearchFeature.indexedFileCount,
             semanticCatalogCount: semanticSearchFeature.catalogFileCount,
             isIndexing: indexing.isIndexing,
@@ -226,9 +229,9 @@ struct BurstGroupsHomeView: View {
             sharpnessTotal: sharpnessModel.scoringTotal,
             sharpnessEstimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
             isFindingBurstGroups: similarityFeature.isGrouping
-                || (viewModel.isPreparingBurstCatalog
-                    && viewModel.burstAnalysisProgress.isRunning),
-            burstAnalysisStep: viewModel.burstAnalysisProgress.step,
+                || (burstWorkflow.isPreparingBurstCatalog
+                    && burstWorkflow.burstAnalysisProgress.isRunning),
+            burstAnalysisStep: burstWorkflow.burstAnalysisProgress.step,
             resultsAreAvailable: resultsAreAvailable,
             burstGroupCount: burstGroupCount,
         )
@@ -236,16 +239,16 @@ struct BurstGroupsHomeView: View {
 
     private var suggestedPicks: [BurstSuggestedPick] {
         let filesByID = Dictionary(
-            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+            uniqueKeysWithValues: catalogController.activeCatalogFiles.map { ($0.id, $0) },
         )
-        return viewModel.burstAnalysisResults.values
+        return burstWorkflow.burstAnalysisResults.values
             .sorted { $0.groupID < $1.groupID }
             .compactMap { result in
                 guard let id = result.recommendedFileID, let file = filesByID[id] else { return nil }
                 return BurstSuggestedPick(
                     groupID: result.groupID,
                     file: file,
-                    subject: viewModel.sharpnessModel.saliencyInfo[id]?.subjectLabel,
+                    subject: sharpnessModel.saliencyInfo[id]?.subjectLabel,
                 )
             }
             .prefix(3)
@@ -253,8 +256,8 @@ struct BurstGroupsHomeView: View {
     }
 
     private func showResults(_ filter: BurstReviewQueueFilter) {
-        viewModel.burstReviewQueueFilter = filter
-        viewModel.similarityFeature.burstModeActive = true
+        burstWorkflow.burstReviewQueueFilter = filter
+        similarityFeature.burstModeActive = true
     }
 
     private func analyzeBursts() {
@@ -264,19 +267,19 @@ struct BurstGroupsHomeView: View {
         analyzeBurstsRequested = true
         Task {
             defer { analyzeBurstsRequested = false }
-            let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            let restored = await burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
             guard !Task.isCancelled else { return }
             if !restored {
-                viewModel.burstFullReindexRequest = .analyzeBursts
+                burstWorkflow.burstFullReindexRequest = .analyzeBursts
             }
         }
     }
 
     private func reindex() {
         Task {
-            _ = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            _ = await burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
             guard !Task.isCancelled else { return }
-            viewModel.burstFullReindexRequest = .catalogTools
+            burstWorkflow.burstFullReindexRequest = .catalogTools
         }
     }
 

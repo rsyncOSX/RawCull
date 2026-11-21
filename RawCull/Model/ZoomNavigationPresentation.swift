@@ -4,6 +4,7 @@ import RawCullCore
 struct ZoomNavigationProjectionKey: Equatable {
     let catalogRevision: UInt64
     let gridRevision: UInt64
+    let ratingRevision: UInt64
     let contextRevision: UInt64
     let sourceURL: URL?
     let ratingFilter: RatingFilter
@@ -17,28 +18,29 @@ struct ZoomNavigationProjection {
     let catalogIDs: Set<FileItem.ID>
 }
 
-extension RawCullViewModel {
+extension CatalogController {
     func zoomNavigationProjection() -> ZoomNavigationProjection {
         // Read observable inputs even on cache hits so views retain dependencies.
         let key = ZoomNavigationProjectionKey(
-            catalogRevision: catalogContentRevision,
-            gridRevision: gridContentRevision,
-            contextRevision: zoomContextRevision,
-            sourceURL: selectedSource?.url,
-            ratingFilter: ratingFilter,
+            catalogRevision: catalog.contentRevision,
+            gridRevision: catalog.gridRevision,
+            ratingRevision: ratings.revision,
+            contextRevision: zoomOverlay.contextRevision,
+            sourceURL: catalog.selectedSource?.url,
+            ratingFilter: ratings.ratingFilter,
             usesAnalysisSortOrder: sharpnessModel.sortBySharpness || similarityFeature.isSimilaritySortingActive,
         )
         if let cached = zoomNavigationCache, cached.key == key {
             return cached
         }
-        let catalogIDs = Set(files.map(\.id))
+        let catalogIDs = Set(catalog.files.map(\.id))
         var ordered: [FileItem] = []
-        if let context = zoomOverlayNavigationContext {
-            let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        if let context = zoomOverlay.navigationContext {
+            let filesByID = Dictionary(uniqueKeysWithValues: catalog.files.map { ($0.id, $0) })
             ordered = context.orderedFileIDs.compactMap { filesByID[$0] }
         }
         if ordered.isEmpty {
-            let filtered = filteredFiles.filter { passesRatingFilter($0) }
+            let filtered = catalog.filteredFiles.filter { ratings.passesRatingFilter($0) }
             ordered = key.usesAnalysisSortOrder
                 ? filtered
                 : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -59,15 +61,16 @@ extension RawCullViewModel {
 
 @MainActor
 struct ZoomNavigationPresentation {
-    let viewModel: RawCullViewModel
+    let catalogController: CatalogController
+    let selection: SelectionModel
 
     var orderedZoomFiles: [FileItem] {
-        viewModel.zoomNavigationProjection().files
+        catalogController.zoomNavigationProjection().files
     }
 
     var currentZoomIndex: Int? {
-        guard let selectedID = viewModel.selectedFileID else { return nil }
-        let projection = viewModel.zoomNavigationProjection()
+        guard let selectedID = selection.selectedFileID else { return nil }
+        let projection = catalogController.zoomNavigationProjection()
         guard projection.catalogIDs.contains(selectedID) else { return nil }
         return projection.indexByID[selectedID]
     }

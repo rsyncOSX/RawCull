@@ -15,11 +15,11 @@ struct AIAnalysisSelectionTests {
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
         let third = makeFile("third.ARW")
-        state.viewModel.filteredFiles = [first, second, third]
-        state.viewModel.selectedFileIDs = [third.id, first.id]
+        state.viewModel.catalog.filteredFiles = [first, second, third]
+        state.viewModel.selection.selectedFileIDs = [third.id, first.id]
 
         #expect(
-            state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id)
+            state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id)
                 == [first.id, third.id],
         )
     }
@@ -32,10 +32,10 @@ struct AIAnalysisSelectionTests {
             userDefaults: isolatedUserDefaults(),
         )
         let file = makeFile("focused.ARW")
-        state.viewModel.filteredFiles = [file]
-        state.viewModel.selectedFileID = file.id
+        state.viewModel.catalog.filteredFiles = [file]
+        state.viewModel.selection.selectedFileID = file.id
 
-        #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == [file.id])
+        #expect(state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id) == [file.id])
     }
 
     @MainActor
@@ -47,16 +47,16 @@ struct AIAnalysisSelectionTests {
         )
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
-        state.viewModel.filteredFiles = [first, second]
-        state.viewModel.selectedFileIDs = [first.id, second.id]
+        state.viewModel.catalog.filteredFiles = [first, second]
+        state.viewModel.selection.selectedFileIDs = [first.id, second.id]
 
-        state.viewModel.selectMainViewMode(.aiAnalysis)
-        state.viewModel.selectMainViewMode(.loupe)
-        state.viewModel.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.loupe)
+        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
 
-        #expect(state.viewModel.selectedFileIDs == [first.id, second.id])
+        #expect(state.viewModel.selection.selectedFileIDs == [first.id, second.id])
         #expect(
-            state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id)
+            state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id)
                 == [first.id, second.id],
         )
     }
@@ -71,20 +71,20 @@ struct AIAnalysisSelectionTests {
         let first = makeFile("first.ARW")
         let second = makeFile("second.ARW")
         let tagged = makeFile("tagged.ARW")
-        state.viewModel.filteredFiles = [first, second, tagged]
-        state.viewModel.selectedFileID = first.id
+        state.viewModel.catalog.filteredFiles = [first, second, tagged]
+        state.viewModel.selection.selectedFileID = first.id
         if multipleSelection {
-            state.viewModel.selectedFileIDs = [first.id, second.id]
+            state.viewModel.selection.selectedFileIDs = [first.id, second.id]
         }
-        let expected = state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id)
+        let expected = state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id)
 
-        state.viewModel.preserveAIAnalysisGridSelection()
-        state.viewModel.selectedFileID = tagged.id
-        #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
+        state.viewModel.catalogController.preserveAIAnalysisGridSelection()
+        state.viewModel.selection.selectedFileID = tagged.id
+        #expect(state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
 
         // An empty tagged source clears focus without clearing the selected batch.
-        state.viewModel.selectedFileID = nil
-        #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
+        state.viewModel.selection.selectedFileID = nil
+        #expect(state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
     }
 
     @Test

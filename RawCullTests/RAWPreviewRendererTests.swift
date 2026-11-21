@@ -118,23 +118,23 @@ struct RAWPreviewRendererTests {
         let fast = RAWPreviewRenderer.Preview(image: pixels.image, nativeSize: pixels.nativeSize,
                                               isReducedResolution: true)
         let file = makeCullingTestFile("badge.ARW")
-        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                renderRAW: { _, _, _ in fast }, loadAnalysis: { _, _ in nil }).value
-        #expect(model.zoomOverlayRAWIsReduced == true)
-        let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        #expect(model.zoomOverlay.rawIsReduced == true)
+        let full = ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                     preservingImage: true, renderRAW: { _, _, _ in
                                                         await gate.wait()
                                                         return pixels
                                                     }, loadAnalysis: { _, _ in nil })
         await gate.waitUntilEntered()
-        #expect(model.zoomOverlayRAWIsReduced == true)
+        #expect(model.zoomOverlay.rawIsReduced == true)
         await gate.release()
         await full.value
-        #expect(model.zoomOverlayRAWIsReduced == false)
-        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, viewModel: model,
+        #expect(model.zoomOverlay.rawIsReduced == false)
+        await ZoomPreviewHandler.handleOverlay(file: file, source: .developedRAW, zoomOverlay: model.zoomOverlay,
                                                renderRAW: { _, _, _ in throw RAWPreviewRenderer.RenderError.decodingFailed },
                                                loadAnalysis: { _, _ in nil }).value
-        #expect(model.zoomOverlayRAWIsReduced == nil)
+        #expect(model.zoomOverlay.rawIsReduced == nil)
     }
 
     @Test(.timeLimit(.minutes(1))) @MainActor
@@ -145,22 +145,22 @@ struct RAWPreviewRendererTests {
         var task: Task<Void, Never>?
         await withCheckedContinuation { continuation in
             withObservationTracking {
-                _ = model.zoomOverlayCGImage
+                _ = model.zoomOverlay.cgImage
             } onChange: {
                 continuation.resume()
             }
             task = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("display.ARW"), source: .developedRAW,
-                                                    viewModel: model, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in
+                                                    zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in
                                                         await gate.wait()
                                                         return pixels.image
                                                     })
         }
-        #expect(model.zoomOverlayCGImage === pixels.image)
-        #expect(model.zoomOverlayAnalysisCGImage == nil)
+        #expect(model.zoomOverlay.cgImage === pixels.image)
+        #expect(model.zoomOverlay.analysisCGImage == nil)
         await gate.waitUntilEntered()
         await gate.release()
         await task?.value
-        #expect(model.zoomOverlayAnalysisCGImage === pixels.image)
+        #expect(model.zoomOverlay.analysisCGImage === pixels.image)
     }
 
     @Test func `fit view reuses an existing developed JPEG but inspection never does`() async throws {
@@ -210,21 +210,21 @@ struct RAWPreviewRendererTests {
         let pixels = try preview()
         let oldPixels = try preview()
         let old = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("old.ARW"), source: .developedRAW,
-                                                   viewModel: model, renderRAW: { _, _, _ in
+                                                   zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in
                                                        await gate.wait()
                                                        return oldPixels // Deliberately ignores cancellation, like an in-progress Core Image render.
                                                    }, loadAnalysis: { _, _ in nil })
         await gate.waitUntilEntered()
         old.cancel()
         let next = ZoomPreviewHandler.handleOverlay(file: makeCullingTestFile("next.ARW"), source: .developedRAW,
-                                                    viewModel: model, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in nil })
+                                                    zoomOverlay: model.zoomOverlay, renderRAW: { _, _, _ in pixels }, loadAnalysis: { _, _ in nil })
         await next.value
-        let current = model.zoomOverlayCGImage
+        let current = model.zoomOverlay.cgImage
         await gate.release()
         await old.value
-        #expect(model.zoomOverlayCGImage === current)
+        #expect(model.zoomOverlay.cgImage === current)
         #expect(current === pixels.image)
-        #expect(model.zoomOverlayNativeSize == pixels.nativeSize)
+        #expect(model.zoomOverlay.nativeSize == pixels.nativeSize)
     }
 }
 

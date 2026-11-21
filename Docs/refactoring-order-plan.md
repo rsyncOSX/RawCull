@@ -17,9 +17,9 @@ We are refactoring RawCull following three plans in Docs/:
   - Docs/viewmodel-decomposition-plan.md    ("VM plan")
   - Docs/code-quality-followups-plan.md     ("QF plan")
 
-Do step <N> of Docs/refactoring-order-plan.md, and only that step.
+Do step all steps of Docs/refactoring-order-plan.md. 
 
-1. Read the master plan's row and section for step <N>, then read every section
+1. Read the master plan's row and section for steps , then read every section
    of the VM plan and the QF plan it links to, including the VM plan's
    "Rules for every slice" if the step is a slice.
 2. Use the graphify graph in graphify-out/ before touching code:
@@ -32,7 +32,7 @@ Do step <N> of Docs/refactoring-order-plan.md, and only that step.
      reports with grep before relying on it, and grep for consumers it might
      have missed.
    - From the graph and grep, list every file you will change before editing.
-3. Create a branch named refactor/step-<N>-<short-name> from the current branch.
+3. Commit changes after each update.
 4. Make the change in the small commits the plan describes. Change no behaviour.
    Build and run the RawCullTests test plan after each commit; every test must
    pass before the next commit.
@@ -63,28 +63,28 @@ Do step <N> of Docs/refactoring-order-plan.md, and only that step.
 
 ## The order
 
-One step = one branch = one PR, merged before the next step starts. The exception is the parallel track in phase 3, explained there.
+One step = one branch = one PR, commit all changes the current branch before the next step starts. The exception is the parallel track in phase 3, explained there.
 
 | Step | What | Reference | Size | Risk | Status |
 |---|---|---|---|---|---|
-| 1 | Fix the `try?` uses that hide failures | QF → [Finding 5](code-quality-followups-plan.md#finding-5-fix-the-try-uses-that-hide-failures) | S | low | todo |
-| 2 | Move the subject-mask types out of `DeepReview/` | QF → [4.1](code-quality-followups-plan.md#41-code-fix-shared-primitives-in-the-wrong-place-s) | XS | none | todo |
-| 3 | Remove dead view-model state | VM → [Slice 0](viewmodel-decomposition-plan.md#slice-0-remove-dead-state-about-30-min) | XS | none | todo |
-| 4 | `ZoomOverlayModel` | VM → [Slice 1](viewmodel-decomposition-plan.md#slice-1-zoomoverlaymodel-low-risk-about-11-files) | S | low | todo |
-| 5 | Loupe viewport into `LoupeSessionModel` | VM → [Slice 2](viewmodel-decomposition-plan.md#slice-2-loupe-viewport-into-loupesessionmodel-low-risk-3-files) | XS | low | todo |
-| 6 | `WorkspacePresentationModel` | VM → [Slice 3](viewmodel-decomposition-plan.md#slice-3-workspacepresentationmodel-low-risk-many-small-consumers) | S | low | todo |
-| 7 | Make the MCP controller testable | QF → [Finding 3](code-quality-followups-plan.md#finding-3-make-the-mcp-controllers-state-explicit), step 3.1 | S | low | todo |
-| 8 | Characterization tests for MCP transitions | QF → Finding 3, step 3.2 | M | low | todo |
-| 9 | `FileOperationsModel` | VM → [Slice 4](viewmodel-decomposition-plan.md#slice-4-fileoperationsmodel-medium-risk) | M | medium | todo |
-| 10 | Explicit MCP state (`Activity` / `Lifecycle` enums) | QF → Finding 3, step 3.3 | M | medium | todo |
-| 11 | `RatingsModel` | VM → [Slice 5](viewmodel-decomposition-plan.md#slice-5-ratingsmodel-medium-risk-the-hot-path) | M | medium | todo |
-| 12 | Typed MCP stop reasons + split the MCP files | QF → Finding 3, steps 3.4–3.5 | S | low | todo |
-| 13 | `SelectionModel` | VM → [Slice 6](viewmodel-decomposition-plan.md#slice-6-catalogworkspace--selectionmodel-high-risk-the-most-read-state) (first PR) | M | high | todo |
-| 14 | `CatalogWorkspace` | VM → Slice 6 (second PR) | L | high | todo |
-| 15 | `BurstWorkflowController` | VM → [Slice 7](viewmodel-decomposition-plan.md#slice-7-burstworkflowcontroller-high-risk-the-biggest-win) | L | high | todo |
-| 16 | Shrink the root and verify against targets | VM → [Slice 8](viewmodel-decomposition-plan.md#slice-8-shrink-the-root-and-verify) | S | low | todo |
-| 17 | *Optional:* shared MCP IPC module | QF → Finding 3, step 3.6 | M | low | todo |
-| 18 | *Optional:* `CombinedReview/` subfolders | QF → [4.2](code-quality-followups-plan.md#42-optional-tidy-combinedreview-subfolders-xs) | XS | none | todo |
+| 1 | Fix the `try?` uses that hide failures | QF → [Finding 5](code-quality-followups-plan.md#finding-5-fix-the-try-uses-that-hide-failures) | S | low | done |
+| 2 | Move the subject-mask types out of `DeepReview/` | QF → [4.1](code-quality-followups-plan.md#41-code-fix-shared-primitives-in-the-wrong-place-s) | XS | none | done |
+| 3 | Remove dead view-model state | VM → [Slice 0](viewmodel-decomposition-plan.md#slice-0-remove-dead-state-about-30-min) | XS | none | done |
+| 4 | `ZoomOverlayModel` | VM → [Slice 1](viewmodel-decomposition-plan.md#slice-1-zoomoverlaymodel-low-risk-about-11-files) | S | low | done |
+| 5 | Loupe viewport into `LoupeSessionModel` | VM → [Slice 2](viewmodel-decomposition-plan.md#slice-2-loupe-viewport-into-loupesessionmodel-low-risk-3-files) | XS | low | done |
+| 6 | `WorkspacePresentationModel` | VM → [Slice 3](viewmodel-decomposition-plan.md#slice-3-workspacepresentationmodel-low-risk-many-small-consumers) | S | low | done |
+| 7 | Make the MCP controller testable | QF → [Finding 3](code-quality-followups-plan.md#finding-3-make-the-mcp-controllers-state-explicit), step 3.1 | S | low | done |
+| 8 | Characterization tests for MCP transitions | QF → Finding 3, step 3.2 | M | low | done |
+| 9 | `FileOperationsModel` | VM → [Slice 4](viewmodel-decomposition-plan.md#slice-4-fileoperationsmodel-medium-risk) | M | medium | done |
+| 10 | Explicit MCP state (`Activity` / `Lifecycle` enums) | QF → Finding 3, step 3.3 | M | medium | done |
+| 11 | `RatingsModel` | VM → [Slice 5](viewmodel-decomposition-plan.md#slice-5-ratingsmodel-medium-risk-the-hot-path) | M | medium | done |
+| 12 | Typed MCP stop reasons + split the MCP files | QF → Finding 3, steps 3.4–3.5 | S | low | done |
+| 13 | `SelectionModel` | VM → [Slice 6](viewmodel-decomposition-plan.md#slice-6-catalogworkspace--selectionmodel-high-risk-the-most-read-state) (first PR) | M | high | done |
+| 14 | `CatalogWorkspace` | VM → Slice 6 (second PR) | L | high | done |
+| 15 | `BurstWorkflowController` | VM → [Slice 7](viewmodel-decomposition-plan.md#slice-7-burstworkflowcontroller-high-risk-the-biggest-win) | L | high | done |
+| 16 | Shrink the root and verify against targets | VM → [Slice 8](viewmodel-decomposition-plan.md#slice-8-shrink-the-root-and-verify) | S | low | done |
+| 17 | *Optional:* shared MCP IPC module | QF → Finding 3, step 3.6 | M | low | not started |
+| 18 | *Optional:* `CombinedReview/` subfolders | QF → [4.2](code-quality-followups-plan.md#42-optional-tidy-combinedreview-subfolders-xs) | XS | none | done |
 | — | Decide: does Deep AI Review fold into Combined Review? | QF → [4.3](code-quality-followups-plan.md#43-product-decision-yours-not-a-refactor) | decision | — | open |
 | — | Check identity-only `==` on `RawCullFileItem` | QF → [Finding 2](code-quality-followups-plan.md#finding-2-rawcullfileitem-no-refactor-one-check) | XS | — | open |
 | — | Process habits | QF → [Finding 6](code-quality-followups-plan.md#finding-6-change-rate-process-only) | ongoing | — | open |
@@ -98,7 +98,7 @@ One step = one branch = one PR, merged before the next step starts. The exceptio
 
 *Done when:* all 8 rows of the QF fix list are handled, there's a test proving a NaN no longer produces a shared key, and `DeepReview/` no longer holds anything Combined Review imports.
 
-Result: —
+Result: done 2026-11-20. All 8 fix-list rows handled; `CacheKeyEncodingFailureTests` proves a NaN never yields a shared key; SwiftLint rule `try_optional_empty_data_fallback` added; policy in [contributing.md](contributing.md). `try?` 157 → 148. Subject-mask primitives now in `Intelligence/SubjectMasks/`. Plan corrections: the clear buttons (row 5) live in `CombinedReviewView`, not `CacheSettingsTab`.
 
 ### Phase 2: Low-risk view-model slices (steps 3–6)
 
@@ -109,7 +109,7 @@ Each one follows the VM plan's [Rules for every slice](viewmodel-decomposition-p
 
 *Done when:* stored properties are ≤ 75, no forwarders are left for slices 0–3, and the graph edges on `RawCullViewModel` have dropped visibly. Record the number.
 
-Result: —
+Result: done 2026-11-20. 28 stored properties removed (counted as non-computed `var`/`let` in the class body: 91 → 63; the baseline's 103 used a different count, which would give about 75). No forwarders left. Graph edges 399 → 385, Main VM cohesion 0.02 → 0.03, no import cycles. Files referencing the root unchanged at 73, because views still reach slices through `viewModel.<slice>`; environment injection is slice 8. Plan correction: the loupe viewport went to a new root-owned `LoupeViewportModel`, not `LoupeSessionModel`, because that model is `@State` of `LoupeMainImageView` and would reset the zoom on every view-mode switch.
 
 ### Phase 3: MCP and the medium slices, alternating (steps 7–12)
 
@@ -119,7 +119,7 @@ Result: —
 
 *Done when:* `MCPAnalysisController` has no loose optional activity fields left, the MCP transition tests pass, ratings live in `RatingsModel`, and the `ImageReviewRating*` conformances have moved there.
 
-Result: —
+Result: done 2026-11-20. The controller takes an injected `MCPAnalysisEnvironment` (stores, preferences, clocks, windows, sheet presentation) and exposes `tick()`. 13 characterization tests in `MCPAnalysisControllerTests` passed before and after the state change. State is now an `Activity` enum (idle / settingUp / analyzing / assessing) with token-checked `begin`/`end`, a `Lifecycle` enum, `pendingApprovalForClaim` and `PollBookkeeping`. Stop codes are `MCPAssessmentStopReason`, mapped by the pure, unit-tested `stopReason(for:recorded:)`. Files split: the controller is 580 + 287 + 473 + 210 lines (was 1,262 in one file). `AnalysisJobStore.swift` is 298 lines (was 1,391), with `AnalysisJob`, `+FollowUps`, `CatalogSetupStore` and `MCPAssessmentStopReason` in their own files. `RatingsModel` owns the culling store, rating caches and filter. Its `revision` is in the grid and zoom projection keys, replacing the `didSet` side effect, and a new test checks for exactly one rebuild per rating change. `ImageReviewRatingProviding` moved to `RatingsModel`. `ImageReviewRatingActing` stays on the root because advancing the selection needs both slices. Graph edges 385 → 372; stored properties (same count as before) 63 → 51. Not covered: storage failures retried for under 5 s, because the store gives tests no way to inject a retryable error. Plan corrections: the plan counted 32 `remoteDataNumbers` references, but only one goes through the view model (the rest are local bindings). Splitting by extension means members used across files can no longer be `private`.
 
 ### Phase 4: High-risk view-model slices (steps 13–16)
 
@@ -130,11 +130,23 @@ Result: —
 
 *Done when:* the targets in the VM plan's [Goal and non-goals](viewmodel-decomposition-plan.md#goal-and-non-goals) are met: ≤ 20 stored properties, ≤ 25 files referencing `RawCullViewModel`, ≤ 150 graph edges, and `+BurstGrouping.swift` is gone.
 
-Result: —
+Result: 2026-11-20. All four targets are met:
+
+| Target | Baseline | Now | Met |
+|---|---|---|---|
+| Stored properties on the root (non-computed `var`/`let` in the class) | 91 (plan said 103) | 20 | yes |
+| Graph edges on the main `RawCullViewModel` node | 399 | 80 (211 at the start of the last step 16 pass, by the same script) | yes |
+| `RawCullViewModel+BurstGrouping.swift` | 892 lines | gone (now `BurstWorkflowController` + `+Grouping`) | yes |
+| App files referencing `RawCullViewModel` | 73 | 5 | yes |
+
+`SelectionModel`, `CatalogWorkspace` and `BurstWorkflowController` own their state. `workspaceEnvironment(_:)` injects every slice plus the sharpness, similarity and Deep Review feature objects, and 12 view and modifier structs now read only from the environment or take a single slice. View mode and zoom navigation moved into `WorkspaceNavigationModel` (a deliberate change from this plan, which kept `mainViewMode` on the root), and the focus-point lookup moved to `CatalogWorkspace`. The remaining 57 files fall into three groups: views that call operations combining several slices (`updateRating`/`updateRatingAndAdvance`, which refresh the catalog projection and advance the selection; `handleSortOrderChange`; `startCatalogLoad`; `aiAnalysisFiles`; the culling retry and archive actions); parents that pass the root to those views; and non-view helpers that take the root as a parameter (`ComparisonGridImageCoordinator`, `ZoomNavigationPresentation`, `ZoomOverlayAnalysisCoordinator`, `ExecuteCopyFiles`, `thumbnailKeyNavigation`). Reaching ≤ 25 needs those catalog and rating operations moved out of the root, which is the "most of `+Catalog`" part of slice 6 that is still open. The burst controller reaches the root's cross-slice operations through the weak `BurstWorkflowHost` protocol, a deliberate exception to "no back-references". Catalog operations (load, sort, `applyFilters`) and the projection caches stay on the root because they combine several slices. The manual smoke test of every view mode and one end-to-end MCP job has not been done; it needs the app UI.
+
+Step 16 finished 2026-11-20. The five files that still reference the root are the root itself, its `MCPAnalysisWorkspace` conformance, `RawCullApp` (creates it and calls `workspaceEnvironment(_:)`), `RawCullIntelligenceRuntime` (binds the features to it) and `RawCullMainView` (the window's top view, which `RawCullApp` builds with it). Every other view reads its slices and controllers with `@Environment`. The helper types take the narrow slices they use: `ZoomPreviewHandler` (`zoomOverlay`), `ZoomNavigationPresentation` (`catalogController`, `selection`), `ZoomOverlayAnalysisCoordinator` (`catalogController`, `deepAIReviewController`), `ZoomCullingMetadata` (`sharpnessModel`, `similarityFeature`), `ComparisonGridImageCoordinator`, `LiveComparisonSessionImageService` and `BurstWorkspaceImageCoordinator` (`sharpnessModel`), `ExecuteCopyFiles` (weak `catalogController`), and the loupe, burst and comparison keyboard controllers. `thumbnailKeyNavigation` lost its unused `viewModel:` parameter. Views take explicit slices instead of the environment where that is safer: `BurstWorkspaceHeader`, `ZoomOverlayControls` and `BurstAssessmentButton`, because tests build and render them without an environment; `SharedMainToolbarContent`, because it is `ToolbarContent`; and `ComparisonGridView`'s `init`, which needs `sharpnessModel` and `selection` to create its session. Plan corrections: `ImageTableVerticalView` did not call the root's `toggleTag`; the call was in commented-out code and the method no longer exists, so the comment now names `CullingController.updateRating`. The edge count recorded earlier (26) cannot be reproduced with the current `rebuild.py`: the same script gives 211 at commit `56290a0c` and 80 now. 37 of the 80 are `method` edges from the `MCPAnalysisWorkspace` extension. The performance tests had not compiled since the projections moved to `CatalogController`; they now read the build count from it and bind the semantic-search target to it. The manual smoke test is still not done.
 
 ### Phase 5: Optional and open items
 
 - Steps 17–18 only if you want them; they're tidiness, not risk.
+- Step 18 is done. Step 17 is not started: the app target and the helper's Xcode tool target would both need a local-package product dependency, about 400 declarations would need `public`, and `TestMCPRelease.sh` and the app's MCP tests would need restructuring. It changes how the signed helper is built, so it needs an archive, sign and notarize check that was not possible here.
 - **The Deep AI Review / Combined Review decision** can be made at any time. If the answer is "fold it in", do that *after* step 15. The burst workflow is the code that calls Deep Review, so it's simpler to change once it's in its own owner.
 - Re-run graphify at every release, and add a row to the table below.
 
@@ -145,3 +157,9 @@ Add a row after every merged step, using the numbers from `rebuild.py`.
 | Date | After step | `RawCullViewModel` edges | Main VM cohesion | Stored props | Files referencing VM | Notes |
 |---|---|---|---|---|---|---|
 | 2026-11-20 | baseline | 399 | 0.02 | 103 | 73 | |
+| 2026-11-20 | 6 | 385 | 0.03 | 63 (91 at baseline by the same count) | 73 | steps 1–6 |
+| 2026-11-20 | 12 | 372 | 0.02 | 51 | 73 | steps 7–12 |
+| 2026-11-20 | 18 | 33 (main node) | 0.05 | 20 | 64 | steps 13–16, 18; 17 not started |
+| 2026-11-20 | 16 (continued) | 26 (main node) | 0.05 | 20 | 57 | environment-based views, `WorkspaceNavigationModel` |
+| 2026-11-20 | 16 (continued) | not re-measured (211 when re-measured later at `56290a0c`) | — | 20 | 44 | `CatalogController` and `CullingController` own the catalog and rating operations; grid and zoom projections moved there. Remaining: parent views that pass the root on, helper types that take it as a parameter, `thumbnailKeyNavigation` |
+| 2026-11-20 | 16 | 80 (main node) | 0.07 | 20 | 5 | step 16 done: every view reads slices from the environment; helper types take narrow slices; the remaining references are the root, its MCP conformance, `RawCullApp`, `RawCullIntelligenceRuntime` and `RawCullMainView` |

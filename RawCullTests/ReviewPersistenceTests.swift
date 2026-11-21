@@ -125,29 +125,29 @@ struct CullingRecoveryPresentationTests {
         let photo = file("saved.ARW")
         let hidden = file("hidden.ARW")
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.selectedSource = catalog
-        model.files = [hidden, photo]
-        model.filteredFiles = [hidden, photo]
-        model.ratingFilter = .stars(5)
-        model.selectedFileID = hidden.id
-        model.selectedFileIDs = [hidden.id, photo.id]
+        model.catalog.selectedSource = catalog
+        model.catalog.files = [hidden, photo]
+        model.catalog.filteredFiles = [hidden, photo]
+        model.ratings.ratingFilter = .stars(5)
+        model.selection.selectedFileID = hidden.id
+        model.selection.selectedFileIDs = [hidden.id, photo.id]
         let state = RecoveryFixtureState()
         let history = SavedFiles(catalog: catalog.url, dateStart: nil,
                                  filerecord: FileRecord(fileName: photo.name, dateTagged: "saved", dateCopied: nil, rating: 5))
-        model.cullingModel = CullingModel(saveHandler: { _ in }, loadHandler: {
+        model.ratings.cullingModel = CullingModel(saveHandler: { _ in }, loadHandler: {
             state.isRepaired ? .loaded([history]) : .failed(.init(url: URL(filePath: "/test/store"), message: "damaged"))
         })
-        #expect(await !model.cullingModel.ensureLoaded())
-        #expect(await !model.retryCullingPersistence())
-        #expect(model.filteredFiles.count == 2)
+        #expect(await !model.ratings.cullingModel.ensureLoaded())
+        #expect(await !model.culling.retryCullingPersistence())
+        #expect(model.catalog.filteredFiles.count == 2)
         state.isRepaired = true
-        #expect(await model.retryCullingPersistence())
-        #expect(model.ratingCache == [photo.name: 5])
-        #expect(model.taggedNamesCache == [photo.name])
-        #expect(model.filteredFiles.map(\.id) == [photo.id])
-        #expect(model.selectedFileID == photo.id)
-        #expect(model.selectedFileIDs == [photo.id])
-        #expect(model.extractTaggedfilenames() == [photo.name])
+        #expect(await model.culling.retryCullingPersistence())
+        #expect(model.ratings.ratingCache == [photo.name: 5])
+        #expect(model.ratings.taggedNamesCache == [photo.name])
+        #expect(model.catalog.filteredFiles.map(\.id) == [photo.id])
+        #expect(model.selection.selectedFileID == photo.id)
+        #expect(model.selection.selectedFileIDs == [photo.id])
+        #expect(model.catalogController.extractTaggedfilenames() == [photo.name])
     }
 
     @Test
@@ -160,25 +160,25 @@ struct CullingRecoveryPresentationTests {
         try Data("damaged".utf8).write(to: url)
         let model = makeRawCullViewModel()
         let photo = file("saved.ARW")
-        model.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.files = [photo]
-        model.filteredFiles = [photo]
-        model.ratingFilter = .stars(5)
-        model.ratingCache = [photo.name: 5]
-        model.taggedNamesCache = [photo.name]
+        model.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
+        model.catalog.files = [photo]
+        model.catalog.filteredFiles = [photo]
+        model.ratings.ratingFilter = .stars(5)
+        model.ratings.ratingCache = [photo.name: 5]
+        model.ratings.taggedNamesCache = [photo.name]
         model.sharpnessModel.scores = [photo.id: 0.5]
-        model.selectedFileID = photo.id
-        model.cullingModel = CullingModel(saveHandler: { _ in throw SaveFailure.blocked }, loadHandler: {
+        model.selection.selectedFileID = photo.id
+        model.ratings.cullingModel = CullingModel(saveHandler: { _ in throw SaveFailure.blocked }, loadHandler: {
             .failed(.init(url: url, message: "damaged"))
         })
-        #expect(await !model.cullingModel.ensureLoaded())
-        #expect(await !model.archiveCullingStoreAndReset())
-        #expect(model.ratingCache.isEmpty)
-        #expect(model.taggedNamesCache.isEmpty)
+        #expect(await !model.ratings.cullingModel.ensureLoaded())
+        #expect(await !model.culling.archiveCullingStoreAndReset())
+        #expect(model.ratings.ratingCache.isEmpty)
+        #expect(model.ratings.taggedNamesCache.isEmpty)
         #expect(model.sharpnessModel.scores.isEmpty)
-        #expect(model.filteredFiles.isEmpty)
-        #expect(model.selectedFileID == nil)
-        #expect(model.cullingModel.persistenceError != nil)
+        #expect(model.catalog.filteredFiles.isEmpty)
+        #expect(model.selection.selectedFileID == nil)
+        #expect(model.ratings.cullingModel.persistenceError != nil)
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
@@ -187,8 +187,8 @@ struct CullingRecoveryPresentationTests {
         let model = makeRawCullViewModel()
         let photos = (0 ..< 100).map { file("photo\($0).ARW") }
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(filePath: "/test/catalog"))
-        model.selectedSource = catalog
-        model.files = photos
+        model.catalog.selectedSource = catalog
+        model.catalog.files = photos
         let signature = model.sharpnessModel.scoringSignature
         var records = photos.map { photo in
             FileRecord(fileName: photo.name, sharpnessScore: 0.5,
@@ -201,10 +201,10 @@ struct CullingRecoveryPresentationTests {
         records.append(duplicate)
         var saved = SavedFiles(catalog: catalog.url, dateStart: nil, filerecord: records[0])
         saved.filerecords = records
-        model.cullingModel = CullingModel(saveHandler: { _ in }, loadHandler: { .loaded([saved]) })
-        #expect(await model.cullingModel.ensureLoaded())
+        model.ratings.cullingModel = CullingModel(saveHandler: { _ in }, loadHandler: { .loaded([saved]) })
+        #expect(await model.ratings.cullingModel.ensureLoaded())
         let revision = model.sharpnessModel.scoreRevision
-        model.loadPersistedScoringandSaliency()
+        model.catalogController.loadPersistedScoringandSaliency()
         #expect(model.sharpnessModel.scoreRevision == revision + 1)
         #expect(model.sharpnessModel.scores.count == 99)
         #expect(model.sharpnessModel.scores[photos[0].id] == 0.5)

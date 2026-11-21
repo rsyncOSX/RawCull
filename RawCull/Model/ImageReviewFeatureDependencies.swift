@@ -16,8 +16,6 @@ protocol ImageReviewRatingActing: AnyObject {
     func updateRatingAndAdvance(for file: FileItem, rating: Int, in orderedFiles: [FileItem])
 }
 
-extension RawCullViewModel: ImageReviewSelectionActing, ImageReviewRatingProviding, ImageReviewRatingActing {}
-
 @MainActor
 enum ImageReviewFeaturePolicy {
     static func ratingDisplay(

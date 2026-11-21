@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             viewModel: viewModel,
             qwen: runtime.modelRuntime.qwenInference as? QwenInferenceRuntime,
             prepare: { [weak viewModel] in
-                await viewModel?.applyStoredScoringSettings()
+                await viewModel?.catalogController.applyStoredScoringSettings()
                 await runtime.settingsModel.refresh()
             },
             preparePhotoAssessment: { await runtime.settingsModel.refresh() },
@@ -45,11 +45,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminate()")
         guard let viewModel else { return .terminateNow }
         return beginTermination(
-            flush: { await viewModel.cullingModel.flushPersistence() },
-            chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
+            flush: { await viewModel.ratings.cullingModel.flushPersistence() },
+            chooseRecovery: { Self.showQuitRecovery(error: viewModel.ratings.cullingModel.persistenceError) },
             setPending: { pending in
                 self.mcpAnalysis.setTerminationPending(pending)
-                viewModel.cullingModel.isTerminationPending = pending
+                viewModel.ratings.cullingModel.isTerminationPending = pending
             },
             releaseAccess: {
                 await self.mcpAnalysis.stopForQuit()
@@ -159,14 +159,14 @@ struct RawCullApp: App {
                 assessmentPhotoAccess: appDelegate.assessmentPhotoAccess,
             )
             .background(.windowBackground)
-            .environment(viewModel)
+            .workspaceEnvironment(viewModel)
             .environment(assessmentNavigation)
             .task { await assessmentNavigation.observeResults() }
             .task {
-                await viewModel.cullingModel.ensureLoaded()
+                await viewModel.ratings.cullingModel.ensureLoaded()
             }
             .task {
-                await viewModel.applyStoredScoringSettings()
+                await viewModel.catalogController.applyStoredScoringSettings()
             }
             .task {
                 await intelligenceRuntime.settingsModel.refresh()
@@ -185,14 +185,14 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView(viewModel: viewModel, aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
-                .environment(viewModel)
+            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
+                .workspaceEnvironment(viewModel)
         }
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()
                 .background(.windowBackground)
-                .environment(viewModel)
+                .workspaceEnvironment(viewModel)
         }
         .defaultSize(width: 840, height: 720)
     }
@@ -207,5 +207,30 @@ private struct RawCullCommands: Commands {
                 openWindow(id: "about-window")
             }
         }
+    }
+}
+
+extension View {
+    /// Injects the workspace root and each of its slices, so a view can depend
+    /// on only the slice it reads: `@Environment(CatalogWorkspace.self)` etc.
+    /// The feature objects the root owns (sharpness, similarity, Deep Review) are
+    /// injected the same way. The low-level `SimilarityScoringModel` is not:
+    /// views go through `RawCullSimilarityFeature`.
+    func workspaceEnvironment(_ workspace: RawCullViewModel) -> some View {
+        environment(workspace)
+            .environment(workspace.catalog)
+            .environment(workspace.selection)
+            .environment(workspace.ratings)
+            .environment(workspace.presentation)
+            .environment(workspace.fileOperations)
+            .environment(workspace.zoomOverlay)
+            .environment(workspace.loupeViewport)
+            .environment(workspace.burstWorkflow)
+            .environment(workspace.navigation)
+            .environment(workspace.catalogController)
+            .environment(workspace.culling)
+            .environment(workspace.sharpnessModel)
+            .environment(workspace.similarityFeature)
+            .environment(workspace.deepAIReviewController)
     }
 }

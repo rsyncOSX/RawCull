@@ -3,7 +3,12 @@ import SwiftUI
 
 struct AIAssessmentWorkspace: View {
     let navigation: AIAssessmentNavigation
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(CatalogController.self) private var catalogController
+    @Environment(CullingController.self) private var culling
     let photoAccess: (AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant
 
     @State private var keyboardScope = ReviewKeyboardScope()
@@ -58,7 +63,7 @@ struct AIAssessmentWorkspace: View {
             if let entry = navigation.entries.first(where: { $0.id == navigation.presentedID }) {
                 catalogContext(for: entry)
                 AIAssessmentComparison(
-                    entry: entry, viewModel: viewModel, access: currentAccess,
+                    entry: entry, access: currentAccess,
                     accessChecked: accessJobID == entry.request.sourceJobID,
                     initialPair: navigation.initialPair,
                     onMarkedReviewed: {
@@ -81,7 +86,7 @@ struct AIAssessmentWorkspace: View {
         .background(ReviewKeyboardScopeReader(scope: keyboardScope))
         .onAppear {
             keyMonitor.install { event in
-                guard !viewModel.zoomOverlayVisible, keyboardScope.accepts(event) else { return .ignored }
+                guard !zoomOverlay.isVisible, keyboardScope.accepts(event) else { return .ignored }
                 if event.charactersIgnoringModifiers?.lowercased() == "r" {
                     returnToBursts()
                     return .handled
@@ -97,10 +102,10 @@ struct AIAssessmentWorkspace: View {
         .onDisappear { keyMonitor.remove() }
         .task(id: currentAccess?.url) {
             guard let access = currentAccess,
-                  viewModel.selectedSource?.url.standardizedFileURL == access.url.standardizedFileURL else { return }
-            if await viewModel.cullingModel.ensureLoaded() {
-                viewModel.rebuildRatingCache()
-                viewModel.loadPersistedScoringandSaliency()
+                  catalog.selectedSource?.url.standardizedFileURL == access.url.standardizedFileURL else { return }
+            if await ratings.cullingModel.ensureLoaded() {
+                catalogController.rebuildRatingCache()
+                catalogController.loadPersistedScoringandSaliency()
             }
         }
         .task(id: AccessRequest(sourceJobID: navigation.entries.first?.request.sourceJobID, retryID: accessRetryID)) {
@@ -132,21 +137,21 @@ struct AIAssessmentWorkspace: View {
     @ViewBuilder
     private func catalogContext(for entry: AIAssessmentEntry) -> some View {
         if let access = currentAccess {
-            if viewModel.selectedSource?.url.standardizedFileURL != access.url.standardizedFileURL {
+            if catalog.selectedSource?.url.standardizedFileURL != access.url.standardizedFileURL {
                 HStack {
                     Text("Open the source catalog to load ratings, subject badges, and tagging controls.")
                     Spacer()
                     Button("Open source catalog") {
                         openSourceCatalog(for: entry, access: access)
                     }
-                    .disabled(viewModel.scanning || viewModel.isPreparingBurstCatalog || viewModel.isDeepAIReviewBlockedByOtherWork)
+                    .disabled(catalog.scanning || burstWorkflow.isPreparingBurstCatalog || burstWorkflow.isDeepAIReviewBlockedByOtherWork)
                 }
                 .padding(12)
-            } else if viewModel.scanning || viewModel.cullingModel.loadState != .ready {
+            } else if catalog.scanning || ratings.cullingModel.loadState != .ready {
                 HStack {
-                    if viewModel.cullingModel.loadState == .failed {
+                    if ratings.cullingModel.loadState == .failed {
                         Text("Saved ratings couldn’t be loaded.")
-                        Button("Retry loading ratings") { Task { await viewModel.retryCullingPersistence() } }
+                        Button("Retry loading ratings") { Task { await culling.retryCullingPersistence() } }
                     } else {
                         ProgressView().controlSize(.small)
                         Text("Preparing catalog ratings and badges…")
@@ -158,26 +163,26 @@ struct AIAssessmentWorkspace: View {
                     Text("The open catalog’s photos do not match this saved assessment. Reload the catalog to check for changes.")
                     Spacer()
                     Button("Reload source catalog") { openSourceCatalog(for: entry, access: access) }
-                        .disabled(viewModel.isPreparingBurstCatalog || viewModel.isDeepAIReviewBlockedByOtherWork)
+                        .disabled(burstWorkflow.isPreparingBurstCatalog || burstWorkflow.isDeepAIReviewBlockedByOtherWork)
                 }
                 .padding(12)
             }
         }
     }
 
-    private func sourceFilesMatch(_ entry: AIAssessmentEntry, catalog: URL) -> Bool {
-        let urls = Set(entry.frames.map { catalog.appendingPathComponent($0.source.relativePath).standardizedFileURL })
-        return entry.matches(files: viewModel.files.filter { urls.contains($0.url.standardizedFileURL) }, catalog: catalog)
+    private func sourceFilesMatch(_ entry: AIAssessmentEntry, catalog catalogURL: URL) -> Bool {
+        let urls = Set(entry.frames.map { catalogURL.appendingPathComponent($0.source.relativePath).standardizedFileURL })
+        return entry.matches(files: catalog.files.filter { urls.contains($0.url.standardizedFileURL) }, catalog: catalogURL)
     }
 
     private func openSourceCatalog(for entry: AIAssessmentEntry, access: RawCullCatalogGrant) {
-        let source = viewModel.sources.first { $0.url.standardizedFileURL == access.url.standardizedFileURL }
+        let source = catalog.sources.first { $0.url.standardizedFileURL == access.url.standardizedFileURL }
             ?? ARWSourceCatalog(name: entry.catalogName ?? access.url.lastPathComponent, url: access.url)
-        if !viewModel.sources.contains(where: { $0.url.standardizedFileURL == access.url.standardizedFileURL }) {
-            viewModel.sources.append(source)
+        if !catalog.sources.contains(where: { $0.url.standardizedFileURL == access.url.standardizedFileURL }) {
+            catalog.sources.append(source)
         }
-        viewModel.selectedSource = source
-        viewModel.startCatalogLoad(for: source, scopedURL: access.url, retainedAccess: access)
+        catalog.selectedSource = source
+        catalogController.startCatalogLoad(for: source, scopedURL: access.url, retainedAccess: access)
     }
 
     private var currentAccess: RawCullCatalogGrant? {
@@ -200,7 +205,7 @@ struct AIAssessmentWorkspace: View {
 
     private func returnToBursts() {
         if !navigation.returnsToBurstViewer {
-            viewModel.returnToActiveBurstGroupView()
+            burstWorkflow.returnToActiveBurstGroupView()
         }
         navigation.presentedID = nil
     }

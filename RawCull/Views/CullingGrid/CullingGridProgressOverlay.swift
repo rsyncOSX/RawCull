@@ -1,25 +1,26 @@
 import SwiftUI
 
 struct CullingGridProgressOverlay: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     let similarityFeature: RawCullSimilarityFeature
 
     var body: some View {
         ZStack {
             progressContent
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
+        .animation(.easeInOut(duration: 0.2), value: sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.2), value: similarityFeature.indexing.isIndexing)
         .animation(.easeInOut(duration: 0.2), value: similarityFeature.isGrouping)
     }
 
     @ViewBuilder
     private var progressContent: some View {
-        if viewModel.sharpnessModel.isScoring {
+        if sharpnessModel.isScoring {
             ProgressCount(
-                completed: viewModel.sharpnessModel.scoringProgress,
-                total: viewModel.sharpnessModel.scoringTotal,
-                estimatedSeconds: viewModel.sharpnessModel.scoringEstimatedSeconds,
+                completed: sharpnessModel.scoringProgress,
+                total: sharpnessModel.scoringTotal,
+                estimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
                 statusText: "Scoring sharpness...",
             )
             .frame(maxWidth: 480)
@@ -30,7 +31,7 @@ struct CullingGridProgressOverlay: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .fixedSize()
-                Text(viewModel.burstAnalysisProgress.statusText)
+                Text(burstWorkflow.burstAnalysisProgress.statusText)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
             }
@@ -50,7 +51,7 @@ struct CullingGridProgressOverlay: View {
     }
 
     private var indeterminateBurstAnalysisRunning: Bool {
-        viewModel.burstAnalysisProgress.isRunning && !viewModel.burstAnalysisProgress.isCountBased
+        burstWorkflow.burstAnalysisProgress.isRunning && !burstWorkflow.burstAnalysisProgress.isCountBased
     }
 }
 

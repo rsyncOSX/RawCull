@@ -138,7 +138,15 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                     backend: backend,
                     pipeline: pipeline,
                 )
-                let url = recordURL(for: identity)
+                let url: URL
+                do {
+                    url = try recordURL(for: identity)
+                } catch {
+                    Logger.process.warning(
+                        "PerFileAnalysisArtifactStore: could not derive a record key: \(error.localizedDescription, privacy: .public)",
+                    )
+                    continue
+                }
                 guard FileManager.default.fileExists(atPath: url.path) else {
                     continue
                 }
@@ -289,7 +297,7 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
                     throw StoreError.incompatibleArtifact
                 }
 
-                let url = recordURL(for: identity)
+                let url = try recordURL(for: identity)
                 let now = Date()
                 let existingCreatedAt = (try? decodeRecord(at: url))?.createdAt
                 let record = try StoredRecord(
@@ -338,7 +346,15 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
             backend: backend,
             pipeline: pipeline,
         )
-        let url = recordURL(for: identity)
+        let url: URL
+        do {
+            url = try recordURL(for: identity)
+        } catch {
+            Logger.process.warning(
+                "PerFileAnalysisArtifactStore: could not derive a record key to remove: \(error.localizedDescription, privacy: .public)",
+            )
+            return
+        }
         try? FileManager.default.removeItem(at: url)
         supersessionIndex?[SupersessionKey(identity)]?.remove(url)
     }
@@ -401,14 +417,20 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
         ))?.filter { $0.pathExtension == "json" } ?? []
     }
 
-    private func recordURL(for identity: LookupIdentity) -> URL {
-        storageDirectory
-            .appendingPathComponent(cacheKey(for: identity), isDirectory: false)
+    private func recordURL(for identity: LookupIdentity) throws -> URL {
+        try storageDirectory
+            .appendingPathComponent(Self.cacheKey(for: identity), isDirectory: false)
             .appendingPathExtension("json")
     }
 
-    private func cacheKey(for identity: LookupIdentity) -> String {
-        let data = (try? encode(identity)) ?? Data()
+    /// The on-disk key for a record identity. Throws when the identity cannot
+    /// be encoded (for example a NaN modification date). It must never fall
+    /// back to a constant key, or every such identity would share one file and
+    /// a cached artifact could be served for the wrong photo.
+    nonisolated static func cacheKey(for identity: some Encodable) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(identity)
         return SHA256.hash(data: data).map {
             String(format: "%02x", $0)
         }.joined()

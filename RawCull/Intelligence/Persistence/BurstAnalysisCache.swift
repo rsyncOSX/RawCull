@@ -410,7 +410,19 @@ actor BurstAnalysisCache {
         }.sorted { $0.standardizedPath < $1.standardizedPath }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        let data = (try? encoder.encode(entries)) ?? Data()
+        let data: Data
+        do {
+            data = try encoder.encode(entries)
+        } catch {
+            // A constant fallback (the hash of empty data) would make every
+            // unencodable artifact set share one digest, so a stale snapshot
+            // could be accepted for a different catalog. A digest that matches
+            // nothing turns this into a cache miss instead.
+            Logger.process.warning(
+                "BurstAnalysisCache: could not encode artifact set digest: \(error.localizedDescription, privacy: .public)",
+            )
+            return "unencodable-\(UUID().uuidString)"
+        }
         return SHA256.hash(data: data).map {
             String(format: "%02x", $0)
         }.joined()

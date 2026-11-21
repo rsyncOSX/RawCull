@@ -3,7 +3,11 @@ import Foundation
 @testable import RawCull
 import Testing
 
-@Suite("MCP job lifecycle")
+/// Serialized because `process exit releases follow up worker lock` spawns a child process.
+/// A spawned process briefly holds copies of every open descriptor, even `O_CLOEXEC` ones,
+/// until it reaches `exec`. If another test releases its worker or job lock in that window,
+/// the `flock` lock is still held, and that test's next acquire fails with `.busy`.
+@Suite("MCP job lifecycle", .serialized)
 struct MCPJobLifecycleTests {
     private let now = Date(timeIntervalSince1970: 1000)
 

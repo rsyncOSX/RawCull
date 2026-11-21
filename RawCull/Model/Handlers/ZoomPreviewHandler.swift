@@ -22,7 +22,7 @@ enum ZoomPreviewHandler {
         file: FileItem,
         source: ImagePreviewSource = .embeddedJPG,
         thumbnailSizePreview: Int = 1616,
-        viewModel: RawCullViewModel,
+        zoomOverlay: ZoomOverlayModel,
         evaluateExposure: Bool = false,
         exposureEV: Double = 0,
         maximumDimension: Int? = nil,
@@ -45,12 +45,12 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlayCGImage = nil
-                    viewModel.zoomOverlayNativeSize = nil
-                    viewModel.zoomOverlayRAWIsReduced = nil
-                    viewModel.zoomOverlayRAWRenderSeconds = nil
-                    viewModel.zoomOverlayAnalysisCGImage = nil
-                    viewModel.zoomOverlayNSImage = nil
+                    zoomOverlay.cgImage = nil
+                    zoomOverlay.nativeSize = nil
+                    zoomOverlay.rawIsReduced = nil
+                    zoomOverlay.rawRenderSeconds = nil
+                    zoomOverlay.analysisCGImage = nil
+                    zoomOverlay.nsImage = nil
                 }
 
                 let cgThumb = await RequestThumbnail.shared.requestThumbnail(
@@ -79,11 +79,11 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    viewModel.zoomOverlayAnalysisCGImage = cgThumb
+                    zoomOverlay.analysisCGImage = cgThumb
                     if let displayImage {
-                        viewModel.zoomOverlayNSImage = NSImage(cgImage: displayImage, size: .zero)
+                        zoomOverlay.nsImage = NSImage(cgImage: displayImage, size: .zero)
                     }
-                    viewModel.zoomOverlayVisible = true
+                    zoomOverlay.isVisible = true
                 }
             }
         } else {
@@ -93,14 +93,14 @@ enum ZoomPreviewHandler {
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
                     if !preservingImage {
-                        viewModel.zoomOverlayNSImage = nil
-                        viewModel.zoomOverlayCGImage = nil
-                        viewModel.zoomOverlayNativeSize = nil
-                        viewModel.zoomOverlayRAWIsReduced = nil
-                        viewModel.zoomOverlayRAWRenderSeconds = nil
-                        viewModel.zoomOverlayAnalysisCGImage = nil
+                        zoomOverlay.nsImage = nil
+                        zoomOverlay.cgImage = nil
+                        zoomOverlay.nativeSize = nil
+                        zoomOverlay.rawIsReduced = nil
+                        zoomOverlay.rawRenderSeconds = nil
+                        zoomOverlay.analysisCGImage = nil
                     }
-                    viewModel.zoomOverlayVisible = true
+                    zoomOverlay.isVisible = true
                 }
 
                 guard !Task.isCancelled else { return }
@@ -144,15 +144,15 @@ enum ZoomPreviewHandler {
                 if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlayNativeSize = nativeSize
-                        viewModel.zoomOverlayRAWIsReduced = isReducedRAW
-                        viewModel.zoomOverlayRAWRenderSeconds = renderSeconds
-                        viewModel.zoomOverlayCGImage = image
+                        zoomOverlay.nativeSize = nativeSize
+                        zoomOverlay.rawIsReduced = isReducedRAW
+                        zoomOverlay.rawRenderSeconds = renderSeconds
+                        zoomOverlay.cgImage = image
                     }
                 }
                 let resolvedAnalysisImage = await analysisImage
                 guard !Task.isCancelled else { return }
-                viewModel.zoomOverlayAnalysisCGImage = resolvedAnalysisImage ?? image
+                zoomOverlay.analysisCGImage = resolvedAnalysisImage ?? image
             }
         }
     }

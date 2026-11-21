@@ -10,7 +10,8 @@ import SwiftUI
 
 struct CopyFilesView: View {
     @Environment(\.dismiss) var dismiss
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CatalogController.self) private var catalogController
 
     @Binding var remoteDataNumbers: RemoteDataNumbers?
     @Binding var sheetType: SheetType?
@@ -41,7 +42,7 @@ struct CopyFilesView: View {
             Divider()
 
             SourceAndDestinationSection(
-                sourceCatalog: viewModel.selectedSource?.url.path ?? "",
+                sourceCatalog: catalog.selectedSource?.url.path ?? "",
                 destinationCatalog: $destinationCatalog,
                 bookmarkStore: bookmarkStore,
             )
@@ -69,12 +70,12 @@ struct CopyFilesView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
-                    guard viewModel.selectedSource != nil,
+                    guard catalog.selectedSource != nil,
                           !destinationCatalog.isEmpty else { return }
                     showResult = false
                     executeCopyFiles()
                 }
-                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationCatalog.isEmpty)
+                .disabled(copyFilesinProgress || catalog.selectedSource == nil || destinationCatalog.isEmpty)
             }
         }
         .onDisappear {
@@ -146,7 +147,7 @@ struct CopyFilesView: View {
             dryrun: dryrun,
             rating: copyratedfiles,
             copyTaggedFiles: copyTaggedFiles,
-            sidebarRawCullViewModel: viewModel,
+            catalogController: catalogController,
             bookmarkStore: bookmarkStore,
         )
 

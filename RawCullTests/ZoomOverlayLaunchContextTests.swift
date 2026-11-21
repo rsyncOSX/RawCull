@@ -10,26 +10,26 @@ struct ZoomOverlayLaunchContextTests {
     func `default zoom overlay opens the embedded JPG fitted without focus points`() {
         let viewModel = makeRawCullViewModel()
 
-        viewModel.openZoomOverlay()
+        viewModel.navigation.openZoomOverlay()
 
-        #expect(viewModel.zoomOverlayLaunchContext == .default)
-        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .embeddedJPG)
-        #expect(viewModel.zoomOverlayLaunchContext.initialZoomMode == .fit)
-        #expect(viewModel.zoomOverlayLaunchContext.showFocusPointsOnOpen == false)
+        #expect(viewModel.zoomOverlay.launchContext == .default)
+        #expect(viewModel.zoomOverlay.launchContext.initialSource == .embeddedJPG)
+        #expect(viewModel.zoomOverlay.launchContext.initialZoomMode == .fit)
+        #expect(viewModel.zoomOverlay.launchContext.showFocusPointsOnOpen == false)
     }
 
     @Test
     func `actual-pixels launch context requests embedded JPG and focus points`() {
         let viewModel = makeRawCullViewModel()
 
-        viewModel.openZoomOverlay(
+        viewModel.navigation.openZoomOverlay(
             initialSource: .embeddedJPG,
             initialZoomMode: .actualPixels,
             showFocusPointsOnOpen: true,
         )
 
-        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .embeddedJPG)
-        #expect(viewModel.zoomOverlayLaunchContext.initialZoomMode == .actualPixels)
-        #expect(viewModel.zoomOverlayLaunchContext.showFocusPointsOnOpen)
+        #expect(viewModel.zoomOverlay.launchContext.initialSource == .embeddedJPG)
+        #expect(viewModel.zoomOverlay.launchContext.initialZoomMode == .actualPixels)
+        #expect(viewModel.zoomOverlay.launchContext.showFocusPointsOnOpen)
     }
 }

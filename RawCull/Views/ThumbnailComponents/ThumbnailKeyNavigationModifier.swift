@@ -44,7 +44,14 @@ enum ThumbnailKeyboardRouting {
 }
 
 struct ThumbnailKeyNavigationModifier: ViewModifier {
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CullingController.self) private var culling
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(SelectionModel.self) private var selection
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
     let axis: ThumbnailNavigationAxis
     let filesOverride: (() -> [FileItem])?
     let onBurstKeyPress: ((String) -> KeyPress.Result)?
@@ -58,38 +65,38 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                 guard keyMonitor == nil else { return }
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     guard keyboardScope.accepts(event),
-                          viewModel.mainViewMode != .comparisonGrid,
-                          !viewModel.zoomOverlayVisible,
+                          navigation.mainViewMode != .comparisonGrid,
+                          !zoomOverlay.isVisible,
                           event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
 
                     if ThumbnailKeyboardRouting.handleBurstCommand(
                         event.charactersIgnoringModifiers,
-                        showsBurstGroups: axis == .grid && viewModel.showsBurstGroups,
+                        showsBurstGroups: axis == .grid && navigation.showsBurstGroups,
                         perform: onBurstKeyPress,
                     ) {
                         return nil
                     }
 
-                    guard viewModel.selectedFile != nil else { return event }
+                    guard catalog.file(withID: selection.selectedFileID) != nil else { return event }
 
                     let files: [FileItem] = {
                         if let filesOverride {
                             return filesOverride()
                         }
-                        let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
+                        let filtered = catalog.filteredFiles.filter { ratings.passesRatingFilter($0) }
                         if axis == .grid,
-                           viewModel.showsBurstGroups,
-                           !viewModel.similarityFeature.burstGroups.isEmpty {
+                           navigation.showsBurstGroups,
+                           !similarityFeature.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
-                            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
-                                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+                            if !selection.cullingGridRenderedFileIDs.isEmpty {
+                                return selection.cullingGridRenderedFileIDs.compactMap { visible[$0] }
                             }
-                            return viewModel.similarityFeature.burstGroups.flatMap { group in
+                            return similarityFeature.burstGroups.flatMap { group in
                                 group.fileIDs.compactMap { visible[$0] }
                             }
                         }
-                        let usesAnalysisSortOrder = viewModel.sharpnessModel.sortBySharpness
-                            || viewModel.similarityFeature.isSimilaritySortingActive
+                        let usesAnalysisSortOrder = sharpnessModel.sortBySharpness
+                            || similarityFeature.isSimilaritySortingActive
                         return usesAnalysisSortOrder
                             ? filtered
                             : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -104,7 +111,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
 
                     switch event.keyCode {
                     case _ where ThumbnailKeyAction.resolve(characters: event.characters) == .inspectActualPixels:
-                        viewModel.openZoomOverlay(
+                        navigation.openZoomOverlay(
                             navigationIDs: files.map(\.id),
                             initialSource: .embeddedJPG,
                             initialZoomMode: .actualPixels,
@@ -113,53 +120,53 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case _ where isPrev:
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx > 0 else { return nil }
-                        viewModel.selectedFileID = files[idx - 1].id
+                        selection.selectedFileID = files[idx - 1].id
                         return nil
 
                     case _ where isNext:
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx + 1 < files.count else { return nil }
-                        viewModel.selectedFileID = files[idx + 1].id
+                        selection.selectedFileID = files[idx + 1].id
                         return nil
 
                     case 7: // x / X — reject (rating −1, red), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
-                            viewModel.selectedFileIDs = []
+                            culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
+                            selection.selectedFileIDs = []
                             return nil
                         }
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: -1, in: files)
+                        culling.updateRatingAndAdvance(for: current, rating: -1, in: files)
                         return nil
 
                     case 35: // p / P — keep (rating 0), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
-                            viewModel.selectedFileIDs = []
+                            culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            selection.selectedFileIDs = []
                             return nil
                         }
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
+                        culling.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
                     case 29: // 0 — keep (rating 0), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
-                            viewModel.selectedFileIDs = []
+                            culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            selection.selectedFileIDs = []
                             return nil
                         }
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
+                        culling.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
                     case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating and advance to next
@@ -170,27 +177,27 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         case 21: 4
                         default: 5 // 23
                         }
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
-                            viewModel.selectedFileIDs = []
+                            culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
+                            selection.selectedFileIDs = []
                             return nil
                         }
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: rating, in: files)
+                        culling.updateRatingAndAdvance(for: current, rating: rating, in: files)
                         return nil
 
                     case 17: // t — default tag (rating 3, green), advance to next
-                        let multiIDs = viewModel.selectedFileIDs
+                        let multiIDs = selection.selectedFileIDs
                         if multiIDs.count > 1 {
-                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
-                            viewModel.selectedFileIDs = []
+                            culling.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
+                            selection.selectedFileIDs = []
                             return nil
                         }
-                        guard let current = viewModel.selectedFile,
+                        guard let current = catalog.file(withID: selection.selectedFileID),
                               files.contains(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRatingAndAdvance(for: current, rating: 3, in: files)
+                        culling.updateRatingAndAdvance(for: current, rating: 3, in: files)
                         return nil
 
                     default:
@@ -209,13 +216,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
 
 extension View {
     func thumbnailKeyNavigation(
-        viewModel: RawCullViewModel,
         axis: ThumbnailNavigationAxis,
         files: (() -> [FileItem])? = nil,
         onBurstKeyPress: ((String) -> KeyPress.Result)? = nil,
     ) -> some View {
         modifier(ThumbnailKeyNavigationModifier(
-            viewModel: viewModel, axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
+            axis: axis, filesOverride: files, onBurstKeyPress: onBurstKeyPress,
         ))
     }
 }

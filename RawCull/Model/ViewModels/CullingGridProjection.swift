@@ -3,6 +3,7 @@ import RawCullCore
 
 struct CullingGridProjectionKey: Equatable {
     let contentRevision: UInt64
+    let ratingRevision: UInt64
     let reviewRevision: UInt64
     let similarityRevision: UInt64
     let saliencyRevision: UInt64
@@ -24,19 +25,20 @@ struct CullingGridProjection {
     let badges: [BatchBadgeSelectionItem]
 }
 
-extension RawCullViewModel {
+extension CatalogController {
     /// Revisions are advanced at mutation sites. Reading this key never hashes
     /// catalog membership or reconstructs a semantic selection set.
     func cullingGridProjection(ratingFilter: GridRatingFilter) -> CullingGridProjection {
         let key = CullingGridProjectionKey(
-            contentRevision: gridContentRevision,
-            reviewRevision: burstReviewSession.contentRevision,
+            contentRevision: catalog.gridRevision,
+            ratingRevision: ratings.revision,
+            reviewRevision: burstWorkflow.burstReviewSession.contentRevision,
             similarityRevision: similarityModel.gridContentRevision,
             saliencyRevision: sharpnessModel.saliencyRevision,
-            sourceURL: selectedSource?.url,
+            sourceURL: catalog.selectedSource?.url,
             ratingFilter: ratingFilter,
-            reviewQueueFilter: burstReviewQueueFilter,
-            showsBurstGroups: showsBurstGroups,
+            reviewQueueFilter: burstWorkflow.burstReviewQueueFilter,
+            showsBurstGroups: navigation.showsBurstGroups,
             hasSharpnessScores: !sharpnessModel.scores.isEmpty,
         )
         if let cached = gridProjectionCache, cached.key == key {
@@ -44,26 +46,26 @@ extension RawCullViewModel {
         }
         let visibleFiles: [FileItem] = switch ratingFilter {
         case .all:
-            filteredFiles
+            catalog.filteredFiles
 
         case .unrated:
-            selectedSource == nil ? filteredFiles : filteredFiles.filter { ratingCache[$0.name] == nil }
+            catalog.selectedSource == nil ? catalog.filteredFiles : catalog.filteredFiles.filter { ratings.ratingCache[$0.name] == nil }
 
         case let .rating(value):
-            filteredFiles.filter { ratingCache[$0.name] == value }
+            catalog.filteredFiles.filter { ratings.ratingCache[$0.name] == value }
         }
         let cache = CullingGridRenderCache.rebuild(
-            files: visibleFiles, burstGroups: filteredBurstGroupsForReviewQueue,
+            files: visibleFiles, burstGroups: burstWorkflow.filteredBurstGroupsForReviewQueue,
             scores: sharpnessModel.scores,
         )
         let groups: [CullingGridVisibleBurstGroup]
-        if burstReviewQueueFilter == .singleImages {
+        if burstWorkflow.burstReviewQueueFilter == .singleImages {
             let singleFiles = cache.visibleBurstGroups.flatMap(\.files)
             groups = singleFiles.isEmpty ? [] : [CullingGridVisibleBurstGroup(id: -1, files: singleFiles)]
         } else {
             groups = cache.visibleBurstGroups.map { group in
                 CullingGridVisibleBurstGroup(id: group.id, files: BurstGroupFileOrderPolicy.orderedFiles(
-                    in: group.files, rankedFileIDs: burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
+                    in: group.files, rankedFileIDs: burstWorkflow.burstAnalysisResults[group.id]?.candidates.map(\.fileID) ?? [],
                 ))
             }
         }
@@ -75,7 +77,7 @@ extension RawCullViewModel {
             selectionFiles: selectionFiles, selectionIDs: selectionFiles.map(\.id),
             badges: CullingGridSelectionCoordinator.badgeSelectionItems(
                 visibleFiles: selectionFiles, burstGroupLookup: similarityModel.burstGroupLookup,
-                burstAnalysisResults: burstAnalysisResults, saliencyInfo: sharpnessModel.saliencyInfo,
+                burstAnalysisResults: burstWorkflow.burstAnalysisResults, saliencyInfo: sharpnessModel.saliencyInfo,
             ),
         )
         // Memoization is not presentation state; cache writes are observation-ignored.

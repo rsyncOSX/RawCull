@@ -33,8 +33,6 @@ protocol ComparisonSessionSelection: AnyObject {
     var selectedFileID: FileItem.ID? { get set }
 }
 
-extension RawCullViewModel: ComparisonSessionSelection {}
-
 struct ComparisonSessionPresentation {
     let displayState: ComparisonGridDisplayState
     let imageStates: [FileItem.ID: ComparisonImageState]
@@ -62,10 +60,10 @@ struct ComparisonSessionPresentation {
 
 @MainActor
 final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
-    private let viewModel: RawCullViewModel
+    private let sharpnessModel: SharpnessScoringModel
 
-    init(viewModel: RawCullViewModel) {
-        self.viewModel = viewModel
+    init(sharpnessModel: SharpnessScoringModel) {
+        self.sharpnessModel = sharpnessModel
     }
 
     func loadImages(
@@ -78,7 +76,7 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
         await ComparisonGridImageCoordinator.loadImages(
             files: files,
             sourceFlags: sourceFlags,
-            viewModel: viewModel,
+            sharpnessModel: sharpnessModel,
         )
     }
 
@@ -89,7 +87,7 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
         await ComparisonGridImageCoordinator.reloadImage(
             for: file,
             sourceFlags: sourceFlags,
-            viewModel: viewModel,
+            sharpnessModel: sharpnessModel,
         )
     }
 
@@ -100,7 +98,7 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
         await ComparisonGridImageCoordinator.regenerateFocusMasks(
             files: files,
             states: states,
-            viewModel: viewModel,
+            sharpnessModel: sharpnessModel,
         )
     }
 

@@ -55,15 +55,15 @@ struct CopyCompletionTests {
         try bytes.write(to: source.appendingPathComponent("Present.ARW"))
 
         let viewModel = makeRawCullViewModel()
-        viewModel.selectedSource = ARWSourceCatalog(name: "Source", url: scopedSource)
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Source", url: scopedSource)
         let names = missingFile ? ["Present.ARW", "Missing.ARW"] : ["Present.ARW"]
-        viewModel.filteredFiles = names.map { name in
+        viewModel.catalog.filteredFiles = names.map { name in
             FileItem(url: source.appendingPathComponent(name), name: name, size: 1,
                      dateModified: Date(), exifData: nil, afFocusNormalized: nil)
         }
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), dryrun: false, rating: 0,
-            copyTaggedFiles: false, sidebarRawCullViewModel: viewModel,
+            copyTaggedFiles: false, catalogController: viewModel.catalogController,
             includeListDirectory: root, bookmarkStore: CopyBookmarkStore(defaults: defaults),
         )
         defer { manager.close() }

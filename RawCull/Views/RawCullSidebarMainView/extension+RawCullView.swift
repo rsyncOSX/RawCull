@@ -10,7 +10,15 @@ import SwiftUI
 extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
-            viewModel: viewModel,
+            catalog: viewModel.catalog,
+            selection: viewModel.selection,
+            ratings: viewModel.ratings,
+            presentation: viewModel.presentation,
+            burstWorkflow: viewModel.burstWorkflow,
+            navigation: viewModel.navigation,
+            catalogController: viewModel.catalogController,
+            sharpnessModel: viewModel.sharpnessModel,
+            similarityFeature: viewModel.similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             combinedReviewEnabled: aiSettingsModel.combinedReviewEnabled,
             isDisabled: deepAIReviewController.isRunning
@@ -22,19 +30,19 @@ extension RawCullMainView {
     }
 
     func toggleLoupeMetadataPanel() {
-        guard viewModel.mainViewMode == .loupe else { return }
+        guard viewModel.navigation.mainViewMode == .loupe else { return }
         withAnimation(.snappy) {
-            viewModel.showsLoupeMetadataPanel.toggle()
+            viewModel.presentation.showsLoupeMetadataPanel.toggle()
         }
     }
 
     func handlePickerResult(_ result: Result<URL, Error>) {
-        viewModel.isShowingPicker = false
+        viewModel.presentation.isShowingPicker = false
 
         if case let .success(url) = result {
             let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
-            viewModel.sources.append(source)
-            viewModel.selectedSource = source
+            viewModel.catalog.sources.append(source)
+            viewModel.catalog.selectedSource = source
         }
     }
 }

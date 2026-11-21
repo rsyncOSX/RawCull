@@ -11,7 +11,7 @@ import VisionFeaturePrintBackend
 /// Application-owned runtime for RawCull's AI model backends and resources.
 ///
 /// `RawCullApplicationState` constructs stateful features and binds them to the
-/// services they need. Views and `RawCullViewModel` do not traverse this object.
+/// services they need. Views and the workspace view model do not traverse this object.
 /// The container is main-actor isolated for configuration, while CLIP, SAM 3,
 /// and Qwen retain independent actor isolation for resource and inference work.
 @MainActor
@@ -39,6 +39,7 @@ final class RawCullAIModelRuntime {
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
+    private let objectMaskStorageCapability: RawCullAICapabilityStatus
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
     private let inputMaxSide: Int
@@ -89,9 +90,11 @@ final class RawCullAIModelRuntime {
         self.subjectMaskStorageCapability = diskStoreResult.capability
 
         self.objectMaskMemoryStore = ObjectMaskMemoryStore()
-        self.objectMaskDiskStore = try? ObjectMaskDiskStore(
-            cacheDirectory: paths.objectMaskDirectory,
+        let objectDiskStoreResult = Self.makeObjectMaskDiskStore(
+            at: paths.objectMaskDirectory,
         )
+        self.objectMaskDiskStore = objectDiskStoreResult.store
+        self.objectMaskStorageCapability = objectDiskStoreResult.capability
         self.objectSegmentation = nil
 
         var stores: [any SubjectMaskStoring] = [memoryStore]
@@ -138,6 +141,7 @@ final class RawCullAIModelRuntime {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
+            objectMaskStorage: objectDiskStoreResult.capability,
             inProcessMaskGeneration: .checking(
                 expectedLocations: defaultSegmentationCandidateURLs,
             ),
@@ -177,6 +181,7 @@ final class RawCullAIModelRuntime {
             semanticSearchByCLIPModel: capabilitySnapshot.semanticSearchByCLIPModel,
             visionFeaturePrint: capabilitySnapshot.visionFeaturePrint,
             subjectMaskStorage: capabilitySnapshot.subjectMaskStorage,
+            objectMaskStorage: capabilitySnapshot.objectMaskStorage,
             inProcessMaskGeneration: status,
         )
         activateSelectedSegmentationProvider(availability: status)
@@ -353,6 +358,7 @@ final class RawCullAIModelRuntime {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
+            objectMaskStorage: objectMaskStorageCapability,
             inProcessMaskGeneration: selectedSegmentationStatus,
         )
         capabilitySnapshot = capabilities
@@ -371,6 +377,28 @@ final class RawCullAIModelRuntime {
                 .available(location: directory),
             )
         } catch {
+            return (
+                nil,
+                .invalid(location: directory, reason: String(describing: error)),
+            )
+        }
+    }
+
+    /// Mirrors `makeSubjectMaskDiskStore`: object masks keep working from
+    /// memory when the disk cache cannot be created, but the failure is logged
+    /// and reported as a capability instead of being dropped.
+    private static func makeObjectMaskDiskStore(
+        at directory: URL,
+    ) -> (store: ObjectMaskDiskStore?, capability: RawCullAICapabilityStatus) {
+        do {
+            return try (
+                ObjectMaskDiskStore(cacheDirectory: directory),
+                .available(location: directory),
+            )
+        } catch {
+            Logger.process.warning(
+                "RawCullAIModelRuntime: object mask disk cache unavailable at \(directory.path, privacy: .public): \(error.localizedDescription, privacy: .public)",
+            )
             return (
                 nil,
                 .invalid(location: directory, reason: String(describing: error)),

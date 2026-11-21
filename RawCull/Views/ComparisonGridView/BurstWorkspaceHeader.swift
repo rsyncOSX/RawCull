@@ -3,22 +3,24 @@ import RawCullCore
 import SwiftUI
 
 struct BurstWorkspaceHeader: View {
-    let viewModel: RawCullViewModel
+    let catalog: CatalogWorkspace
+    let burstWorkflow: BurstWorkflowController
+    let similarityFeature: RawCullSimilarityFeature
     let groupID: Int
     @Binding var sortByAFPoint: Bool
 
     private var burstNumber: Int {
-        (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
+        (similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
 
     private var isReviewed: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
+        burstWorkflow.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     var body: some View {
         HStack(spacing: 12) {
             Button {
-                viewModel.returnToActiveBurstGroupView()
+                burstWorkflow.returnToActiveBurstGroupView()
             } label: {
                 Label("Burst list", systemImage: "chevron.left")
             }
@@ -26,7 +28,7 @@ struct BurstWorkspaceHeader: View {
             .controlSize(.regular)
             .help("Return to Burst list (R)")
 
-            Text("\(viewModel.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
+            Text("\(catalog.selectedSource?.name ?? "Catalog")  ·  \(groupID == -1 ? "Single Images" : "Burst \(burstNumber.formatted(.number.precision(.integerLength(2))))")")
                 .font(.callout.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -48,9 +50,9 @@ struct BurstWorkspaceHeader: View {
             }
 
             BurstAssessmentButton(
-                viewModel: viewModel,
-                files: viewModel.files.filter { file in
-                    viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
+                catalog: catalog,
+                files: catalog.files.filter { file in
+                    similarityFeature.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
                 },
             )
             reviewButton
@@ -73,7 +75,7 @@ struct BurstWorkspaceHeader: View {
 
     private var reviewButtonContent: some View {
         Button {
-            viewModel.toggleBurstGroupReviewed(groupID: groupID)
+            burstWorkflow.toggleBurstGroupReviewed(groupID: groupID)
         } label: {
             Label(
                 "Mark Reviewed",

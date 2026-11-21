@@ -319,8 +319,8 @@ struct BurstAnalysisCoordinatorTests {
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
         let files = (0 ..< 4).map { makeCoordinatorFile("R\($0).raw") }
-        viewModel.selectedSource = catalog
-        viewModel.files = files
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = files
 
         let run = Task { await viewModel.startBurstAnalysis(catalog: catalog.url, files: files) }
         while await !gate.hasStarted {
@@ -328,13 +328,13 @@ struct BurstAnalysisCoordinatorTests {
         }
         #expect(viewModel.burstAnalysisProgress.isRunning)
         viewModel.similarityModel.burstSensitivity = 0.5
-        await viewModel.reGroupBursts()
+        await viewModel.burstWorkflow.reGroupBursts()
         await gate.release()
         _ = await run.value
 
-        #expect(viewModel.completedBurstAnalysisContext != nil)
+        #expect(viewModel.burstWorkflow.completedBurstAnalysisContext != nil)
         #expect(
-            viewModel.completedBurstAnalysisContext?.similaritySignature
+            viewModel.burstWorkflow.completedBurstAnalysisContext?.similaritySignature
                 == viewModel.currentBurstSimilaritySignature,
         )
         #expect(!viewModel.burstAnalysisProgress.isRunning)

@@ -7,7 +7,10 @@ trap 'rm -rf "$package"' EXIT
 mkdir -p "$package/Sources/RawCull" "$package/Tests/RawCullTests"
 
 store_sources="$repo/Tools/RawCullMCP/Sources/RawCullMCP"
-cp "$store_sources/AnalysisJobStore.swift" "$store_sources/CatalogGrantStore.swift" "$package/Sources/RawCull/"
+for source in AnalysisJob.swift AnalysisJobStore.swift AnalysisJobStore+FollowUps.swift CatalogSetupStore.swift \
+    MCPAssessmentStopReason.swift CatalogGrantStore.swift; do
+    cp "$store_sources/$source" "$package/Sources/RawCull/"
+done
 cp "$repo/RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift" "$package/Sources/RawCull/"
 cp "$repo/RawCullTests/MCPJobLifecycleTests.swift" "$package/Tests/RawCullTests/"
 

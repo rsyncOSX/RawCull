@@ -13,7 +13,9 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let session = ZoomSessionModel()
         let controls = ZoomOverlayControls(
-            viewModel: viewModel, session: session, hasFocusTarget: false,
+            zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
+            deepAIReviewController: viewModel.deepAIReviewController,
+            session: session, hasFocusTarget: false,
             onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
         )
         let changes = Mutex(0)
@@ -22,7 +24,7 @@ struct ReviewViewBoundaryTests {
         } onChange: {
             changes.withLock { $0 += 1 }
         }
-        viewModel.scale = 2
+        viewModel.loupeViewport.scale = 2
         #expect(changes.withLock { $0 } == 0)
         session.viewport.scale = 2
         #expect(changes.withLock { $0 } == 1)
@@ -30,16 +32,20 @@ struct ReviewViewBoundaryTests {
 
     @Test func `burst header observes catalog changes independently of viewport changes`() {
         let viewModel = makeRawCullViewModel()
-        let header = BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
+        let header = BurstWorkspaceHeader(
+            catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
+            similarityFeature: viewModel.similarityFeature,
+            groupID: 1, sortByAFPoint: .constant(false),
+        )
         let changes = Mutex(0)
         withObservationTracking {
             _ = header.body
         } onChange: {
             changes.withLock { $0 += 1 }
         }
-        viewModel.scale = 2
+        viewModel.loupeViewport.scale = 2
         #expect(changes.withLock { $0 } == 0)
-        viewModel.selectedSource = ARWSourceCatalog(name: "New catalog", url: URL(filePath: "/tmp/new-catalog"))
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "New catalog", url: URL(filePath: "/tmp/new-catalog"))
         #expect(changes.withLock { $0 } == 1)
     }
 
@@ -65,13 +71,19 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let session = ZoomSessionModel()
         let content = VStack(spacing: 16) {
-            BurstWorkspaceHeader(viewModel: viewModel, groupID: 1, sortByAFPoint: .constant(false))
+            BurstWorkspaceHeader(
+                catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
+                similarityFeature: viewModel.similarityFeature,
+                groupID: 1, sortByAFPoint: .constant(false),
+            )
             BurstWorkspaceFilmstrip(
-                viewModel: viewModel, files: [], analysis: nil, burstNumber: 1,
+                selection: viewModel.selection, files: [], analysis: nil, burstNumber: 1,
                 canNavigatePrevious: false, canNavigateNext: false, navigate: { _ in },
             )
             ZoomOverlayControls(
-                viewModel: viewModel, session: session, hasFocusTarget: false,
+                zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
+                deepAIReviewController: viewModel.deepAIReviewController,
+                session: session, hasFocusTarget: false,
                 onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
             )
         }

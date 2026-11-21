@@ -36,18 +36,18 @@ struct RawCullViewModelCullingTests {
     func `rebuildRatingCache populates ratings and tagged filenames for selected catalog`() {
         let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
-        viewModel.selectedSource = catalog
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.cullingModel.updateRatings(fileNames: ["one.ARW", "two.ARW"], rating: 2, in: catalog.url)
-        viewModel.cullingModel.mergeScoringResults(
+        viewModel.catalog.selectedSource = catalog
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.ratings.cullingModel.updateRatings(fileNames: ["one.ARW", "two.ARW"], rating: 2, in: catalog.url)
+        viewModel.ratings.cullingModel.mergeScoringResults(
             [CullingScoringResult(fileName: "scored.ARW", score: 0.7, saliencySubject: nil)],
             in: catalog.url,
         )
 
-        viewModel.rebuildRatingCache()
+        viewModel.catalogController.rebuildRatingCache()
 
-        #expect(viewModel.ratingCache == ["one.ARW": 2, "two.ARW": 2])
-        #expect(viewModel.taggedNamesCache == ["one.ARW", "two.ARW"])
+        #expect(viewModel.ratings.ratingCache == ["one.ARW": 2, "two.ARW": 2])
+        #expect(viewModel.ratings.taggedNamesCache == ["one.ARW", "two.ARW"])
     }
 
     @Test
@@ -57,24 +57,24 @@ struct RawCullViewModelCullingTests {
         let keeper = makeCullingTestFile("keeper.ARW")
         let unrated = makeCullingTestFile("unrated.ARW")
         let star = makeCullingTestFile("star.ARW")
-        viewModel.ratingCache = [
+        viewModel.ratings.ratingCache = [
             rejected.name: -1,
             keeper.name: 0,
             star.name: 4
         ]
 
-        viewModel.ratingFilter = .rejected
-        #expect(viewModel.passesRatingFilter(rejected))
-        #expect(!viewModel.passesRatingFilter(keeper))
+        viewModel.ratings.ratingFilter = .rejected
+        #expect(viewModel.ratings.passesRatingFilter(rejected))
+        #expect(!viewModel.ratings.passesRatingFilter(keeper))
 
-        viewModel.ratingFilter = .keepers
-        #expect(viewModel.passesRatingFilter(keeper))
-        #expect(!viewModel.passesRatingFilter(unrated))
-        #expect(!viewModel.passesRatingFilter(star))
+        viewModel.ratings.ratingFilter = .keepers
+        #expect(viewModel.ratings.passesRatingFilter(keeper))
+        #expect(!viewModel.ratings.passesRatingFilter(unrated))
+        #expect(!viewModel.ratings.passesRatingFilter(star))
 
-        viewModel.ratingFilter = .stars(4)
-        #expect(viewModel.passesRatingFilter(star))
-        #expect(!viewModel.passesRatingFilter(rejected))
+        viewModel.ratings.ratingFilter = .stars(4)
+        #expect(viewModel.ratings.passesRatingFilter(star))
+        #expect(!viewModel.ratings.passesRatingFilter(rejected))
     }
 
     @Test
@@ -83,12 +83,12 @@ struct RawCullViewModelCullingTests {
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
         let b = makeCullingTestFile("B.ARW")
-        viewModel.files = [c, a, b]
-        viewModel.filteredFiles = [c, a, b]
+        viewModel.catalog.files = [c, a, b]
+        viewModel.catalog.filteredFiles = [c, a, b]
 
-        viewModel.preselectFirstVisibleFileByName()
+        viewModel.catalogController.preselectFirstVisibleFileByName()
 
-        #expect(viewModel.selectedFileID == a.id)
+        #expect(viewModel.selection.selectedFileID == a.id)
     }
 
     @Test
@@ -98,26 +98,26 @@ struct RawCullViewModelCullingTests {
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
         let b = makeCullingTestFile("B.ARW")
-        viewModel.files = [previous, c, a, b]
-        viewModel.filteredFiles = [c, a, b]
-        viewModel.selectedFileID = previous.id
+        viewModel.catalog.files = [previous, c, a, b]
+        viewModel.catalog.filteredFiles = [c, a, b]
+        viewModel.selection.selectedFileID = previous.id
 
-        viewModel.preselectFirstVisibleFileByName()
+        viewModel.catalogController.preselectFirstVisibleFileByName()
 
-        #expect(viewModel.selectedFileID == a.id)
+        #expect(viewModel.selection.selectedFileID == a.id)
     }
 
     @Test
     func `preselectFirstVisibleFileByName clears selection when no files are visible`() {
         let viewModel = makeRawCullViewModel()
         let previous = makeCullingTestFile("previous.ARW")
-        viewModel.files = [previous]
-        viewModel.filteredFiles = []
-        viewModel.selectedFileID = previous.id
+        viewModel.catalog.files = [previous]
+        viewModel.catalog.filteredFiles = []
+        viewModel.selection.selectedFileID = previous.id
 
-        viewModel.preselectFirstVisibleFileByName()
+        viewModel.catalogController.preselectFirstVisibleFileByName()
 
-        #expect(viewModel.selectedFileID == nil)
+        #expect(viewModel.selection.selectedFileID == nil)
     }
 
     @Test
@@ -126,17 +126,17 @@ struct RawCullViewModelCullingTests {
         let softest = makeCullingTestFile("A-softest.ARW")
         let sharpest = makeCullingTestFile("B-sharpest.ARW")
         let middle = makeCullingTestFile("C-middle.ARW")
-        viewModel.files = [softest, sharpest, middle]
-        viewModel.selectedFileID = softest.id
+        viewModel.catalog.files = [softest, sharpest, middle]
+        viewModel.selection.selectedFileID = softest.id
         // Deliberately reverse the combined scores: catalog order must follow AF detail.
         viewModel.sharpnessModel.scores = [softest.id: 0.9, sharpest.id: 0.1, middle.id: 0.5]
         viewModel.sharpnessModel.afPointScores = [softest.id: 0.1, sharpest.id: 0.9, middle.id: 0.5]
         viewModel.sharpnessModel.sortBySharpness = true
 
-        await viewModel.handleSharpnessSortingChange(isEnabled: true)
+        await viewModel.catalogController.handleSharpnessSortingChange(isEnabled: true)
 
-        #expect(viewModel.filteredFiles.map(\.id) == [sharpest.id, middle.id, softest.id])
-        #expect(viewModel.selectedFileID == sharpest.id)
+        #expect(viewModel.catalog.filteredFiles.map(\.id) == [sharpest.id, middle.id, softest.id])
+        #expect(viewModel.selection.selectedFileID == sharpest.id)
     }
 
     @Test
@@ -144,13 +144,13 @@ struct RawCullViewModelCullingTests {
         let viewModel = makeRawCullViewModel()
         let first = makeCullingTestFile("A.ARW")
         let selected = makeCullingTestFile("B.ARW")
-        viewModel.files = [selected, first]
-        viewModel.selectedFileID = selected.id
+        viewModel.catalog.files = [selected, first]
+        viewModel.selection.selectedFileID = selected.id
         viewModel.sharpnessModel.sortBySharpness = false
 
-        await viewModel.handleSharpnessSortingChange(isEnabled: false)
+        await viewModel.catalogController.handleSharpnessSortingChange(isEnabled: false)
 
-        #expect(viewModel.selectedFileID == selected.id)
+        #expect(viewModel.selection.selectedFileID == selected.id)
     }
 
     @Test
@@ -159,12 +159,12 @@ struct RawCullViewModelCullingTests {
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
-        viewModel.files = [twoStar, selectedLater, selectedEarlier]
-        viewModel.ratingCache = [twoStar.name: 2]
-        viewModel.ratingFilter = .stars(2)
-        viewModel.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
+        viewModel.catalog.files = [twoStar, selectedLater, selectedEarlier]
+        viewModel.ratings.ratingCache = [twoStar.name: 2]
+        viewModel.ratings.ratingFilter = .stars(2)
+        viewModel.selection.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["A-selected.ARW", "C-selected.ARW"])
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == ["A-selected.ARW", "C-selected.ARW"])
     }
 
     @Test
@@ -173,14 +173,14 @@ struct RawCullViewModelCullingTests {
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
         let unrated = makeCullingTestFile("C-unrated.ARW")
-        viewModel.files = [twoStar, fourStar, unrated]
-        viewModel.ratingCache = [
+        viewModel.catalog.files = [twoStar, fourStar, unrated]
+        viewModel.ratings.ratingCache = [
             twoStar.name: 2,
             fourStar.name: 4
         ]
-        viewModel.ratingFilter = .stars(2)
+        viewModel.ratings.ratingFilter = .stars(2)
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["B-two-star.ARW"])
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == ["B-two-star.ARW"])
     }
 
     @Test
@@ -189,22 +189,22 @@ struct RawCullViewModelCullingTests {
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
-        viewModel.files = [rejected, keeper, rated]
-        viewModel.ratingCache = [
+        viewModel.catalog.files = [rejected, keeper, rated]
+        viewModel.ratings.ratingCache = [
             rejected.name: -1,
             rated.name: 3
         ]
 
         let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
 
-        viewModel.ratingFilter = .all
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .all
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
 
-        viewModel.ratingFilter = .keepers
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .keepers
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
 
-        viewModel.ratingFilter = .rejected
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .rejected
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == expectedNames)
     }
 
     @Test
@@ -213,9 +213,9 @@ struct RawCullViewModelCullingTests {
         let latest = makeCullingTestFile("A-latest.ARW", captureSeconds: 30)
         let earliest = makeCullingTestFile("Z-earliest.ARW", captureSeconds: 10)
         let fallback = makeCullingTestFile("M-fallback.ARW", modificationSeconds: 20)
-        viewModel.files = [latest, fallback, earliest]
+        viewModel.catalog.files = [latest, fallback, earliest]
 
-        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
+        #expect(viewModel.burstWorkflow.burstAnalysisTargetFiles.map(\.name) == [
             "Z-earliest.ARW",
             "M-fallback.ARW",
             "A-latest.ARW"
@@ -228,13 +228,13 @@ struct RawCullViewModelCullingTests {
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
-        viewModel.files = [twoStar, selectedLater, selectedEarlier]
-        viewModel.filteredFiles = [twoStar, selectedLater, selectedEarlier]
-        viewModel.ratingCache = [twoStar.name: 2]
-        viewModel.ratingFilter = .stars(2)
-        viewModel.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
+        viewModel.catalog.files = [twoStar, selectedLater, selectedEarlier]
+        viewModel.catalog.filteredFiles = [twoStar, selectedLater, selectedEarlier]
+        viewModel.ratings.ratingCache = [twoStar.name: 2]
+        viewModel.ratings.ratingFilter = .stars(2)
+        viewModel.selection.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
 
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == ["C-selected.ARW", "A-selected.ARW"])
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == ["C-selected.ARW", "A-selected.ARW"])
     }
 
     @Test
@@ -243,16 +243,16 @@ struct RawCullViewModelCullingTests {
         let firstVisible = makeCullingTestFile("D-two-star.ARW")
         let secondVisible = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
-        viewModel.files = [secondVisible, fourStar, firstVisible]
-        viewModel.filteredFiles = [firstVisible, secondVisible, fourStar]
-        viewModel.ratingCache = [
+        viewModel.catalog.files = [secondVisible, fourStar, firstVisible]
+        viewModel.catalog.filteredFiles = [firstVisible, secondVisible, fourStar]
+        viewModel.ratings.ratingCache = [
             firstVisible.name: 2,
             secondVisible.name: 2,
             fourStar.name: 4
         ]
-        viewModel.ratingFilter = .stars(2)
+        viewModel.ratings.ratingFilter = .stars(2)
 
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == ["D-two-star.ARW", "B-two-star.ARW"])
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == ["D-two-star.ARW", "B-two-star.ARW"])
     }
 
     @Test
@@ -261,23 +261,23 @@ struct RawCullViewModelCullingTests {
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
-        viewModel.files = [rejected, keeper, rated]
-        viewModel.filteredFiles = [rated]
-        viewModel.ratingCache = [
+        viewModel.catalog.files = [rejected, keeper, rated]
+        viewModel.catalog.filteredFiles = [rated]
+        viewModel.ratings.ratingCache = [
             rejected.name: -1,
             rated.name: 3
         ]
 
         let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
 
-        viewModel.ratingFilter = .all
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .all
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
 
-        viewModel.ratingFilter = .keepers
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .keepers
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
 
-        viewModel.ratingFilter = .rejected
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+        viewModel.ratings.ratingFilter = .rejected
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
     }
 
     @Test
@@ -286,11 +286,11 @@ struct RawCullViewModelCullingTests {
         let visibleSelected = makeCullingTestFile("C-visible-selected.ARW")
         let visibleUnselected = makeCullingTestFile("B-visible-unselected.ARW")
         let hiddenSelected = makeCullingTestFile("A-hidden-selected.ARW")
-        viewModel.files = [visibleSelected, visibleUnselected, hiddenSelected]
-        viewModel.filteredFiles = [visibleSelected, visibleUnselected]
-        viewModel.selectedFileIDs = [visibleSelected.id, hiddenSelected.id]
+        viewModel.catalog.files = [visibleSelected, visibleUnselected, hiddenSelected]
+        viewModel.catalog.filteredFiles = [visibleSelected, visibleUnselected]
+        viewModel.selection.selectedFileIDs = [visibleSelected.id, hiddenSelected.id]
 
-        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == [
+        #expect(viewModel.catalogController.sharpnessScoringTargetFiles.map(\.name) == [
             "C-visible-selected.ARW",
             "A-hidden-selected.ARW"
         ])
@@ -298,18 +298,12 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async throws {
-        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let selectedVisible = makeCullingTestFile("B-selected-visible.ARW")
         let selectedHidden = makeCullingTestFile("A-selected-hidden.ARW")
         let unselected = makeCullingTestFile("C-unselected.ARW")
         let recorder = SharpnessScoreURLRecorder()
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [unselected, selectedHidden, selectedVisible]
-        viewModel.filteredFiles = [selectedVisible, unselected]
-        viewModel.selectedFileIDs = [selectedVisible.id, selectedHidden.id]
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         let image = try #require(makeCullingSharpnessImage())
         let adapter = RawCullPhotoAnalysisAdapter(
             inputLoaderOverride: { file, _, _ in
@@ -322,17 +316,23 @@ struct RawCullViewModelCullingTests {
                 )
             },
         )
-        viewModel.sharpnessModel = SharpnessScoringModel(
-            analysisAdapterOverride: adapter,
+        let viewModel = makeRawCullViewModel(
+            sharpnessModel: SharpnessScoringModel(analysisAdapterOverride: adapter),
         )
 
-        await viewModel.calibrateAndScoreCurrentCatalog()
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [unselected, selectedHidden, selectedVisible]
+        viewModel.catalog.filteredFiles = [selectedVisible, unselected]
+        viewModel.selection.selectedFileIDs = [selectedVisible.id, selectedHidden.id]
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        await viewModel.catalogController.calibrateAndScoreCurrentCatalog()
 
         let scoredFileNames = await recorder.recordedFileNames()
         #expect(Set(scoredFileNames) == ["A-selected-hidden.ARW", "B-selected-visible.ARW"])
         #expect(Set(viewModel.sharpnessModel.scores.keys) == [selectedHidden.id, selectedVisible.id])
 
-        let records = viewModel.cullingModel.savedFiles.first?.filerecords ?? []
+        let records = viewModel.ratings.cullingModel.savedFiles.first?.filerecords ?? []
         #expect(Set(records.compactMap(\.fileName)) == ["A-selected-hidden.ARW", "B-selected-visible.ARW"])
         #expect(!records.contains { $0.fileName == unselected.name })
     }
@@ -345,13 +345,13 @@ struct RawCullViewModelCullingTests {
             makeCullingTestFile("four.ARW"),
             makeCullingTestFile("unrated.ARW")
         ]
-        viewModel.filteredFiles = files
-        viewModel.ratingCache = [
+        viewModel.catalog.filteredFiles = files
+        viewModel.ratings.ratingCache = [
             "two.ARW": 2,
             "four.ARW": 4
         ]
 
-        #expect(viewModel.extractRatedfilenames(3) == ["four.ARW"])
+        #expect(viewModel.catalogController.extractRatedfilenames(3) == ["four.ARW"])
     }
 
     @Test
@@ -359,12 +359,12 @@ struct RawCullViewModelCullingTests {
         let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
-        viewModel.selectedSource = catalog
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRating(for: files, rating: 5)
+        viewModel.culling.updateRating(for: files, rating: 5)
 
-        #expect(viewModel.ratingCache == ["one.ARW": 5, "two.ARW": 5])
+        #expect(viewModel.ratings.ratingCache == ["one.ARW": 5, "two.ARW": 5])
     }
 
     @Test
@@ -376,21 +376,21 @@ struct RawCullViewModelCullingTests {
         )
         let first = makeCullingTestFile("one.ARW")
         let second = makeCullingTestFile("two.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.files = [first, second]
-        viewModel.catalogDisplayCandidates = [first, second]
-        viewModel.filteredFiles = [first, second]
-        viewModel.ratingFilter = .stars(3)
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [first, second]
+        viewModel.catalog.catalogDisplayCandidates = [first, second]
+        viewModel.catalog.filteredFiles = [first, second]
+        viewModel.ratings.ratingFilter = .stars(3)
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRating(for: first, rating: 3)
-        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW"])
+        viewModel.culling.updateRating(for: first, rating: 3)
+        #expect(viewModel.catalog.filteredFiles.map(\.name) == ["one.ARW"])
 
-        viewModel.updateRating(for: second, rating: 3)
-        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW", "two.ARW"])
+        viewModel.culling.updateRating(for: second, rating: 3)
+        #expect(viewModel.catalog.filteredFiles.map(\.name) == ["one.ARW", "two.ARW"])
 
-        viewModel.updateRating(for: first, rating: 2)
-        #expect(viewModel.filteredFiles.map(\.name) == ["two.ARW"])
+        viewModel.culling.updateRating(for: first, rating: 2)
+        #expect(viewModel.catalog.filteredFiles.map(\.name) == ["two.ARW"])
     }
 
     @Test
@@ -402,26 +402,26 @@ struct RawCullViewModelCullingTests {
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
         let file = makeCullingTestFile("one.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.files = [file]
-        viewModel.catalogDisplayCandidates = [file]
-        viewModel.filteredFiles = [file]
-        viewModel.ratingFilter = .stars(3)
-        viewModel.cullingModel = CullingModel(
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [file]
+        viewModel.catalog.catalogDisplayCandidates = [file]
+        viewModel.catalog.filteredFiles = [file]
+        viewModel.ratings.ratingFilter = .stars(3)
+        viewModel.ratings.cullingModel = CullingModel(
             saveDelayNanoseconds: 30_000_000_000,
             saveHandler: { snapshot in await recorder.record(snapshot) },
         )
-        viewModel.updateRating(for: file, rating: 3)
+        viewModel.culling.updateRating(for: file, rating: 3)
 
-        viewModel.clearAllCullingState()
-        let didSave = await viewModel.cullingModel.flushPersistence()
+        viewModel.culling.clearAllCullingState()
+        let didSave = await viewModel.ratings.cullingModel.flushPersistence()
         let snapshots = await recorder.waitForSnapshotCount(1)
 
         #expect(didSave)
-        #expect(viewModel.cullingModel.savedFiles.isEmpty)
-        #expect(viewModel.ratingCache.isEmpty)
-        #expect(viewModel.taggedNamesCache.isEmpty)
-        #expect(viewModel.filteredFiles.isEmpty)
+        #expect(viewModel.ratings.cullingModel.savedFiles.isEmpty)
+        #expect(viewModel.ratings.ratingCache.isEmpty)
+        #expect(viewModel.ratings.taggedNamesCache.isEmpty)
+        #expect(viewModel.catalog.filteredFiles.isEmpty)
         #expect(snapshots.last?.isEmpty == true)
     }
 
@@ -447,22 +447,22 @@ struct RawCullViewModelCullingTests {
             cautions: [],
             timestamp: Date(timeIntervalSince1970: 0),
         )
-        viewModel.selectedSource = catalog
-        viewModel.files = files
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = files
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.similarityModel.burstGroups = [BurstGroup(id: groupID, fileIDs: files.map(\.id))]
         viewModel.similarityModel.burstGroupLookup = Dictionary(
             uniqueKeysWithValues: files.map { ($0.id, groupID) },
         )
-        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
-        viewModel.updateRating(for: files[0], rating: 2)
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
+        viewModel.culling.updateRating(for: files[0], rating: 2)
 
-        viewModel.applyDeepAIReviewRecommendation(result, to: files)
+        viewModel.burstWorkflow.applyDeepAIReviewRecommendation(result, to: files)
 
-        #expect(viewModel.ratingCache == [files[0].name: 2, winner.name: 3])
-        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
-        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
-        #expect(viewModel.cullingModel.overrideWinner(for: files, in: catalog.url)?.winnerFileName == winner.name)
+        #expect(viewModel.ratings.ratingCache == [files[0].name: 2, winner.name: 3])
+        #expect(viewModel.burstWorkflow.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+        #expect(viewModel.ratings.cullingModel.overrideWinner(for: files, in: catalog.url)?.winnerFileName == winner.name)
     }
 
     @Test
@@ -470,17 +470,17 @@ struct RawCullViewModelCullingTests {
         let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
-        viewModel.selectedSource = catalog
-        viewModel.files = files
-        viewModel.selectedFileID = files[0].id
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = files
+        viewModel.selection.selectedFileID = files[0].id
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRatingAndAdvance(for: files[0], rating: 3, in: files)
+        viewModel.culling.updateRatingAndAdvance(for: files[0], rating: 3, in: files)
 
-        #expect(viewModel.selectedFileID == files[1].id)
-        #expect(viewModel.ratingCache == ["one.ARW": 3])
-        #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
-        #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.rating == 3)
+        #expect(viewModel.selection.selectedFileID == files[1].id)
+        #expect(viewModel.ratings.ratingCache == ["one.ARW": 3])
+        #expect(viewModel.ratings.cullingModel.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
+        #expect(viewModel.ratings.cullingModel.savedFiles.first?.filerecords?.first?.rating == 3)
     }
 
     @Test(arguments: [-1, 0, 2, 3, 4, 5])
@@ -489,18 +489,18 @@ struct RawCullViewModelCullingTests {
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let groupID = 7
-        viewModel.selectedSource = catalog
-        viewModel.files = files
-        viewModel.selectedFileID = files[0].id
-        viewModel.activeBurstComparisonGroupID = groupID
-        viewModel.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = files
+        viewModel.selection.selectedFileID = files[0].id
+        viewModel.burstWorkflow.activeBurstComparisonGroupID = groupID
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([groupID: makeCullingBurstResult(groupID: groupID, files: files)])
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRatingAndAdvance(for: files[0], rating: rating, in: files)
+        viewModel.culling.updateRatingAndAdvance(for: files[0], rating: rating, in: files)
 
-        #expect(viewModel.ratingCache == [files[0].name: rating])
-        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
-        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+        #expect(viewModel.ratings.ratingCache == [files[0].name: rating])
+        #expect(viewModel.burstWorkflow.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults[groupID]?.reviewState == .reviewed)
     }
 
     @Test
@@ -508,30 +508,30 @@ struct RawCullViewModelCullingTests {
         let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
-        viewModel.selectedSource = catalog
-        viewModel.files = files
-        viewModel.selectedFileID = files[1].id
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = files
+        viewModel.selection.selectedFileID = files[1].id
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRatingAndAdvance(for: files[1], rating: 5, in: files)
+        viewModel.culling.updateRatingAndAdvance(for: files[1], rating: 5, in: files)
 
-        #expect(viewModel.selectedFileID == files[1].id)
-        #expect(viewModel.ratingCache == ["two.ARW": 5])
+        #expect(viewModel.selection.selectedFileID == files[1].id)
+        #expect(viewModel.ratings.ratingCache == ["two.ARW": 5])
     }
 
     @Test
     func `updateRatingAndAdvance without catalog leaves rating and selection unchanged`() {
         let viewModel = makeRawCullViewModel()
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
-        viewModel.files = files
-        viewModel.selectedFileID = files[0].id
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.files = files
+        viewModel.selection.selectedFileID = files[0].id
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRatingAndAdvance(for: files[0], rating: 4, in: files)
+        viewModel.culling.updateRatingAndAdvance(for: files[0], rating: 4, in: files)
 
-        #expect(viewModel.selectedFileID == files[0].id)
-        #expect(viewModel.ratingCache.isEmpty)
-        #expect(viewModel.cullingModel.savedFiles.isEmpty)
+        #expect(viewModel.selection.selectedFileID == files[0].id)
+        #expect(viewModel.ratings.ratingCache.isEmpty)
+        #expect(viewModel.ratings.cullingModel.savedFiles.isEmpty)
     }
 
     @Test
@@ -540,15 +540,15 @@ struct RawCullViewModelCullingTests {
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let visible = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let hidden = makeCullingTestFile("hidden.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.files = visible + [hidden]
-        viewModel.selectedFileID = visible[0].id
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = visible + [hidden]
+        viewModel.selection.selectedFileID = visible[0].id
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRatingAndAdvance(for: hidden, rating: 2, in: visible)
+        viewModel.culling.updateRatingAndAdvance(for: hidden, rating: 2, in: visible)
 
-        #expect(viewModel.selectedFileID == visible[0].id)
-        #expect(viewModel.ratingCache == ["hidden.ARW": 2])
+        #expect(viewModel.selection.selectedFileID == visible[0].id)
+        #expect(viewModel.ratings.ratingCache == ["hidden.ARW": 2])
     }
 
     @Test
@@ -557,19 +557,19 @@ struct RawCullViewModelCullingTests {
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let first = makeCullingTestFile("one.ARW")
         let second = makeCullingTestFile("two.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.catalog.selectedSource = catalog
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
 
-        viewModel.updateRating(for: first, rating: 3)
-        viewModel.clearCurrentCatalogCullingState()
-        viewModel.updateRating(for: second, rating: 5)
+        viewModel.culling.updateRating(for: first, rating: 3)
+        viewModel.culling.clearCurrentCatalogCullingState()
+        viewModel.culling.updateRating(for: second, rating: 5)
 
-        let records = viewModel.cullingModel.savedFiles.first?.filerecords ?? []
+        let records = viewModel.ratings.cullingModel.savedFiles.first?.filerecords ?? []
         #expect(records.count == 1)
         #expect(records.first?.fileName == "two.ARW")
         #expect(records.first?.rating == 5)
-        #expect(viewModel.ratingCache == ["two.ARW": 5])
-        #expect(viewModel.taggedNamesCache == ["two.ARW"])
+        #expect(viewModel.ratings.ratingCache == ["two.ARW": 5])
+        #expect(viewModel.ratings.taggedNamesCache == ["two.ARW"])
     }
 
     @Test
@@ -609,8 +609,8 @@ struct RawCullViewModelCullingTests {
         let currentB = makeCullingTestFile("B.ARW")
         let signature = try #require(BurstGroupSignature(files: [oldA, oldB], catalog: catalog.url))
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [currentA, currentB]
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [currentA, currentB]
         viewModel.similarityModel.burstGroups = [BurstGroup(id: 9, fileIDs: [currentA.id, currentB.id])]
 
         let snapshot = makeBurstSnapshot(
@@ -621,7 +621,7 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
         )
 
-        let states = viewModel.cachedReviewStates(from: snapshot)
+        let states = viewModel.burstWorkflow.cachedReviewStates(from: snapshot)
 
         #expect(states == [9: .decisionApplied])
     }
@@ -636,8 +636,8 @@ struct RawCullViewModelCullingTests {
         let currentC = makeCullingTestFile("C.ARW")
         let signature = try #require(BurstGroupSignature(files: [oldA, oldB], catalog: catalog.url))
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [currentA, currentC]
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [currentA, currentC]
         viewModel.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [currentA.id, currentC.id])]
 
         let snapshot = makeBurstSnapshot(
@@ -648,7 +648,7 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
         )
 
-        let states = viewModel.cachedReviewStates(from: snapshot)
+        let states = viewModel.burstWorkflow.cachedReviewStates(from: snapshot)
 
         #expect(states.isEmpty)
     }
@@ -680,48 +680,48 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [],
         )
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [first, second]
-        viewModel.filteredFiles = [first, second]
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [first, second]
+        viewModel.catalog.filteredFiles = [first, second]
         let analysis = Task {
-            await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
         }
         await gate.waitUntilStarted()
 
-        viewModel.cancelAndResetBurstAnalysis()
+        viewModel.burstWorkflow.cancelAndResetBurstAnalysis()
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
+        #expect(!viewModel.burstWorkflow.burstAnalysisCoordinator.hasActiveTask)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
-        #expect(viewModel.burstAnalysisResults.isEmpty)
-        #expect(viewModel.burstReviewStates.isEmpty)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewStates.isEmpty)
     }
 
     @Test
     func `catalog cancellation resets all burst analysis state`() {
         let viewModel = makeRawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        viewModel.burstAnalysisCoordinator.updateProgress(
+        viewModel.burstWorkflow.burstAnalysisCoordinator.updateProgress(
             BurstAnalysisProgress(step: .ranking),
         )
-        viewModel.burstReviewSession.replaceRankings([1: makeCullingBurstResult(groupID: 1, files: [file])])
-        viewModel.burstReviewSession.restoreReviewStates([1: .deferred])
-        viewModel.burstReviewQueueFilter = .deferred
-        viewModel.activeBurstComparisonGroupID = 1
-        viewModel.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])
-        viewModel.comparisonFileIDs = [file.id]
+        viewModel.burstWorkflow.burstReviewSession.replaceRankings([1: makeCullingBurstResult(groupID: 1, files: [file])])
+        viewModel.burstWorkflow.burstReviewSession.restoreReviewStates([1: .deferred])
+        viewModel.burstWorkflow.burstReviewQueueFilter = .deferred
+        viewModel.burstWorkflow.activeBurstComparisonGroupID = 1
+        viewModel.burstWorkflow.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])
+        viewModel.selection.comparisonFileIDs = [file.id]
 
-        viewModel.cancelCatalogLoad()
+        viewModel.catalogController.cancelCatalogLoad()
 
         #expect(!viewModel.burstAnalysisProgress.isRunning)
-        #expect(viewModel.burstAnalysisResults.isEmpty)
-        #expect(viewModel.burstReviewStates.isEmpty)
-        #expect(viewModel.burstReviewQueueFilter == .all)
-        #expect(viewModel.activeBurstComparisonGroupID == nil)
-        #expect(viewModel.lastBurstUndoEntry == nil)
-        #expect(viewModel.comparisonFileIDs.isEmpty)
+        #expect(viewModel.burstWorkflow.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewStates.isEmpty)
+        #expect(viewModel.burstWorkflow.burstReviewQueueFilter == .all)
+        #expect(viewModel.burstWorkflow.activeBurstComparisonGroupID == nil)
+        #expect(viewModel.burstWorkflow.lastBurstUndoEntry == nil)
+        #expect(viewModel.selection.comparisonFileIDs.isEmpty)
     }
 
     @Test
@@ -792,14 +792,14 @@ struct RawCullViewModelCullingTests {
             ),
         )
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [first, second]
-        viewModel.filteredFiles = [first, second]
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [first, second]
+        viewModel.catalog.filteredFiles = [first, second]
 
-        let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+        let restored = await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis()
 
         #expect(restored)
-        #expect(viewModel.hasExistingFullCatalogBurstGroupIndex)
+        #expect(viewModel.burstWorkflow.hasExistingFullCatalogBurstGroupIndex)
         #expect(viewModel.similarityModel.burstGroups == [group])
         #expect(!viewModel.sharpnessModel.isScoring)
         #expect(!viewModel.similarityModel.isIndexing)
@@ -962,14 +962,14 @@ struct RawCullViewModelCullingTests {
             ),
         )
 
-        viewModel.selectedSource = catalog
-        viewModel.files = [first, second]
-        viewModel.filteredFiles = [first, second]
+        viewModel.catalog.selectedSource = catalog
+        viewModel.catalog.files = [first, second]
+        viewModel.catalog.filteredFiles = [first, second]
 
-        #expect(await viewModel.restoreExistingFullCatalogBurstAnalysis())
-        viewModel.selectedFileIDs = [first.id]
-        viewModel.filteredFiles = [first]
-        viewModel.markBurstGroupReviewed(groupID: 0)
+        #expect(await viewModel.burstWorkflow.restoreExistingFullCatalogBurstAnalysis())
+        viewModel.selection.selectedFileIDs = [first.id]
+        viewModel.catalog.filteredFiles = [first]
+        viewModel.burstWorkflow.markBurstGroupReviewed(groupID: 0)
 
         let saved = try #require(await recorder.waitForSnapshot())
         #expect(saved.files.map(\.path) == [first.url.path, second.url.path])
@@ -991,7 +991,7 @@ struct RawCullViewModelCullingTests {
             originalSignature: .deferred
         ]
 
-        let restored = viewModel.restoredBurstReviewStates(
+        let restored = viewModel.burstWorkflow.restoredBurstReviewStates(
             savedStatesBySignature: saved,
             groups: [
                 BurstGroup(id: 7, fileIDs: [first.id, second.id]),
@@ -1015,7 +1015,7 @@ struct RawCullViewModelCullingTests {
             BurstGroupSignature(files: [first, second], catalog: catalog),
         )
 
-        let restored = viewModel.restoredBurstReviewStates(
+        let restored = viewModel.burstWorkflow.restoredBurstReviewStates(
             savedStatesBySignature: [originalSignature: .reviewed],
             groups: [BurstGroup(id: 0, fileIDs: [first.id, third.id])],
             files: [first, second, third],

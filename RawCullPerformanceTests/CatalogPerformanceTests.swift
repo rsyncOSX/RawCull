@@ -271,22 +271,24 @@ extension CatalogPerformanceTests {
             .appendingPathComponent("RawCullPerformance-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: artifactDirectory) }
         let model = makeModel(directory: artifactDirectory)
-        model.files = files
-        model.filteredFiles = files
-        let navigation = ZoomNavigationPresentation(viewModel: model)
+        model.catalog.files = files
+        model.catalog.filteredFiles = files
+        let navigation = ZoomNavigationPresentation(
+            catalogController: model.catalogController, selection: model.selection,
+        )
         var start = ProcessInfo.processInfo.systemUptime
         _ = navigation.orderedZoomFiles
         await journal.record("navigation.build", since: start, succeeded: navigation.orderedZoomFiles.count == files.count)
-        let builds = model.zoomNavigationBuildCount
+        let builds = model.catalogController.zoomNavigationBuildCount
         for index in 0 ..< steps {
             let position = index % files.count
             start = ProcessInfo.processInfo.systemUptime
-            model.selectedFileID = files[position].id
+            model.selection.selectedFileID = files[position].id
             let actual = navigation.currentZoomIndex
             let previous = navigation.canNavigatePrevious
             let next = navigation.canNavigateNext
-            let count = model.sharpnessScoringTargetCount
-            let description = model.sharpnessScoringTargetDescription
+            let count = model.catalogController.sharpnessScoringTargetCount
+            let description = model.catalogController.sharpnessScoringTargetDescription
             await journal.record(
                 "navigation.selectionAndControls",
                 since: start,
@@ -294,24 +296,24 @@ extension CatalogPerformanceTests {
                     && next == (position + 1 < files.count) && count == files.count && !description.isEmpty,
             )
         }
-        try #require(model.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
-        model.selectedFileIDs = Set(files.prefix(3).map(\.id))
-        try #require(model.sharpnessScoringTargetCount == min(3, files.count))
-        model.selectedFileIDs = []
+        try #require(model.catalogController.zoomNavigationBuildCount == builds, "Selection-only navigation rebuilt ordering")
+        model.selection.selectedFileIDs = Set(files.prefix(3).map(\.id))
+        try #require(model.catalogController.sharpnessScoringTargetCount == min(3, files.count))
+        model.selection.selectedFileIDs = []
         start = ProcessInfo.processInfo.systemUptime
-        model.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })
-        model.ratingFilter = .stars(5)
+        model.ratings.ratingCache = Dictionary(uniqueKeysWithValues: files.prefix(3).map { ($0.name, 5) })
+        model.ratings.ratingFilter = .stars(5)
         let filtered = navigation.orderedZoomFiles
         await journal.record(
             "navigation.ratingFilter",
             since: start,
-            succeeded: filtered.count == min(3, files.count) && model.zoomNavigationBuildCount > builds,
+            succeeded: filtered.count == min(3, files.count) && model.catalogController.zoomNavigationBuildCount > builds,
         )
-        model.ratingFilter = .all
-        model.zoomOverlayNavigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
+        model.ratings.ratingFilter = .all
+        model.zoomOverlay.navigationContext = ZoomOverlayNavigationContext(orderedFileIDs: files.reversed().map(\.id))
         try #require(navigation.orderedZoomFiles.map(\.id) == files.reversed().map(\.id))
-        model.files = []
-        model.filteredFiles = []
+        model.catalog.files = []
+        model.catalog.filteredFiles = []
         try #require(navigation.orderedZoomFiles.isEmpty && navigation.currentZoomIndex == nil)
         // Keep a structural regression visible in the machine-readable report.
         await journal.record(
@@ -368,8 +370,8 @@ extension CatalogPerformanceTests {
             semanticSearchFeature: semantic,
             deepAIReviewController: DeepAIReviewController(),
         )
-        model.cullingModel = CullingModel(saveHandler: { _ in })
-        semantic.bindApplicationTarget(model)
+        model.ratings.cullingModel = CullingModel(saveHandler: { _ in })
+        semantic.bindApplicationTarget(model.catalogController)
         return model
     }
 

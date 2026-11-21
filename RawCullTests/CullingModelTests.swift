@@ -180,19 +180,19 @@ struct CullingModelTests {
         )
         let anchor = makeCullingTestFile("fresh-anchor.ARW")
         let candidate = makeCullingTestFile("fresh-candidate.ARW")
-        viewModel.files = [anchor, candidate]
-        viewModel.filteredFiles = [anchor, candidate]
-        viewModel.selectedFileID = anchor.id
+        viewModel.catalog.files = [anchor, candidate]
+        viewModel.catalog.filteredFiles = [anchor, candidate]
+        viewModel.selection.selectedFileID = anchor.id
 
         #expect(!viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
 
-        await viewModel.findSimilarToSelected()
+        await viewModel.catalogController.findSimilarToSelected()
 
         #expect(viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
         #expect(viewModel.similarityModel.anchorFileID == anchor.id)
         #expect(viewModel.similarityModel.distances[candidate.id] != nil)
         #expect(viewModel.similarityModel.sortBySimilarity)
-        #expect(viewModel.filteredFiles.first?.id == anchor.id)
+        #expect(viewModel.catalog.filteredFiles.first?.id == anchor.id)
     }
 
     @Test

@@ -9,14 +9,15 @@ struct BurstGroupHeaderView: View {
     let analysis: BurstAnalysisResult?
     let onReviewed: (Int) -> Void
     let onDeferred: (Int) -> Void
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
 
     private var isReviewed: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .reviewed
+        burstWorkflow.burstGroupReviewState(groupID: groupID) == .reviewed
     }
 
     private var isDeferred: Bool {
-        viewModel.burstGroupReviewState(groupID: groupID) == .deferred
+        burstWorkflow.burstGroupReviewState(groupID: groupID) == .deferred
     }
 
     var body: some View {
@@ -32,7 +33,7 @@ struct BurstGroupHeaderView: View {
             Spacer(minLength: 12)
 
             Button {
-                viewModel.compareBurstGroup(files)
+                burstWorkflow.compareBurstGroup(files)
             } label: {
                 Label("Open burst", systemImage: "arrow.right")
             }
@@ -40,7 +41,7 @@ struct BurstGroupHeaderView: View {
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
 
-            BurstAssessmentButton(viewModel: viewModel, files: files)
+            BurstAssessmentButton(catalog: catalog, files: files)
 
             if groupID == -1 || analysis != nil {
                 Button {

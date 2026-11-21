@@ -3,7 +3,13 @@ import RawCullCore
 import SwiftUI
 
 struct ComparisonGridView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(ZoomOverlayModel.self) private var zoomOverlay
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(WorkspaceNavigationModel.self) private var navigation
+    @Environment(CullingController.self) private var culling
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Binding var showCandidateInspector: Bool
 
     @State private var keyboardScope = ReviewKeyboardScope()
@@ -12,16 +18,16 @@ struct ComparisonGridView: View {
     @FocusState private var isFocused: Bool
 
     init(
-        viewModel: RawCullViewModel,
+        sharpnessModel: SharpnessScoringModel,
+        selection: SelectionModel,
         showCandidateInspector: Binding<Bool>,
         imageService: (any ComparisonSessionImageServing)? = nil,
     ) {
-        self.viewModel = viewModel
         _showCandidateInspector = showCandidateInspector
         _session = State(
             initialValue: ComparisonSessionModel(
-                imageService: imageService ?? LiveComparisonSessionImageService(viewModel: viewModel),
-                selection: viewModel,
+                imageService: imageService ?? LiveComparisonSessionImageService(sharpnessModel: sharpnessModel),
+                selection: selection,
             ),
         )
     }
@@ -36,16 +42,15 @@ struct ComparisonGridView: View {
                     if burstComparisonResult != nil {
                         BurstComparisonEvidenceView(
                             inspectorIsPresented: showCandidateInspector,
-                            onBack: viewModel.returnToActiveBurstGroupView,
+                            onBack: burstWorkflow.returnToActiveBurstGroupView,
                         )
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                     }
 
-                    ComparisonPager(files: files, selectedFileID: viewModel.selectedFileID, select: session.select) { file in
-                        ComparisonPane(
-                            viewModel: viewModel, session: session, presentation: presentation,
-                            file: file, isSelected: viewModel.selectedFileID == file.id,
+                    ComparisonPager(files: files, selectedFileID: selection.selectedFileID, select: session.select) { file in
+                        ComparisonPane(session: session, presentation: presentation,
+                            file: file, isSelected: selection.selectedFileID == file.id,
                         )
                     }
                 }
@@ -75,25 +80,25 @@ struct ComparisonGridView: View {
             selectFirstComparisonFileIfNeeded()
             await session.loadImages(files: files)
         }
-        .onChange(of: viewModel.comparisonFileIDs) { _, _ in
+        .onChange(of: selection.comparisonFileIDs) { _, _ in
             session.resetDisplayScope()
             selectFirstComparisonFileIfNeeded()
         }
-        .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
+        .onChange(of: burstWorkflow.activeBurstComparisonGroupID) { _, _ in
             session.resetDisplayScope()
             showCandidateInspector = false
         }
-        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
+        .onChange(of: sharpnessModel.effectiveFocusConfig) { _, _ in
             Task { await session.regenerateFocusMasks(files: files) }
         }
     }
 
     private var presentation: ComparisonSessionPresentation {
         session.presentation(
-            filteredFiles: viewModel.filteredFiles,
-            comparisonFileIDs: viewModel.comparisonFileIDs,
-            activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
-            burstAnalysisResult: viewModel.burstAnalysisResult(for:),
+            filteredFiles: catalog.filteredFiles,
+            comparisonFileIDs: selection.comparisonFileIDs,
+            activeBurstComparisonGroupID: burstWorkflow.activeBurstComparisonGroupID,
+            burstAnalysisResult: burstWorkflow.burstAnalysisResult(for:),
         )
     }
 
@@ -122,14 +127,17 @@ struct ComparisonGridView: View {
             guard canHandleKeyboardShortcut(event: event) else { return .ignored }
 
             return ComparisonKeyboardController(
-                viewModel: viewModel, session: session, showCandidateInspector: $showCandidateInspector,
+                catalog: catalog, selection: selection,
+                burstWorkflow: burstWorkflow, navigation: navigation,
+                culling: culling, sharpnessModel: sharpnessModel,
+                session: session, showCandidateInspector: $showCandidateInspector,
             ).handleKeyEvent(event)
         }
     }
 
     private func canHandleKeyboardShortcut(event: NSEvent) -> Bool {
-        viewModel.mainViewMode == .comparisonGrid
-            && !viewModel.zoomOverlayVisible
+        navigation.mainViewMode == .comparisonGrid
+            && !zoomOverlay.isVisible
             && event.modifierFlags.intersection([.command, .control, .option]).isEmpty
             && keyboardScope.accepts(event)
     }

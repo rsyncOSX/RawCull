@@ -8,7 +8,15 @@
 import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
-    @Bindable var viewModel: RawCullViewModel
+    let catalog: CatalogWorkspace
+    let selection: SelectionModel
+    let ratings: RatingsModel
+    let presentation: WorkspacePresentationModel
+    let burstWorkflow: BurstWorkflowController
+    let navigation: WorkspaceNavigationModel
+    let catalogController: CatalogController
+    let sharpnessModel: SharpnessScoringModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let combinedReviewEnabled: Bool
     let isDisabled: Bool
@@ -34,13 +42,13 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .help("Remove the lowest-ranked image from the semantic-search selection")
 
                 Text(
-                    "\(summary.resultCount) of \(viewModel.files.count) selected",
+                    "\(summary.resultCount) of \(catalog.files.count) selected",
                     comment: "Semantic-search toolbar status: selected image count followed by total catalog image count.",
                 )
                 .font(.caption.monospacedDigit())
                 .accessibilityLabel("Semantic search selection")
                 .accessibilityValue(
-                    "\(summary.resultCount) of \(viewModel.files.count) catalog images",
+                    "\(summary.resultCount) of \(catalog.files.count) catalog images",
                 )
 
                 Button {
@@ -64,7 +72,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             Group {
                 ToolbarItem(placement: .status) {
                     Button {
-                        viewModel.activeSheet = .scoringParams
+                        presentation.activeSheet = .scoringParams
                     } label: {
                         Label("Scoring Parameters", systemImage: "slider.horizontal.3")
                     }
@@ -74,12 +82,12 @@ struct SharedMainToolbarContent: ToolbarContent {
 
                 ToolbarItem(placement: .status) {
                     Button {
-                        viewModel.activeSheet = .stats
+                        presentation.activeSheet = .stats
                     } label: {
                         Label("Statistics", systemImage: "info.circle")
                     }
                     .help("Show scan statistics")
-                    .disabled(isDisabled || viewModel.files.isEmpty)
+                    .disabled(isDisabled || catalog.files.isEmpty)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -96,9 +104,9 @@ struct SharedMainToolbarContent: ToolbarContent {
                     }
                     .help("Compare selected thumbnails")
                     .disabled(isDisabled ||
-                        viewModel.selectedFileIDs.count <= 1 ||
-                        viewModel.selectedSource == nil ||
-                        viewModel.isCreatingThumbnails)
+                        selection.selectedFileIDs.count <= 1 ||
+                        catalog.selectedSource == nil ||
+                        catalog.isCreatingThumbnails)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -106,8 +114,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                         activeRating: activeRatingInt,
                         onSelect: applyRatingFilter,
                         onClear: {
-                            viewModel.ratingFilter = .all
-                            Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                            ratings.ratingFilter = .all
+                            Task(priority: .background) { await catalogController.handleSortOrderChange() }
                         },
                     )
                     .padding(.trailing, 8)
@@ -118,12 +126,12 @@ struct SharedMainToolbarContent: ToolbarContent {
             // Trailing mode switcher — Loupe / Grid / Rated Grid.
             ToolbarItemGroup(placement: .status) {
                 Button {
-                    viewModel.selectMainViewMode(.loupe)
+                    navigation.selectMainViewMode(.loupe)
                 } label: {
                     Label("Loupe", systemImage: "rectangle.center.inset.filled")
                 }
                 .help("Loupe view")
-                .disabled(isDisabled || viewModel.mainViewMode == .loupe)
+                .disabled(isDisabled || navigation.mainViewMode == .loupe)
 
                 Button {
                     selectSimilarityGridMode()
@@ -132,10 +140,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Similarity & burst grouping grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
-                    viewModel.filteredFiles.isEmpty ||
-                    viewModel.mainViewMode == .similarityGrid ||
-                    viewModel.isCreatingThumbnails)
+                    catalog.selectedSource == nil ||
+                    catalog.filteredFiles.isEmpty ||
+                    navigation.mainViewMode == .similarityGrid ||
+                    catalog.isCreatingThumbnails)
 
                 Button {
                     selectGridMode()
@@ -144,59 +152,59 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .help("Thumbnail grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
-                    viewModel.filteredFiles.isEmpty ||
-                    viewModel.mainViewMode == .grid ||
-                    viewModel.isCreatingThumbnails)
+                    catalog.selectedSource == nil ||
+                    catalog.filteredFiles.isEmpty ||
+                    navigation.mainViewMode == .grid ||
+                    catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.aiAnalysis)
+                    navigation.selectMainViewMode(.aiAnalysis)
                 } label: {
                     Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
                 }
                 .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
+                    catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
-                    viewModel.mainViewMode == .aiAnalysis ||
-                    viewModel.isCreatingThumbnails)
+                    navigation.mainViewMode == .aiAnalysis ||
+                    catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.combinedReview)
+                    navigation.selectMainViewMode(.combinedReview)
                 } label: {
                     Label("Combined Review", systemImage: "sparkles.rectangle.stack")
                 }
                 .help("Combined Review")
                 .disabled(isDisabled ||
                     !combinedReviewEnabled ||
-                    viewModel.selectedSource == nil ||
+                    catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
-                    viewModel.mainViewMode == .combinedReview ||
-                    viewModel.isCreatingThumbnails)
+                    navigation.mainViewMode == .combinedReview ||
+                    catalog.isCreatingThumbnails)
 
                 Button {
-                    viewModel.selectMainViewMode(.ratedGrid)
+                    navigation.selectMainViewMode(.ratedGrid)
                 } label: {
                     Label("Rated", systemImage: "star.square.fill")
                 }
                 .help("Rated images grid")
                 .disabled(isDisabled ||
-                    viewModel.selectedSource == nil ||
+                    catalog.selectedSource == nil ||
                     !showGridtaggedThumbnailWindow() ||
-                    viewModel.mainViewMode == .ratedGrid ||
-                    viewModel.isCreatingThumbnails)
+                    navigation.mainViewMode == .ratedGrid ||
+                    catalog.isCreatingThumbnails)
             }
         }
     }
 
     private var usesBurstWorkspaceChrome: Bool {
-        viewModel.activeBurstComparisonGroupID != nil
+        burstWorkflow.activeBurstComparisonGroupID != nil
     }
 
     private var semanticSelectionIsBusy: Bool {
-        viewModel.burstAnalysisProgress.isRunning
-            || viewModel.sharpnessModel.isScoring
-            || viewModel.similarityFeature.isBusy
+        burstWorkflow.burstAnalysisProgress.isRunning
+            || sharpnessModel.isScoring
+            || similarityFeature.isBusy
     }
 
     private var semanticSelectionCount: Int? {
@@ -212,19 +220,19 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var reviewButtonIsDisabled: Bool {
-        guard viewModel.selectedSource != nil,
-              !viewModel.isCreatingThumbnails,
+        guard catalog.selectedSource != nil,
+              !catalog.isCreatingThumbnails,
               !semanticSelectionIsBusy
         else { return true }
 
         if let semanticSelectionCount {
             return semanticSelectionCount < 2
         }
-        return viewModel.burstReviewSummary.needsReview == 0
+        return burstWorkflow.burstReviewSummary.needsReview == 0
     }
 
     private var activeRatingInt: Int? {
-        switch viewModel.ratingFilter {
+        switch ratings.ratingFilter {
         case .all: nil
         case .rejected: -1
         case .keepers: 0
@@ -233,64 +241,64 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private func selectGridMode() {
-        viewModel.ratingFilter = .all
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.selectMainViewMode(.grid)
+        ratings.ratingFilter = .all
+        Task(priority: .background) { await catalogController.handleSortOrderChange() }
+        navigation.selectMainViewMode(.grid)
     }
 
     private func selectSimilarityGridMode() {
-        viewModel.ratingFilter = .all
-        viewModel.burstReviewQueueFilter = .all
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.selectMainViewMode(.similarityGrid)
+        ratings.ratingFilter = .all
+        burstWorkflow.burstReviewQueueFilter = .all
+        Task(priority: .background) { await catalogController.handleSortOrderChange() }
+        navigation.selectMainViewMode(.similarityGrid)
     }
 
     private func selectReviewQueueMode() {
-        viewModel.ratingFilter = .all
-        viewModel.selectMainViewMode(.similarityGrid)
+        ratings.ratingFilter = .all
+        navigation.selectMainViewMode(.similarityGrid)
         if semanticSelectionCount != nil {
             Task { @MainActor in
-                await viewModel.handleSortOrderChange()
+                await catalogController.handleSortOrderChange()
                 guard !Task.isCancelled else { return }
 
-                if viewModel.canUseExistingBurstGroupIndexForActiveScope {
-                    viewModel.useExistingBurstGroupIndex()
+                if burstWorkflow.canUseExistingBurstGroupIndexForActiveScope {
+                    burstWorkflow.useExistingBurstGroupIndex()
                     return
                 }
 
-                if await viewModel.restoreExistingFullCatalogBurstAnalysis() {
+                if await burstWorkflow.restoreExistingFullCatalogBurstAnalysis() {
                     guard !Task.isCancelled else { return }
-                    viewModel.useExistingBurstGroupIndex()
+                    burstWorkflow.useExistingBurstGroupIndex()
                     return
                 }
 
-                viewModel.burstFullReindexRequest = .semanticReview
+                burstWorkflow.burstFullReindexRequest = .semanticReview
             }
         } else {
-            viewModel.burstReviewQueueFilter = .needsReview
-            viewModel.similarityFeature.burstModeActive = true
+            burstWorkflow.burstReviewQueueFilter = .needsReview
+            similarityFeature.burstModeActive = true
             Task(priority: .background) {
-                await viewModel.handleSortOrderChange()
+                await catalogController.handleSortOrderChange()
             }
         }
     }
 
     private func selectComparisonGridMode() {
-        let selectedIDs = viewModel.selectedFileIDs
-        let orderedIDs = viewModel.filteredFiles
+        let selectedIDs = selection.selectedFileIDs
+        let orderedIDs = catalog.filteredFiles
             .filter { selectedIDs.contains($0.id) }
             .map(\.id)
-        viewModel.comparisonFileIDs = Array(orderedIDs.prefix(4))
-        viewModel.selectMainViewMode(.comparisonGrid)
+        selection.comparisonFileIDs = Array(orderedIDs.prefix(4))
+        navigation.selectMainViewMode(.comparisonGrid)
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {
-        guard let catalogURL = viewModel.selectedSource?.url,
-              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
+        guard let catalogURL = catalog.selectedSource?.url,
+              let index = ratings.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
         else {
             return false
         }
-        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
+        if let records = ratings.cullingModel.savedFiles[index].filerecords {
             return !records.isEmpty
         }
         return false
@@ -302,17 +310,17 @@ struct SharedMainToolbarContent: ToolbarContent {
         case 0: .keepers
         default: .stars(rating)
         }
-        viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        ratings.ratingFilter = ratings.ratingFilter == newFilter ? .all : newFilter
+        Task(priority: .background) { await catalogController.handleSortOrderChange() }
     }
 
     private var hasExplicitRatings: Bool {
-        guard let catalog = viewModel.selectedSource?.url else { return false }
-        return viewModel.cullingModel.hasExplicitRatings(in: catalog)
+        guard let catalog = catalog.selectedSource?.url else { return false }
+        return ratings.cullingModel.hasExplicitRatings(in: catalog)
     }
 
     private var hasAIAnalysisInput: Bool {
-        !viewModel.aiAnalysisFiles(for: .gridSelection).isEmpty
-            || !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty
+        !catalogController.aiAnalysisFiles(for: .gridSelection).isEmpty
+            || !catalogController.aiAnalysisFiles(for: .taggedImages).isEmpty
     }
 }

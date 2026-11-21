@@ -9,7 +9,7 @@ import AppKit
 import SwiftUI
 
 struct SimilarityGridSelectionView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
@@ -33,7 +33,6 @@ struct SimilarityGridSelectionView: View {
             switch semanticSearchFeature.state {
             case .idle:
                 OrdinarySimilarityWorkflowView(
-                    viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                     analyzeBurstsRequested: $analyzeBurstsRequested,
@@ -51,7 +50,6 @@ struct SimilarityGridSelectionView: View {
 
             case let .results(summary):
                 CullingGridView(
-                    viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                 ) {
@@ -97,13 +95,12 @@ struct SimilarityGridSelectionView: View {
             if Task.isCancelled {
                 return
             }
-            await viewModel.reGroupBursts()
+            await burstWorkflow.reGroupBursts()
         }
     }
 }
 
 private struct OrdinarySimilarityWorkflowView: View {
-    @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
@@ -112,19 +109,15 @@ private struct OrdinarySimilarityWorkflowView: View {
     var body: some View {
         if similarityFeature.burstModeActive {
             CullingGridView(
-                viewModel: viewModel,
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
             ) {
-                BurstGroupHeaderControlsView(
-                    viewModel: viewModel,
-                    similarityFeature: similarityFeature,
+                BurstGroupHeaderControlsView(similarityFeature: similarityFeature,
                     similarityThresholdChanged: similarityThresholdChanged,
                 )
             }
         } else {
             BurstGroupsHomeView(
-                viewModel: viewModel,
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
                 analyzeBurstsRequested: $analyzeBurstsRequested,
@@ -135,7 +128,8 @@ private struct OrdinarySimilarityWorkflowView: View {
 }
 
 private struct BurstGroupHeaderControlsView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Bindable var similarityFeature: RawCullSimilarityFeature
     let similarityThresholdChanged: () -> Void
 
@@ -143,7 +137,7 @@ private struct BurstGroupHeaderControlsView: View {
         let sensitivity = similarityFeature.burstSensitivity.formatted(
             .number.precision(.fractionLength(2)),
         )
-        let groupCount = viewModel.burstReviewSummary.totalGroups
+        let groupCount = burstWorkflow.burstReviewSummary.totalGroups
 
         HStack(spacing: 8) {
             HStack(spacing: 8) {
@@ -172,7 +166,7 @@ private struct BurstGroupHeaderControlsView: View {
 
             Spacer(minLength: 8)
 
-            if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
+            if sharpnessModel.isCalibratingSharpnessScoring {
                 HStack {
                     ProgressView()
                     Text("Calibrating focus-mask threshold, please wait...")

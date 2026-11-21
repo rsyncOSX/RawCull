@@ -3,7 +3,12 @@ import SwiftUI
 
 struct AIAssessmentComparison: View {
     let entry: AIAssessmentEntry
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
+    @Environment(CullingController.self) private var culling
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
     var initialPair: (recommended: String, sharpest: String)?
@@ -26,7 +31,7 @@ struct AIAssessmentComparison: View {
                     LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
                         AIAssessmentComparisonHeader(
                             entry: entry, linked: $linked, isReviewed: verifiedGroupID.map {
-                                viewModel.burstGroupReviewState(groupID: $0) == .reviewed
+                                burstWorkflow.burstGroupReviewState(groupID: $0) == .reviewed
                             }, isUpdatingReview: isUpdatingReview, toggleReviewed: toggleReviewed,
                         )
                         Section {
@@ -108,15 +113,15 @@ struct AIAssessmentComparison: View {
         let file = frame.flatMap(liveFile)
         return AIAssessmentPane(
             frame: frame, rubric: entry.request.rubric, access: access,
-            accessChecked: accessChecked, isTagged: file.map { viewModel.getRating(for: $0) >= 2 },
+            accessChecked: accessChecked, isTagged: file.map { ratings.getRating(for: $0) >= 2 },
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: {
                 if let frame {
                     toggleTag(frame)
                 }
             }, viewport: viewport, height: height,
-            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: viewModel) } ?? .unrated,
-            subjectLabel: file.flatMap { viewModel.sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
+            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: ratings) } ?? .unrated,
+            subjectLabel: file.flatMap { sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
             entryRecommendation: entry.recommendation, isActive: activeSide == side,
             activate: { activeSide = side; hasKeyboardFocus = true },
         )
@@ -166,8 +171,8 @@ struct AIAssessmentComparison: View {
     }
 
     private var liveCatalog: URL? {
-        guard let access, let url = viewModel.selectedSource?.url, !viewModel.scanning,
-              viewModel.cullingModel.loadState == .ready, !viewModel.cullingModel.isTerminationPending,
+        guard let access, let url = catalog.selectedSource?.url, !catalog.scanning,
+              ratings.cullingModel.loadState == .ready, !ratings.cullingModel.isTerminationPending,
               url.standardizedFileURL == access.url.standardizedFileURL else { return nil }
         return url
     }
@@ -175,14 +180,14 @@ struct AIAssessmentComparison: View {
     private func liveFile(_ frame: AIAssessmentEntry.Frame) -> FileItem? {
         guard let liveCatalog else { return nil }
         let expected = liveCatalog.appendingPathComponent(frame.source.relativePath).standardizedFileURL
-        return viewModel.files.first {
+        return catalog.files.first {
             $0.url.standardizedFileURL == expected && $0.size == frame.source.size && $0.dateModified == frame.source.modified
         }
     }
 
     private var verifiedGroupID: Int? {
         guard let liveCatalog else { return nil }
-        let filesByURL = Dictionary(viewModel.files.map { ($0.url.standardizedFileURL, $0) },
+        let filesByURL = Dictionary(catalog.files.map { ($0.url.standardizedFileURL, $0) },
                                     uniquingKeysWith: { first, _ in first })
         let ids = entry.frames.compactMap { frame -> FileItem.ID? in
             let url = liveCatalog.appendingPathComponent(frame.source.relativePath).standardizedFileURL
@@ -192,18 +197,18 @@ struct AIAssessmentComparison: View {
         }
         let membership = Set(ids)
         guard membership.count == entry.frames.count else { return nil }
-        let matches = viewModel.similarityModel.burstGroups.filter {
+        let matches = similarityFeature.burstGroups.filter {
             $0.fileIDs.count == membership.count && Set($0.fileIDs) == membership
         }
         guard matches.count == 1, let group = matches.first,
-              viewModel.burstGroupsInActiveCatalogScope.contains(where: {
+              burstWorkflow.burstGroupsInActiveCatalogScope.contains(where: {
                   $0.id == group.id && Set($0.fileIDs) == membership
               }) else { return nil }
         return group.id
     }
 
     private func hasDuplicateFilename(_ file: FileItem) -> Bool {
-        viewModel.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
+        catalog.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
     }
 
     private func applyRating(_ rating: Int, to frame: AIAssessmentEntry.Frame) {
@@ -212,7 +217,7 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            viewModel.updateRating(for: file, rating: rating)
+            culling.updateRating(for: file, rating: rating)
         }
     }
 
@@ -222,11 +227,11 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            if viewModel.getRating(for: file) >= 2 {
-                viewModel.cullingModel.applyRatingStates([file.name: nil], in: catalog)
-                viewModel.refreshCullingDerivedState()
+            if ratings.getRating(for: file) >= 2 {
+                ratings.cullingModel.applyRatingStates([file.name: nil], in: catalog)
+                culling.refreshCullingDerivedState()
             } else {
-                viewModel.updateRating(for: file, rating: 2)
+                culling.updateRating(for: file, rating: 2)
             }
         }
     }
@@ -238,7 +243,7 @@ struct AIAssessmentComparison: View {
             defer { isUpdatingReview = false }
             guard await entry.isAvailable(), let catalog = liveCatalog, let group = verifiedGroupID,
                   entry.frames.allSatisfy({ (try? $0.source.resolve(in: catalog)) != nil }) else { return }
-            if viewModel.toggleBurstGroupReviewed(groupID: group) {
+            if burstWorkflow.toggleBurstGroupReviewed(groupID: group) {
                 onMarkedReviewed()
             }
         }

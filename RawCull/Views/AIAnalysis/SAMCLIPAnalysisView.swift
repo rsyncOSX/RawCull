@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SAMCLIPAnalysisView: View {
-    @Bindable var viewModel: RawCullViewModel
+    let catalog: CatalogWorkspace
     let controller: DeepAIReviewController
     let files: [FileItem]
     @Binding var selection: UUID?
@@ -20,11 +20,11 @@ struct SAMCLIPAnalysisView: View {
     }
 
     var body: some View {
-        if viewModel.selectedSource != nil || !controller.completedCandidates.isEmpty {
-            let runnableFiles = viewModel.selectedSource == nil ? [] : pendingFiles
+        if catalog.selectedSource != nil || !controller.completedCandidates.isEmpty {
+            let runnableFiles = catalog.selectedSource == nil ? [] : pendingFiles
             let signature = BurstGroupSignature(
                 files: runnableFiles,
-                catalog: viewModel.selectedSource?.url,
+                catalog: catalog.selectedSource?.url,
             )
                 ?? BurstGroupSignature(memberKeys: [])
             DeepAIReviewSheetView(

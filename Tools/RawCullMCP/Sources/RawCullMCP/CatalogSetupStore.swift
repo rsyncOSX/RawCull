@@ -1,0 +1,357 @@
+import CryptoKit
+import Darwin
+import Dispatch
+import Foundation
+
+nonisolated struct CatalogSetupRequest: Codable, Sendable {
+    enum State: String, Codable, Sendable {
+        case pendingApproval, queued, denied, failed
+    }
+
+    static let maximumHintScalars = 512
+
+    let requestId: UUID
+    var catalogHint: String?
+    var hintDigest: Data?
+    let jobType: String
+    let createdAt: Date
+    var state: State = .pendingApproval
+    var catalogId: UUID?
+    var jobId: UUID?
+    var message: String?
+    var deniedAt: Date?
+    var usesExactHint: Bool?
+
+    var expiresAt: Date {
+        createdAt.addingTimeInterval(600)
+    }
+
+    var isExpired: Bool {
+        isExpired(at: .now)
+    }
+
+    func isExpired(at now: Date) -> Bool {
+        now >= expiresAt
+    }
+
+    func matches(_ proposed: Self) -> Bool {
+        guard jobType == proposed.jobType, let hint = proposed.catalogHint else { return false }
+        func matchesHint(_ value: String) -> Bool {
+            if let catalogHint {
+                return catalogHint == value
+            }
+            return hintDigest == Self.digest(value)
+        }
+        if matchesHint(hint) {
+            return true
+        }
+        guard usesExactHint != true else { return false }
+        // Older helpers replaced control characters before writing the receipt.
+        let legacyHint = String(String.UnicodeScalarView(hint.unicodeScalars.prefix(Self.maximumHintScalars).map {
+            CharacterSet.controlCharacters.contains($0) ? " " : $0
+        }))
+        return matchesHint(legacyHint)
+    }
+
+    var displayHint: String {
+        guard let catalogHint else { return "" }
+        let scalars = catalogHint.unicodeScalars.prefix(160)
+        let line = String(String.UnicodeScalarView(scalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar) ? " " : scalar
+        })).trimmingCharacters(in: .whitespaces)
+        return scalars.endIndex == catalogHint.unicodeScalars.endIndex ? line : line + "…"
+    }
+
+    var replayDigest: Data? {
+        catalogHint.map(Self.digest) ?? hintDigest
+    }
+
+    mutating func discardHint() {
+        hintDigest = replayDigest
+        catalogHint = nil
+    }
+
+    private static func digest(_ hint: String) -> Data {
+        Data(SHA256.hash(data: Data(hint.precomposedStringWithCanonicalMapping.utf8)))
+    }
+}
+
+/// Uses the job lock to serialize submissions and approval with job publication.
+nonisolated struct CatalogSetupStore: Sendable {
+    let jobs: AnalysisJobStore
+
+    enum StoreError: Error, Equatable {
+        case pendingRequest, expiredRequest, invalidHint, storageFull(retryAt: Date?)
+        case denialCooldown(secondsRemaining: Int)
+    }
+
+    struct Submission {
+        let request: CatalogSetupRequest
+        let wasAccepted: Bool
+    }
+
+    // Reserve space for every accepted UUID throughout its replay protection window.
+    private static let replayWindow: TimeInterval = 24 * 60 * 60
+    private static let retentionWindow: TimeInterval = 7 * 24 * 60 * 60
+    private static let receiptLimit = 128
+    // Keep expired IDs separately so they can still reject stale retries.
+    private static let expiredReceiptLimit = 7 * receiptLimit
+    private static let denialWindow: TimeInterval = 15 * 60
+    private static let denialDelays: [TimeInterval] = [10, 20, 40, 80, 160, 300]
+
+    private func root() throws -> URL {
+        guard let directory = jobs.directory else { throw CatalogGrantStore.StoreError.unavailable }
+        return directory.appendingPathComponent("catalog-setup", isDirectory: true)
+    }
+
+    private func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
+        do {
+            return try JSONDecoder().decode(type, from: Data(contentsOf: url))
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
+    }
+
+    private func remove(_ url: URL) throws {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {}
+    }
+
+    private func receipt(_ id: UUID, at url: URL) throws -> CatalogSetupRequest? {
+        guard let receipt = try read(CatalogSetupRequest.self, at: url) else { return nil }
+        guard receipt.requestId == id else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Setup receipt ID mismatch"))
+        }
+        return receipt
+    }
+
+    private func queuedReceipt(_ job: AnalysisJob, id: UUID, existing: CatalogSetupRequest?) -> CatalogSetupRequest {
+        var request = existing ?? CatalogSetupRequest(
+            requestId: id, catalogHint: nil, jobType: "burstAnalysis", createdAt: job.createdAt,
+        )
+        request.state = .queued
+        request.catalogId = job.catalogId
+        request.jobId = job.jobId
+        request.discardHint()
+        request.hintDigest = request.hintDigest ?? job.setupHintDigest
+        return request
+    }
+
+    private func currentSetupJob() throws -> AnalysisJob? {
+        do {
+            return try jobs.read()
+        } catch is DecodingError {
+            return nil
+        } catch AnalysisJobStore.StoreError.unsupportedFormat {
+            return nil
+        }
+    }
+
+    func request(_ id: UUID, now: Date = .now) throws -> CatalogSetupRequest? {
+        try jobs.withLock {
+            _ = try pendingLocked(now: now)
+            return try requestLocked(id, currentJob: currentSetupJob(), now: now)
+        }
+    }
+
+    private func requestLocked(_ id: UUID, currentJob: AnalysisJob?, now: Date) throws -> CatalogSetupRequest? {
+        let url = try root().appendingPathComponent(id.uuidString)
+        let stored: CatalogSetupRequest?
+        do {
+            stored = try receipt(id, at: url)
+        } catch is DecodingError {
+            stored = nil
+        }
+        if let currentJob, currentJob.setupRequestId == id {
+            if let stored, stored.state == .queued, stored.catalogHint == nil {
+                return stored
+            }
+            let recovered = queuedReceipt(currentJob, id: id, existing: stored)
+            try saveLocked(recovered)
+            return recovered
+        }
+        guard var stored else { return nil }
+        guard now.timeIntervalSince(stored.createdAt) < Self.replayWindow else { throw StoreError.expiredRequest }
+        if stored.state == .pendingApproval, try pendingIDLocked() != id {
+            stored.state = .failed
+            stored.message = "The setup request was interrupted. Start a new request."
+        }
+        if stored.state != .pendingApproval, stored.catalogHint != nil {
+            stored.discardHint()
+            try saveLocked(stored)
+        }
+        return stored
+    }
+
+    func pending() throws -> CatalogSetupRequest? {
+        try jobs.withLock { try pendingLocked() }
+    }
+
+    private func pendingIDLocked() throws -> UUID? {
+        let pointer = try root().appendingPathComponent("pending")
+        do {
+            return try read(UUID.self, at: pointer)
+        } catch is DecodingError {
+            try remove(pointer)
+            return nil
+        }
+    }
+
+    /// Must be called with the job lock held.
+    func pendingLocked(now: Date = .now) throws -> CatalogSetupRequest? {
+        guard let id = try pendingIDLocked() else { return nil }
+        let root = try root()
+        let url = root.appendingPathComponent(id.uuidString)
+        let stored: CatalogSetupRequest?
+        do {
+            stored = try receipt(id, at: url)
+        } catch is DecodingError {
+            stored = nil
+        }
+        if let job = try currentSetupJob(), job.setupRequestId == id {
+            if stored?.state != .queued || stored?.catalogHint != nil {
+                try saveLocked(queuedReceipt(job, id: id, existing: stored))
+            }
+        } else if var request = stored, request.state == .pendingApproval {
+            if request.catalogHint != nil, !request.isExpired(at: now) {
+                return request
+            }
+            request.state = .failed
+            request.message = "The setup request expired or was incomplete. Start a new request."
+            try saveLocked(request)
+        } else if stored == nil {
+            try remove(url)
+        }
+        try remove(root.appendingPathComponent("pending"))
+        return nil
+    }
+
+    func submit(_ request: CatalogSetupRequest, now: Date = .now) throws -> Submission {
+        try jobs.withLock {
+            let pending = try pendingLocked(now: now)
+            let currentJob = try currentSetupJob()
+            let retained = try pruneLocked(pendingID: pending?.requestId, currentJob: currentJob, now: now)
+            if let existing = try requestLocked(request.requestId, currentJob: currentJob, now: now) {
+                return Submission(request: existing, wasAccepted: false)
+            }
+            let maximumHintScalars = CatalogSetupRequest.maximumHintScalars
+            guard let hint = request.catalogHint,
+                  hint.unicodeScalars.prefix(maximumHintScalars + 1).count <= maximumHintScalars
+            else {
+                throw StoreError.invalidHint
+            }
+            guard pending == nil else { throw StoreError.pendingRequest }
+            if let delay = retained.denialRetryAt?.timeIntervalSince(now), delay > 0 {
+                throw StoreError.denialCooldown(secondsRemaining: Int(delay.rounded(.up)))
+            }
+            guard retained.count < Self.receiptLimit else {
+                throw StoreError.storageFull(retryAt: retained.nextSlotAt)
+            }
+            let root = try root()
+            try saveLocked(request)
+            try JSONEncoder().encode(request.requestId).write(to: root.appendingPathComponent("pending"), options: .atomic)
+            return Submission(request: request, wasAccepted: true)
+        }
+    }
+
+    func maintain(now: Date = .now) throws {
+        try jobs.withLock {
+            let pending = try pendingLocked(now: now)
+            _ = try pruneLocked(pendingID: pending?.requestId, currentJob: currentSetupJob(), now: now)
+        }
+    }
+
+    private func pruneLocked(
+        pendingID: UUID?, currentJob: AnalysisJob?, now: Date,
+    ) throws -> (count: Int, nextSlotAt: Date?, denialRetryAt: Date?) {
+        let root = try root()
+        let files: [URL]
+        do {
+            files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return (0, nil, nil)
+        }
+        var protectedCount = 0
+        var recentDenials: [Date] = []
+        var replayable: [(url: URL, createdAt: Date)] = []
+        var expired: [(url: URL, createdAt: Date)] = []
+        for url in files {
+            guard let id = UUID(uuidString: url.lastPathComponent) else { continue }
+            let stored: CatalogSetupRequest?
+            do {
+                stored = try receipt(id, at: url)
+            } catch is DecodingError {
+                stored = nil
+            }
+            if let currentJob, currentJob.setupRequestId == id {
+                protectedCount += 1
+                if stored?.state != .queued || stored?.catalogHint != nil {
+                    try saveLocked(queuedReceipt(currentJob, id: id, existing: stored))
+                }
+            } else if id == pendingID {
+                protectedCount += 1
+            } else {
+                guard var stored, now.timeIntervalSince(stored.createdAt) <= Self.retentionWindow else {
+                    try remove(url)
+                    continue
+                }
+                if stored.state == .pendingApproval {
+                    stored.state = .failed
+                    stored.message = "The setup request was interrupted. Start a new request."
+                    try saveLocked(stored)
+                } else if stored.catalogHint != nil {
+                    try saveLocked(stored)
+                }
+                if stored.state == .denied, let deniedAt = stored.deniedAt,
+                   now.timeIntervalSince(deniedAt) < Self.denialWindow {
+                    recentDenials.append(min(now, deniedAt))
+                }
+                if now.timeIntervalSince(stored.createdAt) < Self.replayWindow {
+                    replayable.append((url, stored.createdAt))
+                } else {
+                    expired.append((url, stored.createdAt))
+                }
+            }
+        }
+        if let currentJob, let id = currentJob.setupRequestId,
+           !files.contains(where: { $0.lastPathComponent == id.uuidString }) {
+            try saveLocked(queuedReceipt(currentJob, id: id, existing: nil))
+            protectedCount += 1
+        }
+        let available = max(0, Self.receiptLimit - protectedCount)
+        func newestFirst(_ lhs: (url: URL, createdAt: Date), _ rhs: (url: URL, createdAt: Date)) -> Bool {
+            if lhs.createdAt == rhs.createdAt {
+                return lhs.url.lastPathComponent < rhs.url.lastPathComponent
+            }
+            return lhs.createdAt > rhs.createdAt
+        }
+        let ordered = replayable.sorted(by: newestFirst)
+        for entry in ordered.dropFirst(available) {
+            try remove(entry.url)
+        }
+        for entry in expired.sorted(by: newestFirst).dropFirst(Self.expiredReceiptLimit) {
+            try remove(entry.url)
+        }
+        let kept = ordered.prefix(available)
+        let nextSlotAt = kept.last?.createdAt.addingTimeInterval(Self.replayWindow)
+        let denialRetryAt = recentDenials.max().map { deniedAt in
+            let delay = Self.denialDelays[min(recentDenials.count, Self.denialDelays.count) - 1]
+            return deniedAt.addingTimeInterval(delay)
+        }
+        return (protectedCount + kept.count, nextSlotAt, denialRetryAt)
+    }
+
+    /// Must be called with the job lock held.
+    func saveLocked(_ request: CatalogSetupRequest) throws {
+        var receipt = request
+        if receipt.state != .pendingApproval {
+            receipt.discardHint()
+        }
+        let root = try root()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(receipt).write(
+            to: root.appendingPathComponent(receipt.requestId.uuidString), options: .atomic,
+        )
+    }
+}

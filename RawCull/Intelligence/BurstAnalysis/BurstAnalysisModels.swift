@@ -80,8 +80,8 @@ nonisolated enum BurstAnalysisDiagnostic: Equatable, Sendable {
     case cacheSaveFailed
 }
 
-/// Pure output boundary produced by the existing view-model implementation.
-/// Worker ownership remains in `RawCullViewModel` until later Phase 7 subphases.
+/// Pure output boundary of a burst analysis run, produced by
+/// `BurstWorkflowController` through `BurstAnalysisCoordinator`.
 nonisolated struct BurstAnalysisPipelineResult: Equatable, Sendable {
     let groups: [BurstGroup]
     let rankings: [BurstAnalysisResult]

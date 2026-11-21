@@ -106,6 +106,7 @@ func makeRawCullViewModel(
     deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
     burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
         = LiveBurstAnalysisCacheRepository(),
+    sharpnessModel: SharpnessScoringModel = SharpnessScoringModel(),
 ) -> RawCullViewModel {
     let similarityModel = SimilarityScoringModel(
         similarityService: similarityService,
@@ -127,9 +128,10 @@ func makeRawCullViewModel(
         semanticSearchFeature: semanticSearchFeature,
         deepAIReviewController: deepAIReviewController,
         burstAnalysisCacheRepository: burstAnalysisCacheRepository,
+        sharpnessModel: sharpnessModel,
     )
-    viewModel.cullingModel = CullingModel(saveHandler: { _ in })
-    semanticSearchFeature.bindApplicationTarget(viewModel)
+    viewModel.ratings.cullingModel = CullingModel(saveHandler: { _ in })
+    semanticSearchFeature.bindApplicationTarget(viewModel.catalogController)
     return viewModel
 }
 

@@ -22,7 +22,7 @@ protocol MCPAnalysisWorkspace: AnyObject {
     var loadedSource: ARWSourceCatalog? { get }
     var files: [FileItem] { get }
     var scanDiscoveredCount: Int { get }
-    var catalogLoadFailure: RawCullViewModel.CatalogLoadFailure? { get }
+    var catalogLoadFailure: CatalogLoadFailure? { get }
     var catalogPersistenceError: String? { get }
     /// A catalog transition or load task is running.
     var isCatalogTransitionActive: Bool { get }
@@ -71,28 +71,67 @@ protocol MCPAnalysisWorkspace: AnyObject {
 }
 
 extension RawCullViewModel: MCPAnalysisWorkspace {
+    // Catalog requirements; the state lives in `catalog`.
+    var sources: [ARWSourceCatalog] {
+        get { catalog.sources }
+        set { catalog.sources = newValue }
+    }
+
+    var selectedSource: ARWSourceCatalog? {
+        get { catalog.selectedSource }
+        set { catalog.selectedSource = newValue }
+    }
+
+    var files: [FileItem] { catalog.files }
+    var scanDiscoveredCount: Int { catalog.scanDiscoveredCount }
+    var catalogLoadFailure: CatalogLoadFailure? { catalog.catalogLoadFailure }
+
+    // Burst requirements; the state lives in `burstWorkflow`.
+    var isDeepAIReviewBlockedByOtherWork: Bool { burstWorkflow.isDeepAIReviewBlockedByOtherWork }
+    var isPreparingBurstCatalog: Bool { burstWorkflow.isPreparingBurstCatalog }
+    var fullCatalogBurstAnalysisFiles: [FileItem] { burstWorkflow.fullCatalogBurstAnalysisFiles }
+    var burstAnalysisGeneration: Int { burstWorkflow.burstAnalysisGeneration }
+    var burstAnalysisProgress: BurstAnalysisProgress { burstWorkflow.burstAnalysisProgress }
+    var currentBurstSimilaritySignature: BurstSimilaritySignature { burstWorkflow.currentBurstSimilaritySignature }
+
+    func startBurstAnalysis(catalog: URL, files: [FileItem]) async -> BurstAnalysisPipelineResult? {
+        await burstWorkflow.startBurstAnalysis(catalog: catalog, files: files)
+    }
+
     var loadedSource: ARWSourceCatalog? { catalogLifecycle.currentSource }
-    var catalogPersistenceError: String? { cullingModel.persistenceError }
+    var catalogPersistenceError: String? { ratings.cullingModel.persistenceError }
 
     var isCatalogTransitionActive: Bool {
         catalogLifecycle.transitionTask != nil || catalogLifecycle.loadTask != nil
     }
 
-    var isScanningCatalog: Bool { scanning }
+    var isScanningCatalog: Bool { catalog.scanning }
 
     var isMCPWorkspaceLoading: Bool {
-        isCatalogTransitionActive || scanning || isCreatingThumbnails
+        isCatalogTransitionActive || catalog.scanning || catalog.isCreatingThumbnails
+    }
+
+    func startCatalogLoad(for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?) {
+        catalogController.startCatalogLoad(for: source, scopedURL: scopedURL, retainedAccess: retainedAccess)
+    }
+
+    func cancelCatalogLoad() {
+        catalogController.cancelCatalogLoad()
+    }
+
+    func mcpCatalogSummary(scanId: UUID?) -> CatalogSummary? {
+        catalogController.mcpCatalogSummary(scanId: scanId)
     }
 
     func retainSecurityScopedAccess(for url: URL) -> RawCullCatalogGrant? {
         catalogLifecycle.retainSecurityScopedAccess(for: url)
     }
 
-    var isMCPTerminationPending: Bool { cullingModel.isTerminationPending }
+    var isMCPTerminationPending: Bool { ratings.cullingModel.isTerminationPending }
     var isSharpnessCalibrationRunning: Bool { sharpnessModel.isCalibratingSharpnessScoring }
 
     func authorizeCatalogForMCPJob(catalogId: UUID) throws {
-        _ = try authorizeMCPCatalog(allowAnalysis: true, catalogId: catalogId, preservingJob: true)
+        _ = try catalogController.authorizeMCPCatalog(allowAnalysis: true, catalogId: catalogId, preservingJob: true)
     }
 
     var isSemanticSearchActive: Bool { similarityModel.semanticSearchState != .idle }
@@ -108,7 +147,7 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
     var similarityIndexingProgress: Int { similarityModel.indexingProgress }
 
     func presentBurstResultsAfterMCPJob() {
-        showsDetailedBurstComparison = false
-        useExistingBurstGroupIndex()
+        burstWorkflow.showsDetailedBurstComparison = false
+        burstWorkflow.useExistingBurstGroupIndex()
     }
 }

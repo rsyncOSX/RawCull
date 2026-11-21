@@ -1,30 +1,30 @@
 //
-//  RawCullViewModel+Catalog.swift
+//  CatalogController+Loading.swift
 //  RawCull
 //
 
 import Foundation
 import OSLog
 
-extension RawCullViewModel {
+extension CatalogController {
     func mcpCatalogSummary(scanId: UUID? = nil) -> CatalogSummary? {
-        guard let selectedSource, catalogLifecycle.currentSource == selectedSource,
-              !scanning, !files.isEmpty
+        guard let selectedSource = catalog.selectedSource, catalogLifecycle.currentSource == selectedSource,
+              !catalog.scanning, !catalog.files.isEmpty
         else { return nil }
 
-        let captureDates = files.lazy.compactMap(\.captureDate)
-        let cameras = files.reduce(into: [String: Int]()) { counts, file in
+        let captureDates = catalog.files.lazy.compactMap(\.captureDate)
+        let cameras = catalog.files.reduce(into: [String: Int]()) { counts, file in
             if let camera = file.exifData?.camera, !camera.isEmpty {
                 counts[camera, default: 0] += 1
             }
         }
         return CatalogSummary(
-            photoCount: files.count,
+            photoCount: catalog.files.count,
             earliestCaptureDate: captureDates.min()?.formatted(.iso8601),
             latestCaptureDate: captureDates.max()?.formatted(.iso8601),
             cameraCounts: cameras,
             snapshotAt: Date().formatted(.iso8601),
-            photos: files.map { file in
+            photos: catalog.files.map { file in
                 CatalogPhoto(
                     name: file.url.lastPathComponent,
                     captureDate: file.captureDate?.formatted(.iso8601),
@@ -46,7 +46,7 @@ extension RawCullViewModel {
     func authorizeMCPCatalog(
         allowAnalysis: Bool, catalogId: UUID, preservingJob: Bool, recurringFolder: Bool = false,
     ) throws -> CatalogGrant {
-        guard let source = selectedSource else { throw CocoaError(.fileNoSuchFile) }
+        guard let source = catalog.selectedSource else { throw CocoaError(.fileNoSuchFile) }
         let summary = mcpCatalogSummary()
         let grant = CatalogGrant(
             id: catalogId, displayName: source.name, summary: summary, analysisEnabled: allowAnalysis,
@@ -66,7 +66,7 @@ extension RawCullViewModel {
             let authorization = try MCPAnalysisAuthorization(
                 catalogId: grant.id,
                 bookmark: bookmark,
-                fingerprint: MCPAnalysisAuthorization.fingerprint(for: files),
+                fingerprint: MCPAnalysisAuthorization.fingerprint(for: catalog.files),
             )
             try MCPAnalysisAuthorization.save(JSONEncoder().encode(authorization))
         }
@@ -92,7 +92,7 @@ extension RawCullViewModel {
     func startCatalogLoad(
         for source: ARWSourceCatalog?, scopedURL: URL? = nil, retainedAccess: RawCullCatalogGrant? = nil,
     ) {
-        Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
+        Logger.process.debugMessageOnly("CatalogController.startCatalogLoad()")
         if scopedURL == nil, let url = source?.url,
            catalogLifecycle.currentSource == source,
            hasActiveSecurityScopedAccess(for: url) {
@@ -102,20 +102,20 @@ extension RawCullViewModel {
         // A view observing the same selection must not replace a queued
         // MCP reload with a transition that lacks its restored bookmark.
         if scopedURL == nil, catalogLifecycle.transitionTask != nil,
-           pendingCatalogTransitionSource == source {
+           catalog.pendingCatalogTransitionSource == source {
             return
         }
 
         let previousSource = catalogLifecycle.currentSource
-        catalogLoadFailure = nil
-        pendingCatalogTransitionSource = source
+        catalog.catalogLoadFailure = nil
+        catalog.pendingCatalogTransitionSource = source
         catalogLifecycle.startTransition(
             flushPersistence: { [weak self] in
                 guard let self else { return false }
-                return await self.cullingModel.flushPersistence()
+                return await self.ratings.cullingModel.flushPersistence()
             },
-            isStillSelected: { [weak self] in self?.selectedSource == source },
-            onFailure: { [weak self] in self?.selectedSource = previousSource },
+            isStillSelected: { [weak self] in self?.catalog.selectedSource == source },
+            onFailure: { [weak self] in self?.catalog.selectedSource = previousSource },
             onReady: { [weak self] in
                 self?.beginCatalogLoad(for: source, scopedURL: scopedURL, retainedAccess: retainedAccess)
             },
@@ -125,15 +125,15 @@ extension RawCullViewModel {
     private func beginCatalogLoad(
         for source: ARWSourceCatalog?, scopedURL: URL?, retainedAccess: RawCullCatalogGrant?,
     ) {
-        Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
-        selectedFileID = nil
-        selectedFileIDs = []
+        Logger.process.debugMessageOnly("CatalogController.beginCatalogLoad()")
+        selection.selectedFileID = nil
+        selection.selectedFileIDs = []
 
         cancelCurrentCatalogLoad()
         similarityCatalogGeneration &+= 1
         catalogLifecycle.currentSource = source
         resetCatalogWorkingSet()
-        scanning = source != nil
+        catalog.scanning = source != nil
 
         guard let url = source?.url else {
             catalogLifecycle.activeLoadURL = nil
@@ -143,8 +143,8 @@ extension RawCullViewModel {
         if let retainedAccess, retainedAccess.url.path == url.standardizedFileURL.path {
             catalogLifecycle.activateSecurityScopedAccess(retainedAccess)
         } else if !startSecurityScopedAccess(for: scopedURL ?? url) {
-            catalogLoadFailure = .folderAccess
-            scanning = false
+            catalog.catalogLoadFailure = .folderAccess
+            catalog.scanning = false
             return
         }
 
@@ -154,64 +154,58 @@ extension RawCullViewModel {
     }
 
     func cancelCatalogLoad() {
-        Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
+        Logger.process.debugMessageOnly("CatalogController.cancelCatalogLoad()")
         catalogLifecycle.cancelTransition()
         cancelCurrentCatalogLoad()
     }
 
     private func cancelCurrentCatalogLoad() {
-        metadataProgress?.cancel()
-        metadataProgress = nil
-        thumbnailProgress?.cancel()
-        thumbnailProgress = nil
+        catalog.metadataProgress?.cancel()
+        catalog.metadataProgress = nil
+        catalog.thumbnailProgress?.cancel()
+        catalog.thumbnailProgress = nil
         CombinedReviewLease.shared.invalidate()
-        sortGeneration &+= 1
-        isSorting = false
+        catalog.sortGeneration &+= 1
+        catalog.isSorting = false
         catalogLifecycle.cancelLoad()
         similarityFeature.cancelHydration()
         similarityCatalogGeneration &+= 1
-        cancelAndResetBurstAnalysis()
+        burstWorkflow.cancelAndResetBurstAnalysis()
 
-        preloadTask?.cancel()
-        preloadTask = nil
+        catalog.preloadTask?.cancel()
+        catalog.preloadTask = nil
 
-        jpgCacheWarmTask?.cancel()
-        jpgCacheWarmTask = nil
-
-        if let actor = currentScanAndCreateThumbnailsActor {
+        if let actor = catalog.currentScanAndCreateThumbnailsActor {
             Task { await actor.cancelPreload() }
         }
-        currentScanAndCreateThumbnailsActor = nil
+        catalog.currentScanAndCreateThumbnailsActor = nil
 
-        if let actor = currentScanAndExtractJPGsActor {
-            Task { await actor.cancelExtraction() }
-        }
-        currentScanAndExtractJPGsActor = nil
+        fileOperations.cancelJPGCacheWarming()
 
-        isCreatingThumbnails = false
-        scanning = false
+        catalog.isCreatingThumbnails = false
+        catalog.scanning = false
     }
 
     func handleSourceChange(url: URL) async {
         let signposter = OSSignposter(subsystem: "no.blogspot.RawCull", category: "CatalogPerformance")
         let interval = signposter.beginInterval("CatalogOpen", id: signposter.makeSignpostID())
         defer { signposter.endInterval("CatalogOpen", interval) }
-        Logger.process.debugMessageOnly("RawCullViewModel.handleSourceChange()")
+        Logger.process.debugMessageOnly("CatalogController.handleSourceChange()")
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        scanning = true
-        scanDiscoveredCount = 0
+        catalog.scanning = true
+        catalog.scanDiscoveredCount = 0
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
         similarityFeature.resetCatalogState()
-        ratingFilter = .all
-        burstReviewQueueFilter = .all
+        ratings.resetForCatalogChange()
+        burstWorkflow.burstReviewQueueFilter = .all
 
         let metadata = CatalogProgressCoalescer(initial: 0) { [weak self] count in
             guard let self, self.isActiveCatalogLoad(url) else { return }
-            self.scanDiscoveredCount = count
+            self.catalog.scanDiscoveredCount = count
         }
-        metadataProgress = metadata
+        catalog.metadataProgress = metadata
         metadata.update(immediately: true) { $0 = 0 }
         let scan = ScanFiles()
         let scannedFiles = await scan.scanFiles(
@@ -223,28 +217,28 @@ extension RawCullViewModel {
         )
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         metadata.finish()
-        metadataProgress = nil
+        catalog.metadataProgress = nil
 
         // Map raw decoded data → FocusPointsModel here on @MainActor
         if let raw = await scan.decodedFocusPoints {
             guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-            focusPoints = raw.map {
+            catalog.focusPoints = raw.map {
                 FocusPointsModel(sourceFile: $0.sourceFile, focusLocations: [$0.focusLocation])
             }
         } else {
-            focusPoints = nil
+            catalog.focusPoints = nil
         }
 
         Logger.process.debugMessageOnly("Finished scanning! Total files: \(scannedFiles.count)")
 
         let sortedFiles = await ScanFiles.sortFiles(
             scannedFiles,
-            by: sortOrder,
-            searchText: searchText,
+            by: catalog.sortOrder,
+            searchText: catalog.searchText,
         )
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
-        files = scannedFiles
+        catalog.files = scannedFiles
         let hydrationRequest = RawCullSimilarityCatalogHydrationRequest(
             files: scannedFiles,
             catalogIdentity: currentSimilarityCatalogSnapshot.identity,
@@ -252,27 +246,27 @@ extension RawCullViewModel {
         guard await similarityFeature.hydrateCatalog(hydrationRequest),
               isActiveCatalogLoad(url), !Task.isCancelled
         else { return }
-        catalogDisplayCandidates = sortedFiles
-        filteredFiles = applyFilters(to: catalogDisplayCandidates)
+        catalog.catalogDisplayCandidates = sortedFiles
+        catalog.filteredFiles = applyFilters(to: catalog.catalogDisplayCandidates)
         preselectFirstVisibleFileByName()
 
-        guard !files.isEmpty else {
+        guard !catalog.files.isEmpty else {
             let directoryReadFailed = await scan.directoryReadFailed
             guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-            catalogLoadFailure = directoryReadFailed ? .folderAccess : .noPhotos
-            scanning = false
+            catalog.catalogLoadFailure = directoryReadFailed ? .folderAccess : .noPhotos
+            catalog.scanning = false
             catalogLifecycle.currentSource = nil
             stopActiveSecurityScopedAccess()
             catalogLifecycle.finishLoad(for: url)
             return
         }
 
-        scanning = false
-        guard await cullingModel.ensureLoaded(), isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        catalog.scanning = false
+        guard await ratings.cullingModel.ensureLoaded(), isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
         sharpnessModel.applyPreloadedScores(
-            files,
+            catalog.files,
             preloadedScores: sharpnessModel.scores,
             preloadedSaliency: sharpnessModel.saliencyInfo,
             preloadedAFPointScores: sharpnessModel.afPointScores,
@@ -285,34 +279,34 @@ extension RawCullViewModel {
     }
 
     private func prepareCatalogThumbnails(at url: URL) async {
-        guard !processedURLs.contains(url) else { return }
+        guard !catalog.processedURLs.contains(url) else { return }
         let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
 
         let progress = CatalogProgressCoalescer(initial: CatalogThumbnailProgress()) { [weak self] value in
             guard let self, self.isActiveCatalogLoad(url) else { return }
-            self.fileOperationCompleted = value.completed
-            self.fileOperationTotal = value.total
-            self.fileOperationEstimatedSeconds = value.estimatedSeconds
+            self.fileOperations.fileOperationCompleted = value.completed
+            self.fileOperations.fileOperationTotal = value.total
+            self.fileOperations.fileOperationEstimatedSeconds = value.estimatedSeconds
         }
-        thumbnailProgress = progress
+        catalog.thumbnailProgress = progress
         progress.update(immediately: true) { _ in }
         let handlers = makeCatalogThumbnailHandlers(progress: progress)
 
         let scanAndCreateThumbnails = ScanAndCreateThumbnails()
         await scanAndCreateThumbnails.setFileHandlers(handlers)
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
+        catalog.currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
 
-        preloadTask = Task {
+        catalog.preloadTask = Task {
             await scanAndCreateThumbnails.preloadCatalog(
                 at: url,
                 targetSize: thumbnailSizePreview,
             )
         }
 
-        await preloadTask?.value
+        await catalog.preloadTask?.value
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         // Fire-and-forget per-file callbacks may still be queued. Read the
         // actor's accounting after drain, publish once, then reject late callbacks.
@@ -323,10 +317,10 @@ extension RawCullViewModel {
             $0.total = counts.total
             $0.estimatedSeconds = 0
         }
-        thumbnailProgress = nil
-        processedURLs.insert(url)
-        isCreatingThumbnails = false
-        currentScanAndCreateThumbnailsActor = nil
+        catalog.thumbnailProgress = nil
+        catalog.processedURLs.insert(url)
+        catalog.isCreatingThumbnails = false
+        catalog.currentScanAndCreateThumbnailsActor = nil
     }
 
     private func makeCatalogThumbnailHandlers(
@@ -334,60 +328,60 @@ extension RawCullViewModel {
     ) -> FileHandlers {
         CreateFileHandlers().createFileHandlers(
             fileHandler: { [weak self] update in
-                guard self?.thumbnailProgress === progress else { return }
+                guard self?.catalog.thumbnailProgress === progress else { return }
                 let isTerminal = progress.latest.total > 0 && update >= progress.latest.total
                 progress.update(immediately: isTerminal) { $0.completed = max($0.completed, update) }
             },
             maxfilesHandler: { [weak self] maxfiles in
-                guard self?.thumbnailProgress === progress else { return }
+                guard self?.catalog.thumbnailProgress === progress else { return }
                 progress.update(immediately: true) { $0.total = maxfiles }
             },
             estimatedTimeHandler: { [weak self] seconds in
-                guard self?.thumbnailProgress === progress else { return }
+                guard self?.catalog.thumbnailProgress === progress else { return }
                 progress.update { $0.estimatedSeconds = seconds }
             },
             memorypressurewarning: { [weak self] warning in
-                guard self?.thumbnailProgress === progress else { return }
+                guard self?.catalog.thumbnailProgress === progress else { return }
                 self?.setMemoryPressureWarning(warning)
             },
             onExtractionNeeded: { [weak self] in
-                guard self?.thumbnailProgress === progress else { return }
+                guard self?.catalog.thumbnailProgress === progress else { return }
                 self?.extractionNeeded()
             },
         )
     }
 
     func handleSortOrderChange() async {
-        Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
-        sortGeneration &+= 1
-        let generation = sortGeneration
+        Logger.process.debugMessageOnly("CatalogController.handleSortOrderChange()")
+        catalog.sortGeneration &+= 1
+        let generation = catalog.sortGeneration
         let catalog = currentSimilarityCatalogSnapshot.identity
-        let source = selectedSource
-        let order = sortOrder
-        let text = searchText
-        isSorting = true
+        let source = self.catalog.selectedSource
+        let order = self.catalog.sortOrder
+        let text = self.catalog.searchText
+        self.catalog.isSorting = true
         defer {
-            if sortGeneration == generation {
-                isSorting = false
+            if self.catalog.sortGeneration == generation {
+                self.catalog.isSorting = false
             }
         }
-        let sorted = await sortFiles(files, order, text)
-        guard !Task.isCancelled, sortGeneration == generation,
+        let sorted = await self.catalog.sortFiles(self.catalog.files, order, text)
+        guard !Task.isCancelled, self.catalog.sortGeneration == generation,
               currentSimilarityCatalogSnapshot.identity == catalog,
-              selectedSource == source, sortOrder == order, searchText == text else { return }
-        catalogDisplayCandidates = sorted
-        filteredFiles = applyFilters(to: sorted)
+              self.catalog.selectedSource == source, self.catalog.sortOrder == order, self.catalog.searchText == text else { return }
+        self.catalog.catalogDisplayCandidates = sorted
+        self.catalog.filteredFiles = applyFilters(to: sorted)
     }
 
     /// Snapshot the current non-semantic catalog ordering and metadata
     /// admission. Semantic ranking is applied after these filters, so ratings
     /// and filename filtering continue to compose with text search.
     func semanticSearchAdmissionSnapshot() async -> [FileItem] {
-        Logger.process.debugMessageOnly("RawCullViewModel.semanticSearchAdmissionSnapshot()")
+        Logger.process.debugMessageOnly("CatalogController.semanticSearchAdmissionSnapshot()")
         let sorted = await ScanFiles.sortFiles(
-            files,
-            by: sortOrder,
-            searchText: searchText,
+            catalog.files,
+            by: catalog.sortOrder,
+            searchText: catalog.searchText,
         )
         return applyNonSemanticFilters(to: sorted)
     }
@@ -396,9 +390,9 @@ extension RawCullViewModel {
     /// highest-ranked results into a durable scope shared by every catalog
     /// workflow until the search is cleared or the catalog is reindexed.
     var activeCatalogFiles: [FileItem] {
-        guard semanticSearchFeature.hasResults else { return files }
+        guard semanticSearchFeature.hasResults else { return catalog.files }
         let selectedIDs = semanticSearchFeature.selectedFileIDs
-        return files.filter { selectedIDs.contains($0.id) }
+        return catalog.files.filter { selectedIDs.contains($0.id) }
     }
 
     var hasActiveSemanticSearchSelection: Bool {
@@ -408,30 +402,26 @@ extension RawCullViewModel {
     // MARK: - Helpers
 
     func isActiveCatalogLoad(_ url: URL) -> Bool {
-        catalogLifecycle.activeLoadURL == url && selectedSource?.url == url
+        catalogLifecycle.activeLoadURL == url && catalog.selectedSource?.url == url
     }
 
     func preselectFirstVisibleFileByName() {
-        Logger.process.debugMessageOnly("RawCullViewModel.preselectFirstVisibleFileByName()")
-        selectedFileID = filteredFiles
-            .min { lhs, rhs in
-                lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-            }?
-            .id
+        Logger.process.debugMessageOnly("CatalogController.preselectFirstVisibleFileByName()")
+        selection.selectFirstByName(in: catalog.filteredFiles)
     }
 
     func reconcileThumbnailSelectionWithSemanticSearch() {
         guard hasActiveSemanticSearchSelection else { return }
 
-        let visibleIDs = Set(filteredFiles.map(\.id))
-        selectedFileIDs.formIntersection(visibleIDs)
+        let visibleIDs = Set(catalog.filteredFiles.map(\.id))
+        selection.selectedFileIDs.formIntersection(visibleIDs)
 
-        guard let firstVisibleID = filteredFiles.first?.id else {
-            selectedFileID = nil
+        guard let firstVisibleID = catalog.filteredFiles.first?.id else {
+            selection.selectedFileID = nil
             return
         }
-        if selectedFileID.map(visibleIDs.contains) != true {
-            selectedFileID = firstVisibleID
+        if selection.selectedFileID.map(visibleIDs.contains) != true {
+            selection.selectedFileID = firstVisibleID
         }
     }
 
@@ -487,8 +477,8 @@ extension RawCullViewModel {
 
     private func applyNonSemanticFilters(to files: [FileItem]) -> [FileItem] {
         var result = files
-        if ratingFilter != .all {
-            result = result.filter { passesRatingFilter($0) }
+        if ratings.ratingFilter != .all {
+            result = result.filter { ratings.passesRatingFilter($0) }
         }
         if sharpnessModel.sortBySharpness {
             result = sharpnessModel.sortedByAFPointSharpness(result)
@@ -499,12 +489,32 @@ extension RawCullViewModel {
     /// Clears every catalog-scoped value together so counts never describe a
     /// source other than `selectedSource` while a transition is in flight.
     private func resetCatalogWorkingSet() {
-        files = []
-        catalogDisplayCandidates = []
-        filteredFiles = []
-        scanDiscoveredCount = 0
-        focusPoints = nil
-        ratingCache = [:]
-        taggedNamesCache = []
+        catalog.files = []
+        catalog.catalogDisplayCandidates = []
+        catalog.filteredFiles = []
+        catalog.scanDiscoveredCount = 0
+        catalog.focusPoints = nil
+        ratings.ratingCache = [:]
+        ratings.taggedNamesCache = []
+    }
+
+    /// Rebuilds the rating lookup for the selected catalog.
+    /// Must be called after any culling store mutation that affects ratings.
+    func rebuildRatingCache() {
+        ratings.rebuildRatingCache(catalog: catalog.selectedSource?.url)
+    }
+
+    func extractRatedfilenames(_ rating: Int) -> [String] {
+        catalog.filteredFiles
+            .filter { ratings.getRating(for: $0) >= rating }
+            .map(\.name)
+    }
+
+    func extractTaggedfilenames() -> [String] {
+        ratings.taggedFileNames(catalog: catalog.selectedSource?.url, activeNames: Set(activeCatalogFiles.map(\.name)))
+    }
+
+    func hasRating(in files: [FileItem]) -> Bool {
+        ratings.hasRating(in: files, catalog: catalog.selectedSource?.url)
     }
 }

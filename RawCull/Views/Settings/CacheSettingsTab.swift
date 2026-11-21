@@ -10,14 +10,17 @@ import SwiftUI
 
 struct CacheSettingsTab: View {
     let aiSettingsModel: RawCullAISettingsModel
-    let viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(CullingController.self) private var culling
+    @Environment(RatingsModel.self) private var ratings
     @State private var savedFilesSize = 0
     @State private var showDeleteSavedFiles = false
     @State private var isDeletingSavedFiles = false
     @State private var savedFilesDeletionError: String?
 
     let combinedReviewFeature: CombinedReviewFeature
-    @State private var combinedReviewSize = 0
+    /// `nil` when reading the store's usage failed; shown as "Unavailable", not "0 B".
+    @State private var combinedReviewSize: Int? = 0
     @State private var purgeError: String?
     @State private var currentThumbnailDiskCacheSize = 0
     @State private var currentFullSizeJPGCacheSize = 0
@@ -88,8 +91,8 @@ struct CacheSettingsTab: View {
                         Button("Delete Saved Files", role: .destructive) {
                             showDeleteSavedFiles = true
                         }
-                        .disabled(viewModel.isCreatingThumbnails || isDeletingSavedFiles
-                            || viewModel.cullingModel.persistenceError != nil)
+                        .disabled(catalog.isCreatingThumbnails || isDeletingSavedFiles
+                            || ratings.cullingModel.persistenceError != nil)
                     }
                 }
 
@@ -108,9 +111,9 @@ struct CacheSettingsTab: View {
             Button("Delete Saved Files", role: .destructive) {
                 isDeletingSavedFiles = true
                 Task {
-                    let cullingModel = viewModel.cullingModel
+                    let cullingModel = ratings.cullingModel
                     if await cullingModel.ensureLoaded() {
-                        viewModel.clearAllCullingState()
+                        culling.clearAllCullingState()
                         if await !(cullingModel.flushPersistence()) {
                             savedFilesDeletionError = cullingModel.persistenceError
                         }
@@ -200,7 +203,11 @@ struct CacheSettingsTab: View {
         currentFullSizeJPGCacheSize = fullSizeJPG
         currentSimilarityArtifactCacheSize = similarityArtifacts.size
         currentBurstAnalysisCacheSize = burstAnalysis.size
-        combinedReviewSize = await (try? combinedReviewFeature.store.usage()) ?? 0
+        do {
+            combinedReviewSize = try await combinedReviewFeature.store.usage()
+        } catch {
+            combinedReviewSize = nil
+        }
         isLoadingDiskCaches = false
     }
 
@@ -230,14 +237,14 @@ struct CacheSettingsTab: View {
     private var totalCacheSize: Int {
         currentPreviewCacheSize + currentGridCacheSize + currentThumbnailDiskCacheSize
             + currentFullSizeJPGCacheSize + currentSimilarityArtifactCacheSize
-            + currentBurstAnalysisCacheSize + combinedReviewSize
+            + currentBurstAnalysisCacheSize + (combinedReviewSize ?? 0)
     }
 
-    private func cacheRow(_ title: LocalizedStringKey, size: Int) -> some View {
+    private func cacheRow(_ title: LocalizedStringKey, size: Int?) -> some View {
         HStack {
             Text(title)
             Spacer()
-            Text(isLoadingDiskCaches ? "Calculating…" : formatBytes(size))
+            Text(isLoadingDiskCaches ? "Calculating…" : size.map(formatBytes) ?? "Unavailable")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }

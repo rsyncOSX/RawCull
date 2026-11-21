@@ -2,7 +2,10 @@ import AppKit
 import SwiftUI
 
 struct RatedPhotoGridView: View {
-    @Bindable var viewModel: RawCullViewModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(SelectionModel.self) private var selection
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(WorkspaceNavigationModel.self) private var navigation
     private var settings: SettingsViewModel {
         SettingsViewModel.shared
     }
@@ -20,12 +23,10 @@ struct RatedPhotoGridView: View {
                     spacing: 8,
                 ) {
                     ForEach(ratedFiles, id: \.id) { file in
-                        RatedImageItemView(
-                            viewModel: viewModel,
-                            file: file,
+                        RatedImageItemView(file: file,
                             catalogURL: catalogURL,
-                            isSelected: viewModel.selectedFileID == file.id,
-                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                            isSelected: selection.selectedFileID == file.id,
+                            isMultiSelected: selection.selectedFileIDs.contains(file.id),
                             onSelected: { handleToggleSelection(for: file) },
                             onDoubleSelected: { handleDoubleSelect(for: file) },
                         )
@@ -34,7 +35,7 @@ struct RatedPhotoGridView: View {
                 }
                 .padding()
             }
-            .onChange(of: viewModel.selectedFileID) { _, id in
+            .onChange(of: selection.selectedFileID) { _, id in
                 guard let id else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     proxy.scrollTo(id, anchor: .center)
@@ -42,13 +43,13 @@ struct RatedPhotoGridView: View {
             }
         }
         .task(id: catalogURL) {
-            viewModel.selectedFileIDs = []
+            selection.selectedFileIDs = []
         }
-        .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid) { ratedFiles }
+        .thumbnailKeyNavigation(axis: .grid) { ratedFiles }
     }
 
     var cullingModel: CullingModel {
-        viewModel.cullingModel
+        ratings.cullingModel
     }
 
     private var ratedFiles: [FileItem] {
@@ -60,7 +61,7 @@ struct RatedPhotoGridView: View {
             .compactMap(\.fileName)
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         let byName = Dictionary(
-            uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.name, $0) },
+            uniqueKeysWithValues: catalog.filteredFiles.map { ($0.name, $0) },
         )
         return names.compactMap { byName[$0] }
     }
@@ -68,32 +69,32 @@ struct RatedPhotoGridView: View {
     private func handleToggleSelection(for file: FileItem) {
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
-            if viewModel.selectedFileIDs.contains(file.id) {
-                viewModel.selectedFileIDs.remove(file.id)
+            if selection.selectedFileIDs.contains(file.id) {
+                selection.selectedFileIDs.remove(file.id)
             } else {
-                viewModel.selectedFileIDs.insert(file.id)
-                if let anchor = viewModel.selectedFileID {
-                    viewModel.selectedFileIDs.insert(anchor)
+                selection.selectedFileIDs.insert(file.id)
+                if let anchor = selection.selectedFileID {
+                    selection.selectedFileIDs.insert(anchor)
                 }
             }
-            viewModel.selectedFileID = file.id
+            selection.selectedFileID = file.id
             onPhotoSelected(file)
-        } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
+        } else if flags.contains(.shift), let anchorID = selection.selectedFileID {
             let ids = ratedFiles.map(\.id)
             if let from = ids.firstIndex(of: anchorID),
                let to = ids.firstIndex(of: file.id) {
                 let range = from <= to ? from ... to : to ... from
-                viewModel.selectedFileIDs = Set(ids[range])
+                selection.selectedFileIDs = Set(ids[range])
             }
         } else {
-            viewModel.selectedFileIDs = []
-            viewModel.selectedFileID = file.id
+            selection.selectedFileIDs = []
+            selection.selectedFileID = file.id
             onPhotoSelected(file)
         }
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        viewModel.selectedFileID = file.id
-        viewModel.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
+        selection.selectedFileID = file.id
+        navigation.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
     }
 }

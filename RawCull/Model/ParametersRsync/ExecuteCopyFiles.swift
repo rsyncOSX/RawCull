@@ -81,7 +81,7 @@ struct RsyncOutputData: Identifiable, Equatable, Hashable {
 
 @Observable @MainActor
 final class ExecuteCopyFiles {
-    weak var sidebarRawCullViewModel: RawCullViewModel?
+    weak var catalogController: CatalogController?
 
     let config: SynchronizeConfiguration
     let dryrun: Bool
@@ -125,15 +125,15 @@ final class ExecuteCopyFiles {
         }
 
         let filelist: [String]
-        guard let sidebarRawCullViewModel else {
+        guard let catalogController else {
             cleanup()
             return .failure(.missingViewModel)
         }
 
         if copyTaggedFiles {
-            filelist = sidebarRawCullViewModel.extractTaggedfilenames()
+            filelist = catalogController.extractTaggedfilenames()
         } else {
-            filelist = sidebarRawCullViewModel.extractRatedfilenames(rating)
+            filelist = catalogController.extractRatedfilenames(rating)
         }
 
         guard !filelist.isEmpty else {
@@ -161,7 +161,7 @@ final class ExecuteCopyFiles {
         let updateParameter = "--update"
         arguments.append(updateParameter)
 
-        guard let selectedSourceURL = sidebarRawCullViewModel.selectedSource?.url,
+        guard let selectedSourceURL = catalogController.catalog.selectedSource?.url,
               let sourceAccess = try? bookmarkStore.acquireSource(selectedSourceURL)
         else {
             Logger.process.errorMessageOnly("Failed to access folders")
@@ -212,7 +212,7 @@ final class ExecuteCopyFiles {
         dryrun: Bool = true,
         rating: Int = 0,
         copyTaggedFiles: Bool = true,
-        sidebarRawCullViewModel: RawCullViewModel,
+        catalogController: CatalogController,
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
         bookmarkStore: CopyBookmarkStore = CopyBookmarkStore(),
@@ -220,7 +220,7 @@ final class ExecuteCopyFiles {
         self.config = configuration
         self.dryrun = dryrun
         self.rating = rating
-        self.sidebarRawCullViewModel = sidebarRawCullViewModel
+        self.catalogController = catalogController
         self.copyTaggedFiles = copyTaggedFiles
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager

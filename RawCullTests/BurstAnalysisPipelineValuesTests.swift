@@ -32,7 +32,7 @@ struct BurstAnalysisPipelineValuesTests {
             configuration: legacyConfiguration,
         )
 
-        let request = viewModel.makeBurstAnalysisPipelineRequest(
+        let request = viewModel.burstWorkflow.makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: orderedFiles,
             generation: generation,
@@ -49,14 +49,14 @@ struct BurstAnalysisPipelineValuesTests {
         let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let files = [makePipelineFile("A.ARW", captureSeconds: 1)]
-        let original = viewModel.makeBurstAnalysisPipelineRequest(
+        let original = viewModel.burstWorkflow.makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: files,
             generation: 3,
         )
 
         viewModel.similarityModel.burstSensitivity = 0.11
-        let replacement = viewModel.makeBurstAnalysisPipelineRequest(
+        let replacement = viewModel.burstWorkflow.makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: files,
             generation: 4,

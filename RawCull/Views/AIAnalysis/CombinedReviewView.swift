@@ -21,7 +21,7 @@ enum CombinedReviewEvidenceTopic: String, CaseIterable {
 
 struct CombinedReviewView: View {
     @Bindable var feature: CombinedReviewFeature
-    @Bindable var viewModel: RawCullViewModel
+    let selection: SelectionModel
     let files: [FileItem]
     @State private var mode: CombinedReviewMode = .photo
     @State private var topic: CombinedReviewEvidenceTopic = .findings
@@ -32,7 +32,7 @@ struct CombinedReviewView: View {
     @State private var settingsExpanded = false
 
     private var selectedResult: CombinedReviewResult? {
-        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: viewModel.selectedFileID)
+        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: selection.selectedFileID)
     }
 
     var body: some View {
@@ -53,7 +53,7 @@ struct CombinedReviewView: View {
                         }
                     }
                     if !feature.displayedResults.isEmpty {
-                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: $viewModel.selectedFileID)
+                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
                     }
                     if let result = selectedResult {
                         let presentation = CombinedReviewPresentation(result: result)
@@ -113,8 +113,8 @@ struct CombinedReviewView: View {
             selectedRegionID = ""
         }
         .onChange(of: feature.displayedResults.map(\.file.fileID), initial: true) { _, ids in
-            if viewModel.selectedFileID == nil {
-                viewModel.selectedFileID = ids.first
+            if selection.selectedFileID == nil {
+                selection.selectedFileID = ids.first
             }
         }
         .sheet(isPresented: $showInput) {
@@ -242,6 +242,7 @@ private struct CombinedReviewModePicker: View {
 private struct CombinedReviewRunControls: View {
     @Bindable var feature: CombinedReviewFeature
     let files: [FileItem]
+    @State private var clearError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             TextField("Review criteria", text: $feature.criteria, axis: .vertical).textFieldStyle(.roundedBorder)
@@ -285,8 +286,15 @@ private struct CombinedReviewRunControls: View {
             Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
-                Button("Clear rejected responses") { Task { await feature.clearRejectedResponses() } }.disabled(feature.isRunning)
-                Button("Clear retained inputs") { Task { await feature.clearRetainedInputs() } }.disabled(feature.isRunning)
+                Button("Clear rejected responses") {
+                    Task { await clear("rejected responses") { try await feature.clearRejectedResponses() } }
+                }.disabled(feature.isRunning)
+                Button("Clear retained inputs") {
+                    Task { await clear("retained inputs") { try await feature.clearRetainedInputs() } }
+                }.disabled(feature.isRunning)
+                if let clearError {
+                    Text(clearError).font(.caption).foregroundStyle(.red)
+                }
                 if feature.userRegion != nil {
                     Button("Clear chosen region") { feature.userRegion = nil }.disabled(feature.isRunning)
                 }
@@ -294,6 +302,15 @@ private struct CombinedReviewRunControls: View {
             if files.isEmpty || files.count > 8 {
                 Text("Select 1–8 images. Larger selections require an explicit expanded coverage plan; split this selection into smaller runs.").font(.caption)
             }
+        }
+    }
+
+    private func clear(_ what: String, _ action: () async throws -> Void) async {
+        do {
+            try await action()
+            clearError = nil
+        } catch {
+            clearError = "Could not clear \(what): \(error.localizedDescription)"
         }
     }
 }

@@ -239,9 +239,9 @@ enum AnalysisTools {
         } catch AnalysisJobStore.FollowUpError.invalidRequest, FollowUpSourceSnapshot.SourceError.invalidTarget {
             return failure("invalidTarget", "Use distinct photo IDs or a burst with a saved recommendation or alternate from the source job, and supported rubric fields.")
         } catch AnalysisJobStore.StoreError.busy {
-            return failure("busy", "RawCull assessment storage is busy. Retry this call.")
+            return failure(MCPAssessmentStopReason.busy.rawValue, "RawCull assessment storage is busy. Retry this call.")
         } catch AnalysisJobStore.FollowUpError.capacity {
-            return failure("busy", "RawCull cannot accept another assessment right now.")
+            return failure(MCPAssessmentStopReason.busy.rawValue, "RawCull cannot accept another assessment right now.")
         } catch AnalysisJobStore.FollowUpError.expiredResult {
             return failure("expiredResult", "The assessment result has expired.")
         } catch AnalysisJobStore.FollowUpError.resultTooLarge {

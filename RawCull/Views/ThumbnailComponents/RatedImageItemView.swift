@@ -12,8 +12,8 @@ struct RatedImageItemView: View {
         SettingsViewModel.shared
     }
 
-    @Bindable var viewModel: RawCullViewModel
-
+    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(RatingsModel.self) private var ratings
     let file: FileItem
     let catalogURL: URL? // catalog (directory) URL — used for model lookups
     var isSelected: Bool = false
@@ -111,7 +111,7 @@ struct RatedImageItemView: View {
     }
 
     private var hasDeepReviewMask: Bool {
-        viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
+        deepAIReviewController.maskCandidate(for: file.id) != nil
     }
 
     private var borderColor: Color {
@@ -159,7 +159,7 @@ struct RatedImageItemView: View {
     }
 
     var cullingModel: CullingModel {
-        viewModel.cullingModel
+        ratings.cullingModel
     }
 
     func setbackground() -> Bool {
