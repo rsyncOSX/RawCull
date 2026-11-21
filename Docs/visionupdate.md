@@ -1,6 +1,6 @@
 # Plan: Make Vision calls safe to run concurrently
 
-Status: draft · 2026-11-21 · branch `version-3.4.9`
+Status: phase 1 done · phases 2–3 not started · 2026-11-21 · branch `version-3.4.9`
 
 ## Summary
 
@@ -88,6 +88,30 @@ This phase does not guarantee the hang is gone, but it keeps the number of concu
 4. **Check.** Run the `RawCull` test plan three times in a row, and it must finish each time. Then run sharpness scoring and similarity indexing at the same time on a catalog of a few hundred images.
 
 Worst case after phase 1: 1 feature print + 1 face pass + up to (cores ÷ 2) saliency passes + animal detection. That still leaves pool threads free.
+
+#### Phase 1 result (2026-11-21)
+
+What changed:
+
+| Step | Change | File |
+|---|---|---|
+| 1 | `RawCullParallelVisionArtifactProvider` is deleted. The indexer uses the service's own `VisionFeaturePrintBackend`, the single instance `RawCullAIModelRuntime` creates, so feature prints run one at a time. Decoding still runs 4 at a time. | `RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift` |
+| 2 | `BurstDetectedFaceLoader` uses one shared `FaceEvidenceAnalyzer`, so face passes run one at a time. | `RawCull/Views/ComparisonGridView/BurstDetectedFacesView.swift` |
+| 3 | `effectiveMaxConcurrentScoringTasks` is capped at `visionSafeScoringTaskLimit`, which is `max(1, activeProcessorCount / 2)`. On a 10-core Mac, "fast" goes from 6 to 5. On an 8-core Mac, "fast" goes to 4 and "balanced" stays at 4. | `RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift` |
+
+Plan corrections:
+
+- Faces and animal close-ups were already limited: `BurstEvidenceWorkLimiter.shared` allows 2 of them at a time in total. Step 2 makes face passes go one at a time within that limit. Animal detection is unchanged.
+- Worst case on a 10-core Mac is now 1 feature print + 2 face or animal passes + 5 saliency passes = 8 Vision requests, with 10 pool threads. On an 8-core Mac it is 1 + 2 + 4 = 7, with 8 pool threads. That leaves little margin on smaller machines, which is why phase 2 is still needed.
+- Test suites that build their own backends or scoring models still run in parallel, so the test plan can still exceed these numbers. Phase 1 only lowers that risk.
+
+Checks:
+
+- The `RawCull` test plan ran three times in a row with `xcodebuild test-without-building` on a 10-core Mac. Every run finished, with 955 passed, 0 failed and 6 skipped (the real-model tests). The runs took 30, 15 and 15 seconds. Before phase 1, the same plan hung after 809 tests and never finished.
+- `Scripts/VerifyAIImportBoundary.sh` passes.
+- The manual check of sharpness scoring and similarity indexing running at the same time on a real catalog has not been done. Do it during TestFlight testing.
+
+Not measured here: the indexing speed of a real catalog before and after step 1. Time a 500-image catalog during TestFlight testing and record the result in this section.
 
 ### Phase 2: Fix it in PhotoAnalysisKit (next package release)
 
