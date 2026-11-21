@@ -180,6 +180,33 @@ make test-scripts      # Python script checks; no models or photographs required
 
 The Swift Testing suites cover RAW parsing, focus and sharpness metrics, similarity and semantic search, Deep Review, Qwen responses, downloads, caches, persistence, cancellation, concurrency, and copy workflows.
 
+### Troubleshooting: `MDB_MAP_FULL` in the console
+
+You may see many lines like this in the Xcode console, while the app runs or during a test run:
+
+```text
+RawCull[38043:206681] mdb_txn_commit error: MDB_MAP_FULL: Environment mapsize limit reached
+```
+
+These come from macOS, not RawCull. Metal records which compiled-shader archives an app uses in a small LMDB database (`archiveUsage.db`) in the app's per-user cache folder, and that database has a fixed maximum size. RawCull compiles Core Image Metal kernels, and the test plan creates many Core Image contexts, so the database fills up. After that, every write fails and logs one line. Shaders still compile and run, and test results are not affected.
+
+To clear it:
+
+1. Quit RawCull and stop any running test.
+2. Delete RawCull's Metal caches. macOS recreates them on the next launch, and the first launch may be slower while shaders recompile.
+
+   ```bash
+   rm -rf "$(getconf DARWIN_USER_CACHE_DIR)no.blogspot.RawCull/com.apple.metal" "$(getconf DARWIN_USER_CACHE_DIR)no.blogspot.RawCull/no.blogspot.RawCull/com.apple.metal"
+   ```
+
+To check whether a database is full first, look for `archiveUsage.db/data.mdb` files whose modification time no longer changes while the app runs:
+
+```bash
+find "$(getconf DARWIN_USER_CACHE_DIR)no.blogspot.RawCull" -path '*com.apple.metal/archiveUsage.db/data.mdb' -exec stat -f '%z bytes  %Sm  %N' {} \;
+```
+
+The message comes back once the database fills again. Nothing in RawCull's code controls its size. To hide the lines meanwhile, type `-MDB_MAP_FULL` in the Xcode console's filter field.
+
 ## Performance tools and scripts
 
 Run the opt-in Release benchmark against your own ARW catalog:
