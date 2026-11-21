@@ -105,5 +105,22 @@ class AssessBurstsTests(unittest.TestCase):
         self.assertEqual(client.attempts, 2)
 
 
+    def test_busy_admission_is_replayed_with_same_request_id(self):
+        class BusyStart(FakeClient):
+            def call(self, name, **arguments):
+                if name == 'start_photo_assessment' and not any(
+                        n == name for n, _ in self.calls):
+                    self.calls.append((name, arguments))
+                    raise MCPBusyError('busy')
+                return super().call(name, **arguments)
+
+        client = BusyStart()
+        with patch('AssessBursts.time.sleep'):
+            run(client, self.path, self.state, limit=0)
+        starts = [args for name, args in client.calls if name == 'start_photo_assessment']
+        self.assertEqual(len(starts), 3)
+        self.assertEqual(starts[0], starts[1])
+        self.assertTrue(json.loads(self.path.read_text())['assessments']['b']['finished'])
+
 if __name__ == '__main__':
     unittest.main()
