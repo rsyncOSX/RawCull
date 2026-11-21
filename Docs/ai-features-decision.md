@@ -95,7 +95,7 @@ As the AI Assessments window already does for MCP results: opening, running or c
 | 1 | Accept this decision; update finding 4.3 | XS | none | done |
 | 2 | Compare outputs: presets against the old tabs | S | none | not started |
 | 3 | Add the presets to Combined Review | M | medium | done |
-| 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | not started |
+| 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | done |
 | 5 | Make Review the default; hide the old tabs behind a setting | S | low | not started |
 | 6 | Delete the old tabs, after one TestFlight release | M | low | not started |
 | 7 | Send in-app review results to the AI Assessments window | M | medium | not started; window code in `RawCull/Views/AIAssessments/` |
@@ -134,6 +134,13 @@ What was built:
 ### Step 4: Decision actions
 
 Add Tag, Rate and Mark Reviewed to `CombinedReviewInspector`, reusing `RatingsModel` and the review action from `AIAssessmentComparison`. Add the same keyboard shortcuts as the grid. Test that running, opening and comparing a review never changes a rating or tag.
+
+What was built:
+
+- `ReviewDecisionActions` (`RawCull/Model/ReviewDecisionActions.swift`) holds the tag, rate and Mark Reviewed calls. `AIAssessmentComparison` now uses it too, so both screens run the same code.
+- The decision bar sits under the result header, not in `CombinedReviewInspector`, because the inspector only shows in the Evidence view when an input was retained. The bar shows in both views.
+- The grid's rating keys work in Review: X, P or 0, 1–5, and T.
+- Before any action, the photo must be in the open catalog, have a unique filename and be unchanged on disk since the review. Otherwise nothing changes and the bar says why.
 
 ### Step 5: Make Review the default
 

@@ -23,6 +23,10 @@ struct CombinedReviewView: View {
     @Bindable var feature: CombinedReviewFeature
     let selection: SelectionModel
     let files: [FileItem]
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(RatingsModel.self) private var ratings
+    @Environment(CullingController.self) private var culling
+    @Environment(BurstWorkflowController.self) private var burstWorkflow
     @State private var mode: CombinedReviewMode = .photo
     @State private var topic: CombinedReviewEvidenceTopic = .findings
     @State private var selectedFindingID: String?
@@ -33,6 +37,19 @@ struct CombinedReviewView: View {
 
     private var selectedResult: CombinedReviewResult? {
         CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: selection.selectedFileID)
+    }
+
+    private var decisions: ReviewDecisionActions {
+        .init(catalog: catalog, ratings: ratings, culling: culling, burstWorkflow: burstWorkflow)
+    }
+
+    /// The grid's rating keys rate the photo whose review is shown. Text fields keep their own keys.
+    private func handleRatingKey(_ press: KeyPress) -> KeyPress.Result {
+        guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder),
+              press.modifiers.isDisjoint(with: [.command, .control, .option]),
+              case let .rating(action) = ImageReviewKeyboardPolicy.action(for: press.characters),
+              let review = selectedResult?.file else { return .ignored }
+        return decisions.act(on: review) { file, _ in decisions.rate(file, action.value) } ? .handled : .ignored
     }
 
     var body: some View {
@@ -58,6 +75,7 @@ struct CombinedReviewView: View {
                     if let result = selectedResult {
                         let presentation = CombinedReviewPresentation(result: result)
                         CombinedReviewResultHeader(name: result.file.displayName, mode: $mode)
+                        CombinedReviewDecisionBar(review: result.file, decisions: decisions)
                         if mode == .photo {
                             CombinedReviewPhotoLayout(
                                 feature: feature, result: result, presentation: presentation,
@@ -100,6 +118,11 @@ struct CombinedReviewView: View {
                 )
                 .padding(20)
             }
+        }
+        .focusable()
+        .focusEffectDisabled()
+        .onKeyPress(characters: CharacterSet(charactersIn: "xXpP012345tT")) { press in
+            handleRatingKey(press)
         }
         .task { await feature.restoreStoredRun() }
         .task(id: "\(files.map { "\($0.id)-\($0.url.absoluteString)-\(String(describing: $0.afFocusNormalized))" })-\(feature.isRunning)") {

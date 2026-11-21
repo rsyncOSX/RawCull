@@ -34,6 +34,7 @@ RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
+RawCullTests/ReviewDecisionActionsTests
 RawCullTests/ReviewDiagnosticsTests
 RawCullTests/ReviewImageSourceTests
 RawCullTests/ReviewKeyboardScopeTests

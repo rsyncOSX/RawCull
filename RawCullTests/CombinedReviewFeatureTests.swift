@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import PhotoAIContracts
 @testable import RawCull
+import RawCullCore
 import RawParserKit
 import Testing
 
@@ -738,10 +739,53 @@ struct CombinedReviewFeatureTests {
         #expect(try legacy.expectedCompatibility().allSatisfy { id, value in run.work.first { $0.id == id }?.compatibility == value })
     }
 
+    @Test(arguments: ReviewPreset.allCases) @MainActor
+    func `running, restoring and resuming a review never changes ratings or review state`(preset: ReviewPreset) async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let viewModel = makeRawCullViewModel()
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: fixture.root)
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let photo = makeReviewTestFile(fixture.file.url, id: fixture.file.id)
+        let sibling = makeReviewTestFile(fixture.root.appendingPathComponent("sibling.png"))
+        viewModel.catalog.files = [photo, sibling]
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [photo.id, sibling.id])]
+        viewModel.culling.updateRating(for: photo, rating: 3)
+        viewModel.culling.updateRating(for: sibling, rating: -1)
+        #expect(viewModel.burstWorkflow.toggleBurstGroupReviewed(groupID: 1))
+        let ratingsBefore = viewModel.ratings.ratingCache
+        #expect(ratingsBefore == [photo.name: 3, sibling.name: -1])
+        let revisionBefore = viewModel.ratings.revision
+
+        let backend = ReviewFakeBackend(hasSAM: true, hasCLIP: true)
+        let feature = makeFeature(fixture, backend: backend)
+        feature.preset = preset
+        await feature.analyze([fixture.file])
+        #expect(feature.failureMessage == nil)
+        let restored = makeFeature(fixture, backend: backend)
+        await restored.restoreStoredRun()
+        await restored.resume()
+
+        #expect(viewModel.ratings.ratingCache == ratingsBefore)
+        #expect(viewModel.ratings.revision == revisionBefore)
+        #expect(viewModel.burstWorkflow.burstGroupReviewState(groupID: 1) == .reviewed)
+    }
+
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
     }
+}
+
+private func makeReviewTestFile(_ url: URL, id: UUID = UUID()) -> FileItem {
+    FileItem(
+        id: id,
+        url: url,
+        name: url.lastPathComponent,
+        size: 8,
+        dateModified: Date(timeIntervalSince1970: 0),
+        exifData: nil,
+        afFocusNormalized: nil,
+    )
 }
 
 private nonisolated struct ReviewPreviewOnlySource: ReviewImageSourceLoading {
