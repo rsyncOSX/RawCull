@@ -136,6 +136,8 @@ Combined Review depends on `SubjectMaskForeground`, `SubjectMaskFocusScorer` and
 
 ### 4.3 Product decision (yours, not a refactor)
 
+Proposed answer (2026-11-21): [ai-features-decision.md](ai-features-decision.md). One Review feature with Focus check, Describe and Full presets replaces Deep AI Review, Qwen Vision and Objects.
+
 User-facing AI analysis exists in several places:
 
 | Feature | Where in the UI | Engine |
