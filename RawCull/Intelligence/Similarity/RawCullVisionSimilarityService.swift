@@ -2,9 +2,21 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import OSLog
+// Scoped import: PhotoAnalysisKit also declares a `VisionFeaturePrintBackend`
+// type, so importing the whole module here would make that name ambiguous.
+import class PhotoAnalysisKit.VisionRequestGate
 import PhotoAIContracts
 import PhotoAIWorkflows
 import VisionFeaturePrintBackend
+
+/// Runs PhotoAIKit's Vision work through PhotoAnalysisKit's process-wide gate,
+/// so every Vision request in the app shares one queue. Pass it to every
+/// `VisionFeaturePrintBackend`. See Docs/visionupdate.md.
+nonisolated struct RawCullVisionWorkSerializer: VisionWorkSerializing {
+    func run<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async throws -> T {
+        try await VisionRequestGate.shared.run(body)
+    }
+}
 
 nonisolated struct RawCullSimilarityIndexingProgress: Equatable, Sendable {
     let completed: Int
@@ -90,7 +102,7 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
     private let concurrencyLimit: Int
 
     init(
-        backend: VisionFeaturePrintBackend = VisionFeaturePrintBackend(),
+        backend: VisionFeaturePrintBackend = VisionFeaturePrintBackend(serializer: RawCullVisionWorkSerializer()),
         concurrencyLimit: Int = Self.defaultConcurrencyLimit,
     ) {
         self.backend = backend

@@ -1512,7 +1512,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
 			requirement = {
 				kind = exactVersion;
-				version = 1.0.0;
+				version = 3.1.0;
 			};
 		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {

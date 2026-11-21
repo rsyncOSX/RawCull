@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAIKit.git",
       "state" : {
-        "revision" : "4b85056e6c2603b5e382987710ca2f16f4c5c155",
-        "version" : "1.0.0"
+        "revision" : "26647c62d9933968d92bd00b162290cdd7c78fee",
+        "version" : "3.1.0"
       }
     },
     {

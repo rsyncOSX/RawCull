@@ -1,6 +1,6 @@
 # Plan: Make Vision calls safe to run concurrently
 
-Status: phases 1–2 done · phase 3 started (RawCull on PhotoAnalysisKit 1.4.0; PhotoAIKit not started) · 2026-11-21 · branch `version-3.4.9`
+Status: phases 1–2 done · phase 3 code done (PhotoAnalysisKit 1.4.0, PhotoAIKit 3.1.0); real-catalog checks pending · 2026-11-21 · branch `version-3.4.9`
 
 ## Summary
 
@@ -194,10 +194,33 @@ Checks:
 - The `RawCull` test plan ran three times in a row with `xcodebuild test-without-building` on a 10-core Mac. Every run finished, with 955 passed, 0 failed and 6 skipped (the real-model tests).
 - `Scripts/VerifyAIImportBoundary.sh` passes.
 
+#### Phase 3 steps 1–2 result (2026-11-21)
+
+PhotoAIKit **3.1.0** (tag `v3.1.0`, merge commit `26647c6` of `0a59366`):
+
+- New `VisionWorkSerializing` protocol and a default `SerialVisionWorkQueue` (the same ticket design as `VisionRequestGate`), both in the `VisionFeaturePrintBackend` target. PhotoAIKit still does not depend on PhotoAnalysisKit.
+- `VisionFeaturePrintBackend.init(revision:serializer:)`, where `serializer` defaults to `SerialVisionWorkQueue.shared`. `artifact(for:source:)` runs request, perform and archiving in one body. Existing `init(revision:)` calls still compile.
+- 6 new tests: no overlap, error propagation, cancellation before the turn (two cases), the injected serializer is used, and 3 × cores concurrent feature prints finish within one minute. `swift test` passed 56 tests three times in a row.
+
+RawCull:
+
+| Change | File |
+|---|---|
+| New `RawCullVisionWorkSerializer`, which forwards to `VisionRequestGate.shared.run`. It uses a scoped `import class PhotoAnalysisKit.VisionRequestGate`, because PhotoAnalysisKit also declares a `VisionFeaturePrintBackend` type. Keeping it in this file means the import-boundary policy did not change. The default backend of `RawCullVisionSimilarityService` uses it. | `RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift` |
+| The runtime's single `VisionFeaturePrintBackend` uses it | `RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift` |
+| Test: a body passed through the adapter runs only after an earlier `VisionRequestGate.shared` body finished | `RawCullTests/RawCullVisionWorkSerializerTests.swift` |
+| PhotoAIKit pin `3.1.0`. `Package.resolved` had to be resolved again with `xcodebuild -resolvePackageDependencies`: after the pin was bumped in the project file, it still pointed to 1.0.0. The package table lists `photoaikit` at `3.1.0`. | `RawCull.xcodeproj`, `README.md` |
+
+Every Vision request in the app now goes through one queue: `VisionRequestGate.shared`.
+
+Checks:
+
+- The `RawCull` test plan ran three times in a row with `xcodebuild test-without-building` on a 10-core Mac. Every run finished, with 956 passed, 0 failed and 6 skipped (the real-model tests).
+- `Scripts/VerifyAIImportBoundary.sh` passes.
+
 Not done yet:
 
-- Steps 1 and 2 (the PhotoAIKit `VisionWorkSerializing` protocol, its release, and the RawCull adapter). Until then, similarity feature prints from PhotoAIKit do not use the gate, so they can still run at the same time as PhotoAnalysisKit's Vision requests. The phase 1 single backend keeps that to one at a time.
-- Keep the phase 1 cap on sharpness scoring until steps 1 and 2 are done and measured.
+- The phase 1 cap on sharpness scoring is still in place. Remove it only after timing sharpness scoring and similarity indexing on a real catalog of about 500 images.
 - The release sharpness test and an end-to-end burst analysis on a real catalog.
 
 ## Risks and what to measure
