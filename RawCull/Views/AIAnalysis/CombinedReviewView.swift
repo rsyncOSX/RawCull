@@ -1,13 +1,5 @@
 import SwiftUI
 
-enum CombinedReviewMode: String, CaseIterable {
-    case photo, evidence
-    var title: LocalizedStringResource {
-        switch self { case .photo: "Photo-first"
-        case .evidence: "Evidence workspace" }
-    }
-}
-
 enum CombinedReviewEvidenceTopic: String, CaseIterable {
     case findings, coverage, technical
     var title: LocalizedStringResource {
@@ -27,7 +19,8 @@ struct CombinedReviewView: View {
     @Environment(RatingsModel.self) private var ratings
     @Environment(CullingController.self) private var culling
     @Environment(BurstWorkflowController.self) private var burstWorkflow
-    @State private var mode: CombinedReviewMode = .photo
+    /// Evidence is for checking a finding, so it stays collapsed until asked for.
+    @State private var evidenceExpanded = false
     @State private var topic: CombinedReviewEvidenceTopic = .findings
     @State private var selectedFindingID: String?
     @State private var selectedRegionID = ""
@@ -54,69 +47,74 @@ struct CombinedReviewView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    CombinedReviewRunBar(feature: feature, files: files)
-                    DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
-                        CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
-                    }
-                    if let error = feature.failureMessage {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange).textSelection(.enabled)
-                    }
-                    if let selection = feature.selectionReport {
-                        DisclosureGroup("Selection comparison") {
-                            CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
+            ScrollViewReader { scroller in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        CombinedReviewRunBar(feature: feature, files: files)
+                        DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
+                            CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
                         }
-                    }
-                    if !feature.displayedResults.isEmpty {
-                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
-                    }
-                    if let result = selectedResult {
-                        let presentation = CombinedReviewPresentation(result: result)
-                        CombinedReviewResultHeader(name: result.file.displayName, mode: $mode)
-                        CombinedReviewDecisionBar(review: result.file, decisions: decisions)
-                        if mode == .photo {
+                        if let error = feature.failureMessage {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange).textSelection(.enabled)
+                        }
+                        if let selection = feature.selectionReport {
+                            DisclosureGroup("Selection comparison") {
+                                CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
+                            }
+                        }
+                        if !feature.displayedResults.isEmpty {
+                            CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
+                        }
+                        if let result = selectedResult {
+                            let presentation = CombinedReviewPresentation(result: result)
+                            Text(result.file.displayName).font(.title2).textSelection(.enabled)
+                            CombinedReviewDecisionBar(review: result.file, decisions: decisions)
                             CombinedReviewPhotoLayout(
                                 feature: feature, result: result, presentation: presentation,
                                 canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
-                                inspect: inspect, inspectFinding: { openEvidence($0, result: result) },
-                                showEvidence: { mode = .evidence; topic = .coverage },
+                                inspect: inspect,
+                                inspectFinding: { openEvidence($0, result: result, scroller: scroller) },
+                                showEvidence: { openEvidence(.coverage, scroller: scroller) },
                             )
+                            DisclosureGroup("Evidence & details", isExpanded: $evidenceExpanded) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Picker("Evidence section", selection: $topic) {
+                                        ForEach(CombinedReviewEvidenceTopic.allCases, id: \.rawValue) { Text($0.title).tag($0) }
+                                    }.pickerStyle(.segmented).frame(maxWidth: 560)
+                                    CombinedReviewEvidenceLayout(
+                                        feature: feature, result: result, presentation: presentation, topic: topic,
+                                        selectedFindingID: selectedFindingID, selectedRegionID: $selectedRegionID,
+                                        inspect: inspect, selectFinding: { openEvidence($0, result: result, scroller: scroller) },
+                                    )
+                                }.padding(.top, 10)
+                            }
+                            .id(Self.evidenceAnchor)
                         } else {
-                            Picker("Evidence section", selection: $topic) {
-                                ForEach(CombinedReviewEvidenceTopic.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-                            }.pickerStyle(.segmented).frame(maxWidth: 560)
-                            CombinedReviewEvidenceLayout(
-                                feature: feature, result: result, presentation: presentation, topic: topic,
-                                selectedFindingID: selectedFindingID, selectedRegionID: $selectedRegionID,
-                                inspect: inspect, selectFinding: { openEvidence($0, result: result) },
+                            ContentUnavailableView(
+                                feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
+                                systemImage: "photo.badge.magnifyingglass",
+                                description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
                             )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .aiAnalysisResultsContainer()
                         }
-                    } else {
-                        ContentUnavailableView(
-                            feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
-                            systemImage: "photo.badge.magnifyingglass",
-                            description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .aiAnalysisResultsContainer()
-                    }
-                    if !feature.taskHistory.isEmpty {
-                        DisclosureGroup("Run history & diagnostics") {
-                            CombinedReviewTaskHistory(
-                                feature: feature, runs: feature.taskHistory,
-                                activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil,
-                            )
+                        if !feature.taskHistory.isEmpty {
+                            DisclosureGroup("Run history & diagnostics") {
+                                CombinedReviewTaskHistory(
+                                    feature: feature, runs: feature.taskHistory,
+                                    activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil,
+                                )
+                            }
                         }
                     }
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: selectedResult == nil ? max(0, geometry.size.height - 40) : 0,
+                        alignment: .topLeading,
+                    )
+                    .padding(20)
                 }
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: selectedResult == nil ? max(0, geometry.size.height - 40) : 0,
-                    alignment: .topLeading,
-                )
-                .padding(20)
             }
         }
         .focusable()
@@ -154,11 +152,19 @@ struct CombinedReviewView: View {
         }
     }
 
-    private func openEvidence(_ finding: CombinedReviewFinding, result: CombinedReviewResult) {
+    private static let evidenceAnchor = "evidence"
+
+    private func openEvidence(_ finding: CombinedReviewFinding, result: CombinedReviewResult, scroller: ScrollViewProxy) {
         selectedFindingID = finding.id
         selectedRegionID = CombinedReviewPresentation.supportingRegion(for: finding, in: result)?.rawValue ?? ""
-        topic = .findings
-        mode = .evidence
+        openEvidence(.findings, scroller: scroller)
+    }
+
+    /// Opens the evidence section at a topic and scrolls it into view.
+    private func openEvidence(_ topic: CombinedReviewEvidenceTopic, scroller: ScrollViewProxy) {
+        self.topic = topic
+        evidenceExpanded = true
+        withAnimation { scroller.scrollTo(Self.evidenceAnchor, anchor: .top) }
     }
 
     private func inspect(_ key: String?) {
@@ -264,33 +270,6 @@ private struct CombinedReviewFilePicker: View {
                 }
             }
         }.frame(maxWidth: 460)
-    }
-}
-
-private struct CombinedReviewResultHeader: View {
-    let name: String
-    @Binding var mode: CombinedReviewMode
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack {
-                Text(name).font(.title2).textSelection(.enabled)
-                Spacer()
-                CombinedReviewModePicker(mode: $mode)
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                Text(name).font(.title2).textSelection(.enabled)
-                CombinedReviewModePicker(mode: $mode)
-            }
-        }
-    }
-}
-
-private struct CombinedReviewModePicker: View {
-    @Binding var mode: CombinedReviewMode
-    var body: some View {
-        Picker("Review presentation", selection: $mode) {
-            ForEach(CombinedReviewMode.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-        }.pickerStyle(.segmented).labelsHidden().frame(width: 340)
     }
 }
 

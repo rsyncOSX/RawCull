@@ -155,6 +155,7 @@ What was built:
 - The toolbar item, window title and About entry say "Review". The preset picker moved out of the collapsed settings section into the run bar.
 - "Show legacy AI Analysis" (`RawCullAI.showLegacyAIAnalysis`) is off by default. Turning it off while the old view is open switches to Review.
 - Full stays the default preset on Macs with 16 GB or more.
+- After step 5: the "Photo-first / Evidence workspace" switch is gone. Review has one view; the evidence (findings with their masks and crops, coverage and limits, technical record) is a collapsed "Evidence & details" section under the findings. Clicking a finding opens it there.
 
 ### Step 6: Delete
 
