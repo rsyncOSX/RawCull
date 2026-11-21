@@ -76,7 +76,7 @@ final class RawCullAIModelRuntime {
         self.clipSimilarityProviders = [:]
         self.clipSimilarityModelLocations = [:]
 
-        let visionProvider = VisionFeaturePrintBackend()
+        let visionProvider = VisionFeaturePrintBackend(serializer: RawCullVisionWorkSerializer())
         self.visionSimilarityProvider = visionProvider
         self.visionSimilarityService = RawCullVisionSimilarityService(
             backend: visionProvider,

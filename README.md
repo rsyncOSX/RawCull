@@ -128,8 +128,8 @@ Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project
 | `decodeencodegeneric` | `1.0.0` |
 | `eventsource` | `1.6.0` |
 | `parsersyncoutput` | `1.0.0` |
-| `photoaikit` | `1.0.0` |
-| `photoanalysiskit` | `1.3.9` |
+| `photoaikit` | `3.1.0` |
+| `photoanalysiskit` | `1.4.0` |
 | `photoevidencekit` | `1.1.5` |
 | `rawcullcore` | `1.1.5` |
 | `rawparserkit` | `1.3.3` |
