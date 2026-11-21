@@ -7,6 +7,7 @@ import RawParserKit
 
 nonisolated struct CombinedReviewResult: Sendable {
     let file: ReviewFileSnapshot
+    var preset: ReviewPreset = .full
     var source: ReviewSourceRecord?
     var overview: CombinedReviewOverview?
     var subjects: [ReviewSubjectRecord] = []
@@ -26,6 +27,7 @@ nonisolated struct CombinedReviewResult: Sendable {
 final class CombinedReviewFeature {
     static let stageVersions = ReviewPipelineContract.stageVersions
     var criteria = "Describe composition, exposure, subject visibility and technical detail."
+    var preset: ReviewPreset = .full
     var depth: ReviewDepth = .standard
     var sourcePreference: ReviewSourcePreference = .highQualityPreview
     var retainInputs = true
@@ -190,7 +192,7 @@ final class CombinedReviewFeature {
             isRunning = true; failureMessage = nil; progress = "Checking source and models"
             lease.invalidateOwner = { [weak self] in self?.cancel() }
             let backend = try backendFactory()
-            let selectedDepth = depth, selectedPreference = sourcePreference, retention = retainInputs
+            let selectedPreset = preset, selectedDepth = depth, selectedPreference = sourcePreference, retention = retainInputs
             let diagnosticRetention: ReviewDiagnosticRetention = retainRejectedResponses ? .boundedRejectedText : .compact
             let requestedRegion = selected.count == 1 ? userRegion : nil
             let worker = Task { [weak self] in
@@ -200,14 +202,18 @@ final class CombinedReviewFeature {
                     await beforeStart?()
                     let files = try await ReviewCatalogSession.freeze(selected)
                     catalogSession = ReviewCatalogSession(urls: files.map(\.url))
-                    let models = try await backend.models()
+                    let models = try await backend.models(for: selectedPreset)
                     try Task.checkCancellation()
+                    guard selectedPreset.requiredModels.isSubset(of: Set(models.keys)) else {
+                        throw ReviewRunError.modelUnavailable
+                    }
                     let snapshot = ReviewRunSnapshot(diagnosticRetention: diagnosticRetention, id: id, files: files, criteria: goal, depth: selectedDepth,
                                                      sourcePreference: selectedPreference.rawValue, retentionPolicy: retention ? .exactInputs : .compact,
                                                      renderVersion: ReviewPipelineContract.renderVersion, models: models,
                                                      stageVersions: Self.stageVersions,
                                                      responseTokens: 768, pipelineVersion: ReviewPipelineContract.version, created: Date(), expandedSelectionPlan: nil,
-                                                     userRegions: requestedRegion.map { [.init(imageID: files[0].id, normalizedRect: $0, purpose: "User region; location only")] })
+                                                     userRegions: requestedRegion.map { [.init(imageID: files[0].id, normalizedRect: $0, purpose: "User region; location only")] },
+                                                     preset: selectedPreset)
                     try snapshot.validate()
                     if let previous = manifest {
                         savedHistory.removeAll { $0.snapshot.id == previous.snapshot.id }
@@ -255,7 +261,8 @@ final class CombinedReviewFeature {
                     await beforeStart?()
                     catalogSession = ReviewCatalogSession(urls: saved.snapshot.files.map(\.url))
                     try await ReviewCatalogSession.revalidate(saved.snapshot.files)
-                    guard try await backend.models() == saved.snapshot.models else { throw ReviewRunError.incompatible }
+                    let models = try await backend.models(for: saved.snapshot.effectivePreset)
+                    guard models == saved.snapshot.models else { throw ReviewRunError.incompatible }
                     try ReviewPipelineContract.validate(saved.snapshot)
                     try saved.validate()
                     let expected = try saved.expectedCompatibility()
@@ -348,9 +355,13 @@ final class CombinedReviewFeature {
     static func workID(_ image: ReviewImageID, _ name: String) -> ReviewWorkID {
         .init(rawValue: image.rawValue + ":" + name)
     }
+}
 
+extension CombinedReviewFeature {
+    /// Only the preset's stages get work items, so a Focus check run never plans Qwen work.
     static func initialManifest(_ snapshot: ReviewRunSnapshot) throws -> CombinedReviewRunV1 {
         var work: [ReviewWorkItem] = []
+        let preset = snapshot.effectivePreset
         for file in snapshot.files {
             let source = workID(file.id, "source"), overview = workID(file.id, "overview"), identity = workID(file.id, "identity")
             func item(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], terminal: Bool = false) throws -> ReviewWorkItem {
@@ -358,12 +369,23 @@ final class CombinedReviewFeature {
                           dependencies: parents.map { .init(id: $0, allowsUnavailable: terminal) },
                           compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: stage))
             }
-            try work.append(contentsOf: [item("source", stage: .source, parents: []),
-                                         item("overview", stage: .overview, parents: [source]),
-                                         item("identity", stage: .identity, parents: [source, overview], terminal: true),
-                                         item("report", stage: .report, parents: [identity, overview], terminal: true)])
+            switch preset {
+            case .full:
+                try work.append(contentsOf: [item("source", stage: .source, parents: []),
+                                             item("overview", stage: .overview, parents: [source]),
+                                             item("identity", stage: .identity, parents: [source, overview], terminal: true),
+                                             item("report", stage: .report, parents: [identity, overview], terminal: true)])
+
+            case .focusCheck:
+                try work.append(contentsOf: [item("source", stage: .source, parents: []),
+                                             item("identity", stage: .identity, parents: [source], terminal: true)])
+
+            case .describe:
+                try work.append(contentsOf: [item("source", stage: .source, parents: []),
+                                             item("overview", stage: .overview, parents: [source])])
+            }
         }
-        if snapshot.files.count > 1 {
+        if snapshot.files.count > 1, preset.includes(.comparison) {
             let file = snapshot.files[0]
             try work.append(.init(id: workID(file.id, "selection"), imageID: file.id, stage: .comparison,
                                   dependencies: snapshot.files.map { .init(id: workID($0.id, "report"), allowsUnavailable: true) },

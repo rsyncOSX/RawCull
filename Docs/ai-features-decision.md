@@ -94,7 +94,7 @@ As the AI Assessments window already does for MCP results: opening, running or c
 |---|---|---|---|---|
 | 1 | Accept this decision; update finding 4.3 | XS | none | done |
 | 2 | Compare outputs: presets against the old tabs | S | none | not started |
-| 3 | Add the presets to Combined Review | M | medium | not started |
+| 3 | Add the presets to Combined Review | M | medium | done |
 | 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | not started |
 | 5 | Make Review the default; hide the old tabs behind a setting | S | low | not started |
 | 6 | Delete the old tabs, after one TestFlight release | M | low | not started |
@@ -110,6 +110,12 @@ Run the old tab and its preset on the same 20 photos from one real catalog: bird
 
 Write every difference into this document. For each one, decide whether to add it to the preset or accept losing it.
 
+Differences known from the code (step 3), before any run:
+
+- **Focus check segments the generic "subject".** Deep AI Review picks prompts from the burst's subject label (bird head, face, animal head, then the broader prompt). Focus check has no Qwen overview to name concepts, so it asks SAM for "subject" and then tries a head region inside it. Check whether bird and portrait masks are as good.
+- **Focus check has no per-burst candidate order.** Deep AI Review ranks the frames of a burst. Focus check measures each selected photo; it does not rank them.
+- **Describe uses Combined Review's overview format** (observations, uncertainty, concepts), not the `QwenPhotoAssessment` fields that Qwen Vision fills in.
+
 Done when: every difference has a decision.
 
 ### Step 3: Presets
@@ -117,6 +123,13 @@ Done when: every difference has a decision.
 1. Add the three presets and a picker in the Combined Review controls.
 2. Skip the stages a preset does not need, both when running and when checking the run parameters, so Focus check never loads Qwen.
 3. Tests: each preset runs exactly its stages (use a fake per model, and record which ones were called); saved results from today's Full run still load; Focus check works with no Qwen model installed.
+
+What was built:
+
+- `ReviewPreset` (`CombinedReview/Execution/ReviewRunContract.swift`) is a separate type, not new `ReviewDepth` values. Depth only sets crop and follow-up limits, which apply to Full alone, so the Depth picker is disabled for the other presets.
+- The run snapshot saves the preset. Runs saved before presets have none and load as Full. Full runs keep their old compatibility keys, so saved artifacts stay valid.
+- `CombinedReviewBackendServing.models(for:)` returns only the models a preset uses. The live backend no longer needs Qwen installed; Focus check never checks or loads it.
+- Focus check results have no report. Their subject detail measurements are shown as findings.
 
 ### Step 4: Decision actions
 

@@ -19,6 +19,7 @@ nonisolated struct CombinedReviewFinding: Identifiable, Sendable {
         case "visibility": "Subject visibility"
         case "detail": "Visible detail"
         case "suggestion": "Suggestion"
+        case "measurement": "Subject detail measurement"
         default: "Model observation"
         }
     }
@@ -55,7 +56,7 @@ nonisolated struct CombinedReviewPresentation: Sendable {
                     contradictions: [], subjectID: nil, regionID: observation.regionID,
                     isObservationOnly: true,
                 )
-            }
+            } + (result.preset == .focusCheck ? Self.measurementFindings(result) : [])
         }
         var seen: Set<String> = []
         limitations = (result.limitations + (result.report?.limitations ?? [])).filter {
@@ -82,8 +83,41 @@ nonisolated struct CombinedReviewPresentation: Sendable {
         importantLimits = notices
         inspectedCount = result.report?.inspectedRegions.count
         uninspectedCount = result.report?.uninspectedRegions.count
-        incomplete = result.report?.incomplete != false || !result.failures.isEmpty ||
-            !(result.report?.uninspectedRegions.isEmpty ?? true)
+        // Presets without a report are complete when every stage they run succeeded.
+        incomplete = result.preset.includes(.report)
+            ? result.report?.incomplete != false || !result.failures.isEmpty || !(result.report?.uninspectedRegions.isEmpty ?? true)
+            : !result.failures.isEmpty
+    }
+
+    /// Focus check has no report, so its measurements are the findings. The numbers are shown
+    /// as measured, with the scorer's own caveat; they are not turned into a pass or fail.
+    private static func measurementFindings(_ result: CombinedReviewResult) -> [CombinedReviewFinding] {
+        result.measurements.filter { $0.availability == .available }.map { measurement in
+            let concept = result.subjects.first { $0.id == measurement.subjectID }?.concept ?? String(localized: "subject")
+            let number = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2))
+            let percent = FloatingPointFormatStyle<Double>.Percent.percent.precision(.fractionLength(0))
+            var parts: [String] = []
+            if let value = measurement.values["subjectDetail"] {
+                parts.append(String(localized: "subject detail") + " " + value.formatted(number))
+            }
+            if let value = measurement.values["fineDetail"] {
+                parts.append(String(localized: "fine detail") + " " + value.formatted(number))
+            }
+            if let value = measurement.values["maskCoverage"] {
+                parts.append(String(localized: "mask coverage") + " " + value.formatted(percent))
+            }
+            return CombinedReviewFinding(
+                id: measurement.id.rawValue,
+                type: "measurement",
+                text: concept.capitalized + ": " + parts.joined(separator: " · "),
+                uncertainty: measurement.reason ?? "",
+                evidence: [.init(kind: .measurement, id: measurement.id.rawValue)],
+                contradictions: [],
+                subjectID: measurement.subjectID,
+                regionID: nil,
+                isObservationOnly: true,
+            )
+        }
     }
 
     static func selectedResult(in results: [CombinedReviewResult], fileID: UUID?) -> CombinedReviewResult? {

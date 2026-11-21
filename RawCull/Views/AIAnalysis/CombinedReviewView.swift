@@ -245,13 +245,17 @@ private struct CombinedReviewRunControls: View {
     @State private var clearError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Picker("Preset", selection: $feature.preset) {
+                ForEach(ReviewPreset.allCases, id: \.rawValue) { Text($0.title).tag($0) }
+            }.pickerStyle(.segmented).frame(maxWidth: 360)
+                .disabled(feature.isRunning)
             TextField("Review criteria", text: $feature.criteria, axis: .vertical).textFieldStyle(.roundedBorder)
                 .disabled(feature.isRunning)
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Picker("Depth", selection: $feature.depth) {
                         ForEach(ReviewDepth.allCases, id: \.rawValue) { Text($0.rawValue.capitalized).tag($0) }
-                    }.frame(width: 190)
+                    }.frame(width: 190).disabled(!feature.preset.includes(.cropObservation))
                     Picker("Source", selection: $feature.sourcePreference) {
                         Text("High-quality preview").tag(ReviewSourcePreference.highQualityPreview)
                             .disabled(feature.sourceAvailability?.previewDisabledReason != nil)
@@ -262,7 +266,7 @@ private struct CombinedReviewRunControls: View {
                 VStack(alignment: .leading) {
                     Picker("Depth", selection: $feature.depth) {
                         ForEach(ReviewDepth.allCases, id: \.rawValue) { Text($0.rawValue.capitalized).tag($0) }
-                    }
+                    }.disabled(!feature.preset.includes(.cropObservation))
                     Picker("Source", selection: $feature.sourcePreference) {
                         Text("High-quality preview").tag(ReviewSourcePreference.highQualityPreview)
                             .disabled(feature.sourceAvailability?.previewDisabledReason != nil)
@@ -283,8 +287,7 @@ private struct CombinedReviewRunControls: View {
             if let status = feature.criteriaStatus {
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
-            Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text(presetSummary).font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
                 Button("Clear rejected responses") {
                     Task { await clear("rejected responses") { try await feature.clearRejectedResponses() } }
@@ -302,6 +305,19 @@ private struct CombinedReviewRunControls: View {
             if files.isEmpty || files.count > 8 {
                 Text("Select 1–8 images. Larger selections require an explicit expanded coverage plan; split this selection into smaller runs.").font(.caption)
             }
+        }
+    }
+
+    private var presetSummary: String {
+        switch feature.preset {
+        case .focusCheck:
+            String(localized: "SAM 3 subject masks, focus measurement and CLIP. Works without the Qwen model.")
+
+        case .describe:
+            String(localized: "One Qwen pass on the whole photo. No masks, crops or measurements.")
+
+        case .full:
+            String(localized: "Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
         }
     }
 

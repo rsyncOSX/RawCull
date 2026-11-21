@@ -18,7 +18,15 @@ nonisolated struct CombinedReviewCLIPResult: Codable, Sendable {
 
 nonisolated protocol CombinedReviewBackendServing: Sendable {
     func models() async throws -> [String: ReviewModelSnapshot]
+    /// Only the models the preset uses. Focus check must not load or check Qwen.
+    func models(for preset: ReviewPreset) async throws -> [String: ReviewModelSnapshot]
     func respond(instruction: String, image: CGImage, tokens: Int) async throws -> String
     func segment(image: CGImage, file: ReviewFileSnapshot, concept: String) async throws -> [ObjectInstanceDeduplicator.Candidate]
     func clip(image: CGImage, criteria: String, model: ReviewModelSnapshot) async throws -> CombinedReviewCLIPResult
+}
+
+extension CombinedReviewBackendServing {
+    func models(for preset: ReviewPreset) async throws -> [String: ReviewModelSnapshot] {
+        try await models().filter { preset.usedModels.contains($0.key) }
+    }
 }

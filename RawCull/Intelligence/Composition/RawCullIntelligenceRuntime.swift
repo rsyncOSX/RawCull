@@ -85,7 +85,13 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
             ?? RawCullObjectAnalysisFeature(inference: modelRuntime.qwenInference)
         combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature, weak settingsModel] in
             guard settingsModel?.combinedReviewEnabled == true else { throw CancellationError() }
-            guard let modelRuntime, let qwenAnalysisFeature, case let .available(url, _) = qwenAnalysisFeature.modelStatus else { throw ReviewRunError.modelUnavailable }
+            guard let modelRuntime else { throw ReviewRunError.modelUnavailable }
+            // Without Qwen only Focus check can run; the run checks the models its preset needs.
+            let url: URL? = if case let .available(url, _) = qwenAnalysisFeature?.modelStatus {
+                url
+            } else {
+                nil
+            }
             let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
             let identity = try String(decoding: encoder.encode(modelRuntime.sam3Configuration.modelIdentity), as: UTF8.self)
             return try CombinedReviewLiveBackend(qwen: modelRuntime.qwenInference, qwenURL: url,

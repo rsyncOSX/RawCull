@@ -664,6 +664,80 @@ struct CombinedReviewFeatureTests {
         #expect(feature.parameterStatus.contains("select 1–8"))
     }
 
+    @Test @MainActor func `focus check runs only its stages and never calls Qwen`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasQwen: false, hasSAM: true, hasCLIP: true)
+        let feature = makeFeature(fixture, backend: backend)
+        feature.preset = .focusCheck
+        await feature.analyze([fixture.file])
+        #expect(feature.failureMessage == nil)
+        let run = try #require(feature.manifest)
+        #expect(run.snapshot.preset == .focusCheck)
+        #expect(run.snapshot.models["qwen"] == nil)
+        #expect(Set(run.work.map(\.stage)) == ReviewPreset.focusCheck.stages)
+        #expect(run.work.allSatisfy { $0.state == .completed })
+        #expect(await backend.responses == 0)
+        #expect(await backend.segmentConcepts.first == "subject")
+        let result = try #require(feature.result)
+        #expect(result.measurements.count == 1)
+        #expect(result.report == nil)
+        #expect(result.regions.isEmpty)
+        let presentation = CombinedReviewPresentation(result: result)
+        #expect(presentation.findings.contains { $0.type == "measurement" })
+        #expect(!presentation.incomplete)
+        #expect(feature.progress == "Complete")
+    }
+
+    @Test @MainActor func `describe runs one Qwen overview and no SAM or CLIP`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true, hasCLIP: true)
+        let feature = makeFeature(fixture, backend: backend)
+        feature.preset = .describe
+        await feature.analyze([fixture.file])
+        #expect(feature.failureMessage == nil)
+        let run = try #require(feature.manifest)
+        #expect(Set(run.snapshot.models.keys) == ["qwen"])
+        #expect(Set(run.work.map(\.stage)) == ReviewPreset.describe.stages)
+        #expect(run.work.allSatisfy { $0.state == .completed })
+        #expect(await backend.responses == 1)
+        #expect(await backend.segmentConcepts.isEmpty)
+        let result = try #require(feature.result)
+        #expect(result.overview != nil)
+        #expect(result.clip.isEmpty)
+        #expect(CombinedReviewPresentation(result: result).findings.count == 1)
+    }
+
+    @Test @MainActor func `focus check without SAM refuses to start`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend(hasQwen: false))
+        feature.preset = .focusCheck
+        await feature.analyze([fixture.file])
+        #expect(feature.failureMessage != nil)
+        #expect(feature.manifest == nil)
+    }
+
+    @Test @MainActor func `full preset keeps every stage and saved runs without a preset load as full`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true, hasCLIP: true)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file])
+        let run = try #require(feature.manifest)
+        #expect(run.snapshot.effectivePreset == .full)
+        let stages = Set(run.work.map(\.stage))
+        #expect(stages.isSuperset(of: [.source, .overview, .segmentation, .identity, .measurement, .clip, .cropObservation, .report]))
+        #expect(run.work.allSatisfy { $0.compatibility.fields["preset"] == nil })
+        // A run saved before presets existed has no "preset" key.
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(run)) as? [String: Any])
+        var snapshot = try #require(json["snapshot"] as? [String: Any])
+        snapshot.removeValue(forKey: "preset")
+        json["snapshot"] = snapshot
+        let legacy = try JSONDecoder().decode(CombinedReviewRunV1.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(legacy.snapshot.preset == nil)
+        #expect(legacy.snapshot.effectivePreset == .full)
+        try legacy.validate()
+        #expect(try legacy.expectedCompatibility().allSatisfy { id, value in run.work.first { $0.id == id }?.compatibility == value })
+    }
+
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -679,6 +753,7 @@ private nonisolated struct ReviewPreviewOnlySource: ReviewImageSourceLoading {
 
 private actor ReviewFakeBackend: CombinedReviewBackendServing {
     nonisolated static let qwen = ReviewModelSnapshot(identity: "fake", runtimeVersion: "test", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)
+    let hasQwen: Bool
     let hasSAM: Bool, hasCLIP: Bool, comparisonTie: Bool, invalidCrop: Bool, invalidReport: Bool
     let repairableResponses: Bool
     let invalidExposureSelection: Bool
@@ -689,9 +764,11 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     var cropContinuation: CheckedContinuation<Void, Never>?
     var cropStarted = false
     var responses = 0
+    var segmentConcepts: [String] = []
     var synthesisInstructions: [String] = []
     var cropInstructions: [String] = []
-    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil, repairableResponses: Bool = false, forbiddenCrop: Bool = false, invalidExposureSelection: Bool = false) {
+    init(hasQwen: Bool = true, hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil, repairableResponses: Bool = false, forbiddenCrop: Bool = false, invalidExposureSelection: Bool = false) {
+        self.hasQwen = hasQwen
         self.invalidExposureSelection = invalidExposureSelection
         self.forbiddenCrop = forbiddenCrop
         self.repairableResponses = repairableResponses
@@ -703,7 +780,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     }
 
     func models() -> [String: ReviewModelSnapshot] {
-        var models = ["qwen": Self.qwen]
+        var models = hasQwen ? ["qwen": Self.qwen] : [:]
         if hasSAM {
             models["sam"] = .init(identity: "SAM", runtimeVersion: "test", preprocessing: "test", encoderWidth: 0, encoderHeight: 0, contextTokens: nil, imageTokens: nil)
         }
@@ -714,6 +791,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     }
 
     func respond(instruction: String, image _: CGImage, tokens _: Int) async throws -> String {
+        guard hasQwen else { throw ReviewRunError.modelUnavailable }
         responses += 1
         if instruction.contains("Compare for goal:"), comparisonTie {
             var references: [(String, ReviewEvidenceReference)] = []
@@ -778,6 +856,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     }
 
     func segment(image: CGImage, file _: ReviewFileSnapshot, concept: String) throws -> [ObjectInstanceDeduplicator.Candidate] {
+        segmentConcepts.append(concept)
         let context = try #require(CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width,
                                              space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue))
         context.setFillColor(CGColor(gray: 1, alpha: 1))
