@@ -1,6 +1,6 @@
 # Plan: Make Vision calls safe to run concurrently
 
-Status: phases 1–3 done (PhotoAnalysisKit 1.4.0, PhotoAIKit 3.1.0); real-catalog checks passed · open: phase 1 cap decision, end-to-end burst run · 2026-11-21 · branch `version-3.4.9`
+Status: phases 1–3 done (PhotoAnalysisKit 1.4.0, PhotoAIKit 3.1.0); real-catalog checks passed; phase 1 cap removed · open: end-to-end burst run · 2026-11-21 · branch `version-3.4.9`
 
 ## Summary
 
@@ -250,9 +250,12 @@ To run it, the `RawCullReleaseTests` target needed fixing first, in commit `7142
 
 Volume access: `RawCullReleaseTests` is a hostless test bundle, so it runs in Xcode's background `xctest` process. macOS refused that process access to the external drive (`Operation not permitted`), even when `make` was started from a shell that could read the drive. macOS never shows a prompt for it. Either give the `xctest` agent Full Disk Access, or copy the catalog to an unprotected folder in the home directory, as was done here.
 
+#### Phase 1 cap removed (2026-11-21)
+
+`SharpnessScoringModel.visionSafeScoringTaskLimit` is deleted. `effectiveMaxConcurrentScoringTasks` is back to the pre-phase-1 values: Fast 6, Balanced 4, High Precision 3, at most 2 for RAW demosaic. On a 10-core Mac, Fast goes from 5 back to 6. The comments in `SharpnessScoringModel` and `RawCullVisionSimilarityService.index` now point to the gate. The `RawCull` test plan ran three times in a row: 956 passed, 0 failed, 6 skipped each time.
+
 Not done yet:
 
-- Decide whether to remove the phase 1 cap on sharpness scoring (`SharpnessScoringModel.visionSafeScoringTaskLimit`). The measurements above allow it. The comment on the cap and the one in `RawCullVisionSimilarityService.index` still describe the phase 1 situation.
 - An end-to-end burst analysis through the app (`Scripts/PrepareBursts.py` over MCP). It needs a build of this branch installed as the app, and it replaces the app's shared analysis result.
 
 ## Risks and what to measure

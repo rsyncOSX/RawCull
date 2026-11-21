@@ -118,9 +118,9 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
         Logger.process.debugMessageOnly(
             "RawCullVisionSimilarityService.index(): indexing \(sources.count) sources",
         )
-        // The backend is an actor, so feature prints run one at a time while
-        // decoding still runs `concurrencyLimit` wide. Vision requests must not
-        // run in parallel: see Docs/visionupdate.md.
+        // Decoding runs `concurrencyLimit` wide. Feature prints run one at a
+        // time through `RawCullVisionWorkSerializer`, the app-wide Vision gate:
+        // see Docs/visionupdate.md.
         let indexer = SimilarityArtifactIndexer(
             primaryProvider: backend,
             decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
