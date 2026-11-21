@@ -119,11 +119,13 @@ actor BurstDetectedFaceLoader {
         return preview
     }
 
-    /// A fresh analyzer per call: the analyzer is stateless, and a shared
-    /// instance would serialize every Vision pass on one actor.
+    /// One shared analyzer: it is an actor, so face passes run one at a time.
+    /// Vision requests must not run in parallel: see Docs/visionupdate.md.
+    private static let faceAnalyzer = FaceEvidenceAnalyzer()
+
     @concurrent private nonisolated static func analyzeFaces(_ preview: CGImage) async throws -> FaceEvidenceResult {
         try Task.checkCancellation()
-        return try await FaceEvidenceAnalyzer().analyze(preview)
+        return try await faceAnalyzer.analyze(preview)
     }
 
     @concurrent private nonisolated static func detectAnimals(_ preview: CGImage) async throws -> [AnimalCloseUpDetector.Region]? {
