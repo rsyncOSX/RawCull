@@ -2,6 +2,17 @@ import CoreGraphics
 import Foundation
 import PhotoAIContracts
 
+/// One segmented object instance, as ObjectInstanceDeduplicator keeps it.
+nonisolated struct ObjectInstanceDescriptor: Equatable, Identifiable, Sendable {
+    /// Board-local number, stable for the persisted result.
+    let id: String
+    let concept: String
+    let aliases: [String]
+    let score: Float
+    let normalizedBoundingBox: CGRect
+    let sourceInstanceID: String
+}
+
 /// Filters weak masks and collapses nearly identical regions across concepts.
 nonisolated enum ObjectInstanceDeduplicator {
     struct Candidate: Sendable {

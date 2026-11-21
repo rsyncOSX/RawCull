@@ -39,7 +39,8 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
         try snapshot.validate()
         let ids = Set(work.map(\.id))
         let images = Set(snapshot.files.map(\.id))
-        guard ids.count == work.count, images.isSubset(of: Set(work.map(\.imageID))), images.isSubset(of: Set(work.filter { $0.stage == .report }.map(\.imageID))) else { throw ReviewRunError.invalidSnapshot }
+        guard ids.count == work.count, images.isSubset(of: Set(work.map(\.imageID))), !snapshot.effectivePreset.includes(.report) || images.isSubset(of: Set(work.filter { $0.stage == .report }.map(\.imageID))),
+              work.allSatisfy({ snapshot.effectivePreset.includes($0.stage) }) else { throw ReviewRunError.invalidSnapshot }
         var visited: Set<ReviewWorkID> = []
         var visiting: Set<ReviewWorkID> = []
         func visit(_ item: ReviewWorkItem) throws {

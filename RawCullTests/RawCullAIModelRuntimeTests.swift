@@ -106,8 +106,6 @@ struct RawCullAIModelRuntimeTests {
         ))
 
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
-        #expect(FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
-        #expect(modelRuntime.objectSegmentation == nil)
 
         // A provider's declared input contract is available without loading
         // compiled models. Exercise installation, snapshot identity, and removal.
@@ -451,10 +449,10 @@ struct RawCullAIModelRuntimeTests {
     }
 
     @Test(arguments: [8, 15, 16, 24, 32, 48])
-    @MainActor func `Combined Review requires memory guidance before enabling`(gigabytes: UInt64) throws {
+    @MainActor func `Review memory limits apply to the Qwen presets only`(gigabytes: UInt64) throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "CombinedReviewMemoryTests.\(UUID().uuidString)"
+        let suite = "ReviewMemoryTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let runtime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
@@ -463,33 +461,22 @@ struct RawCullAIModelRuntimeTests {
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             physicalMemory: gigabytes * 1024 * 1024 * 1024,
         )
-        #expect(!model.combinedReviewEnabled)
-        #expect(model.canEnableCombinedReview == (gigabytes >= 16))
-        #expect(model.shouldWarnAboutCombinedReviewMemory == (gigabytes < 32))
+        #expect(model.canRunQwenReview == (gigabytes >= 16))
+        #expect(model.shouldWarnAboutQwenReviewMemory == (gigabytes < 32))
         #expect(model.memoryInGB == Double(gigabytes))
+    }
 
-        model.combinedReviewToggle = true
-        #expect(model.isShowingCombinedReviewGuidance)
-        #expect(!model.combinedReviewEnabled)
-        // Closing or cancelling the guidance must not enable the feature.
-        model.isShowingCombinedReviewGuidance = false
-        #expect(!model.combinedReviewToggle)
-        model.combinedReviewToggle = true
-        model.confirmCombinedReviewEnabled()
-        #expect(model.combinedReviewEnabled == (gigabytes >= 16))
-        #expect(!model.isShowingCombinedReviewGuidance)
-        #expect(defaults.bool(forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey) == (gigabytes >= 16))
-
-        // A saved enablement from another Mac cannot bypass the memory minimum.
-        defaults.set(true, forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey)
-        let relaunched = RawCullAISettingsModel(
-            modelRuntime: runtime, userDefaults: defaults,
-            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
-            physicalMemory: gigabytes * 1024 * 1024 * 1024,
-        )
-        #expect(relaunched.combinedReviewEnabled == (gigabytes >= 16))
-        model.combinedReviewToggle = false
-        #expect(!model.combinedReviewEnabled)
+    @Test @MainActor func `the obsolete Objects mask cache is removed at launch`() async throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = isolatedPaths(root: root)
+        try FileManager.default.createDirectory(at: paths.objectMaskDirectory, withIntermediateDirectories: true)
+        try Data("old mask".utf8).write(to: paths.objectMaskDirectory.appendingPathComponent("mask.png"))
+        _ = RawCullAIModelRuntime(paths: paths)
+        for _ in 0 ..< 50 where FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path) {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(!FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
     }
 
     private func isolatedRoot() -> URL {

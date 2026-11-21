@@ -368,7 +368,6 @@ extension CatalogPerformanceTests {
             similarityModel: similarity,
             similarityFeature: feature,
             semanticSearchFeature: semantic,
-            deepAIReviewController: DeepAIReviewController(),
         )
         model.ratings.cullingModel = CullingModel(saveHandler: { _ in })
         semantic.bindApplicationTarget(model.catalogController)

@@ -235,7 +235,7 @@ private final class FeatureTestApplicationContext: RawCullSimilarityApplicationC
 }
 
 /// Blocks the `blockAtCall`-th distance call until released, once.
-private nonisolated final class BlockingDistanceGate: @unchecked Sendable {
+private final nonisolated class BlockingDistanceGate: @unchecked Sendable {
     private let lock = NSLock()
     private let semaphore = DispatchSemaphore(value: 0)
     private let blockAtCall: Int

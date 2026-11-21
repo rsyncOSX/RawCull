@@ -476,7 +476,6 @@ private nonisolated struct LookupIdentity: Codable, Equatable, Sendable {
     let artifactSchemaVersion: Int
     let backend: SimilarityBackendDescriptor
     let pipeline: SimilarityArtifactPipelineSignature
-
 }
 
 /// Identity without the size/modification-date fingerprint: two records with

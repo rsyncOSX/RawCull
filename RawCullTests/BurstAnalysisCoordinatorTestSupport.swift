@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
-import PhotoAnalysisKit
 import PhotoAIContracts
+import PhotoAnalysisKit
 @testable import RawCull
 import RawCullCore
 

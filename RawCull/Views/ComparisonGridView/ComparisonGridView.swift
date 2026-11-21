@@ -50,8 +50,7 @@ struct ComparisonGridView: View {
 
                     ComparisonPager(files: files, selectedFileID: selection.selectedFileID, select: session.select) { file in
                         ComparisonPane(session: session, presentation: presentation,
-                            file: file, isSelected: selection.selectedFileID == file.id,
-                        )
+                                       file: file, isSelected: selection.selectedFileID == file.id)
                     }
                 }
             } else {

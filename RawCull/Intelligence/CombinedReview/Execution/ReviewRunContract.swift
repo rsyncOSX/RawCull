@@ -57,6 +57,54 @@ nonisolated enum ReviewDepth: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// What a review run asks. A preset picks the stages; `ReviewDepth` only sets
+/// crop and follow-up limits for presets that inspect crops.
+nonisolated enum ReviewPreset: String, Codable, CaseIterable, Sendable {
+    /// Subject masks, focus measurement and CLIP relevance. Never uses Qwen.
+    case focusCheck
+    /// One Qwen pass on the whole photo.
+    case describe
+    /// Every stage. Saved runs without a preset are full runs.
+    case full
+
+    /// Focus check has no Qwen overview to name concepts, so it segments the
+    /// generic subject, like Deep AI Review's full-subject prompt.
+    static let focusConcepts = ["subject"]
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .focusCheck: "Focus check"
+        case .describe: "Describe"
+        case .full: "Full"
+        }
+    }
+
+    var stages: Set<ReviewStage> {
+        switch self {
+        case .focusCheck: [.source, .segmentation, .identity, .measurement, .clip]
+        case .describe: [.source, .overview]
+        case .full: Set(ReviewStage.allCases)
+        }
+    }
+
+    /// A run cannot start without these.
+    var requiredModels: Set<String> {
+        switch self {
+        case .focusCheck: ["sam"]
+        case .describe, .full: ["qwen"]
+        }
+    }
+
+    /// Every model a stage of this preset can use. Missing optional models degrade the run.
+    var usedModels: Set<String> {
+        Set(stages.compactMap(\.modelKey))
+    }
+
+    func includes(_ stage: ReviewStage) -> Bool {
+        stages.contains(stage)
+    }
+}
+
 nonisolated struct ReviewFileSnapshot: Codable, Equatable, Sendable {
     let id: ReviewImageID
     let fileID: UUID
@@ -64,7 +112,7 @@ nonisolated struct ReviewFileSnapshot: Codable, Equatable, Sendable {
     let displayName: String
     let fingerprint: String
     var normalizedAFPoint: CGPoint?
-    var iso: Int? = nil
+    var iso: Int?
 
     static func fingerprint(_ url: URL) throws -> String {
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
@@ -123,6 +171,12 @@ nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
     let created: Date
     let expandedSelectionPlan: String?
     var userRegions: [ReviewUserRegion]?
+    /// Absent in runs saved before presets existed; those are full runs.
+    var preset: ReviewPreset?
+
+    var effectivePreset: ReviewPreset {
+        preset ?? .full
+    }
 
     func validate() throws {
         for region in userRegions ?? [] {
@@ -134,7 +188,9 @@ nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
               Set(files.map(\.fileID)).count == files.count,
               !criteria.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               ReviewSourcePreference(rawValue: sourcePreference) != nil,
-              (1 ... 4096).contains(responseTokens) else { throw ReviewRunError.invalidSnapshot }
+              (1 ... 4096).contains(responseTokens),
+              effectivePreset.requiredModels.isSubset(of: Set(models.keys)),
+              Set(models.keys).isSubset(of: effectivePreset.usedModels) else { throw ReviewRunError.invalidSnapshot }
     }
 }
 
@@ -166,6 +222,10 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
                       "sourcePreference": snapshot.sourcePreference, "sourceRender": sourceRender,
                       "pipeline": snapshot.pipelineVersion, "stage": stage.rawValue,
                       "stageVersion": snapshot.stageVersions[stage] ?? "unversioned", "region": region]
+        // Full runs keep the keys they had before presets, so saved artifacts stay valid.
+        if snapshot.effectivePreset != .full {
+            fields["preset"] = snapshot.effectivePreset.rawValue
+        }
         if snapshot.pipelineVersion == ReviewPipelineContract.version, [.segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains(stage) {
             fields["subjectPriority"] = ReviewSubjectPriority.version
             fields["registration"] = ReviewMaskRegistration.version

@@ -32,18 +32,13 @@ final class RawCullAIModelRuntime {
 
     let subjectMaskMemoryStore: SubjectMaskMemoryStore
     let subjectMaskDiskStore: SubjectMaskDiskStore?
-    let objectMaskMemoryStore: ObjectMaskMemoryStore
-    let objectMaskDiskStore: ObjectMaskDiskStore?
-    private(set) var objectSegmentation: ObjectSegmentationService?
     private(set) var subjectMaskRepository: SubjectMaskRepository
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
-    private let objectMaskStorageCapability: RawCullAICapabilityStatus
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
     private let inputMaxSide: Int
-    private weak var deepAIReviewFeature: DeepAIReviewFeature?
     private var selectedSegmentationModel: RawCullSegmentationModel = .defaultSelection
     private var segmentationProviders: [RawCullSegmentationModel: any SubjectSegmenting] = [:]
     private var activeSegmentationModelIdentity: ModelIdentity?
@@ -89,13 +84,11 @@ final class RawCullAIModelRuntime {
         self.subjectMaskDiskStore = diskStoreResult.store
         self.subjectMaskStorageCapability = diskStoreResult.capability
 
-        self.objectMaskMemoryStore = ObjectMaskMemoryStore()
-        let objectDiskStoreResult = Self.makeObjectMaskDiskStore(
-            at: paths.objectMaskDirectory,
-        )
-        self.objectMaskDiskStore = objectDiskStoreResult.store
-        self.objectMaskStorageCapability = objectDiskStoreResult.capability
-        self.objectSegmentation = nil
+        // The Objects analysis that wrote this cache is gone; remove what it left behind.
+        let obsoleteObjectMasks = paths.objectMaskDirectory
+        Task.detached(priority: .background) {
+            try? FileManager.default.removeItem(at: obsoleteObjectMasks)
+        }
 
         var stores: [any SubjectMaskStoring] = [memoryStore]
         if let diskStore = diskStoreResult.store {
@@ -141,7 +134,6 @@ final class RawCullAIModelRuntime {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
-            objectMaskStorage: objectDiskStoreResult.capability,
             inProcessMaskGeneration: .checking(
                 expectedLocations: defaultSegmentationCandidateURLs,
             ),
@@ -159,17 +151,6 @@ final class RawCullAIModelRuntime {
         capabilitySnapshot
     }
 
-    func bindDeepAIReviewFeature(_ feature: DeepAIReviewFeature) {
-        if let deepAIReviewFeature {
-            assert(deepAIReviewFeature === feature)
-            return
-        }
-        deepAIReviewFeature = feature
-        activateSelectedSegmentationProvider(
-            availability: capabilitySnapshot.inProcessMaskGeneration,
-        )
-    }
-
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
         guard selectedSegmentationModel != model else { return }
         CombinedReviewLease.shared.invalidate()
@@ -181,10 +162,9 @@ final class RawCullAIModelRuntime {
             semanticSearchByCLIPModel: capabilitySnapshot.semanticSearchByCLIPModel,
             visionFeaturePrint: capabilitySnapshot.visionFeaturePrint,
             subjectMaskStorage: capabilitySnapshot.subjectMaskStorage,
-            objectMaskStorage: capabilitySnapshot.objectMaskStorage,
             inProcessMaskGeneration: status,
         )
-        activateSelectedSegmentationProvider(availability: status)
+        activateSelectedSegmentationProvider()
     }
 
     /// The single activation path for a complete installed-model snapshot.
@@ -195,7 +175,6 @@ final class RawCullAIModelRuntime {
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async throws -> QwenModelStatus {
         try await CombinedReviewLease.shared.invalidateAndWait()
-        objectSegmentation = nil
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
         )
@@ -295,20 +274,6 @@ final class RawCullAIModelRuntime {
 
         segmentationProviders = [:]
         segmentationProviders[.sam3] = sam3.provider
-        if let provider = sam3.provider {
-            var objectStores: [any ObjectMaskStoring] = [objectMaskMemoryStore]
-            if let objectMaskDiskStore {
-                objectStores.append(objectMaskDiskStore)
-            }
-            objectSegmentation = try ObjectSegmentationService(
-                provider: provider,
-                stores: objectStores,
-                maxSide: inputMaxSide,
-                maximumInstanceCount: 8,
-            )
-        } else {
-            objectSegmentation = nil
-        }
         clipSimilarityProviders = [
             .dataComp: clipDataComp.provider,
             .openAI: clipOpenAI.provider
@@ -358,13 +323,10 @@ final class RawCullAIModelRuntime {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
-            objectMaskStorage: objectMaskStorageCapability,
             inProcessMaskGeneration: selectedSegmentationStatus,
         )
         capabilitySnapshot = capabilities
-        activateSelectedSegmentationProvider(
-            availability: capabilities.inProcessMaskGeneration,
-        )
+        activateSelectedSegmentationProvider()
         return capabilities
     }
 
@@ -387,25 +349,6 @@ final class RawCullAIModelRuntime {
     /// Mirrors `makeSubjectMaskDiskStore`: object masks keep working from
     /// memory when the disk cache cannot be created, but the failure is logged
     /// and reported as a capability instead of being dropped.
-    private static func makeObjectMaskDiskStore(
-        at directory: URL,
-    ) -> (store: ObjectMaskDiskStore?, capability: RawCullAICapabilityStatus) {
-        do {
-            return try (
-                ObjectMaskDiskStore(cacheDirectory: directory),
-                .available(location: directory),
-            )
-        } catch {
-            Logger.process.warning(
-                "RawCullAIModelRuntime: object mask disk cache unavailable at \(directory.path, privacy: .public): \(error.localizedDescription, privacy: .public)",
-            )
-            return (
-                nil,
-                .invalid(location: directory, reason: String(describing: error)),
-            )
-        }
-    }
-
     private static func capabilityStatus(
         _ status: ModelCapabilityStatus,
         providerInitializationFailure: String?,
@@ -468,35 +411,13 @@ final class RawCullAIModelRuntime {
         }
     }
 
-    private func activateSelectedSegmentationProvider(
-        availability: RawCullAICapabilityStatus,
-    ) {
+    private func activateSelectedSegmentationProvider() {
         let provider = segmentationProviders[selectedSegmentationModel]
         if let provider {
             installSegmentationProviderIfNeeded(provider)
         } else {
             installUnavailableSegmentationProviderIfNeeded()
         }
-        deepAIReviewFeature?.install(
-            service: provider.map {
-                RawCullDeepAIReviewPipeline(
-                    provider: $0,
-                    maskConfiguration: subjectMaskRepository.configuration,
-                    maskStores: subjectMaskStores,
-                    maximumPixelSize: min(
-                        inputMaxSide,
-                        SharpnessScoringSizeOption.maximumPixelSize,
-                    ),
-                )
-            },
-            maskLoader: provider.flatMap { _ in
-                subjectMaskDiskStore.map {
-                    DeepAIReviewDiskMaskLoader(diskStore: $0)
-                }
-            },
-            availability: availability,
-            modelIdentity: provider?.modelIdentity,
-        )
     }
 
     private func installSegmentationProviderIfNeeded(_ provider: any SubjectSegmenting) {
@@ -543,17 +464,5 @@ private struct UnavailableSegmentationProvider: SubjectSegmenting {
         throw SubjectSegmentationError.providerFailure(
             "The selected segmentation model resources are not installed.",
         )
-    }
-}
-
-/// Presentation-only access to masks persisted by Deep Review.
-///
-/// This deliberately bypasses the repository's memory-first lookup so the
-/// preview verifies and displays the artifact written to the disk cache.
-nonisolated struct DeepAIReviewDiskMaskLoader: DeepAIReviewMaskLoading, Sendable {
-    let diskStore: SubjectMaskDiskStore
-
-    func mask(for key: SubjectMaskStorageKey) async -> CGImage? {
-        await diskStore.load(for: key)?.mask
     }
 }

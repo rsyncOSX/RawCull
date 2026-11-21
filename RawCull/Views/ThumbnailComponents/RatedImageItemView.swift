@@ -12,7 +12,7 @@ struct RatedImageItemView: View {
         SettingsViewModel.shared
     }
 
-    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(ReviewSubjectMasks.self) private var subjectMasks
     @Environment(RatingsModel.self) private var ratings
     let file: FileItem
     let catalogURL: URL? // catalog (directory) URL — used for model lookups
@@ -64,7 +64,7 @@ struct RatedImageItemView: View {
                 }
                 .overlay(alignment: .bottomLeading) {
                     if hasDeepReviewMask {
-                        DeepAIReviewMaskAvailabilityBadge()
+                        ReviewMaskAvailabilityBadge()
                             .padding(6)
                     }
                 }
@@ -111,7 +111,7 @@ struct RatedImageItemView: View {
     }
 
     private var hasDeepReviewMask: Bool {
-        deepAIReviewController.maskCandidate(for: file.id) != nil
+        subjectMasks.mask(for: file) != nil
     }
 
     private var borderColor: Color {

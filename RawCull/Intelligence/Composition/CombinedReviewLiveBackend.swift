@@ -9,7 +9,8 @@ import PhotoAIWorkflows
 /// generation gate; the feature additionally reserves sibling AI workflows.
 nonisolated struct CombinedReviewLiveBackend: CombinedReviewBackendServing {
     let qwen: any QwenInferenceServing
-    let qwenURL: URL
+    /// Nil when Qwen is not installed. Only Focus check can run then.
+    let qwenURL: URL?
     let segmentation: ObjectSegmentationService?
     let samIdentity: String?
     let clipProvider: CoreAICLIPProvider?
@@ -17,38 +18,60 @@ nonisolated struct CombinedReviewLiveBackend: CombinedReviewBackendServing {
 
     @concurrent
     func models() async throws -> [String: ReviewModelSnapshot] {
-        guard let capability = await qwen.inputCapabilities(), capability.configuredEncoderSide == 448,
+        try await models(for: .full)
+    }
+
+    /// Checks only the models the preset uses, so Focus check never touches Qwen.
+    @concurrent
+    func models(for preset: ReviewPreset) async throws -> [String: ReviewModelSnapshot] {
+        var models: [String: ReviewModelSnapshot] = [:]
+        if preset.usedModels.contains("qwen") {
+            models["qwen"] = try await qwenModel()
+        }
+        if preset.usedModels.contains("sam"), segmentation != nil, let samIdentity {
+            models["sam"] = .init(identity: samIdentity, runtimeVersion: Self.runtimeVersion,
+                                  preprocessing: "PhotoAIKit SAM3 source-normalized masks maxSide4320",
+                                  encoderWidth: 0, encoderHeight: 0, contextTokens: nil, imageTokens: nil)
+        }
+        if preset.usedModels.contains("clip"), let clip = try await clipModel() {
+            models["clip"] = clip
+        }
+        return models
+    }
+
+    private static var runtimeVersion: String {
+        "coreai-1953c4f-photoaikit-7f9adfc|\(ProcessInfo.processInfo.operatingSystemVersionString)"
+    }
+
+    private func qwenModel() async throws -> ReviewModelSnapshot {
+        guard let qwenURL,
+              let capability = await qwen.inputCapabilities(), capability.configuredEncoderSide == 448,
               capability.configuredImageStrategy == "stretch", capability.maximumContextTokens == 4096,
               capability.configuredImageTokens == 196 else { throw ReviewRunError.modelUnavailable }
         let hash = try await Self.bundleHash(qwenURL)
         guard hash == "8b575d2b2a499c2ea697deb7f878eee7afdc79818c95d9e304eb7809242d19f7" else {
             throw ReviewRunError.modelUnavailable
         }
-        let version = "coreai-1953c4f-photoaikit-7f9adfc|\(ProcessInfo.processInfo.operatingSystemVersionString)"
-        var models = ["qwen": ReviewModelSnapshot(identity: hash, runtimeVersion: version,
-                                                  preprocessing: "stretch RGB sRGB NCHW mean/std0.5 rescale1", encoderWidth: 448, encoderHeight: 448,
-                                                  contextTokens: 4096, imageTokens: 196)]
-        if segmentation != nil, let samIdentity {
-            models["sam"] = .init(identity: samIdentity, runtimeVersion: version, preprocessing: "PhotoAIKit SAM3 source-normalized masks maxSide4320",
-                                  encoderWidth: 0, encoderHeight: 0, contextTokens: nil, imageTokens: nil)
+        return ReviewModelSnapshot(identity: hash, runtimeVersion: Self.runtimeVersion,
+                                   preprocessing: "stretch RGB sRGB NCHW mean/std0.5 rescale1", encoderWidth: 448, encoderHeight: 448,
+                                   contextTokens: 4096, imageTokens: 196)
+    }
+
+    private func clipModel() async throws -> ReviewModelSnapshot? {
+        guard let clipProvider, let clipURL else { return nil }
+        let clipHash = try? await Self.bundleHash(clipURL)
+        try Task.checkCancellation()
+        let side: Int? = switch clipHash {
+        case "ac42a2db447f60cd0d0e3e8a31e6dec2ca29f85e6637e84f8fee44bf19ce91d1": 224
+        case "796848121936bde228b1cc14471baae1ba7c12d1beaee30cff7bf1bae847c6a5": 256
+        default: nil
         }
-        if let clipProvider, let clipURL {
-            let clipHash = try? await Self.bundleHash(clipURL)
-            try Task.checkCancellation()
-            let side: Int? = switch clipHash {
-            case "ac42a2db447f60cd0d0e3e8a31e6dec2ca29f85e6637e84f8fee44bf19ce91d1": 224
-            case "796848121936bde228b1cc14471baae1ba7c12d1beaee30cff7bf1bae847c6a5": 256
-            default: nil
-            }
-            if let side, let clipHash {
-                let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-                let descriptor = try encoder.encode(RawCullCLIPInputCapabilities(provider: clipProvider))
-                models["clip"] = .init(identity: clipHash, runtimeVersion: version,
-                                       preprocessing: String(decoding: descriptor, as: UTF8.self), encoderWidth: side, encoderHeight: side,
-                                       contextTokens: nil, imageTokens: nil)
-            }
-        }
-        return models
+        guard let side, let clipHash else { return nil }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let descriptor = try encoder.encode(RawCullCLIPInputCapabilities(provider: clipProvider))
+        return .init(identity: clipHash, runtimeVersion: Self.runtimeVersion,
+                     preprocessing: String(decoding: descriptor, as: UTF8.self), encoderWidth: side, encoderHeight: side,
+                     contextTokens: nil, imageTokens: nil)
     }
 
     func respond(instruction: String, image: CGImage, tokens: Int) async throws -> String {

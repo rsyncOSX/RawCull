@@ -5,7 +5,7 @@ import CoreImage.CIFilterBuiltins
 /// Converts a filled subject mask into a thin, transparent contour for the
 /// Deep Review preview. Keeping this presentation work in RawCull avoids
 /// coupling PhotoAnalysisKit's focus analysis to PhotoAIKit segmentation.
-nonisolated enum DeepAIReviewMaskOutlineRenderer {
+nonisolated enum SubjectMaskOutlineRenderer {
     @concurrent
     static func outline(from mask: CGImage) async -> CGImage? {
         guard mask.width > 0, mask.height > 0, !Task.isCancelled else { return nil }

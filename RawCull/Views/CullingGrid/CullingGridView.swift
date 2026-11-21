@@ -101,13 +101,12 @@ struct CullingGridView<Header: View>: View {
                                     // ── Flat mode (default) ───────────────────────────
                                     ForEach(files, id: \.id) { file in
                                         CullingGridThumbnail(file: file,
-                                            semanticResultRank: semanticResultRank(for: file),
-                                            semanticResultCount: semanticResultCount,
-                                            semanticResultScore: semanticResultScore(for: file),
-                                            onSelect: { handleToggleSelection(for: file) },
-                                            onDoubleSelect: { handleDoubleSelect(for: file) },
-                                        )
-                                        .id(file.id)
+                                                             semanticResultRank: semanticResultRank(for: file),
+                                                             semanticResultCount: semanticResultCount,
+                                                             semanticResultScore: semanticResultScore(for: file),
+                                                             onSelect: { handleToggleSelection(for: file) },
+                                                             onDoubleSelect: { handleDoubleSelect(for: file) })
+                                            .id(file.id)
                                     }
                                 }
                             }
@@ -147,8 +146,7 @@ struct CullingGridView<Header: View>: View {
                     }
                 }
 
-                CullingGridProgressOverlay(similarityFeature: similarityFeature,
-                )
+                CullingGridProgressOverlay(similarityFeature: similarityFeature)
             }
         }
         .frame(minWidth: 400, minHeight: 400)

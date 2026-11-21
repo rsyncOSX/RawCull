@@ -18,9 +18,9 @@ protocol BurstWorkflowHost: AnyObject {
 
 /// Owns burst analysis and review: starting, reindexing and regrouping the
 /// analysis, the review queue and review states, keep-best and undo, cache
-/// persistence, and the Deep Review group context.
+/// persistence.
 @Observable @MainActor
-final class BurstWorkflowController: DeepAIReviewApplicationContext {
+final class BurstWorkflowController {
     @ObservationIgnored let navigation: WorkspaceNavigationModel
     @ObservationIgnored let catalog: CatalogWorkspace
     @ObservationIgnored let selection: SelectionModel
@@ -28,7 +28,6 @@ final class BurstWorkflowController: DeepAIReviewApplicationContext {
     @ObservationIgnored let sharpnessModel: SharpnessScoringModel
     @ObservationIgnored let similarityFeature: RawCullSimilarityFeature
     @ObservationIgnored let similarityModel: SimilarityScoringModel
-    @ObservationIgnored let deepAIReviewController: DeepAIReviewController
     @ObservationIgnored private weak var weakHost: (any BurstWorkflowHost)?
 
     /// Stable worker boundary for burst cache and compute orchestration.
@@ -51,7 +50,6 @@ final class BurstWorkflowController: DeepAIReviewApplicationContext {
         sharpnessModel: SharpnessScoringModel,
         similarityFeature: RawCullSimilarityFeature,
         similarityModel: SimilarityScoringModel,
-        deepAIReviewController: DeepAIReviewController,
         cacheRepository: any BurstAnalysisCacheRepository,
     ) {
         self.navigation = navigation
@@ -61,7 +59,6 @@ final class BurstWorkflowController: DeepAIReviewApplicationContext {
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
-        self.deepAIReviewController = deepAIReviewController
         burstAnalysisCoordinator = BurstAnalysisCoordinator(
             sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,

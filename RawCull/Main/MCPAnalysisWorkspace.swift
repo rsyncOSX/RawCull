@@ -71,7 +71,7 @@ protocol MCPAnalysisWorkspace: AnyObject {
 }
 
 extension RawCullViewModel: MCPAnalysisWorkspace {
-    // Catalog requirements; the state lives in `catalog`.
+    /// Catalog requirements; the state lives in `catalog`.
     var sources: [ARWSourceCatalog] {
         get { catalog.sources }
         set { catalog.sources = newValue }
@@ -82,30 +82,62 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
         set { catalog.selectedSource = newValue }
     }
 
-    var files: [FileItem] { catalog.files }
-    var scanDiscoveredCount: Int { catalog.scanDiscoveredCount }
-    var catalogLoadFailure: CatalogLoadFailure? { catalog.catalogLoadFailure }
+    var files: [FileItem] {
+        catalog.files
+    }
 
-    // Burst requirements; the state lives in `burstWorkflow`.
-    var isDeepAIReviewBlockedByOtherWork: Bool { burstWorkflow.isDeepAIReviewBlockedByOtherWork }
-    var isPreparingBurstCatalog: Bool { burstWorkflow.isPreparingBurstCatalog }
-    var fullCatalogBurstAnalysisFiles: [FileItem] { burstWorkflow.fullCatalogBurstAnalysisFiles }
-    var burstAnalysisGeneration: Int { burstWorkflow.burstAnalysisGeneration }
-    var burstAnalysisProgress: BurstAnalysisProgress { burstWorkflow.burstAnalysisProgress }
-    var currentBurstSimilaritySignature: BurstSimilaritySignature { burstWorkflow.currentBurstSimilaritySignature }
+    var scanDiscoveredCount: Int {
+        catalog.scanDiscoveredCount
+    }
+
+    var catalogLoadFailure: CatalogLoadFailure? {
+        catalog.catalogLoadFailure
+    }
+
+    /// Burst requirements; the state lives in `burstWorkflow`.
+    var isDeepAIReviewBlockedByOtherWork: Bool {
+        burstWorkflow.isDeepAIReviewBlockedByOtherWork
+    }
+
+    var isPreparingBurstCatalog: Bool {
+        burstWorkflow.isPreparingBurstCatalog
+    }
+
+    var fullCatalogBurstAnalysisFiles: [FileItem] {
+        burstWorkflow.fullCatalogBurstAnalysisFiles
+    }
+
+    var burstAnalysisGeneration: Int {
+        burstWorkflow.burstAnalysisGeneration
+    }
+
+    var burstAnalysisProgress: BurstAnalysisProgress {
+        burstWorkflow.burstAnalysisProgress
+    }
+
+    var currentBurstSimilaritySignature: BurstSimilaritySignature {
+        burstWorkflow.currentBurstSimilaritySignature
+    }
 
     func startBurstAnalysis(catalog: URL, files: [FileItem]) async -> BurstAnalysisPipelineResult? {
         await burstWorkflow.startBurstAnalysis(catalog: catalog, files: files)
     }
 
-    var loadedSource: ARWSourceCatalog? { catalogLifecycle.currentSource }
-    var catalogPersistenceError: String? { ratings.cullingModel.persistenceError }
+    var loadedSource: ARWSourceCatalog? {
+        catalogLifecycle.currentSource
+    }
+
+    var catalogPersistenceError: String? {
+        ratings.cullingModel.persistenceError
+    }
 
     var isCatalogTransitionActive: Bool {
         catalogLifecycle.transitionTask != nil || catalogLifecycle.loadTask != nil
     }
 
-    var isScanningCatalog: Bool { catalog.scanning }
+    var isScanningCatalog: Bool {
+        catalog.scanning
+    }
 
     var isMCPWorkspaceLoading: Bool {
         isCatalogTransitionActive || catalog.scanning || catalog.isCreatingThumbnails
@@ -127,24 +159,45 @@ extension RawCullViewModel: MCPAnalysisWorkspace {
         catalogLifecycle.retainSecurityScopedAccess(for: url)
     }
 
-    var isMCPTerminationPending: Bool { ratings.cullingModel.isTerminationPending }
-    var isSharpnessCalibrationRunning: Bool { sharpnessModel.isCalibratingSharpnessScoring }
+    var isMCPTerminationPending: Bool {
+        ratings.cullingModel.isTerminationPending
+    }
+
+    var isSharpnessCalibrationRunning: Bool {
+        sharpnessModel.isCalibratingSharpnessScoring
+    }
 
     func authorizeCatalogForMCPJob(catalogId: UUID) throws {
         _ = try catalogController.authorizeMCPCatalog(allowAnalysis: true, catalogId: catalogId, preservingJob: true)
     }
 
-    var isSemanticSearchActive: Bool { similarityModel.semanticSearchState != .idle }
+    var isSemanticSearchActive: Bool {
+        similarityModel.semanticSearchState != .idle
+    }
 
     func clearActiveSemanticSearchForMCP() async {
         await semanticSearchFeature.clear()
     }
 
-    var currentSharpnessScoringSignature: SharpnessScoringSignature { sharpnessModel.scoringSignature }
-    var currentSharpnessScores: [UUID: Float] { sharpnessModel.scores }
-    var currentSimilarityEmbeddings: [UUID: SimilarityArtifact] { similarityModel.embeddings }
-    var sharpnessScoringProgress: Int { sharpnessModel.scoringProgress }
-    var similarityIndexingProgress: Int { similarityModel.indexingProgress }
+    var currentSharpnessScoringSignature: SharpnessScoringSignature {
+        sharpnessModel.scoringSignature
+    }
+
+    var currentSharpnessScores: [UUID: Float] {
+        sharpnessModel.scores
+    }
+
+    var currentSimilarityEmbeddings: [UUID: SimilarityArtifact] {
+        similarityModel.embeddings
+    }
+
+    var sharpnessScoringProgress: Int {
+        sharpnessModel.scoringProgress
+    }
+
+    var similarityIndexingProgress: Int {
+        similarityModel.indexingProgress
+    }
 
     func presentBurstResultsAfterMCPJob() {
         burstWorkflow.showsDetailedBurstComparison = false

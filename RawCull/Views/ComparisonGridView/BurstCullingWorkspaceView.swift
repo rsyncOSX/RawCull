@@ -14,7 +14,7 @@ struct BurstCullingWorkspaceView: View {
     @Environment(CullingController.self) private var culling
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Environment(RawCullSimilarityFeature.self) private var similarityFeature
-    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(ReviewSubjectMasks.self) private var subjectMasks
     let groupID: Int
     let onCompare: () -> Void
     @Environment(AIAssessmentNavigation.self) private var assessmentNavigation: AIAssessmentNavigation?
@@ -50,7 +50,7 @@ struct BurstCullingWorkspaceView: View {
     private var keyboardController: BurstKeyboardController {
         BurstKeyboardController(
             burstWorkflow: burstWorkflow,
-            deepAIReviewController: deepAIReviewController,
+            subjectMasks: subjectMasks,
             session: session, groupID: groupID,
             selectedFile: selectedFile, hasImage: imageState?.cgImage != nil,
             navigate: navigate(by:), applyRating: applyRating,
@@ -96,14 +96,10 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
-        let candidate = selectedFile.flatMap {
-            deepAIReviewController.maskCandidate(for: $0.id)
-        }
-        return ImageReviewSubjectOutlineRequestContext(
+        ImageReviewSubjectOutlineRequestContext(
             fileID: selectedFile?.id,
-            prompt: candidate?.maskPromptUsed?.rawValue,
+            maskKey: selectedFile.flatMap(subjectMasks.mask)?.maskKey,
             isPresented: showSubjectOutline,
-            maskStorageKey: candidate?.maskStorageKey,
         )
     }
 
@@ -413,8 +409,7 @@ struct BurstCullingWorkspaceView: View {
             return sharpnessModel.sortedByAFPointSharpness(baseline)
         }
         if peopleRequest == PeopleRankingRequest(groupID: groupID, urls: baseline.map(\.url)),
-           let peopleCandidate
-        {
+           let peopleCandidate {
             let byURL = Dictionary(uniqueKeysWithValues: baseline.map { ($0.url, $0) })
             return peopleCandidate.compactMap { byURL[$0] }
         }
@@ -569,10 +564,10 @@ struct BurstCullingWorkspaceView: View {
         subjectOutlineFileID = nil
         guard showSubjectOutline,
               let file = selectedFile,
-              let candidate = deepAIReviewController.maskCandidate(for: file.id)
+              let mask = subjectMasks.mask(for: file)
         else { return }
         let outline = await ImageReviewSubjectOutlineLoader.load(
-            file: file, candidate: candidate, controller: deepAIReviewController,
+            file: file, mask: mask, masks: subjectMasks,
         )
         guard !Task.isCancelled else { return }
         subjectOutline = outline

@@ -50,9 +50,9 @@ struct AIAnalysisSelectionTests {
         state.viewModel.catalog.filteredFiles = [first, second]
         state.viewModel.selection.selectedFileIDs = [first.id, second.id]
 
-        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.combinedReview)
         state.viewModel.navigation.selectMainViewMode(.loupe)
-        state.viewModel.navigation.selectMainViewMode(.aiAnalysis)
+        state.viewModel.navigation.selectMainViewMode(.combinedReview)
 
         #expect(state.viewModel.selection.selectedFileIDs == [first.id, second.id])
         #expect(
@@ -85,20 +85,6 @@ struct AIAnalysisSelectionTests {
         // An empty tagged source clears focus without clearing the selected batch.
         state.viewModel.selection.selectedFileID = nil
         #expect(state.viewModel.catalogController.aiAnalysisFiles(for: .gridSelection).map(\.id) == expected)
-    }
-
-    @Test
-    func `Analysis navigation walks ordered rows and stops at boundaries`() {
-        let first = UUID()
-        let second = UUID()
-        let third = UUID()
-        let ids = [first, second, third]
-
-        #expect(AIAnalysisSelectionNavigation.next(from: nil, in: ids) == first)
-        #expect(AIAnalysisSelectionNavigation.next(from: first, in: ids) == second)
-        #expect(AIAnalysisSelectionNavigation.next(from: third, in: ids) == third)
-        #expect(AIAnalysisSelectionNavigation.previous(from: third, in: ids) == second)
-        #expect(AIAnalysisSelectionNavigation.previous(from: first, in: ids) == first)
     }
 
     private func makeFile(_ name: String) -> FileItem {

@@ -135,13 +135,15 @@ Combined Review depends on `SubjectMaskForeground`, `SubjectMaskFocusScorer` and
 
 ### 4.3 Product decision (yours, not a refactor)
 
-Proposed answer (2026-11-21): [ai-features-decision.md](ai-features-decision.md). One Review feature with Focus check, Describe and Full presets replaces Deep AI Review, Qwen Vision and Objects.
+Accepted (2026-11-21): [ai-features-decision.md](ai-features-decision.md). One Review feature with Focus check, Describe and Full presets replaces Deep AI Review, Qwen Vision and Objects. The work is on branch `version-3.5.0`, one PR per migration step.
+
+Correction to the table below: Deep AI Review is no longer in the burst workspace. It is the "SAM 3 + CLIP" tab in AI Analysis. The AI assessment badges, summary and "compare with sharpest" in the burst workspace come from the AI Assessments window (MCP results) and stay.
 
 User-facing AI analysis exists in several places:
 
 | Feature | Where in the UI | Engine |
 |---|---|---|
-| Deep AI Review | Burst workspace, per group | Subject masks + focus scoring |
+| Deep AI Review | AI Analysis view, "SAM 3 + CLIP" tab (was: burst workspace) | Subject masks + focus scoring |
 | Combined Review | Main view mode `.combinedReview` | CLIP + SAM + Qwen pipeline, also uses the subject-mask focus scorer |
 | Qwen analysis | AI Analysis view | Qwen |
 | Object analysis | AI Analysis view | SAM concepts + Qwen |
@@ -168,11 +170,11 @@ Leave it as is. One thing to verify: `==` and `hash(into:)` compare **only `id`*
 | 4.1 Move subject-mask primitives | done |
 | Finding 3, steps 3.1–3.5 | done |
 | 4.2 `CombinedReview/` subfolders | done |
+| 4.3 Product decision | decided: accepted, see [ai-features-decision.md](ai-features-decision.md). Migration tracked there. |
 
 ### Not yet completed
 
 | Item | Status | Next step |
 |---|---|---|
-| 4.3 Product decision | **not completed**: proposed in [ai-features-decision.md](ai-features-decision.md), not yet accepted | Accept or reject the proposal. If accepted, plan the merge of Deep AI Review, Qwen Vision and Objects into one Review feature. |
 | Finding 2: identity-only `==` on `RawCullFileItem` | **not completed**: checked, no change to logic needed | `==` and `hash(into:)` still compare only `id`. No production code passes an existing `id` to `RawCullFileItem(...)`, so each scan gets fresh UUIDs and the stale-metadata case can't happen today. Remaining: add a comment on `==` saying this rule must hold. |
 | 3.6 Shared MCP IPC module (optional) | **not completed**: not started | Add a `RawCullMCPShared` product to `Tools/RawCullMCP/Package.swift` and drop the pbxproj file references to the helper's sources. |

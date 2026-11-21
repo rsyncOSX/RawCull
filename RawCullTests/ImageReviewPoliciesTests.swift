@@ -106,12 +106,12 @@ struct ImageReviewPoliciesTests {
         var tracker = ImageReviewRequestTracker<ImageReviewSubjectOutlineRequestContext>()
         let first = tracker.begin(context: ImageReviewSubjectOutlineRequestContext(
             fileID: fileID,
-            prompt: "person",
+            maskKey: "first-mask",
             isPresented: true,
         ))
         let replacement = tracker.begin(context: ImageReviewSubjectOutlineRequestContext(
             fileID: fileID,
-            prompt: "face",
+            maskKey: "second-mask",
             isPresented: true,
         ))
 

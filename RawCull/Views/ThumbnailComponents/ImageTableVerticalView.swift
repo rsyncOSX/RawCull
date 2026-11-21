@@ -33,28 +33,27 @@ struct ImageTableVerticalView: View {
                             LazyVStack(alignment: .center, spacing: 10) {
                                 ForEach(sortedFiles, id: \.id) { file in
                                     ImageItemView(file: file,
-                                        isSelected: selection.selectedFileID == file.id,
-                                        thumbnailSize: settings.thumbnailSizeGrid,
-                                        ratingValue: ratingValue(for: file),
-                                        ratingDisplay: ratingDisplay(for: file),
-                                        ratingColor: ratingColor(for: file),
-                                        onSelect: {
-                                            selection.select(file)
-                                        },
-                                        /*
-                                            // Double clik for tag Image
-                                            onSelected: {
+                                                  isSelected: selection.selectedFileID == file.id,
+                                                  thumbnailSize: settings.thumbnailSizeGrid,
+                                                  ratingValue: ratingValue(for: file),
+                                                  ratingDisplay: ratingDisplay(for: file),
+                                                  ratingColor: ratingColor(for: file),
+                                                  onSelect: {
+                                                      selection.select(file)
+                                                  },
+                                                  /*
+                                                      // Double clik for tag Image
+                                                      onSelected: {
 
-                                                 Task {
-                                                     selection.select(file)
-                                                     // The root's toggleTag(for:) is gone; tagging is a
-                                                     // rating change on CullingController (default tag = 3).
-                                                     culling.updateRating(for: [file], rating: 3)
-                                                 }
-                                            },
-                                             */
-                                    )
-                                    .id(file.id)
+                                                           Task {
+                                                               selection.select(file)
+                                                               // The root's toggleTag(for:) is gone; tagging is a
+                                                               // rating change on CullingController (default tag = 3).
+                                                               culling.updateRating(for: [file], rating: 3)
+                                                           }
+                                                      },
+                                                       */ )
+                                                      .id(file.id)
                                 }
                             }
                             .padding(.vertical)

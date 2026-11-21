@@ -263,7 +263,7 @@ extension MCPAnalysisController {
             }
             if let access {
                 pendingApprovalForClaim = SetupApproval(id: job.jobId, url: url, access: access,
-                                              remember: remember, expectedGrantID: expectedGrantID)
+                                                        remember: remember, expectedGrantID: expectedGrantID)
             }
             var response = request
             response.state = .queued

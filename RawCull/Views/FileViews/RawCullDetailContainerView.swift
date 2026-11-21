@@ -13,11 +13,10 @@ struct RawCullDetailContainerView: View {
 
     var body: some View {
         FileDetailView(semanticSearchFeature: semanticSearchFeature,
-            cgImage: $cgImage,
-            nsImage: $nsImage,
-            selectedFileID: $selectedFileID,
-            file: catalog.file(withID: selection.selectedFileID),
-        )
+                       cgImage: $cgImage,
+                       nsImage: $nsImage,
+                       selectedFileID: $selectedFileID,
+                       file: catalog.file(withID: selection.selectedFileID))
 
         // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
 

@@ -113,14 +113,14 @@ struct AIAssessmentComparison: View {
         let file = frame.flatMap(liveFile)
         return AIAssessmentPane(
             frame: frame, rubric: entry.request.rubric, access: access,
-            accessChecked: accessChecked, isTagged: file.map { ratings.getRating(for: $0) >= 2 },
+            accessChecked: accessChecked, isTagged: file.map(decisions.isTagged),
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: {
                 if let frame {
                     toggleTag(frame)
                 }
             }, viewport: viewport, height: height,
-            file: file, rating: file.map { ImageReviewFeaturePolicy.ratingDisplay(for: $0, using: ratings) } ?? .unrated,
+            file: file, rating: file.map(decisions.rating) ?? .unrated,
             subjectLabel: file.flatMap { sharpnessModel.saliencyInfo[$0.id]?.subjectLabel },
             entryRecommendation: entry.recommendation, isActive: activeSide == side,
             activate: { activeSide = side; hasKeyboardFocus = true },
@@ -207,8 +207,12 @@ struct AIAssessmentComparison: View {
         return group.id
     }
 
+    private var decisions: ReviewDecisionActions {
+        .init(catalog: catalog, ratings: ratings, culling: culling, burstWorkflow: burstWorkflow)
+    }
+
     private func hasDuplicateFilename(_ file: FileItem) -> Bool {
-        catalog.files.lazy.filter { $0.name == file.name }.prefix(2).count > 1
+        decisions.hasDuplicateFilename(file)
     }
 
     private func applyRating(_ rating: Int, to frame: AIAssessmentEntry.Frame) {
@@ -217,7 +221,7 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            culling.updateRating(for: file, rating: rating)
+            decisions.rate(file, rating)
         }
     }
 
@@ -227,12 +231,7 @@ struct AIAssessmentComparison: View {
                   let verified = try? frame.source.resolve(in: catalog),
                   verified == file.url.resolvingSymlinksInPath().standardizedFileURL,
                   !hasDuplicateFilename(file) else { return }
-            if ratings.getRating(for: file) >= 2 {
-                ratings.cullingModel.applyRatingStates([file.name: nil], in: catalog)
-                culling.refreshCullingDerivedState()
-            } else {
-                culling.updateRating(for: file, rating: 2)
-            }
+            decisions.toggleTag(file, in: catalog)
         }
     }
 
@@ -243,7 +242,7 @@ struct AIAssessmentComparison: View {
             defer { isUpdatingReview = false }
             guard await entry.isAvailable(), let catalog = liveCatalog, let group = verifiedGroupID,
                   entry.frames.allSatisfy({ (try? $0.source.resolve(in: catalog)) != nil }) else { return }
-            if burstWorkflow.toggleBurstGroupReviewed(groupID: group) {
+            if decisions.toggleReviewed(groupID: group) {
                 onMarkedReviewed()
             }
         }

@@ -228,4 +228,3 @@ nonisolated enum RawScoringDemosaic {
         )
     }
 }
-

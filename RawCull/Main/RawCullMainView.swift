@@ -10,9 +10,6 @@ struct RawCullMainView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
-    let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    let objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
     let aiSettingsModel: RawCullAISettingsModel
     let assessmentNavigation: AIAssessmentNavigation
@@ -58,9 +55,6 @@ struct RawCullMainView: View {
 
                 case .comparisonGrid:
                     comparisonGridSplit
-
-                case .aiAnalysis:
-                    aiAnalysisSplit
 
                 case .combinedReview:
                     combinedReviewSplit
@@ -287,11 +281,10 @@ struct RawCullMainView: View {
             }
         } detail: {
             RawCullDetailContainerView(semanticSearchFeature: semanticSearchFeature,
-                cgImage: $cgImage,
-                nsImage: $nsImage,
-                selectedFileID: Bindable(viewModel.selection).selectedFileID,
-                abort: abort,
-            )
+                                       cgImage: $cgImage,
+                                       nsImage: $nsImage,
+                                       selectedFileID: Bindable(viewModel.selection).selectedFileID,
+                                       abort: abort)
         }
         .toolbar(removing: .sidebarToggle)
         .task {
@@ -424,26 +417,12 @@ struct RawCullMainView: View {
         }
     }
 
-    // MARK: - AI analysis mode
-
-    private var aiAnalysisSplit: some View {
-        AIAnalysisView(
-            qwenAnalysisFeature: qwenAnalysisFeature,
-            objectAnalysisFeature: objectAnalysisFeature,
-            combinedReviewFeature: combinedReviewFeature,
-            deepAIReviewController: deepAIReviewController,
-        )
-        .navigationTitle("AI Analysis")
-        .toolbar { toolbarContent }
-    }
+    // MARK: - Review mode
 
     private var combinedReviewSplit: some View {
-        CombinedReviewWorkspaceView(
-            feature: combinedReviewFeature,
-            isEnabled: aiSettingsModel.combinedReviewEnabled,
-        )
-        .navigationTitle("Combined Review")
-        .toolbar { toolbarContent }
+        CombinedReviewWorkspaceView(feature: combinedReviewFeature)
+            .navigationTitle("Review")
+            .toolbar { toolbarContent }
     }
 
     private var candidateInspectorContext: CandidateInspectorContext? {

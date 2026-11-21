@@ -213,24 +213,44 @@ final class MCPAnalysisController {
     }
 
     var isIdle: Bool {
-        if case .idle = activity { true } else { false }
+        if case .idle = activity {
+            true
+        } else {
+            false
+        }
     }
 
     var isSettingUp: Bool {
-        if case .settingUp = activity { true } else { false }
+        if case .settingUp = activity {
+            true
+        } else {
+            false
+        }
     }
 
     var isAnalyzing: Bool {
-        if case .analyzing = activity { true } else { false }
+        if case .analyzing = activity {
+            true
+        } else {
+            false
+        }
     }
 
     var isAssessing: Bool {
-        if case .assessing = activity { true } else { false }
+        if case .assessing = activity {
+            true
+        } else {
+            false
+        }
     }
 
     /// The job the running analysis works on.
     var activeJob: AnalysisJob? {
-        if case let .analyzing(analysis) = activity { analysis.job } else { nil }
+        if case let .analyzing(analysis) = activity {
+            analysis.job
+        } else {
+            nil
+        }
     }
 
     /// Starts `next` (built with a fresh token) and returns that token.
@@ -248,12 +268,15 @@ final class MCPAnalysisController {
         case var .settingUp(setup) where setup.token == token:
             setup.task = task
             activity = .settingUp(setup)
+
         case var .analyzing(analysis) where analysis.token == token:
             analysis.task = task
             activity = .analyzing(analysis)
+
         case var .assessing(followUp) where followUp.token == token:
             followUp.task = task
             activity = .assessing(followUp)
+
         default:
             break
         }
@@ -282,7 +305,11 @@ final class MCPAnalysisController {
     }
 
     func followUpStopReason(_ token: ActivityToken) -> MCPAssessmentStopReason? {
-        if case let .assessing(followUp) = activity, followUp.token == token { followUp.stopReason } else { nil }
+        if case let .assessing(followUp) = activity, followUp.token == token {
+            followUp.stopReason
+        } else {
+            nil
+        }
     }
 
     /// What `start` was given; `tick()` reads it on every iteration.

@@ -26,8 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             preparePhotoAssessment: { await runtime.settingsModel.refresh() },
             canStart: {
-                !runtime.deepAIReviewController.isRunning && !runtime.qwenAnalysisFeature.isRunning
-                    && !runtime.objectAnalysisFeature.isRunning && !runtime.combinedReviewFeature.isRunning
+                !runtime.combinedReviewFeature.isRunning
             },
         )
     }
@@ -150,9 +149,6 @@ struct RawCullApp: App {
                 viewModel: viewModel,
                 similarityFeature: intelligenceRuntime.similarityFeature,
                 semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
-                deepAIReviewController: intelligenceRuntime.deepAIReviewController,
-                qwenAnalysisFeature: intelligenceRuntime.qwenAnalysisFeature,
-                objectAnalysisFeature: intelligenceRuntime.objectAnalysisFeature,
                 combinedReviewFeature: intelligenceRuntime.combinedReviewFeature,
                 aiSettingsModel: intelligenceRuntime.settingsModel,
                 assessmentNavigation: assessmentNavigation,
@@ -213,7 +209,7 @@ private struct RawCullCommands: Commands {
 extension View {
     /// Injects the workspace root and each of its slices, so a view can depend
     /// on only the slice it reads: `@Environment(CatalogWorkspace.self)` etc.
-    /// The feature objects the root owns (sharpness, similarity, Deep Review) are
+    /// The feature objects the root owns (sharpness, similarity, Review masks) are
     /// injected the same way. The low-level `SimilarityScoringModel` is not:
     /// views go through `RawCullSimilarityFeature`.
     func workspaceEnvironment(_ workspace: RawCullViewModel) -> some View {
@@ -231,6 +227,6 @@ extension View {
             .environment(workspace.culling)
             .environment(workspace.sharpnessModel)
             .environment(workspace.similarityFeature)
-            .environment(workspace.deepAIReviewController)
+            .environment(workspace.subjectMasks)
     }
 }

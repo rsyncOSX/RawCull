@@ -40,7 +40,6 @@ RawCullTests/CullingGridCoordinatorTests
 RawCullTests/CullingGridProjectionTests
 RawCullTests/CullingInitializationTests
 RawCullTests/CullingRecoveryPresentationTests
-RawCullTests/DeepAIReviewFeatureTests
 RawCullTests/EmbeddedJPGExportLoaderTests
 RawCullTests/FocusNumericHelperTests
 RawCullTests/HistogramLoadingTests
@@ -48,8 +47,6 @@ RawCullTests/ISOScalingTests
 RawCullTests/ImageSourceSelectionStateTests
 RawCullTests/IsolatedThumbnailStorageTests
 RawCullTests/LoupeImageKeyActionTests
-RawCullTests/ObjectAnalysisBoundaryTests
-RawCullTests/ObjectAnalysisFeatureTests
 RawCullTests/PerFileAnalysisArtifactStoreTests
 RawCullTests/PhotoAnalysisKitIntegrationTests
 RawCullTests/QwenFeatureTests
@@ -60,6 +57,7 @@ RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
+RawCullTests/ReviewDecisionActionsTests
 RawCullTests/ReviewDiagnosticsTests
 RawCullTests/ReviewImageSourceTests
 RawCullTests/ReviewKeyboardScopeTests
@@ -111,14 +109,11 @@ private let expectedTaggedSuites: Set<String> = [
     "ComparisonGridImageCoordinatorTests",
     "ComparisonGridNavigationTests",
     "CullingGridCoordinatorTests",
-    "DeepAIReviewFeatureTests",
     "FocusNumericHelperTests",
     "HistogramLoadingTests",
     "ISOScalingTests",
     "ImageSourceSelectionStateTests",
     "LoupeImageKeyActionTests",
-    "ObjectAnalysisBoundaryTests",
-    "ObjectAnalysisFeatureTests",
     "PhotoAnalysisKitIntegrationTests",
     "QwenFeatureTests",
     "RawCullAIModelDownloadsTests",
@@ -128,6 +123,7 @@ private let expectedTaggedSuites: Set<String> = [
     "RawCullSemanticSearchUITests",
     "RawCullSimilarityFeatureTests",
     "ReleaseMetadataTests",
+    "ReviewDecisionActionsTests",
     "ReviewDiagnosticsTests",
     "ReviewImageSourceTests",
     "ReviewMaskRegistrationTests",

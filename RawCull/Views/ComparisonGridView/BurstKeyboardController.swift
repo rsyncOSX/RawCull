@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 struct BurstKeyboardController {
     let burstWorkflow: BurstWorkflowController
-    let deepAIReviewController: DeepAIReviewController
+    let subjectMasks: ReviewSubjectMasks
     let session: BurstWorkspaceSessionModel
     let groupID: Int
     let selectedFile: FileItem?
@@ -49,7 +49,7 @@ struct BurstKeyboardController {
 
         case .toggleSubjectOutline:
             guard let selectedFile,
-                  deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
+                  subjectMasks.mask(for: selectedFile) != nil
             else { return .ignored }
             session.showSubjectOutline.toggle()
 

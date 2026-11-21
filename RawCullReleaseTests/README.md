@@ -1,5 +1,7 @@
 # Local release integration
 
+> **Note (version 3.5.0):** the AI Objects release test (`ReleaseAIObjectsTest`, `make releaseaiobjectstest`) was removed with the Objects analysis. The sections below about it are kept for history; the Sharpness test and the Combined Review input probes are unchanged.
+
 Release baseline: **RawCull 3.2.9**, using the resolved `coreai-models` revision
 `1953c4f90ba0214c1abc7bebcb9be5107e329a46`. Both release test plans use
 the project’s `Package.resolved`; the complete dependency pins are documented

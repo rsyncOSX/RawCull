@@ -27,8 +27,13 @@ final class CullingController: ImageReviewRatingActing, BurstWorkflowHost {
 
     // MARK: BurstWorkflowHost
 
-    var activeCatalogFiles: [FileItem] { catalogController.activeCatalogFiles }
-    var hasActiveSemanticSearchSelection: Bool { catalogController.hasActiveSemanticSearchSelection }
+    var activeCatalogFiles: [FileItem] {
+        catalogController.activeCatalogFiles
+    }
+
+    var hasActiveSemanticSearchSelection: Bool {
+        catalogController.hasActiveSemanticSearchSelection
+    }
 
     func hasRating(in files: [FileItem]) -> Bool {
         catalogController.hasRating(in: files)

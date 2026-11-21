@@ -87,49 +87,6 @@ nonisolated struct QwenPhotoAssessment: Codable, Equatable, Sendable {
     }
 }
 
-nonisolated enum QwenModelResponse: Equatable, Sendable {
-    case structured(QwenPhotoAssessment)
-    case freeform(String)
-    case rejected(String)
-
-    static func decode(_ rawContent: String) throws -> Self {
-        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { throw QwenModelError.emptyResponse }
-
-        if let assessment = try? QwenPhotoAssessment.decodeResponse(content) {
-            return .structured(assessment)
-        }
-
-        // A broken assessment must not silently become a successful prose response.
-        if content.contains("{") || content.contains("}") || content.hasPrefix("[") || content.hasPrefix("```json") {
-            return .rejected(String(content.prefix(8192)))
-        }
-        return .freeform(content)
-    }
-}
-
-nonisolated struct QwenPhotoAnalysisResult: Equatable, Identifiable, Sendable {
-    let fileID: UUID
-    let fileName: String
-    let assessment: QwenPhotoAssessment?
-    let freeformResponse: String?
-    let failure: String?
-
-    var id: UUID {
-        fileID
-    }
-
-    var isSuccessful: Bool {
-        failure == nil && (assessment != nil || freeformResponse != nil)
-    }
-}
-
-nonisolated struct QwenBatchProgress: Equatable, Sendable {
-    let completedCount: Int
-    let totalCount: Int
-    let currentFileName: String?
-}
-
 nonisolated struct MCPPhotoAssessmentResult: Codable, Equatable, Sendable {
     struct Image: Codable, Equatable, Sendable {
         private(set) var kind = "preview"

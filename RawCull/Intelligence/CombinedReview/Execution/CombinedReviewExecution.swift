@@ -18,13 +18,15 @@ nonisolated struct CombinedReviewContext: Sendable {
     let snapshot: ReviewRunSnapshot
     let file: ReviewFileSnapshot
     let source: ReviewImageSource
-    let qwen: ReviewModelSnapshot
+    /// Nil only for presets without Qwen stages.
+    let qwen: ReviewModelSnapshot?
     let overview: CombinedReviewOverview?
 }
 
 extension CombinedReviewFeature {
     func execute(_ backend: any CombinedReviewBackendServing) async throws {
         let snapshot = try currentManifest().snapshot
+        let preset = snapshot.effectivePreset
         results = []; selectionReport = nil; comparisonInputReference = nil
         let order = snapshot.files.sorted { $0.id.rawValue < $1.id.rawValue }
         let allocation = ReviewBudget.cropAllocation(images: order.map(\.id), counts: Dictionary(uniqueKeysWithValues: order.map { ($0.id, snapshot.depth.cropsPerImage) }), depth: snapshot.depth)
@@ -32,12 +34,16 @@ extension CombinedReviewFeature {
             try Task.checkCancellation()
             activeFile = file
             cropAllowance = allocation.filter { $0 == file.id }.count
-            result = .init(file: file)
+            result = .init(file: file, preset: preset)
             do {
                 let context = try await prepare(backend)
-                let (plan, masks, segments) = try await plan(backend, context: context)
-                let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
-                try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
+                if preset.includes(.identity) {
+                    let (plan, masks, segments) = try await plan(backend, context: context)
+                    let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
+                    try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
+                } else {
+                    try await store.saveManifest(currentManifest())
+                }
             } catch is CancellationError { throw CancellationError() } catch {
                 for item in manifest?.work ?? [] where item.imageID == file.id && (item.state == .pending || item.state == .running) {
                     let diagnostic = await failureDiagnostic(error, item: item)
@@ -63,16 +69,19 @@ extension CombinedReviewFeature {
             }
         }
         activeFile = nil
-        if snapshot.files.count > 1 {
+        if snapshot.files.count > 1, preset.includes(.comparison) {
             try await compare(backend)
         }
-        progress = results.contains { $0.report?.incomplete != false } ? "Complete with limitations" : "Complete"
+        let limited = preset.includes(.report) ? results.contains { $0.report?.incomplete != false } : results.contains { !$0.failures.isEmpty }
+        progress = limited ? "Complete with limitations" : "Complete"
     }
 
     func prepare(_ backend: any CombinedReviewBackendServing) async throws -> CombinedReviewContext {
         let run = try currentManifest(), snapshot = run.snapshot
-        guard let file = activeFile, let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference), let qwen = snapshot.models["qwen"] else { throw ReviewRunError.invalidSnapshot }
-        result = .init(file: file)
+        let preset = snapshot.effectivePreset, qwen = snapshot.models["qwen"]
+        guard let file = activeFile, let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference),
+              qwen != nil || !preset.requiredModels.contains("qwen") else { throw ReviewRunError.invalidSnapshot }
+        result = .init(file: file, preset: preset)
         progress = "Loading full review source"
         try await ReviewCatalogSession.revalidate(snapshot.files)
         let source = try await sourceLoader.load(.init(url: file.url, preference: preference, policy: .appearance))
@@ -95,6 +104,9 @@ extension CombinedReviewFeature {
         limitation("Exposure and crop suggestions are hypotheses; no rendered edit has been evaluated. RAW recovery is untested.")
         let overviewInput = await retain(source.overview)
         result?.overviewInputReference = overviewInput
+        guard preset.includes(.overview), let qwen else {
+            return .init(snapshot: snapshot, file: file, source: source, qwen: qwen, overview: nil)
+        }
         progress = "Independent overview and subject discovery"
         let overview: CombinedReviewOverview? = try await perform(overviewID, category: .overview) {
             let prompt = try CombinedReviewResponse.admitted(CombinedReviewResponse.overviewInstruction, model: qwen, outputTokens: snapshot.responseTokens)
@@ -118,16 +130,20 @@ extension CombinedReviewFeature {
 
     func plan(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext) async throws -> (CombinedReviewPlan, [ReviewSubjectID: CGImage], [ReviewWorkID]) {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
+        let preset = snapshot.effectivePreset
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
         let overview = context.overview
+        // Segmentation runs after the overview when there is one; Focus check has none.
+        let discovery = preset.includes(.overview) ? [sourceID, overviewID] : [sourceID]
+        let concepts = preset.includes(.overview) ? overview?.concepts : ReviewPreset.focusConcepts
         let maskProcessing = ReviewMaskProcessing()
         var subjects: [ReviewSubjectRecord] = []
         var masks: [ReviewSubjectID: CGImage] = [:]
         var segmentIDs: [ReviewWorkID] = []
-        if snapshot.models["sam"] != nil, let overview {
-            for (index, concept) in overview.concepts.enumerated() {
+        if snapshot.models["sam"] != nil, let concepts {
+            for (index, concept) in concepts.enumerated() {
                 progress = "Segmenting \(concept)"
-                let id = try addWork("segment:\(index)", stage: .segmentation, parents: [sourceID, overviewID], source: source.metadata.identity, region: concept)
+                let id = try addWork("segment:\(index)", stage: .segmentation, parents: discovery, source: source.metadata.identity, region: concept)
                 segmentIDs.append(id)
                 let records: [ReviewSubjectRecord]? = try await perform(id, category: .sam) {
                     let candidates = try await backend.segment(image: source.image, file: file, concept: concept)
@@ -168,7 +184,7 @@ extension CombinedReviewFeature {
         var heads: [ReviewSubjectRecord] = []
         var headOmissions: [ReviewRegionOmission] = []
         if snapshot.models["sam"] != nil, !subjects.isEmpty {
-            let headID = try addWork("segment:head", stage: .segmentation, parents: [sourceID, overviewID], source: source.metadata.identity, region: "head")
+            let headID = try addWork("segment:head", stage: .segmentation, parents: discovery, source: source.metadata.identity, region: "head")
             segmentIDs.append(headID)
             let values: CombinedReviewHeadCandidates? = try await perform(headID, category: .sam) {
                 let candidates = try await backend.segment(image: source.image, file: file, concept: "head")
@@ -201,8 +217,12 @@ extension CombinedReviewFeature {
             }
         }
         // The identity plan persists deterministic crop decisions independently of later measurements.
-        replaceDependencies(identityID, with: [sourceID, overviewID] + segmentIDs)
+        replaceDependencies(identityID, with: discovery + segmentIDs)
         let plan: CombinedReviewPlan? = try await perform(identityID) {
+            // Crop regions exist only for Qwen crop observation.
+            guard preset.includes(.cropObservation), let qwen else {
+                return .init(omissions: headOmissions, subjects: subjects, regions: [], uninspected: [])
+            }
             var proposed: [(CGRect, String, ReviewSubjectID?)] = []
             for subject in subjects {
                 try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Registered foreground: \(subject.concept); identity unverified", subject.id))
@@ -348,6 +368,7 @@ extension CombinedReviewFeature {
         }
         for region in plan.regions {
             try Task.checkCancellation()
+            guard let qwen else { throw ReviewRunError.modelUnavailable }
             guard region.sourceIdentity == source.metadata.identity, let crop = source.image.cropping(to: region.sourceRect) else { throw ReviewRunError.incompatible }
             progress = "Inspecting \(region.purpose)"
             let id = try addWork("crop:\(region.id.rawValue)", stage: .cropObservation, parents: [sourceID, identityID], source: source.metadata.identity, region: region.id.rawValue)
@@ -391,11 +412,18 @@ extension CombinedReviewFeature {
     }
 
     func finish(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan, terminalIDs initialIDs: [ReviewWorkID]) async throws {
-        let file = context.file, source = context.source, qwen = context.qwen
+        let file = context.file, source = context.source
         var terminalIDs = initialIDs
         for (id, reason) in result?.failures ?? [:] {
             limitation("Stage \(id) unavailable: \(reason)")
         }
+        // Presets without a report end with their measured evidence.
+        guard context.snapshot.effectivePreset.includes(.report) else {
+            try await store.saveManifest(currentManifest())
+            progress = result?.failures.isEmpty == false ? "Complete with limitations" : "Complete"
+            return
+        }
+        guard let qwen = context.qwen else { throw ReviewRunError.modelUnavailable }
         if !(result?.measurements.isEmpty ?? true), result?.observations.contains(where: { $0.regionID != nil && $0.availability == .available }) == true {
             let id = try addWork("reconcile", stage: .reconciliation, parents: terminalIDs, source: source.metadata.identity)
             terminalIDs.append(id)
