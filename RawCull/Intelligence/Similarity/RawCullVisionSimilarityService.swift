@@ -106,10 +106,11 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
         Logger.process.debugMessageOnly(
             "RawCullVisionSimilarityService.index(): indexing \(sources.count) sources",
         )
+        // The backend is an actor, so feature prints run one at a time while
+        // decoding still runs `concurrencyLimit` wide. Vision requests must not
+        // run in parallel: see Docs/visionupdate.md.
         let indexer = SimilarityArtifactIndexer(
-            primaryProvider: RawCullParallelVisionArtifactProvider(
-                revision: backend.revision,
-            ),
+            primaryProvider: backend,
             decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
             fallbackPolicy: .none,
             concurrencyLimit: concurrencyLimit,
@@ -490,33 +491,6 @@ private nonisolated struct RawCullDiagnosingImageDecoder: ImageDecoding {
             )
             throw error
         }
-    }
-}
-
-/// PhotoAIKit's current Vision backend is an actor and performs its synchronous
-/// Vision request without suspension. A fresh stateless backend per item keeps
-/// the package indexer's bounded parallelism effective instead of serializing
-/// all generation through one actor instance.
-private nonisolated struct RawCullParallelVisionArtifactProvider:
-    ImageSimilarityArtifactProviding {
-    let revision: Int
-    let backendDescriptor: SimilarityBackendDescriptor
-
-    init(revision: Int) {
-        self.revision = revision
-        self.backendDescriptor = VisionFeaturePrintBackend(
-            revision: revision,
-        ).backendDescriptor
-    }
-
-    func artifact(
-        for image: CGImage,
-        source: AIImageSource,
-    ) async throws -> SimilarityArtifact {
-        try await VisionFeaturePrintBackend(revision: revision).artifact(
-            for: image,
-            source: source,
-        )
     }
 }
 
