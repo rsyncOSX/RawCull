@@ -77,7 +77,7 @@ Every review result screen has these actions, using the same code as the grid an
 - **Rate** (the same keys as the grid)
 - **Mark Reviewed**, when the photo belongs to a burst
 
-As `nextstep.md` already says for MCP results: opening, running or comparing a review never changes a tag or a rating. Only the photographer's action does.
+As the AI Assessments window already does for MCP results: opening, running or comparing a review never changes a tag or a rating. Only the photographer's action does.
 
 ## Options considered
 
@@ -97,7 +97,7 @@ As `nextstep.md` already says for MCP results: opening, running or comparing a r
 | 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | not started |
 | 5 | Make Review the default; hide the old tabs behind a setting | S | low | not started |
 | 6 | Delete the old tabs, after one TestFlight release | M | low | not started |
-| 7 | Send in-app review results to the AI Assessments window | M | medium | not started, see [nextstep.md](nextstep.md) |
+| 7 | Send in-app review results to the AI Assessments window | M | medium | not started; window code in `RawCull/Views/AIAssessments/` |
 
 ### Step 2: Compare outputs
 
@@ -158,4 +158,4 @@ Done when: the app builds, `make test-smoke` passes and `make lint` shows no new
 
 - Changes to burst grouping, sharpness, faces or similarity.
 - Changes to semantic search.
-- The design of the AI Assessments window itself. That is [nextstep.md](nextstep.md).
+- The design of the AI Assessments window itself (`RawCull/Views/AIAssessments/`).

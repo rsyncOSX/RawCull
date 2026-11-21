@@ -1,7 +1,7 @@
 # Plan: Code-quality follow-ups (findings 2–6)
 
 Status: draft · 2026-11-20 · branch `version-3.4.8`
-Companion to [viewmodel-decomposition-plan.md](viewmodel-decomposition-plan.md) (finding 1).
+Finding 1 (breaking up `RawCullViewModel`) is done; its plan has been removed.
 
 ## Verdict per finding
 
@@ -170,11 +170,15 @@ About 1,075 commits in 3 months is fine for a solo project. The cost shows up wh
 
 ---
 
-## Suggested order
+## Status (2026-11-21)
 
-1. **Finding 5 fix list** (half a day; fixes two real cache-key risks)
-2. **4.1 Move subject-mask primitives** (an hour)
-3. **Finding 3, steps 3.1–3.2** (tests first)
-4. **Finding 3, steps 3.3–3.5**, running alongside view-model slices 0–5
-5. **4.3 decision**, then act on it
-6. **3.6 shared IPC module** if you want it
+| Item | Status |
+|---|---|
+| Finding 5 fix list | done |
+| 4.1 Move subject-mask primitives | done |
+| Finding 3, steps 3.1–3.5 | done |
+| 4.2 `CombinedReview/` subfolders | done |
+| 3.6 Shared MCP IPC module (optional) | not started |
+| 4.3 Product decision | proposed in [ai-features-decision.md](ai-features-decision.md) |
+| Finding 2: identity-only `==` on `RawCullFileItem` | open |
+| Finding 6: process habits | open, see [review-actions-plan.md](review-actions-plan.md#action-4-commit-and-release-hygiene-step-8) |

@@ -117,8 +117,7 @@ next one. `workspaceEnvironment(_:)` in
 sharpness, similarity and Deep Review models, into the SwiftUI environment. Views
 read only the models they need. The only files that use the view model directly are
 the view model itself, `RawCullApp`, `RawCullMainView` and the MCP and intelligence
-bindings. The refactoring steps are recorded in
-[the refactoring order plan](Docs/refactoring-order-plan.md).
+bindings.
 
 Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved). The current resolved versions are:
 
