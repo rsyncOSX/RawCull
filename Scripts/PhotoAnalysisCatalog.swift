@@ -187,7 +187,7 @@ struct PhotoAnalysisCatalog {
             row["suppliedEvidence"] = evidence != nil
             row["faces"] = await outcome { try await encoded(faces.analyze(decoded.image)) }
             row["animals"] = await outcome {
-                try AnimalCloseUpDetector.regions(in: decoded.image).map {
+                try await AnimalCloseUpDetector.regions(in: decoded.image).map {
                     ["kind": String(describing: $0.kind), "bounds": rect($0.bounds)]
                 }
             }

@@ -1,6 +1,6 @@
 # Plan: Make Vision calls safe to run concurrently
 
-Status: phase 1 done · phases 2–3 not started · 2026-11-21 · branch `version-3.4.9`
+Status: phases 1–2 done · phase 3 started (RawCull on PhotoAnalysisKit 1.4.0; PhotoAIKit not started) · 2026-11-21 · branch `version-3.4.9`
 
 ## Summary
 
@@ -133,6 +133,33 @@ Not measured here: the indexing speed of a real catalog before and after step 1.
    - Regression test for the hang: start `activeProcessorCount × 3` concurrent feature prints and face analyses with `.timeLimit(.minutes(1))`. It must finish.
 4. Release PhotoAnalysisKit 1.3.10, or 1.4.0 given the API change.
 
+#### Phase 2 result (2026-11-21)
+
+Released as PhotoAnalysisKit **1.4.0** (tag `v1.4.0`, commit `e4f974d`).
+
+What changed:
+
+| Change | File |
+|---|---|
+| New `VisionRequestGate`, a `Sendable` final class with `static let shared`. A private serial `DispatchQueue` (`.userInitiated`, autorelease pool per work item) runs the bodies. Each caller gets a ticket guarded by a `Mutex`. Whoever moves the ticket out of "waiting" resumes the continuation: either the queue starting the body, or cancellation. So a cancelled caller is resumed exactly once and its body is skipped. The initializer is internal, so tests can make private gates. | `VisionRequestGate.swift` |
+| `featurePrint(for:)` runs request, perform and archiving in one gate body, and returns `Data`. | `VisionFeaturePrintBackend.swift` |
+| `analyze(_:)` is now `async throws`. A new `detectFaces(in:)` runs the full-image pass and the tile passes as one gate body. `measureDetail` runs outside the gate. | `FaceEvidenceAnalyzer.swift` |
+| `regions(in:)` is now `async throws`. The request and the conversion to `[Region]` run in one gate body, because Vision observations are not `Sendable`. | `AnimalCloseUpDetector.swift` |
+| `detectSaliencyAndClassify` is now `async`. The Vision work moved to `performSaliencyAndClassify`, which runs saliency and the optional classification in one gate body. `computeSharpnessScore` is now: worker (normalize), then await saliency, then worker (breakdown). `generateFocusMask` and `generateFocusMaskWithBreakdown` are now: await saliency, then worker. They do not normalize, so they have two steps, not three. | `FocusMaskEngine+Scoring.swift`, `FocusMaskEngine+MaskGeneration.swift` |
+| New section "Vision request gate". The animal example now uses `await`. | `README.md` |
+
+Plan corrections:
+
+- A gate body runs outside any task, so `Task.isCancelled` is always `false` inside it. The cancellation checks inside the old Vision code were moved to just before and after the `run` call. The saliency and classification error logs no longer check for cancellation.
+- `FaceEvidenceAnalyzer.analyze` and `AnimalCloseUpDetector.regions` pass a `CancellationError` from the gate on to the caller. `detectSaliencyAndClassify` returns an empty detection on cancellation, as before.
+
+Checks:
+
+- 4 new tests in `VisionRequestGateTests`: the peak number of bodies in flight is 1 (32 callers), body errors reach the caller, cancellation before the turn throws `CancellationError` and skips the body (also when the task was cancelled before calling `run`), and 3 × `activeProcessorCount` concurrent feature prints, face analyses, saliency passes and animal detections finish within `.timeLimit(.minutes(1))`. On a 10-core Mac the last one takes about 0.4 seconds.
+- `swift test` ran three times in a row: 63 tests passed each time.
+- Byte-identical results: a temporary probe recorded scores, breakdowns, saliency summaries, mask SHA-256 hashes, feature-print sizes and face results for 3 synthetic images × 3 AF points (none, center, corner), with classification on. The output before and after the change was identical. The probe was not committed.
+- The release sharpness test is in RawCull and is part of phase 3.
+
 ### Phase 3: PhotoAIKit and RawCull (after phase 2)
 
 PhotoAIKit does not depend on PhotoAnalysisKit, and it should stay that way.
@@ -149,6 +176,29 @@ PhotoAIKit does not depend on PhotoAnalysisKit, and it should stay that way.
 2. **In RawCull**, add a 10-line adapter that implements `VisionWorkSerializing` by calling `VisionRequestGate.shared.run`. Pass it to every `VisionFeaturePrintBackend` (`RawCullVisionSimilarityService.swift:93`, `RawCullAIModelRuntime.swift:79`). The whole app then shares one gate.
 3. Bump both package pins in `RawCull.xcodeproj`, add `await` at the two `AnimalCloseUpDetector.regions` call sites, and revert the phase 1 cap on sharpness scoring if measurements allow.
 4. Run the `RawCull` test plan three times in a row, the release sharpness test, and one end-to-end burst analysis on a real catalog.
+
+#### Phase 3 progress (2026-11-21)
+
+RawCull now uses PhotoAnalysisKit 1.4.0 (pin bumped in `RawCull.xcodeproj`, resolved to `e4f974d`).
+
+Done:
+
+| Change | File |
+|---|---|
+| `await` added at `AnimalCloseUpDetector.regions`, and the comment on the shared face analyzer now points to the gate | `RawCull/Views/ComparisonGridView/BurstDetectedFacesView.swift` |
+| `await` added at `AnimalCloseUpDetector.regions` | `Scripts/PhotoAnalysisCatalog.swift` |
+| The package table lists `photoanalysiskit` at `1.4.0`. `ReleaseMetadataTests` checks this. | `README.md` |
+
+Checks:
+
+- The `RawCull` test plan ran three times in a row with `xcodebuild test-without-building` on a 10-core Mac. Every run finished, with 955 passed, 0 failed and 6 skipped (the real-model tests).
+- `Scripts/VerifyAIImportBoundary.sh` passes.
+
+Not done yet:
+
+- Steps 1 and 2 (the PhotoAIKit `VisionWorkSerializing` protocol, its release, and the RawCull adapter). Until then, similarity feature prints from PhotoAIKit do not use the gate, so they can still run at the same time as PhotoAnalysisKit's Vision requests. The phase 1 single backend keeps that to one at a time.
+- Keep the phase 1 cap on sharpness scoring until steps 1 and 2 are done and measured.
+- The release sharpness test and an end-to-end burst analysis on a real catalog.
 
 ## Risks and what to measure
 

@@ -119,8 +119,9 @@ actor BurstDetectedFaceLoader {
         return preview
     }
 
-    /// One shared analyzer: it is an actor, so face passes run one at a time.
-    /// Vision requests must not run in parallel: see Docs/visionupdate.md.
+    /// One shared analyzer. Its Vision passes, like every Vision request in
+    /// PhotoAnalysisKit, run one at a time through `VisionRequestGate.shared`:
+    /// see Docs/visionupdate.md.
     private static let faceAnalyzer = FaceEvidenceAnalyzer()
 
     @concurrent private nonisolated static func analyzeFaces(_ preview: CGImage) async throws -> FaceEvidenceResult {
@@ -130,7 +131,7 @@ actor BurstDetectedFaceLoader {
 
     @concurrent private nonisolated static func detectAnimals(_ preview: CGImage) async throws -> [AnimalCloseUpDetector.Region]? {
         try Task.checkCancellation()
-        return try? AnimalCloseUpDetector.regions(in: preview)
+        return try? await AnimalCloseUpDetector.regions(in: preview)
     }
 
     func evidence(for url: URL) async throws -> FaceEvidenceResult {
