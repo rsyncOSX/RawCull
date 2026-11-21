@@ -186,6 +186,7 @@ The AI Assessments window is built around MCP job records: a burst, a recommenda
 ## Expected effect
 
 - **Code:** about 4,800 app lines and 2,350 test lines are involved. Combined Review reuses some of the primitives, so roughly half is expected to go away. Measure after step 6 and write the real number here.
+  - **Measured after step 6** (`2909cb0d..42d5896a`): app code 5,640 lines removed and 930 added (net −4,710); tests 2,244 removed and 317 added (net −1,927). The deletion step alone removed 5,291 app lines and 2,230 test lines.
 - **Product:** one AI entry point instead of four, and every AI result ends in a decision.
 - **Maintenance:** a model update (Qwen, SAM, CLIP) is tested in one pipeline instead of four.
 
