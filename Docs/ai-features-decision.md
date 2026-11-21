@@ -1,6 +1,6 @@
 # Decision: One AI review feature
 
-Status: proposed · 2026-11-21 · branch `version-3.4.9`
+Status: accepted · 2026-11-21 · migration on branch `version-3.5.0`
 Answers [code-quality-followups-plan.md, finding 4.3](code-quality-followups-plan.md#43-product-decision-yours-not-a-refactor).
 
 ## Summary
@@ -13,6 +13,7 @@ The proposal:
 - **Every review result screen gets Tag, Rate and Mark Reviewed.**
 - **Burst groups and semantic search stay as they are.** They answer different questions.
 - **MCP stays a trigger, not a feature.** Its results open in the same results window as in-app reviews.
+- **The burst workspace keeps its AI assessment features:** the badge on filmstrip thumbnails, the assessment summary and "compare with sharpest". They read from the AI Assessments window, not from the AI Analysis tabs.
 
 ## What exists today (2026-11-21)
 
@@ -91,7 +92,7 @@ As the AI Assessments window already does for MCP results: opening, running or c
 
 | Step | What | Size | Risk | Status |
 |---|---|---|---|---|
-| 1 | Accept this decision; update finding 4.3 | XS | none | not started |
+| 1 | Accept this decision; update finding 4.3 | XS | none | done |
 | 2 | Compare outputs: presets against the old tabs | S | none | not started |
 | 3 | Add the presets to Combined Review | M | medium | not started |
 | 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | not started |
