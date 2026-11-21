@@ -56,9 +56,6 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let modelRuntime: RawCullAIModelRuntime
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
-    let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    let objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
     let settingsModel: RawCullAISettingsModel
     let modelDownloadsModel: RawCullAIModelDownloadsModel
@@ -70,23 +67,16 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         modelRuntime: RawCullAIModelRuntime,
         similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
-        deepAIReviewController: DeepAIReviewController,
-        qwenAnalysisFeature: RawCullQwenAnalysisFeature,
-        objectAnalysisFeature: RawCullObjectAnalysisFeature? = nil,
         settingsModel: RawCullAISettingsModel,
         applicationContext: any RawCullSimilarityApplicationContext,
     ) {
         self.modelRuntime = modelRuntime
         self.similarityFeature = similarityFeature
         self.semanticSearchFeature = semanticSearchFeature
-        self.deepAIReviewController = deepAIReviewController
-        self.qwenAnalysisFeature = qwenAnalysisFeature
-        self.objectAnalysisFeature = objectAnalysisFeature
-            ?? RawCullObjectAnalysisFeature(inference: modelRuntime.qwenInference)
-        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature] in
+        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak settingsModel] in
             guard let modelRuntime else { throw ReviewRunError.modelUnavailable }
             // Without Qwen only Focus check can run; the run checks the models its preset needs.
-            let url: URL? = if case let .available(url, _) = qwenAnalysisFeature?.modelStatus {
+            let url: URL? = if case let .available(url, _) = settingsModel?.currentQwenStatus {
                 url
             } else {
                 nil
@@ -97,12 +87,6 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
                                                  segmentation: modelRuntime.combinedSegmentationService(), samIdentity: identity,
                                                  clipProvider: modelRuntime.clipSimilarityProviders[.dataComp] ?? modelRuntime.clipSimilarityProviders[.openAI],
                                                  clipURL: modelRuntime.clipSimilarityModelLocations[.dataComp] ?? modelRuntime.clipSimilarityModelLocations[.openAI])
-        }
-        let objectFeature = self.objectAnalysisFeature
-        combinedReviewFeature.beforeStart = { [weak qwenAnalysisFeature, weak objectFeature, weak deepAIReviewController] in
-            await qwenAnalysisFeature?.cancelAndWait()
-            await objectFeature?.cancelAndWait()
-            await deepAIReviewController?.cancelAndWait()
         }
         self.settingsModel = settingsModel
         self.modelDownloadsModel = settingsModel.modelDownloadsModel
@@ -122,22 +106,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
                 with: similarityFeature,
             ),
         )
-        assert(
-            qwenAnalysisFeature.sharesInferenceIdentity(
-                with: modelRuntime.qwenInference,
-            ),
-        )
-        assert(
-            self.objectAnalysisFeature.sharesInferenceIdentity(
-                with: modelRuntime.qwenInference,
-            ),
-        )
-        assert(
-            settingsModel.sharesModelRuntimeIdentity(
-                modelRuntime,
-                analysisFeature: qwenAnalysisFeature,
-            ),
-        )
+        assert(settingsModel.sharesModelRuntimeIdentity(modelRuntime))
     }
 
     @discardableResult
@@ -217,25 +186,11 @@ struct RawCullApplicationState {
             coordinator: modelDownloadCoordinator,
             rawCullVersion: rawCullVersion,
         )
-        let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
-            inference: modelRuntime.qwenInference,
-        )
-        let objectAnalysisFeature = RawCullObjectAnalysisFeature(
-            inference: modelRuntime.qwenInference,
-            maskStores: [modelRuntime.objectMaskMemoryStore]
-                + (modelRuntime.objectMaskDiskStore.map { [$0 as any ObjectMaskStoring] } ?? []),
-        )
-        let deepAIReviewFeature = DeepAIReviewFeature(
-            availability: modelRuntime.capabilities().inProcessMaskGeneration,
-        )
-        modelRuntime.bindDeepAIReviewFeature(deepAIReviewFeature)
         let settingsModel = RawCullAISettingsModel(
             modelRuntime: modelRuntime,
             evidenceScan: evidenceScan,
             userDefaults: userDefaults,
             modelDownloadsModel: modelDownloadsModel,
-            qwenAnalysisFeature: qwenAnalysisFeature,
-            objectAnalysisFeature: objectAnalysisFeature,
         )
         let initialConfiguration = settingsModel.configurationSnapshot()
         let similarityModel = SimilarityScoringModel(
@@ -251,24 +206,17 @@ struct RawCullApplicationState {
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
         )
-        let deepAIReviewController = DeepAIReviewController(
-            feature: deepAIReviewFeature,
-        )
         let subjectMasks = ReviewSubjectMasks()
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
             subjectMasks: subjectMasks,
         )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             modelRuntime: modelRuntime,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
-            qwenAnalysisFeature: qwenAnalysisFeature,
-            objectAnalysisFeature: objectAnalysisFeature,
             settingsModel: settingsModel,
             applicationContext: viewModel.catalogController,
         )
@@ -279,19 +227,6 @@ struct RawCullApplicationState {
         assert(viewModel.similarityFeature === intelligenceRuntime.similarityFeature)
         assert(semanticSearchFeature.sharesSimilarityFeatureIdentity(with: similarityFeature))
         assert(viewModel.semanticSearchFeature === intelligenceRuntime.semanticSearchFeature)
-        assert(viewModel.deepAIReviewController === intelligenceRuntime.deepAIReviewController)
-        assert(qwenAnalysisFeature === intelligenceRuntime.qwenAnalysisFeature)
-        assert(objectAnalysisFeature === intelligenceRuntime.objectAnalysisFeature)
-        assert(
-            intelligenceRuntime.qwenAnalysisFeature.sharesInferenceIdentity(
-                with: intelligenceRuntime.modelRuntime.qwenInference,
-            ),
-        )
-        assert(
-            intelligenceRuntime.deepAIReviewController.sharesFeatureIdentity(
-                with: deepAIReviewFeature,
-            ),
-        )
         assert(
             settingsModel.modelDownloadsModel
                 === intelligenceRuntime.modelDownloadsModel,

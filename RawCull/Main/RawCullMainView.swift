@@ -10,9 +10,6 @@ struct RawCullMainView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
-    let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    let objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
     let aiSettingsModel: RawCullAISettingsModel
     let assessmentNavigation: AIAssessmentNavigation
@@ -58,9 +55,6 @@ struct RawCullMainView: View {
 
                 case .comparisonGrid:
                     comparisonGridSplit
-
-                case .aiAnalysis:
-                    aiAnalysisSplit
 
                 case .combinedReview:
                     combinedReviewSplit
@@ -423,24 +417,7 @@ struct RawCullMainView: View {
         }
     }
 
-    // MARK: - AI analysis mode
-
-    private var aiAnalysisSplit: some View {
-        AIAnalysisView(
-            qwenAnalysisFeature: qwenAnalysisFeature,
-            objectAnalysisFeature: objectAnalysisFeature,
-            combinedReviewFeature: combinedReviewFeature,
-            deepAIReviewController: deepAIReviewController,
-        )
-        .navigationTitle("AI Analysis")
-        .toolbar { toolbarContent }
-        // Turning the legacy setting off leaves the old tabs; Review takes their place.
-        .onChange(of: aiSettingsModel.showsLegacyAIAnalysis, initial: true) { _, shows in
-            if !shows, viewModel.navigation.mainViewMode == .aiAnalysis {
-                viewModel.navigation.selectMainViewMode(.combinedReview)
-            }
-        }
-    }
+    // MARK: - Review mode
 
     private var combinedReviewSplit: some View {
         CombinedReviewWorkspaceView(feature: combinedReviewFeature)

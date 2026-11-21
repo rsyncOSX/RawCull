@@ -33,13 +33,6 @@ struct AboutRawCullView: View {
             case .ratedGrid:
                 .browse(title: "Rated Grid", context: "Thumbnail grid filtered by photo rating.")
 
-            case .aiAnalysis:
-                .browse(
-                    title: "AI Analysis",
-                    context: "Photos in the AI analysis workspace.",
-                    navigationKeys: ["←", "→"],
-                )
-
             case .combinedReview:
                 .browse(
                     title: "Review",

@@ -17,11 +17,6 @@ struct AISettingsTab: View {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsCard {
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Show legacy AI Analysis", isOn: $model.showsLegacyAIAnalysis)
-                            .toggleStyle(.switch)
-                        Text("Shows the old AI Analysis tabs. Review replaces them; they go away in a later release.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
                         Text(reviewMemoryNote)
                             .font(.system(size: 11))
                             .foregroundStyle(model.canRunQwenReview ? Color.secondary : Color.orange)

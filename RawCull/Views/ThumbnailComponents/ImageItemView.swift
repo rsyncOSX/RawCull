@@ -265,7 +265,7 @@ struct ImageItemView: View {
                 }
                 .overlay(alignment: .bottomLeading) {
                     if hasDeepReviewMask {
-                        DeepAIReviewMaskAvailabilityBadge()
+                        ReviewMaskAvailabilityBadge()
                             .padding(6)
                     }
                 }

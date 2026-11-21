@@ -18,7 +18,6 @@ struct SharedMainToolbarContent: ToolbarContent {
     let sharpnessModel: SharpnessScoringModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let showsLegacyAIAnalysis: Bool
     let isDisabled: Bool
     let toggleMetadataPanel: () -> Void
 
@@ -156,20 +155,6 @@ struct SharedMainToolbarContent: ToolbarContent {
                     catalog.filteredFiles.isEmpty ||
                     navigation.mainViewMode == .grid ||
                     catalog.isCreatingThumbnails)
-
-                if showsLegacyAIAnalysis {
-                    Button {
-                        navigation.selectMainViewMode(.aiAnalysis)
-                    } label: {
-                        Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
-                    }
-                    .help("Legacy AI Analysis: SAM 3 + CLIP, Qwen Vision and Objects tabs")
-                    .disabled(isDisabled ||
-                        catalog.selectedSource == nil ||
-                        !hasAIAnalysisInput ||
-                        navigation.mainViewMode == .aiAnalysis ||
-                        catalog.isCreatingThumbnails)
-                }
 
                 Button {
                     navigation.selectMainViewMode(.combinedReview)

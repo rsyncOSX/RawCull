@@ -97,8 +97,8 @@ As the AI Assessments window already does for MCP results: opening, running or c
 | 3 | Add the presets to Combined Review | M | medium | done |
 | 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | done |
 | 5 | Make Review the default; hide the old tabs behind a setting | S | low | done |
-| 6 | Delete the old tabs, after one TestFlight release | M | low | not started |
-| 7 | Send in-app review results to the AI Assessments window | M | medium | not started; window code in `RawCull/Views/AIAssessments/` |
+| 6 | Delete the old tabs, after one TestFlight release | M | low | done (before a TestFlight release, at the owner's decision) |
+| 7 | Send in-app review results to the AI Assessments window | M | medium | dropped (see below) |
 
 ### Step 2: Compare outputs
 
@@ -170,6 +170,18 @@ Keep everything Combined Review or MCP uses: `Intelligence/SubjectMasks/`, `Qwen
 Also clear the old result stores on disk, or leave them and document that they are no longer read.
 
 Done when: the app builds, `make test-smoke` passes and `make lint` shows no new violations.
+
+### Step 6: what was done
+
+- Deleted the AI Analysis view and its three tabs, `DeepAIReviewController`, `DeepAIReviewFeature`, `RawCullQwenAnalysisFeature`, `RawCullObjectAnalysisFeature`, the Object analysis helpers, `MainViewMode.aiAnalysis`, the "Show legacy AI Analysis" setting, and their tests, release test and runner script.
+- Kept what Review and MCP use: `QwenPhotoAssessment`, `QwenInferenceRuntime`, `Intelligence/SubjectMasks/`, `ObjectInstanceDeduplicator` (with `ObjectInstanceDescriptor`) and the mask outline renderer, now `SubjectMaskOutlineRenderer`.
+- Deep AI Review masks also drove the subject outline (S key) in the loupe, zoom and burst workspace and the mask badge on thumbnails. These now read the main subject mask from Review results (`ReviewSubjectMasks`), matched by file location and used only while the file is unchanged.
+- Old Deep AI Review, Qwen Vision and Objects results are not converted and are no longer shown. The Objects mask cache (`SAM3ObjectMasks`) is deleted at launch. The SAM 3 subject-mask cache (`SAM3Masks`) is still created and shown in AI settings; nothing writes to it now (see the `periphery` note below).
+- Step 2 (comparing outputs) was not run before deleting. The known differences are listed under step 2.
+
+### Step 7: dropped
+
+The AI Assessments window is built around MCP job records: a burst, a recommendation and Qwen assessment fields per frame. Review results are a different record (findings, measurements, regions), and the window's design is out of scope here. Review already ends in a decision (step 4), so in-app results stay in Review and MCP results stay in the AI Assessments window.
 
 ## Expected effect
 

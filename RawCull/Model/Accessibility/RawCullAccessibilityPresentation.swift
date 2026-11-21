@@ -148,45 +148,6 @@ enum RawCullAccessibilityPresentation {
         return "\(availability). \(coverage). \(activity)."
     }
 
-    static func deepReviewValue(
-        state: DeepAIReviewPresentationState,
-        cachedResult: DeepAIReviewResult?,
-    ) -> String {
-        if let cachedResult {
-            let recommendation = if let fileName = cachedResult.recommendedCandidate?.fileName {
-                "Recommends \(fileName)"
-            } else {
-                "No reliable winner"
-            }
-            return "Completed. \(recommendation). \(confidence(cachedResult.confidence)) relative ranking confidence."
-        }
-        return switch state {
-        case .ready, .completed:
-            "Idle. AI subject-detail review has not run for this group."
-
-        case .checking:
-            "Checking the selected Deep Review model."
-
-        case let .unavailable(reason):
-            "Deep Review unavailable. \(reason)"
-
-        case let .preparing(_, totalCount):
-            "Preparing Deep Review for \(count(totalCount, singular: "candidate"))."
-
-        case let .running(progress):
-            "Running SAM 3 Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
-
-        case .completing:
-            "Completing Deep Review."
-
-        case .cancelled:
-            "Deep Review cancelled."
-
-        case let .failed(_, failure):
-            "Deep Review failed. \(deepReviewFailure(failure))"
-        }
-    }
-
     static func backendDescription(
         _ backend: RawCullSemanticSearchBackendPresentation,
     ) -> String {
@@ -206,22 +167,6 @@ enum RawCullAccessibilityPresentation {
         case .idle: "idle"
         case .generating: "generating artifacts"
         case .saving: "saving artifacts"
-        }
-    }
-
-    private static func confidence(_ confidence: DeepAIReviewConfidence) -> String {
-        switch confidence {
-        case .high: "High"
-        case .medium: "Medium"
-        case .low: "Low"
-        }
-    }
-
-    private static func deepReviewFailure(_ failure: DeepAIReviewFailure) -> String {
-        switch failure {
-        case let .modelUnavailable(reason): reason
-        case .noCandidates: "No candidates are available"
-        case let .pipelineFailed(reason): "The segmentation pipeline failed. \(reason)"
         }
     }
 

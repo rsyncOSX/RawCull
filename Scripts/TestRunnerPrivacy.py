@@ -6,13 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import RunAIAnalysis
 import RunCombinedReviewSix
 
 
 class RunnerPrivacyTests(unittest.TestCase):
     def test_private_outputs_restore_callers_umask_on_success_and_failure(self):
-        for runner in (RunAIAnalysis, RunCombinedReviewSix):
+        for runner in (RunCombinedReviewSix,):
             for fail in (False, True):
                 with self.subTest(runner=runner.__name__, fail=fail), tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / 'evidence.json'

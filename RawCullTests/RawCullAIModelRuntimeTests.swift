@@ -106,8 +106,6 @@ struct RawCullAIModelRuntimeTests {
         ))
 
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
-        #expect(FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
-        #expect(modelRuntime.objectSegmentation == nil)
 
         // A provider's declared input contract is available without loading
         // compiled models. Exercise installation, snapshot identity, and removal.
@@ -468,28 +466,17 @@ struct RawCullAIModelRuntimeTests {
         #expect(model.memoryInGB == Double(gigabytes))
     }
 
-    @Test @MainActor func `legacy AI Analysis is hidden by default and its setting persists`() throws {
+    @Test @MainActor func `the obsolete Objects mask cache is removed at launch`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "LegacyAIAnalysisTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        // A saved Combined Review opt-in from an older release is still a valid preference.
-        defaults.set(true, forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey)
-        let runtime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
-        func makeModel() -> RawCullAISettingsModel {
-            RawCullAISettingsModel(
-                modelRuntime: runtime, userDefaults: defaults,
-                modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
-            )
+        let paths = isolatedPaths(root: root)
+        try FileManager.default.createDirectory(at: paths.objectMaskDirectory, withIntermediateDirectories: true)
+        try Data("old mask".utf8).write(to: paths.objectMaskDirectory.appendingPathComponent("mask.png"))
+        _ = RawCullAIModelRuntime(paths: paths)
+        for _ in 0 ..< 50 where FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path) {
+            try await Task.sleep(for: .milliseconds(20))
         }
-        let model = makeModel()
-        #expect(!model.showsLegacyAIAnalysis)
-        model.showsLegacyAIAnalysis = true
-        #expect(defaults.bool(forKey: RawCullAISettingsModel.showsLegacyAIAnalysisPreferenceKey))
-        #expect(makeModel().showsLegacyAIAnalysis)
-        model.showsLegacyAIAnalysis = false
-        #expect(!makeModel().showsLegacyAIAnalysis)
+        #expect(!FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
     }
 
     private func isolatedRoot() -> URL {

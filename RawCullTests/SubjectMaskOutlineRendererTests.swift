@@ -2,12 +2,12 @@ import CoreGraphics
 @testable import RawCull
 import Testing
 
-struct DeepAIReviewMaskOutlineRendererTests {
+struct SubjectMaskOutlineRendererTests {
     @Test
     func `filled mask becomes a transparent contour`() async throws {
         let mask = try #require(makeMask())
         let outline = try #require(
-            await DeepAIReviewMaskOutlineRenderer.outline(from: mask),
+            await SubjectMaskOutlineRenderer.outline(from: mask),
         )
         let alpha = try #require(alphaPixels(from: outline))
 
@@ -25,7 +25,7 @@ struct DeepAIReviewMaskOutlineRendererTests {
             CGRect(x: 20, y: 8, width: 8, height: 16)
         ]))
         let outline = try #require(
-            await DeepAIReviewMaskOutlineRenderer.outline(from: mask),
+            await SubjectMaskOutlineRenderer.outline(from: mask),
         )
         let alpha = try #require(alphaPixels(from: outline))
 

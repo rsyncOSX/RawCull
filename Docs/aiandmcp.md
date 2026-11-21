@@ -1,5 +1,7 @@
 # Follow-up AI analysis over RawCull MCP
 
+> **Note (version 3.5.0):** Deep AI Review, Qwen Vision and Object Analysis were removed from the app in favour of Review (see [ai-features-decision.md](ai-features-decision.md)). Steps below that route MCP to those features are superseded.
+
 ## Proposed workflow
 
 The first prompt asks RawCull to load an authorized catalog and run burst analysis. RawCull uses sharpness and the configured similarity backend, Vision or CLIP, to group and rank frames. The client polls until the job reports `completed` and retains the catalog and job IDs.

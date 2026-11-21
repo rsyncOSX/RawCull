@@ -249,40 +249,12 @@ extension BurstWorkflowController {
 
     // MARK: - User actions
 
+    /// True while burst scoring, indexing, grouping or analysis is running.
     var isDeepAIReviewBlockedByOtherWork: Bool {
         sharpnessModel.isScoring
             || similarityModel.isIndexing
             || similarityModel.isGrouping
             || burstAnalysisProgress.isRunning
-    }
-
-    func applyDeepAIReviewRecommendation(
-        _ result: DeepAIReviewResult,
-        to groupFiles: [FileItem],
-    ) {
-        Logger.process.debugMessageOnly(
-            "BurstWorkflowController.applyDeepAIReviewRecommendation(): applying the Deep Review recommendation",
-        )
-        let groupID = groupID(for: groupFiles)
-        guard let selectedSource = catalog.selectedSource,
-              groupID >= 0,
-              result.groupSignature == BurstGroupSignature(
-                  files: groupFiles,
-                  catalog: selectedSource.url,
-              ),
-              let winner = result.recommendedFileID.flatMap({ id in
-                  groupFiles.first { $0.id == id }
-              })
-        else { return }
-
-        let override = BurstWinnerOverride(
-            winnerFileName: winner.name,
-            memberFileNames: groupFiles.map(\.name),
-        )
-        ratings.cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
-        applyManualWinnerOverrides(files: catalog.files)
-        host.updateRating(for: winner, rating: 3)
-        markBurstGroupReviewed(groupID: groupID)
     }
 
     /// Rate the recommended frame in `groupFiles` at ★★★ and reject all others.
@@ -581,57 +553,6 @@ extension BurstWorkflowController {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
     }
 
-    func deepAIReviewContext(
-        for groupFiles: [FileItem],
-    ) async -> DeepAIReviewGroupContext? {
-        Logger.process.debugMessageOnly(
-            "BurstWorkflowController.deepAIReviewContext(): collecting burst evidence from \(groupFiles.count) files",
-        )
-        guard let catalog = self.catalog.selectedSource?.url,
-              let signature = BurstGroupSignature(files: groupFiles, catalog: catalog)
-        else { return nil }
-        let burstGroupID = groupID(for: groupFiles)
-        let groupID = burstGroupID >= 0 ? burstGroupID : signature.hashValue
-
-        let rankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID) ?? []
-        let ranks = Dictionary(
-            uniqueKeysWithValues: rankedIDs.enumerated().map { index, id in
-                (id, index + 1)
-            },
-        )
-        let fallbackRanks = Dictionary(
-            uniqueKeysWithValues: groupFiles.enumerated().map { index, file in
-                (file.id, index + 1)
-            },
-        )
-        let clipSubjectLabels = await similarityModel.classifySubjects(
-            in: groupFiles,
-        )
-        let candidates = groupFiles.map { file in
-            DeepAIReviewSourceCandidate(
-                fileID: file.id,
-                fileName: file.name,
-                url: file.url,
-                burstRank: ranks[file.id] ?? fallbackRanks[file.id] ?? 1,
-                normalSharpnessScore: sharpnessModel.scores[file.id],
-                subjectLabel: clipSubjectLabels[file.id]
-                    ?? sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
-                normalizedAFPoint: file.afFocusNormalized,
-                iso: file.exifData?.isoValue,
-            )
-        }
-        let context = DeepAIReviewGroupContext(
-            groupID: groupID,
-            groupSignature: signature,
-            candidates: candidates,
-            scoringSource: sharpnessModel.scoringSource,
-        )
-        Logger.process.debugMessageOnly(
-            "BurstWorkflowController.deepAIReviewContext(): collected group \(groupID) with \(candidates.count) candidates",
-        )
-        return context
-    }
-
     private func canApplyOneClickCulling(groupID: Int) -> Bool {
         guard let result = burstAnalysisResults[groupID] else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: !sharpnessModel.scores.isEmpty)
@@ -736,7 +657,6 @@ extension BurstWorkflowController {
         guard burstAnalysisProgress.isRunning || completedAnalysisIsScoped
         else { return }
 
-        deepAIReviewController.cancel()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstReviewSession.reset()
@@ -745,7 +665,6 @@ extension BurstWorkflowController {
     }
 
     func cancelAndResetBurstAnalysis() {
-        deepAIReviewController.cancel()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstReviewSession.reset()

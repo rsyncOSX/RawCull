@@ -36,24 +36,8 @@ struct RawCullIntelligenceRuntimeTests {
                 with: runtime.similarityFeature,
             ),
         )
-        #expect(runtime.deepAIReviewController === viewModel.deepAIReviewController)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
-        #expect(
-            runtime.qwenAnalysisFeature.sharesInferenceIdentity(
-                with: runtime.modelRuntime.qwenInference,
-            ),
-        )
-        #expect(
-            runtime.objectAnalysisFeature.sharesInferenceIdentity(
-                with: runtime.modelRuntime.qwenInference,
-            ),
-        )
-        #expect(
-            runtime.settingsModel.sharesModelRuntimeIdentity(
-                runtime.modelRuntime,
-                analysisFeature: runtime.qwenAnalysisFeature,
-            ),
-        )
+        #expect(runtime.settingsModel.sharesModelRuntimeIdentity(runtime.modelRuntime))
         #expect(
             runtime.modelDownloadsModel
                 === runtime.settingsModel.modelDownloadsModel,
@@ -102,16 +86,12 @@ struct RawCullIntelligenceRuntimeTests {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
         let target = RuntimeApplicationTargetSpy()
-        let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
-            inference: fixture.modelRuntime.qwenInference,
-        )
         let settingsModel = RawCullAISettingsModel(
             modelRuntime: fixture.modelRuntime,
             evidenceScan: { .success(.empty) },
             userDefaults: fixture.userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             rawCullVersion: "test",
-            qwenAnalysisFeature: qwenAnalysisFeature,
         )
         let configuration = settingsModel.configurationSnapshot(revision: 1)
         let similarityModel = SimilarityScoringModel(
@@ -123,10 +103,6 @@ struct RawCullIntelligenceRuntimeTests {
         let similarityFeature = RawCullSimilarityFeature(
             similarityModel: similarityModel,
         )
-        let deepAIReviewFeature = DeepAIReviewFeature(
-            availability: fixture.modelRuntime.capabilities().inProcessMaskGeneration,
-        )
-        fixture.modelRuntime.bindDeepAIReviewFeature(deepAIReviewFeature)
         let runtime = RawCullIntelligenceRuntime(
             modelRuntime: fixture.modelRuntime,
             similarityFeature: similarityFeature,
@@ -134,10 +110,6 @@ struct RawCullIntelligenceRuntimeTests {
                 similarityModel: similarityModel,
                 similarityFeature: similarityFeature,
             ),
-            deepAIReviewController: DeepAIReviewController(
-                feature: deepAIReviewFeature,
-            ),
-            qwenAnalysisFeature: qwenAnalysisFeature,
             settingsModel: settingsModel,
             applicationContext: target,
         )

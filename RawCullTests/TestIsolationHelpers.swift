@@ -103,7 +103,6 @@ func makeRawCullViewModel(
     ),
     semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
     similarityArtifactStore: (any SimilarityArtifactStoring)? = nil,
-    deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
     burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
         = LiveBurstAnalysisCacheRepository(),
     sharpnessModel: SharpnessScoringModel = SharpnessScoringModel(),
@@ -126,7 +125,6 @@ func makeRawCullViewModel(
         similarityModel: similarityModel,
         similarityFeature: similarityFeature,
         semanticSearchFeature: semanticSearchFeature,
-        deepAIReviewController: deepAIReviewController,
         burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         sharpnessModel: sharpnessModel,
     )

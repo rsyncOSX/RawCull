@@ -6,9 +6,6 @@ import Foundation
 /// not expose PhotoAIKit providers, repositories, or the composition root.
 @Observable @MainActor
 final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
-    /// No longer read: Review is always available. Kept so the saved preference stays a known key.
-    static let combinedReviewEnabledPreferenceKey = "RawCullAI.combinedReviewEnabled"
-    static let showsLegacyAIAnalysisPreferenceKey = "RawCullAI.showLegacyAIAnalysis"
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
     static let selectedSegmentationModelPreferenceKey =
@@ -35,11 +32,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
 
     var memoryInGB: Double {
         Double(physicalMemory) / (1024 * 1024 * 1024)
-    }
-
-    /// Shows the old AI Analysis tabs for one release while Review replaces them. Off by default.
-    var showsLegacyAIAnalysis: Bool {
-        didSet { userDefaults.set(showsLegacyAIAnalysis, forKey: Self.showsLegacyAIAnalysisPreferenceKey) }
     }
 
     var useCLIPForSimilarity: Bool {
@@ -74,9 +66,8 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     private var selectedSegmenter: RawCullSegmentationModel
     @ObservationIgnored private let modelRuntime: RawCullAIModelRuntime
     @ObservationIgnored private let userDefaults: UserDefaults
-    @ObservationIgnored private let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    @ObservationIgnored private let objectAnalysisFeature: RawCullObjectAnalysisFeature?
-    @ObservationIgnored private var currentQwenStatus: QwenModelStatus = .notConfigured
+    /// The installed Qwen model as Review's Describe and Full presets see it.
+    @ObservationIgnored private(set) var currentQwenStatus: QwenModelStatus = .notConfigured
     @ObservationIgnored private weak var configurationConsumer:
         (any RawCullIntelligenceConfigurationApplying)?
     @ObservationIgnored private var configurationRevision: UInt64 = 0
@@ -93,19 +84,11 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
-        qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
-        objectAnalysisFeature: RawCullObjectAnalysisFeature? = nil,
         physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory,
     ) {
         self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
         self.physicalMemory = physicalMemory
-        self.showsLegacyAIAnalysis = userDefaults.bool(forKey: Self.showsLegacyAIAnalysisPreferenceKey)
-        self.qwenAnalysisFeature = qwenAnalysisFeature
-            ?? RawCullQwenAnalysisFeature(
-                inference: modelRuntime.qwenInference,
-            )
-        self.objectAnalysisFeature = objectAnalysisFeature
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -144,22 +127,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         self.modelDownloadsModel.bindLocationsConsumer(self)
     }
 
-    func sharesModelRuntimeIdentity(
-        _ modelRuntime: RawCullAIModelRuntime,
-        analysisFeature: RawCullQwenAnalysisFeature,
-    ) -> Bool {
+    func sharesModelRuntimeIdentity(_ modelRuntime: RawCullAIModelRuntime) -> Bool {
         self.modelRuntime === modelRuntime
-            && qwenAnalysisFeature === analysisFeature
-            && qwenAnalysisFeature.sharesInferenceIdentity(
-                with: modelRuntime.qwenInference,
-            )
     }
 
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async {
-        objectAnalysisFeature?.cancel()
-        objectAnalysisFeature?.install(segmentation: nil, qwenStatus: .notConfigured)
         refreshGeneration &+= 1
         let generation = refreshGeneration
         isScanningSavedBurstData = true
@@ -188,10 +162,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             guard refreshGeneration == generation else { return }
 
             self.capabilities = capabilities
-            objectAnalysisFeature?.install(
-                segmentation: modelRuntime.objectSegmentation,
-                qwenStatus: currentQwenStatus,
-            )
             publishConfiguration()
             switch result {
             case let .success(evidence):
@@ -282,11 +252,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     private func applyQwenStatus(_ status: QwenModelStatus) {
         currentQwenStatus = status
         qwenModelStatus = status.capabilityStatus
-        qwenAnalysisFeature.updateModelStatus(status)
-        objectAnalysisFeature?.install(
-            segmentation: modelRuntime.objectSegmentation,
-            qwenStatus: status,
-        )
     }
 }
 

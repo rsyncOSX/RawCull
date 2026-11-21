@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct DeepAIReviewMaskAvailabilityBadge: View {
+struct ReviewMaskAvailabilityBadge: View {
     var body: some View {
         Image(systemName: "scope")
             .font(.system(size: 10, weight: .bold))

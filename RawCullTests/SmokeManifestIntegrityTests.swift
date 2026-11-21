@@ -40,7 +40,6 @@ RawCullTests/CullingGridCoordinatorTests
 RawCullTests/CullingGridProjectionTests
 RawCullTests/CullingInitializationTests
 RawCullTests/CullingRecoveryPresentationTests
-RawCullTests/DeepAIReviewFeatureTests
 RawCullTests/EmbeddedJPGExportLoaderTests
 RawCullTests/FocusNumericHelperTests
 RawCullTests/HistogramLoadingTests
@@ -48,8 +47,6 @@ RawCullTests/ISOScalingTests
 RawCullTests/ImageSourceSelectionStateTests
 RawCullTests/IsolatedThumbnailStorageTests
 RawCullTests/LoupeImageKeyActionTests
-RawCullTests/ObjectAnalysisBoundaryTests
-RawCullTests/ObjectAnalysisFeatureTests
 RawCullTests/PerFileAnalysisArtifactStoreTests
 RawCullTests/PhotoAnalysisKitIntegrationTests
 RawCullTests/QwenFeatureTests
@@ -112,14 +109,11 @@ private let expectedTaggedSuites: Set<String> = [
     "ComparisonGridImageCoordinatorTests",
     "ComparisonGridNavigationTests",
     "CullingGridCoordinatorTests",
-    "DeepAIReviewFeatureTests",
     "FocusNumericHelperTests",
     "HistogramLoadingTests",
     "ISOScalingTests",
     "ImageSourceSelectionStateTests",
     "LoupeImageKeyActionTests",
-    "ObjectAnalysisBoundaryTests",
-    "ObjectAnalysisFeatureTests",
     "PhotoAnalysisKitIntegrationTests",
     "QwenFeatureTests",
     "RawCullAIModelDownloadsTests",

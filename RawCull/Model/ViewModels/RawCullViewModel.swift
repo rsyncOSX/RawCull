@@ -22,7 +22,6 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     case similarityGrid
     case ratedGrid
     case comparisonGrid
-    case aiAnalysis
     case combinedReview
 
     var id: String {
@@ -114,15 +113,10 @@ final class RawCullViewModel {
     /// Semantic-only presentation and actions backed by `similarityModel`.
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
-    /// Runtime-owned optional Deep Review capability. The central view model only
-    /// supplies application burst evidence, resets catalog-scoped state, and applies
-    /// a user-confirmed recommendation.
-    let deepAIReviewController: DeepAIReviewController
-
     /// Subject masks from Review results, for the subject outline and mask badge.
     let subjectMasks: ReviewSubjectMasks
 
-    /// Burst analysis, review queue, keep-best and undo, and Deep Review context.
+    /// Burst analysis, review queue, keep-best and undo.
     let burstWorkflow: BurstWorkflowController
 
     /// Catalog loading, sorting, filtering, scoring and semantic selection.
@@ -135,7 +129,6 @@ final class RawCullViewModel {
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
-        deepAIReviewController: DeepAIReviewController,
         subjectMasks: ReviewSubjectMasks = ReviewSubjectMasks(),
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
@@ -154,7 +147,6 @@ final class RawCullViewModel {
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
-        self.deepAIReviewController = deepAIReviewController
         self.subjectMasks = subjectMasks
         navigation = WorkspaceNavigationModel(
             zoomOverlay: zoomOverlay, catalog: catalog, similarityModel: similarityModel,
@@ -167,7 +159,6 @@ final class RawCullViewModel {
             sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,
             similarityModel: similarityModel,
-            deepAIReviewController: deepAIReviewController,
             cacheRepository: burstAnalysisCacheRepository,
         )
 
@@ -195,7 +186,6 @@ final class RawCullViewModel {
             ),
         )
         similarityFeature.bindApplicationContext(catalogController)
-        deepAIReviewController.bindApplicationContext(burstWorkflow)
         fileOperations.bind(catalogController)
         burstWorkflow.bind(host: culling)
     }

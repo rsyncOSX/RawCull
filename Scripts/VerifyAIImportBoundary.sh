@@ -45,8 +45,6 @@ is_allowed_import() {
         PhotoAIStorage:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIStorage:RawCull/Intelligence/Persistence/PerFileAnalysisArtifactStore.swift) return 0 ;;
         PhotoAIWorkflows:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
-        PhotoAIWorkflows:RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift) return 0 ;;
-        PhotoAIWorkflows:RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift) return 0 ;;
         PhotoAIWorkflows:RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) return 0 ;;
         # Builds burst snapshots from SimilarityArtifact values and their backend descriptors.
@@ -63,12 +61,8 @@ is_allowed_import() {
         # Response decoding maps model JSON into the shared review contracts.
         PhotoAIContracts:RawCull/Intelligence/CombinedReview/CombinedReviewResponse.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Contracts/RawCullAIModels.swift) return 0 ;;
-        PhotoAIContracts:RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/ModelManagement/RawCullAIModelResourceManager.swift) return 0 ;;
-        PhotoAIContracts:RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift) return 0 ;;
-        PhotoAIContracts:RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift) return 0 ;;
-        PhotoAIContracts:RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Persistence/BurstAnalysisCache.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Persistence/PerFileAnalysisArtifactStore.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Presentation/SemanticSearchUIPresentation.swift) return 0 ;;

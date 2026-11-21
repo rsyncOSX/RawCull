@@ -21,10 +21,7 @@ RawCull is a native macOS app for reviewing and culling RAW photographs. It comb
 | 🏆 | **Burst ranking** | Group similar frames and surface the strongest candidate with confidence and cautions. |
 | 🔍 | **Close-ups** | Compare magnified crops across selected burst frames using recorded autofocus points, detected faces, or manually selected regions. |
 | 🔎 | **Search by meaning** | Find photos with natural-language queries using local CLIP embeddings. |
-| 🧠 | **Deep Review** | Use SAM 3 to isolate the subject and compare detail where it matters. |
-| 🖼️ | **Combined Review** | Review selected or tagged photos with retained images, findings, supporting crops, coverage limits, and a structured technical record. |
-| ✨ | **AI photo critique** | Ask Qwen3-VL to assess composition, exposure, visibility, expression, strengths, and problems. |
-| 🔢 | **Objects analysis** | Ask Qwen to suggest visible concepts, segment their instances with SAM 3, and assess a numbered review board. |
+| 🖼️ | **Review** | Ask what is wrong with a photo. Focus check measures subject sharpness with SAM 3 masks; Describe gives a Qwen assessment; Full adds per-object crops and a written report. Tag, rate and mark reviewed from the result. |
 | ⭐️ | **A complete culling flow** | Tag, reject, rate, filter, compare, and persist your decisions. |
 | 📦 | **Flexible export** | Export JPEG previews or copy selected RAW files with live rsync progress. |
 | 🔌 | **MCP server (in development)** | Query an authorized catalog and retrieve ranked burst recommendations from a compatible desktop AI client. |
@@ -38,10 +35,8 @@ RawCull's AI features run locally on the Mac. Model downloads and validation are
 | Model | Purpose | Used for |
 |---|---|---|
 | **DataComp CLIP** | Understands image/text similarity | Semantic search, visual similarity, burst grouping, and coarse subject labels |
-| **SAM 3** | Finds where a prompted subject is | Subject masks, AF-point checks, and detail-aware Deep Review |
-| **Qwen3-VL** | Describes and evaluates a photograph | Structured photo assessment against editable criteria |
-
-In **AI Analysis › Objects**, RawCull uses Qwen to identify photographically relevant concepts, SAM 3 to segment matching visible instances, and Qwen to assess those numbered subjects locally on your Mac. Specific concepts can be entered manually. Results describe matches for the requested concepts; they are not a guaranteed inventory of every object in the scene.
+| **SAM 3** | Finds where a prompted subject is | Subject masks, AF-point checks, the subject outline, and Review's focus measurement |
+| **Qwen3-VL** | Describes and evaluates a photograph | Review's Describe and Full presets, and MCP photo assessments |
 
 CLIP image embeddings are computed once and reused for later searches. SAM 3 masks and compatible analysis artifacts can also be cached. Qwen assessments are advisory: RawCull validates their structure, but the photographer remains the final judge.
 
@@ -53,11 +48,17 @@ You choose which catalog to share and whether the client can start analysis in *
 
 Prompt-driven catalog setup, job approval, and saved-grant reuse have been verified on TestFlight. [Copy-ready prompts](Docs/prompts.md) · [MCP server setup and TestFlight results](Docs/mcpserver.md)
 
-## Combined Review
+## Review
 
-Open **Combined Review** from the dedicated toolbar button beside **AI Analysis**, then choose selected or tagged images as the input.
+Open **Review** from the toolbar, then choose selected or tagged images as the input and a preset:
 
-The default Photo-first workspace pairs the retained overview with concise findings, coverage limits, and optional reviewed-region overlays. **Inspect evidence** opens the supporting crop and observations in the Evidence workspace. You can return to Photo-first while keeping the selected image and region.
+- **Focus check**: SAM 3 subject masks, focus measurement and CLIP. It does not use Qwen and works without the Qwen model.
+- **Describe**: one Qwen assessment of the whole photo.
+- **Full**: everything, including per-object crops and a written report.
+
+Each result shows the photo, its findings, and Tag, Rate and Mark Reviewed, with the grid's rating keys. Running or reopening a review never changes a rating. **Evidence & details** below the findings holds the supporting masks and crops, coverage limits and the technical record; clicking a finding opens it there. Focus check and Full also supply the subject outline (the S key) in the loupe, zoom and burst workspace.
+
+Describe and Full need at least 16 GB of unified memory; 32 GB is recommended.
 
 Saved reviews remain available outside the current input selection. Review settings, retention cleanup, selection comparison, and run diagnostics are available through disclosure controls. The complete structured record can be inspected and copied as JSON.
 
@@ -80,7 +81,7 @@ Review previews, metadata, focus points, and sharpness
        ↓
 Group bursts or search the catalog by description
        ↓
-Compare candidates with Deep Review, Qwen, or Combined Review
+Check candidates with Review: Focus check, Describe or Full
        ↓
 Rate, tag, reject, and export the keepers
 ```
@@ -114,7 +115,7 @@ owns one area of state: `CatalogWorkspace`, `SelectionModel`, `RatingsModel`,
 models, such as loading and sorting the catalog or rating a photo and moving to the
 next one. `workspaceEnvironment(_:)` in
 [`RawCullApp.swift`](RawCull/Main/RawCullApp.swift) puts these models, plus the
-sharpness, similarity and Deep Review models, into the SwiftUI environment. Views
+sharpness, similarity and Review subject-mask models, into the SwiftUI environment. Views
 read only the models they need. The only files that use the view model directly are
 the view model itself, `RawCullApp`, `RawCullMainView` and the MCP and intelligence
 bindings.
@@ -177,7 +178,7 @@ make test-performance  # Performance and extreme-concurrency coverage
 make test-scripts      # Python script checks; no models or photographs required
 ```
 
-The Swift Testing suites cover RAW parsing, focus and sharpness metrics, similarity and semantic search, Deep Review, Qwen responses, downloads, caches, persistence, cancellation, concurrency, and copy workflows.
+The Swift Testing suites cover RAW parsing, focus and sharpness metrics, similarity and semantic search, Review, Qwen responses, downloads, caches, persistence, cancellation, concurrency, and copy workflows.
 
 ### Troubleshooting: `MDB_MAP_FULL` in the console
 
@@ -276,11 +277,11 @@ Run these checks before every release build:
    [Architecture](#architecture)). The automated tests do not run the full UI, so
    check these by hand on the built app:
    - Open a catalog. Switch through every view mode: loupe, grid, similarity grid,
-     rated grid, comparison grid, AI Analysis and Combined Review. Open and close
+     rated grid, comparison grid and Review. Open and close
      the zoom overlay.
    - Rate, tag and reject a photo. Check that the grid, filters and selection update
      and that the next photo is selected.
-   - Group bursts and open the burst workspace. Run Deep Review on one burst.
+   - Group bursts and open the burst workspace. Run a Focus check Review on one burst and toggle the subject outline.
    - Copy or export one file.
    - Run one end-to-end MCP job from a desktop AI client: catalog approval, analysis,
      and retrieving the ranked burst recommendations.

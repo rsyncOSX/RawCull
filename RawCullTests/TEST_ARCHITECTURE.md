@@ -37,8 +37,8 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
   `RawCullIntelligenceRuntimeTests`.
 - Semantic hydration/search and UI state: `RawCullSemanticSearchTests` and
   `RawCullSemanticSearchUITests`.
-- Deep Review controller availability/request construction, operation lifecycle,
-  and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
+- Review presets, decision actions and Review subject masks:
+  `CombinedReviewFeatureTests` and `ReviewDecisionActionsTests`.
 - Typed persistence, backend separation, partial results, and legacy migration:
   `BurstAnalysisCoordinatorTests`, `PerFileAnalysisArtifactStoreTests`, plus the exact non-benchmark
   `PhotoAIKitSimilarityMigrationTests` identifiers.
@@ -83,7 +83,7 @@ production singletons or user-visible directories. The shared helpers live in
 - `makeIsolatedSettingsViewModel()` returns a `SettingsViewModel` backed by a
   unique temporary `settings.json` path and skips production settings loading.
 - `makeRawCullViewModel()` assembles an isolated similarity model, similarity and
-  semantic-search features, Deep Review controller, and burst coordinator. Tests
+  semantic-search features, Review subject masks, and burst coordinator. Tests
   use it instead of a production convenience initializer that constructs AI
   providers or silently creates feature instances.
 
@@ -138,7 +138,7 @@ the suite name, tag, or test body.
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.
 - `RawCullIntelligenceRuntimeTests.swift`: stable application assembly, shared
-  similarity, model-download, and Deep Review identity, typed Settings
+  similarity and model-download identity, typed Settings
   configuration ordering, no-op and stale-revision behavior, in-flight hydration
   supersession, segmentation isolation, and weak-edge lifetime behavior.
 - `RawCullSimilarityFeatureTests.swift`: shared feature/model identity, RawCull-owned
@@ -158,7 +158,7 @@ the suite name, tag, or test body.
 ## Opt-in local Release integration
 
 `make releastest` runs the separate, hostless `RawCullReleaseTests` target and
-`ReleaseObjects` plan. This explicitly requested integration uses real ARW files
+`ReleaseObjects` plan. (The Objects release test was removed with the Objects analysis in version 3.5.0; the plan still runs the Combined Review input probes.) This explicitly requested integration uses real ARW files
 from Downloads and installed Qwen/SAM 3 models, writes a Markdown report there,
 and remains outside all routine test plans. See
 [`RawCullReleaseTests/README.md`](../RawCullReleaseTests/README.md) for configuration

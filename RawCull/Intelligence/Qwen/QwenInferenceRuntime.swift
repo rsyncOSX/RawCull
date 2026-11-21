@@ -26,7 +26,6 @@ nonisolated protocol QwenInferenceServing: AnyObject, Sendable {
     func inputCapabilities() async -> QwenInputCapabilities?
     func validate(url: URL) async -> QwenModelStatus
     func respond(to request: QwenVisionRequest) async throws -> String
-    func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
     func clear() async
 }
 
@@ -89,15 +88,6 @@ actor QwenInferenceRuntime: QwenInferenceServing {
             resetModel()
             return .invalid(url: url, reason: reason)
         }
-    }
-
-    func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse {
-        let response = try await respond(to: QwenVisionRequest(
-            instruction: Self.assessmentInstruction(criteria: criteria),
-            image: image,
-            maximumResponseTokens: 512,
-        ))
-        return try QwenModelResponse.decode(response)
     }
 
     func assessForMCP(rubric: [String], image: CGImage, identity: Identity) async throws -> QwenPhotoAssessment {

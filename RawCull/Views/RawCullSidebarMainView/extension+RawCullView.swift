@@ -20,11 +20,7 @@ extension RawCullMainView {
             sharpnessModel: viewModel.sharpnessModel,
             similarityFeature: viewModel.similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            showsLegacyAIAnalysis: aiSettingsModel.showsLegacyAIAnalysis,
-            isDisabled: deepAIReviewController.isRunning
-                || qwenAnalysisFeature.isRunning
-                || objectAnalysisFeature.isRunning
-                || combinedReviewFeature.isRunning,
+            isDisabled: combinedReviewFeature.isRunning,
             toggleMetadataPanel: toggleLoupeMetadataPanel,
         )
     }
