@@ -1,6 +1,6 @@
-# Plan: Code-quality follow-ups (findings 2–6)
+# Plan: Code-quality follow-ups (findings 2–5)
 
-Status: draft · 2026-11-20 · branch `version-3.4.8`
+Status: in progress · updated 2026-11-21 · branch `version-3.4.9`
 Finding 1 (breaking up `RawCullViewModel`) is done; its plan has been removed.
 
 ## Verdict per finding
@@ -13,7 +13,6 @@ After a closer look, not every finding is worth acting on.
 | 3 | MCP controller keeps its state machine in loose variables | **Yes, highest priority here** | The real correctness risk. Details below. |
 | 4 | Too many features and overlapping "review" concepts | **Partly** | One code fix (shared primitives live in the wrong folder). The rest is a product decision for you, not a refactor. |
 | 5 | 157 `try?` | **Yes, small and targeted** | About 85% are fine. About 8 hide failures that matter, including two cache-key functions that can map every input to the same key. |
-| 6 | Very high change rate | **Process, not code** | A few lightweight habits; no refactor. |
 
 ---
 
@@ -159,18 +158,9 @@ Leave it as is. One thing to verify: `==` and `hash(into:)` compare **only `id`*
 
 ---
 
-## Finding 6: Change rate (process only)
-
-About 1,075 commits in 3 months is fine for a solo project. The cost shows up when you read history. Low-cost habits:
-
-- Descriptive commit messages. There's still the odd `update` (`9505982a`).
-- Squash-merge each PR into one commit per change, so `git log main` reads as a feature list.
-- A short stabilization window before each release branch, with fixes only.
-- Re-run graphify at each release and keep the god-node and cohesion numbers in the release notes or a small table, so architectural drift is visible over time.
-
----
-
 ## Status (2026-11-21)
+
+### Completed
 
 | Item | Status |
 |---|---|
@@ -178,7 +168,11 @@ About 1,075 commits in 3 months is fine for a solo project. The cost shows up wh
 | 4.1 Move subject-mask primitives | done |
 | Finding 3, steps 3.1–3.5 | done |
 | 4.2 `CombinedReview/` subfolders | done |
-| 3.6 Shared MCP IPC module (optional) | not started |
-| 4.3 Product decision | proposed in [ai-features-decision.md](ai-features-decision.md) |
-| Finding 2: identity-only `==` on `RawCullFileItem` | open |
-| Finding 6: process habits | open, see [review-actions-plan.md](review-actions-plan.md#action-4-commit-and-release-hygiene-step-8) |
+
+### Not yet completed
+
+| Item | Status | Next step |
+|---|---|---|
+| 4.3 Product decision | **not completed**: proposed in [ai-features-decision.md](ai-features-decision.md), not yet accepted | Accept or reject the proposal. If accepted, plan the merge of Deep AI Review, Qwen Vision and Objects into one Review feature. |
+| Finding 2: identity-only `==` on `RawCullFileItem` | **not completed**: checked, no change to logic needed | `==` and `hash(into:)` still compare only `id`. No production code passes an existing `id` to `RawCullFileItem(...)`, so each scan gets fresh UUIDs and the stale-metadata case can't happen today. Remaining: add a comment on `==` saying this rule must hold. |
+| 3.6 Shared MCP IPC module (optional) | **not completed**: not started | Add a `RawCullMCPShared` product to `Tools/RawCullMCP/Package.swift` and drop the pbxproj file references to the helper's sources. |
