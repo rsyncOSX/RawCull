@@ -277,7 +277,6 @@ struct CombinedReviewWorkspaceView: View {
     @Environment(SelectionModel.self) private var selection
     @Environment(CatalogController.self) private var catalogController
     let feature: CombinedReviewFeature
-    let isEnabled: Bool
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
 
@@ -307,15 +306,7 @@ struct CombinedReviewWorkspaceView: View {
 
             Divider()
 
-            if !isEnabled {
-                ContentUnavailableView(
-                    "Combined Review Disabled",
-                    systemImage: "viewfinder",
-                    description: Text("Enable Combined Review in AI settings to use this workspace."),
-                )
-            } else {
-                CombinedReviewView(feature: feature, selection: selection, files: inputFiles)
-            }
+            CombinedReviewView(feature: feature, selection: selection, files: inputFiles)
 
             if !inputFiles.isEmpty {
                 Divider()

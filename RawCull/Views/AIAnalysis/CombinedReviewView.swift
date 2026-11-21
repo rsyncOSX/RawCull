@@ -174,9 +174,28 @@ struct CombinedReviewView: View {
 }
 
 private struct CombinedReviewRunBar: View {
-    let feature: CombinedReviewFeature
+    @Bindable var feature: CombinedReviewFeature
     let files: [FileItem]
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Preset", selection: $feature.preset) {
+                ForEach(ReviewPreset.allCases, id: \.rawValue) { preset in
+                    Text(preset.title).tag(preset)
+                        .disabled(feature.qwenUnavailableReason != nil && preset.usedModels.contains("qwen"))
+                }
+            }.pickerStyle(.segmented).frame(maxWidth: 360)
+                .disabled(feature.isRunning)
+            Text(presetSummary).font(.caption).foregroundStyle(.secondary)
+            if let status = feature.presetStatus {
+                Text(status).font(.caption).foregroundStyle(.orange)
+            } else if feature.preset.usedModels.contains("qwen"), let notice = feature.qwenMemoryNotice {
+                Text(notice).font(.caption).foregroundStyle(.secondary)
+            }
+            progressRow
+        }
+    }
+
+    private var progressRow: some View {
         ViewThatFits(in: .horizontal) {
             HStack {
                 Label(feature.progress, systemImage: "sparkles").font(.headline)
@@ -193,6 +212,19 @@ private struct CombinedReviewRunBar: View {
                 }
                 CombinedReviewRunActions(feature: feature, files: files)
             }
+        }
+    }
+
+    private var presetSummary: String {
+        switch feature.preset {
+        case .focusCheck:
+            String(localized: "SAM 3 subject masks, focus measurement and CLIP. Works without the Qwen model.")
+
+        case .describe:
+            String(localized: "One Qwen pass on the whole photo. No masks, crops or measurements.")
+
+        case .full:
+            String(localized: "Qwen overview, SAM 3 masks, focus, CLIP and object crops, then a written report.")
         }
     }
 }
@@ -268,10 +300,6 @@ private struct CombinedReviewRunControls: View {
     @State private var clearError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Preset", selection: $feature.preset) {
-                ForEach(ReviewPreset.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-            }.pickerStyle(.segmented).frame(maxWidth: 360)
-                .disabled(feature.isRunning)
             TextField("Review criteria", text: $feature.criteria, axis: .vertical).textFieldStyle(.roundedBorder)
                 .disabled(feature.isRunning)
             ViewThatFits(in: .horizontal) {
@@ -310,7 +338,10 @@ private struct CombinedReviewRunControls: View {
             if let status = feature.criteriaStatus {
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
-            Text(presetSummary).font(.caption).foregroundStyle(.secondary)
+            if feature.preset.includes(.cropObservation) {
+                Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             VStack(alignment: .leading, spacing: 8) {
                 Button("Clear rejected responses") {
                     Task { await clear("rejected responses") { try await feature.clearRejectedResponses() } }
@@ -328,19 +359,6 @@ private struct CombinedReviewRunControls: View {
             if files.isEmpty || files.count > 8 {
                 Text("Select 1–8 images. Larger selections require an explicit expanded coverage plan; split this selection into smaller runs.").font(.caption)
             }
-        }
-    }
-
-    private var presetSummary: String {
-        switch feature.preset {
-        case .focusCheck:
-            String(localized: "SAM 3 subject masks, focus measurement and CLIP. Works without the Qwen model.")
-
-        case .describe:
-            String(localized: "One Qwen pass on the whole photo. No masks, crops or measurements.")
-
-        case .full:
-            String(localized: "Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
         }
     }
 

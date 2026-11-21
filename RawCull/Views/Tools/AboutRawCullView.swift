@@ -42,8 +42,8 @@ struct AboutRawCullView: View {
 
             case .combinedReview:
                 .browse(
-                    title: "Combined Review",
-                    context: "Photos in the combined review workspace.",
+                    title: "Review",
+                    context: "Photos in the AI review workspace.",
                     navigationKeys: ["←", "→"],
                 )
 

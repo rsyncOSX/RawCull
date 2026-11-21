@@ -451,10 +451,10 @@ struct RawCullAIModelRuntimeTests {
     }
 
     @Test(arguments: [8, 15, 16, 24, 32, 48])
-    @MainActor func `Combined Review requires memory guidance before enabling`(gigabytes: UInt64) throws {
+    @MainActor func `Review memory limits apply to the Qwen presets only`(gigabytes: UInt64) throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "CombinedReviewMemoryTests.\(UUID().uuidString)"
+        let suite = "ReviewMemoryTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let runtime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
@@ -463,33 +463,33 @@ struct RawCullAIModelRuntimeTests {
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             physicalMemory: gigabytes * 1024 * 1024 * 1024,
         )
-        #expect(!model.combinedReviewEnabled)
-        #expect(model.canEnableCombinedReview == (gigabytes >= 16))
-        #expect(model.shouldWarnAboutCombinedReviewMemory == (gigabytes < 32))
+        #expect(model.canRunQwenReview == (gigabytes >= 16))
+        #expect(model.shouldWarnAboutQwenReviewMemory == (gigabytes < 32))
         #expect(model.memoryInGB == Double(gigabytes))
+    }
 
-        model.combinedReviewToggle = true
-        #expect(model.isShowingCombinedReviewGuidance)
-        #expect(!model.combinedReviewEnabled)
-        // Closing or cancelling the guidance must not enable the feature.
-        model.isShowingCombinedReviewGuidance = false
-        #expect(!model.combinedReviewToggle)
-        model.combinedReviewToggle = true
-        model.confirmCombinedReviewEnabled()
-        #expect(model.combinedReviewEnabled == (gigabytes >= 16))
-        #expect(!model.isShowingCombinedReviewGuidance)
-        #expect(defaults.bool(forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey) == (gigabytes >= 16))
-
-        // A saved enablement from another Mac cannot bypass the memory minimum.
+    @Test @MainActor func `legacy AI Analysis is hidden by default and its setting persists`() throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = "LegacyAIAnalysisTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        // A saved Combined Review opt-in from an older release is still a valid preference.
         defaults.set(true, forKey: RawCullAISettingsModel.combinedReviewEnabledPreferenceKey)
-        let relaunched = RawCullAISettingsModel(
-            modelRuntime: runtime, userDefaults: defaults,
-            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
-            physicalMemory: gigabytes * 1024 * 1024 * 1024,
-        )
-        #expect(relaunched.combinedReviewEnabled == (gigabytes >= 16))
-        model.combinedReviewToggle = false
-        #expect(!model.combinedReviewEnabled)
+        let runtime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
+        func makeModel() -> RawCullAISettingsModel {
+            RawCullAISettingsModel(
+                modelRuntime: runtime, userDefaults: defaults,
+                modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            )
+        }
+        let model = makeModel()
+        #expect(!model.showsLegacyAIAnalysis)
+        model.showsLegacyAIAnalysis = true
+        #expect(defaults.bool(forKey: RawCullAISettingsModel.showsLegacyAIAnalysisPreferenceKey))
+        #expect(makeModel().showsLegacyAIAnalysis)
+        model.showsLegacyAIAnalysis = false
+        #expect(!makeModel().showsLegacyAIAnalysis)
     }
 
     private func isolatedRoot() -> URL {

@@ -4,16 +4,27 @@ struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
     @State private var showModelDownloads = false
 
+    private var reviewMemoryNote: String {
+        let memory = model.memoryInGB.formatted(.number.precision(.fractionLength(0 ... 1)))
+        if !model.canRunQwenReview {
+            return String(localized: "Describe and Full need at least 16 GB of memory; this Mac has \(memory) GB. Focus check runs.")
+        }
+        return String(localized: "Describe and Full load Qwen; 32 GB is recommended. This Mac has \(memory) GB.")
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsCard {
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Enable Combined Review", isOn: $model.combinedReviewToggle)
+                        Toggle("Show legacy AI Analysis", isOn: $model.showsLegacyAIAnalysis)
                             .toggleStyle(.switch)
-                        Text("Enable the Combined Review toolbar button. Turning it off cancels an active review and keeps saved results.")
+                        Text("Shows the old AI Analysis tabs. Review replaces them; they go away in a later release.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+                        Text(reviewMemoryNote)
+                            .font(.system(size: 11))
+                            .foregroundStyle(model.canRunQwenReview ? Color.secondary : Color.orange)
                     }
                 }
                 AIModelSettingsCard(
@@ -52,86 +63,6 @@ struct AISettingsTab: View {
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelDownloadsModel)
         }
-        .sheet(isPresented: $model.isShowingCombinedReviewGuidance) {
-            CombinedReviewMemoryGuidance(model: model)
-        }
-    }
-}
-
-private struct CombinedReviewMemoryGuidance: View {
-    @Bindable var model: RawCullAISettingsModel
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Combined Review memory requirements")
-                .font(.title2.bold())
-            Text("This Mac has \(model.memoryInGB.formatted(.number.precision(.fractionLength(0 ... 1)))) GB of unified memory.")
-                .font(.headline)
-
-            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {
-                GridRow {
-                    Text("Mac memory").bold()
-                    Text("Recommendation").bold()
-                }
-                Divider().gridCellUnsizedAxes(.horizontal)
-                GridRow {
-                    Text("8 GB")
-                    Text("Combined Review unavailable")
-                }
-                GridRow {
-                    Text("16 GB")
-                    Text("Test cautiously using high-quality previews")
-                }
-                GridRow {
-                    Text("24 GB")
-                    Text("Reasonable starting point")
-                }
-                GridRow {
-                    Text("32 GB").bold()
-                    Text("Recommended for regular use").bold()
-                }
-                GridRow {
-                    Text("48 GB or more")
-                    Text("More headroom alongside photo editors and other apps")
-                }
-            }
-            .fixedSize(horizontal: false, vertical: true)
-
-            if model.shouldWarnAboutCombinedReviewMemory {
-                Label {
-                    Text("Combined Review requires substantial memory and can take several minutes to run. With less than 32 GB, close other demanding apps and use high-quality previews.")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            if !model.canEnableCombinedReview {
-                Text("At least 16 GB of unified memory is required. Combined Review will remain off on this Mac.")
-                    .fontWeight(.semibold)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text("These recommendations are estimates; actual memory use depends on the images and models.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                if model.canEnableCombinedReview {
-                    Button("Cancel", role: .cancel) { dismiss() }
-                    Button("Enable Combined Review") {
-                        model.confirmCombinedReviewEnabled()
-                        dismiss()
-                    }
-                    .keyboardShortcut(.defaultAction)
-                } else {
-                    Button("Close") { dismiss() }
-                        .keyboardShortcut(.defaultAction)
-                }
-            }
-        }
-        .padding(24)
-        .frame(width: 560)
     }
 }
 

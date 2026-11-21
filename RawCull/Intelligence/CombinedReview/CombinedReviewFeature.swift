@@ -28,6 +28,17 @@ final class CombinedReviewFeature {
     static let stageVersions = ReviewPipelineContract.stageVersions
     var criteria = "Describe composition, exposure, subject visibility and technical detail."
     var preset: ReviewPreset = .full
+    /// Set at launch when this Mac has too little memory for the Qwen presets.
+    var qwenUnavailableReason: String? {
+        didSet {
+            if qwenUnavailableReason != nil, preset.requiredModels.contains("qwen") {
+                preset = .focusCheck
+            }
+        }
+    }
+
+    /// Shown with Describe and Full on Macs with less than 32 GB.
+    var qwenMemoryNotice: String?
     var depth: ReviewDepth = .standard
     var sourcePreference: ReviewSourcePreference = .highQualityPreview
     var retainInputs = true
@@ -41,6 +52,11 @@ final class CombinedReviewFeature {
     @ObservationIgnored private var parameterRevision = 0
     private var checkedSelection: [ReviewSelectedFile] = []
 
+    /// Why the chosen preset can't run on this Mac, or nil.
+    var presetStatus: String? {
+        preset.usedModels.contains("qwen") ? qwenUnavailableReason : nil
+    }
+
     var criteriaStatus: String? {
         let goal = criteria.trimmingCharacters(in: .whitespacesAndNewlines)
         if goal.isEmpty {
@@ -53,7 +69,7 @@ final class CombinedReviewFeature {
     }
 
     var canStartReview: Bool {
-        !isRunning && !isCheckingParameters && criteriaStatus == nil &&
+        !isRunning && !isCheckingParameters && criteriaStatus == nil && presetStatus == nil &&
             sourceAvailability.map { $0.reason(for: sourcePreference) == nil } == true
     }
 
@@ -354,43 +370,5 @@ final class CombinedReviewFeature {
 
     static func workID(_ image: ReviewImageID, _ name: String) -> ReviewWorkID {
         .init(rawValue: image.rawValue + ":" + name)
-    }
-}
-
-extension CombinedReviewFeature {
-    /// Only the preset's stages get work items, so a Focus check run never plans Qwen work.
-    static func initialManifest(_ snapshot: ReviewRunSnapshot) throws -> CombinedReviewRunV1 {
-        var work: [ReviewWorkItem] = []
-        let preset = snapshot.effectivePreset
-        for file in snapshot.files {
-            let source = workID(file.id, "source"), overview = workID(file.id, "overview"), identity = workID(file.id, "identity")
-            func item(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], terminal: Bool = false) throws -> ReviewWorkItem {
-                try .init(id: workID(file.id, name), imageID: file.id, stage: stage,
-                          dependencies: parents.map { .init(id: $0, allowsUnavailable: terminal) },
-                          compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: stage))
-            }
-            switch preset {
-            case .full:
-                try work.append(contentsOf: [item("source", stage: .source, parents: []),
-                                             item("overview", stage: .overview, parents: [source]),
-                                             item("identity", stage: .identity, parents: [source, overview], terminal: true),
-                                             item("report", stage: .report, parents: [identity, overview], terminal: true)])
-
-            case .focusCheck:
-                try work.append(contentsOf: [item("source", stage: .source, parents: []),
-                                             item("identity", stage: .identity, parents: [source], terminal: true)])
-
-            case .describe:
-                try work.append(contentsOf: [item("source", stage: .source, parents: []),
-                                             item("overview", stage: .overview, parents: [source])])
-            }
-        }
-        if snapshot.files.count > 1, preset.includes(.comparison) {
-            let file = snapshot.files[0]
-            try work.append(.init(id: workID(file.id, "selection"), imageID: file.id, stage: .comparison,
-                                  dependencies: snapshot.files.map { .init(id: workID($0.id, "report"), allowsUnavailable: true) },
-                                  compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: .comparison)))
-        }
-        return try CombinedReviewRunV1(snapshot: snapshot, work: work, budget: ReviewBudget(depth: snapshot.depth, images: snapshot.files.count))
     }
 }

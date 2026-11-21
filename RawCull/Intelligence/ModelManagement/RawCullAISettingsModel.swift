@@ -6,7 +6,9 @@ import Foundation
 /// not expose PhotoAIKit providers, repositories, or the composition root.
 @Observable @MainActor
 final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
+    /// No longer read: Review is always available. Kept so the saved preference stays a known key.
     static let combinedReviewEnabledPreferenceKey = "RawCullAI.combinedReviewEnabled"
+    static let showsLegacyAIAnalysisPreferenceKey = "RawCullAI.showLegacyAIAnalysis"
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
     static let selectedSegmentationModelPreferenceKey =
@@ -21,13 +23,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     )
     let modelDownloadsModel: RawCullAIModelDownloadsModel
     let physicalMemory: UInt64
-    var isShowingCombinedReviewGuidance = false
 
-    var canEnableCombinedReview: Bool {
+    /// Describe and Full load Qwen next to SAM 3 and CLIP; below 16 GB only Focus check runs.
+    var canRunQwenReview: Bool {
         physicalMemory >= 16 * 1024 * 1024 * 1024
     }
 
-    var shouldWarnAboutCombinedReviewMemory: Bool {
+    var shouldWarnAboutQwenReviewMemory: Bool {
         physicalMemory < 32 * 1024 * 1024 * 1024
     }
 
@@ -35,33 +37,10 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         Double(physicalMemory) / (1024 * 1024 * 1024)
     }
 
-    /// Keep the feature off until the person has read and accepted the guidance.
-    var combinedReviewToggle: Bool {
-        get { combinedReviewEnabled }
-        set {
-            if newValue {
-                isShowingCombinedReviewGuidance = true
-            } else {
-                combinedReviewEnabled = false
-            }
-        }
+    /// Shows the old AI Analysis tabs for one release while Review replaces them. Off by default.
+    var showsLegacyAIAnalysis: Bool {
+        didSet { userDefaults.set(showsLegacyAIAnalysis, forKey: Self.showsLegacyAIAnalysisPreferenceKey) }
     }
-
-    func confirmCombinedReviewEnabled() {
-        combinedReviewEnabled = canEnableCombinedReview
-        isShowingCombinedReviewGuidance = false
-    }
-
-    var combinedReviewEnabled: Bool {
-        didSet {
-            userDefaults.set(combinedReviewEnabled, forKey: Self.combinedReviewEnabledPreferenceKey)
-            if !combinedReviewEnabled {
-                onCombinedReviewDisabled?()
-            }
-        }
-    }
-
-    @ObservationIgnored var onCombinedReviewDisabled: (@MainActor () -> Void)?
 
     var useCLIPForSimilarity: Bool {
         get { prefersCLIPForSimilarity }
@@ -121,8 +100,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
         self.physicalMemory = physicalMemory
-        self.combinedReviewEnabled = physicalMemory >= 16 * 1024 * 1024 * 1024
-            && userDefaults.bool(forKey: Self.combinedReviewEnabledPreferenceKey)
+        self.showsLegacyAIAnalysis = userDefaults.bool(forKey: Self.showsLegacyAIAnalysisPreferenceKey)
         self.qwenAnalysisFeature = qwenAnalysisFeature
             ?? RawCullQwenAnalysisFeature(
                 inference: modelRuntime.qwenInference,

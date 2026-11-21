@@ -434,15 +434,18 @@ struct RawCullMainView: View {
         )
         .navigationTitle("AI Analysis")
         .toolbar { toolbarContent }
+        // Turning the legacy setting off leaves the old tabs; Review takes their place.
+        .onChange(of: aiSettingsModel.showsLegacyAIAnalysis, initial: true) { _, shows in
+            if !shows, viewModel.navigation.mainViewMode == .aiAnalysis {
+                viewModel.navigation.selectMainViewMode(.combinedReview)
+            }
+        }
     }
 
     private var combinedReviewSplit: some View {
-        CombinedReviewWorkspaceView(
-            feature: combinedReviewFeature,
-            isEnabled: aiSettingsModel.combinedReviewEnabled,
-        )
-        .navigationTitle("Combined Review")
-        .toolbar { toolbarContent }
+        CombinedReviewWorkspaceView(feature: combinedReviewFeature)
+            .navigationTitle("Review")
+            .toolbar { toolbarContent }
     }
 
     private var candidateInspectorContext: CandidateInspectorContext? {

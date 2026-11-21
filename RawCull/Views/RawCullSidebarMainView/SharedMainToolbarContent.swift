@@ -18,7 +18,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     let sharpnessModel: SharpnessScoringModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let combinedReviewEnabled: Bool
+    let showsLegacyAIAnalysis: Bool
     let isDisabled: Bool
     let toggleMetadataPanel: () -> Void
 
@@ -157,26 +157,27 @@ struct SharedMainToolbarContent: ToolbarContent {
                     navigation.mainViewMode == .grid ||
                     catalog.isCreatingThumbnails)
 
-                Button {
-                    navigation.selectMainViewMode(.aiAnalysis)
-                } label: {
-                    Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
+                if showsLegacyAIAnalysis {
+                    Button {
+                        navigation.selectMainViewMode(.aiAnalysis)
+                    } label: {
+                        Label("AI Analysis", systemImage: "rectangle.badge.sparkles")
+                    }
+                    .help("Legacy AI Analysis: SAM 3 + CLIP, Qwen Vision and Objects tabs")
+                    .disabled(isDisabled ||
+                        catalog.selectedSource == nil ||
+                        !hasAIAnalysisInput ||
+                        navigation.mainViewMode == .aiAnalysis ||
+                        catalog.isCreatingThumbnails)
                 }
-                .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
-                .disabled(isDisabled ||
-                    catalog.selectedSource == nil ||
-                    !hasAIAnalysisInput ||
-                    navigation.mainViewMode == .aiAnalysis ||
-                    catalog.isCreatingThumbnails)
 
                 Button {
                     navigation.selectMainViewMode(.combinedReview)
                 } label: {
-                    Label("Combined Review", systemImage: "sparkles.rectangle.stack")
+                    Label("Review", systemImage: "sparkles.rectangle.stack")
                 }
-                .help("Combined Review")
+                .help("Review selected or tagged photos with AI: Focus check, Describe or Full")
                 .disabled(isDisabled ||
-                    !combinedReviewEnabled ||
                     catalog.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     navigation.mainViewMode == .combinedReview ||

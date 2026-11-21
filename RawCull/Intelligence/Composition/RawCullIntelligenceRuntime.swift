@@ -83,8 +83,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.qwenAnalysisFeature = qwenAnalysisFeature
         self.objectAnalysisFeature = objectAnalysisFeature
             ?? RawCullObjectAnalysisFeature(inference: modelRuntime.qwenInference)
-        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature, weak settingsModel] in
-            guard settingsModel?.combinedReviewEnabled == true else { throw CancellationError() }
+        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature] in
             guard let modelRuntime else { throw ReviewRunError.modelUnavailable }
             // Without Qwen only Focus check can run; the run checks the models its preset needs.
             let url: URL? = if case let .available(url, _) = qwenAnalysisFeature?.modelStatus {
@@ -107,8 +106,14 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         }
         self.settingsModel = settingsModel
         self.modelDownloadsModel = settingsModel.modelDownloadsModel
-        settingsModel.onCombinedReviewDisabled = { [weak combinedReviewFeature] in
-            combinedReviewFeature?.cancel()
+        if !settingsModel.canRunQwenReview {
+            combinedReviewFeature.qwenUnavailableReason = String(
+                localized: "Describe and Full need at least 16 GB of unified memory. Focus check runs on this Mac.",
+            )
+        } else if settingsModel.shouldWarnAboutQwenReviewMemory {
+            combinedReviewFeature.qwenMemoryNotice = String(
+                localized: "Describe and Full use a lot of memory. Under 32 GB, close other demanding apps.",
+            )
         }
         similarityFeature.bindApplicationContext(applicationContext)
 

@@ -96,7 +96,7 @@ As the AI Assessments window already does for MCP results: opening, running or c
 | 2 | Compare outputs: presets against the old tabs | S | none | not started |
 | 3 | Add the presets to Combined Review | M | medium | done |
 | 4 | Add Tag, Rate and Mark Reviewed to the review results | S | low | done |
-| 5 | Make Review the default; hide the old tabs behind a setting | S | low | not started |
+| 5 | Make Review the default; hide the old tabs behind a setting | S | low | done |
 | 6 | Delete the old tabs, after one TestFlight release | M | low | not started |
 | 7 | Send in-app review results to the AI Assessments window | M | medium | not started; window code in `RawCull/Views/AIAssessments/` |
 
@@ -147,6 +147,14 @@ What was built:
 - Remove the `RawCullAI.combinedReviewEnabled` gate. Keep its key readable, so old settings don't fail.
 - Rename the toolbar item "Combined Review" to "Review".
 - Add a setting "Show legacy AI Analysis", off by default. When it is off, the toolbar has no AI Analysis button.
+
+What was built:
+
+- The opt-in toggle and its memory sheet are gone. The old 16 GB minimum now applies only to the presets that load Qwen: below 16 GB, Describe and Full are disabled with a reason and Review starts on Focus check, which has no memory gate, like Deep AI Review. Below 32 GB, Describe and Full show a memory note. AI settings states this Mac's memory.
+- `RawCullAI.combinedReviewEnabled` is no longer read; the key is kept and a test checks that an old saved value does no harm.
+- The toolbar item, window title and About entry say "Review". The preset picker moved out of the collapsed settings section into the run bar.
+- "Show legacy AI Analysis" (`RawCullAI.showLegacyAIAnalysis`) is off by default. Turning it off while the old view is open switches to Review.
+- Full stays the default preset on Macs with 16 GB or more.
 
 ### Step 6: Delete
 

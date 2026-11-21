@@ -770,6 +770,25 @@ struct CombinedReviewFeatureTests {
         #expect(viewModel.burstWorkflow.burstGroupReviewState(groupID: 1) == .reviewed)
     }
 
+    @Test @MainActor func `low memory blocks Describe and Full but leaves Focus check`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true)
+        let feature = makeFeature(fixture, backend: backend)
+        feature.qwenUnavailableReason = "Needs 16 GB"
+        #expect(feature.preset == .focusCheck)
+        feature.preset = .describe
+        #expect(feature.presetStatus == "Needs 16 GB")
+        await feature.prepareParameters([fixture.file])
+        #expect(!feature.canStartReview)
+        await feature.analyze([fixture.file])
+        #expect(feature.manifest == nil)
+        #expect(await backend.responses == 0)
+        feature.preset = .focusCheck
+        #expect(feature.presetStatus == nil)
+        await feature.analyze([fixture.file])
+        #expect(feature.manifest?.snapshot.preset == .focusCheck)
+    }
+
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
