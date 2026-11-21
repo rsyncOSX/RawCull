@@ -114,6 +114,7 @@ struct AIAssessmentComparison: View {
         return AIAssessmentPane(
             frame: frame, rubric: entry.request.rubric, access: access,
             accessChecked: accessChecked, isTagged: file.map(decisions.isTagged),
+            tagLockedByRating: file.map { !decisions.canToggleTag($0) } ?? false,
             hasDuplicateFilename: file.map { hasDuplicateFilename($0) } ?? false,
             toggleTag: {
                 if let frame {
@@ -362,6 +363,7 @@ private struct AIAssessmentPane: View {
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
     let isTagged: Bool?
+    let tagLockedByRating: Bool
     let hasDuplicateFilename: Bool
     let toggleTag: () -> Void
     @Binding var viewport: ComparisonViewportInteractionState
@@ -386,10 +388,13 @@ private struct AIAssessmentPane: View {
                     Spacer(minLength: 0)
                     if let isTagged {
                         Button(action: toggleTag) {
-                            Label(isTagged ? "Untag" : "Tag", systemImage: isTagged ? "tag.fill" : "tag")
+                            Label(tagLockedByRating ? "Tagged" : isTagged ? "Untag" : "Tag",
+                                  systemImage: isTagged ? "tag.fill" : "tag")
                         }
-                        .disabled(hasDuplicateFilename)
-                        .accessibilityLabel(isTagged ? Text("Untag \(frame.name)") : Text("Tag \(frame.name)"))
+                        .disabled(hasDuplicateFilename || tagLockedByRating)
+                        .help(tagLockedByRating ? "Tagged by its star rating. Change the rating to untag it." : "")
+                        .accessibilityLabel(tagLockedByRating ? Text("\(frame.name) is tagged by its star rating")
+                            : isTagged ? Text("Untag \(frame.name)") : Text("Tag \(frame.name)"))
                     }
                 }
                 .frame(minHeight: 36, alignment: .topLeading)

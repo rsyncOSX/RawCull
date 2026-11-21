@@ -34,8 +34,16 @@ struct ReviewDecisionActions {
         culling.updateRating(for: file, rating: rating)
     }
 
-    /// Tagging sets two stars; untagging removes the record, as in the grid.
+    /// A photo rated three stars or more is tagged by its rating. Untag would erase
+    /// those stars, so only the rating controls can lower them.
+    func canToggleTag(_ file: FileItem) -> Bool {
+        ratings.getRating(for: file) <= 2
+    }
+
+    /// Tagging sets two stars; untagging removes a two-star record, as in the grid.
+    /// Does nothing for photos rated three stars or more.
     func toggleTag(_ file: FileItem, in catalog: URL) {
+        guard canToggleTag(file) else { return }
         if isTagged(file) {
             ratings.cullingModel.applyRatingStates([file.name: nil], in: catalog)
             culling.refreshCullingDerivedState()

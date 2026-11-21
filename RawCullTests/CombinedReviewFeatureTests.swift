@@ -809,6 +809,49 @@ struct CombinedReviewFeatureTests {
         #expect(await masks.image(for: mask, file: rescanned) == nil)
     }
 
+    @Test @MainActor func `running, opening and comparing reviews never changes a rating or tag`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let secondURL = fixture.root.appendingPathComponent("second.png")
+        try FileManager.default.copyItem(at: fixture.file.url, to: secondURL)
+        let second = ReviewSelectedFile(id: UUID(), url: secondURL, name: "second.png")
+        let viewModel = makeRawCullViewModel()
+        viewModel.catalog.selectedSource = ARWSourceCatalog(name: "Catalog", url: fixture.root)
+        viewModel.ratings.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let photos = [makeReviewTestFile(fixture.file.url, id: fixture.file.id), makeReviewTestFile(secondURL, id: second.id)]
+        viewModel.catalog.files = photos
+        viewModel.catalog.scanning = false
+        viewModel.culling.updateRating(for: photos[0], rating: 4)
+        viewModel.culling.updateRating(for: photos[1], rating: -1)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let before = try encoder.encode(viewModel.ratings.cullingModel.savedFiles)
+        let decisions = ReviewDecisionActions(catalog: viewModel.catalog, ratings: viewModel.ratings,
+                                              culling: viewModel.culling, burstWorkflow: viewModel.burstWorkflow)
+
+        // Run: a two-photo Full review (with comparison), then a Focus check.
+        let backend = ReviewFakeBackend(hasSAM: true, hasCLIP: true)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file, second])
+        #expect(feature.results.count == 2)
+        feature.preset = .focusCheck
+        await feature.analyze([fixture.file])
+
+        // Open: restore the saved run and read everything the result screens show.
+        let restored = makeFeature(fixture, backend: backend)
+        await restored.restoreStoredRun()
+        let masks = ReviewSubjectMasks(feature: restored)
+        for result in feature.displayedResults + restored.displayedResults {
+            _ = decisions.unavailableReason(for: result.file)
+            if let file = decisions.liveFile(for: result.file) {
+                _ = decisions.rating(for: file); _ = decisions.isTagged(file); _ = decisions.burstGroupID(for: file)
+                if let mask = masks.mask(for: file) { _ = await masks.image(for: mask, file: file) }
+            }
+        }
+
+        #expect(try encoder.encode(viewModel.ratings.cullingModel.savedFiles) == before)
+        #expect(viewModel.ratings.rating(for: photos[0]) == 4)
+        #expect(viewModel.ratings.rating(for: photos[1]) == -1)
+    }
+
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })

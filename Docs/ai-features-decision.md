@@ -1,6 +1,6 @@
 # Decision: One AI review feature
 
-Status: accepted · 2026-11-21 · migration on branch `version-3.5.0`
+Status: accepted · 2026-11-21 · migration done on branch `version-3.4.9` (the `version-3.5.0` work is merged into it) · steps 1 and 3–6 done, step 2 open, step 7 dropped
 Answers [code-quality-followups-plan.md, finding 4.3](code-quality-followups-plan.md#43-product-decision-yours-not-a-refactor).
 
 ## Summary
@@ -141,6 +141,8 @@ What was built:
 - The decision bar sits under the result header, not in `CombinedReviewInspector`, because the inspector only shows in the Evidence view when an input was retained. The bar shows in both views.
 - The grid's rating keys work in Review: X, P or 0, 1–5, and T.
 - Before any action, the photo must be in the open catalog, have a unique filename and be unchanged on disk since the review. Otherwise nothing changes and the bar says why.
+- Tag sets two stars, and Untag clears only a two-star tag. A photo rated three stars or more is tagged by its rating: the button reads "Tagged" and is disabled, so Untag can't erase its stars. The AI Assessments window follows the same rule.
+- A test runs a two-photo Full review and a Focus check, restores the saved run and reads every result screen value, then checks that the ratings store is byte-for-byte unchanged.
 
 ### Step 5: Make Review the default
 
@@ -169,7 +171,7 @@ Keep everything Combined Review or MCP uses: `Intelligence/SubjectMasks/`, `Qwen
 
 Also clear the old result stores on disk, or leave them and document that they are no longer read.
 
-Done when: the app builds, `make test-smoke` passes and `make lint` shows no new violations.
+Done when: the app builds, `make test-smoke` passes and `make lint` shows no new violations. (`make lint` does not exist yet; it is step 1 of [review-actions-plan.md](review-actions-plan.md#step-1-commands-with-a-baseline-one-pr). Until then, compare `swiftlint lint --quiet` on the changed files before and after.)
 
 ### Step 6: what was done
 
@@ -182,6 +184,20 @@ Done when: the app builds, `make test-smoke` passes and `make lint` shows no new
 ### Step 7: dropped
 
 The AI Assessments window is built around MCP job records: a burst, a recommendation and Qwen assessment fields per frame. Review results are a different record (findings, measurements, regions), and the window's design is out of scope here. Review already ends in a decision (step 4), so in-app results stay in Review and MCP results stay in the AI Assessments window.
+
+## Follow-ups from the code review (2026-11-21)
+
+A review after step 6 found these. The first two are fixed (`48065e13`).
+
+| Item | Status |
+|---|---|
+| Untag erased the star rating of any photo rated 3–5 stars (in Review and the AI Assessments window) | fixed: Untag clears only a two-star tag; see step 4 |
+| No test that running, opening and comparing a review leaves ratings unchanged | fixed: test added; see step 4 |
+| Subject outline (S) and mask badges come only from the run on screen. A new run, or a relaunch before Review is opened, hides the masks of photos reviewed earlier. Deep AI Review masks lasted across runs. | open: look masks up in saved runs, not only `displayedResults` |
+| The Review rating keys have no test. The key handler is private to `CombinedReviewView`. | open |
+| A rating key does nothing, with no message, when the photo changed on disk after the review. The decision bar shows its warning only after a click. | open: check `isUnchanged` in `unavailableReason` |
+| Leftover names: `isDeepAIReviewBlockedByOtherWork` (it gates MCP), `CatalogController+AIAnalysis.swift`, `ObjectInstanceDeduplicator` in `Intelligence/ObjectAnalysis/`. The `SAM3Masks` store is still created and shown in AI settings, but nothing writes to it. | open: rename, move, then remove the store and its settings row |
+| `periphery scan` after the delete | not run |
 
 ## Expected effect
 

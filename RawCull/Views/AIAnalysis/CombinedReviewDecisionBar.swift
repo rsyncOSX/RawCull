@@ -42,12 +42,16 @@ struct CombinedReviewDecisionBar: View {
 
     private func tagButton(_ file: FileItem) -> some View {
         let tagged = decisions.isTagged(file)
+        let lockedByRating = !decisions.canToggleTag(file)
         return Button {
             perform { file, catalog in decisions.toggleTag(file, in: catalog) }
         } label: {
-            Label(tagged ? "Untag" : "Tag", systemImage: tagged ? "tag.fill" : "tag")
+            Label(lockedByRating ? "Tagged" : tagged ? "Untag" : "Tag", systemImage: tagged ? "tag.fill" : "tag")
         }
-        .accessibilityLabel(tagged ? Text("Untag \(file.name)") : Text("Tag \(file.name)"))
+        .disabled(lockedByRating)
+        .help(lockedByRating ? "Tagged by its star rating. Change the rating to untag it." : "")
+        .accessibilityLabel(lockedByRating ? Text("\(file.name) is tagged by its star rating")
+            : tagged ? Text("Untag \(file.name)") : Text("Tag \(file.name)"))
     }
 
     private func ratingButtons(_ current: RatingDisplay) -> some View {

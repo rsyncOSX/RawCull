@@ -288,6 +288,9 @@ Run these checks before every release build:
      result, tag, rate and mark reviewed, and check that the grid updates. Reopen
      the review and check that the rating has not changed. Click a finding and check
      that **Evidence & details** opens on its masks or crops.
+   - Rate a photo 4 stars, open its review and check that the tag button reads
+     **Tagged** and is disabled, so it can't erase the stars. Check the same in the
+     AI Assessments window.
    - After updating from an earlier build, check that the AI Analysis view and the
      "Show legacy AI Analysis" setting are gone and that the app launches cleanly
      with an old Objects mask cache on disk.
