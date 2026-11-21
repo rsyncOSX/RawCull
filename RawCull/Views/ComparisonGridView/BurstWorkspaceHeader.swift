@@ -6,7 +6,6 @@ struct BurstWorkspaceHeader: View {
     let catalog: CatalogWorkspace
     let burstWorkflow: BurstWorkflowController
     let similarityFeature: RawCullSimilarityFeature
-    let similarityModel: SimilarityScoringModel
     let groupID: Int
     @Binding var sortByAFPoint: Bool
 
@@ -53,7 +52,7 @@ struct BurstWorkspaceHeader: View {
             BurstAssessmentButton(
                 catalog: catalog,
                 files: catalog.files.filter { file in
-                    similarityModel.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
+                    similarityFeature.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
                 },
             )
             reviewButton

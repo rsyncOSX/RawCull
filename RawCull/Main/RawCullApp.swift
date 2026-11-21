@@ -214,7 +214,8 @@ extension View {
     /// Injects the workspace root and each of its slices, so a view can depend
     /// on only the slice it reads: `@Environment(CatalogWorkspace.self)` etc.
     /// The feature objects the root owns (sharpness, similarity, Deep Review) are
-    /// injected the same way.
+    /// injected the same way. The low-level `SimilarityScoringModel` is not:
+    /// views go through `RawCullSimilarityFeature`.
     func workspaceEnvironment(_ workspace: RawCullViewModel) -> some View {
         environment(workspace)
             .environment(workspace.catalog)
@@ -230,7 +231,6 @@ extension View {
             .environment(workspace.culling)
             .environment(workspace.sharpnessModel)
             .environment(workspace.similarityFeature)
-            .environment(workspace.similarityModel)
             .environment(workspace.deepAIReviewController)
     }
 }

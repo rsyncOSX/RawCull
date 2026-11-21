@@ -152,6 +152,12 @@ final class RawCullSimilarityFeature {
         )
     }
 
+    /// Reads only the indexing flag, so a view that needs nothing else is not
+    /// invalidated by indexing progress.
+    var isIndexing: Bool {
+        model.isIndexing
+    }
+
     var isSimilaritySortingActive: Bool {
         model.sortBySimilarity
     }

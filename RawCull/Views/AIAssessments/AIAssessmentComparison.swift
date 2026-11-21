@@ -8,7 +8,7 @@ struct AIAssessmentComparison: View {
     @Environment(BurstWorkflowController.self) private var burstWorkflow
     @Environment(CullingController.self) private var culling
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
-    @Environment(SimilarityScoringModel.self) private var similarityModel
+    @Environment(RawCullSimilarityFeature.self) private var similarityFeature
     let access: RawCullCatalogGrant?
     let accessChecked: Bool
     var initialPair: (recommended: String, sharpest: String)?
@@ -197,7 +197,7 @@ struct AIAssessmentComparison: View {
         }
         let membership = Set(ids)
         guard membership.count == entry.frames.count else { return nil }
-        let matches = similarityModel.burstGroups.filter {
+        let matches = similarityFeature.burstGroups.filter {
             $0.fileIDs.count == membership.count && Set($0.fileIDs) == membership
         }
         guard matches.count == 1, let group = matches.first,

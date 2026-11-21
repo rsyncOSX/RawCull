@@ -34,7 +34,7 @@ struct ReviewViewBoundaryTests {
         let viewModel = makeRawCullViewModel()
         let header = BurstWorkspaceHeader(
             catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
-            similarityFeature: viewModel.similarityFeature, similarityModel: viewModel.similarityModel,
+            similarityFeature: viewModel.similarityFeature,
             groupID: 1, sortByAFPoint: .constant(false),
         )
         let changes = Mutex(0)
@@ -73,7 +73,7 @@ struct ReviewViewBoundaryTests {
         let content = VStack(spacing: 16) {
             BurstWorkspaceHeader(
                 catalog: viewModel.catalog, burstWorkflow: viewModel.burstWorkflow,
-                similarityFeature: viewModel.similarityFeature, similarityModel: viewModel.similarityModel,
+                similarityFeature: viewModel.similarityFeature,
                 groupID: 1, sortByAFPoint: .constant(false),
             )
             BurstWorkspaceFilmstrip(

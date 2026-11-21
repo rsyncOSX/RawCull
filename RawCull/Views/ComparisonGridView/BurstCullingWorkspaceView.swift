@@ -14,7 +14,6 @@ struct BurstCullingWorkspaceView: View {
     @Environment(CullingController.self) private var culling
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Environment(RawCullSimilarityFeature.self) private var similarityFeature
-    @Environment(SimilarityScoringModel.self) private var similarityModel
     @Environment(DeepAIReviewController.self) private var deepAIReviewController
     let groupID: Int
     let onCompare: () -> Void
@@ -140,7 +139,7 @@ struct BurstCullingWorkspaceView: View {
             HStack(spacing: 0) {
                 BurstWorkspaceHeader(
                     catalog: catalog, burstWorkflow: burstWorkflow,
-                    similarityFeature: similarityFeature, similarityModel: similarityModel,
+                    similarityFeature: similarityFeature,
                     groupID: groupID, sortByAFPoint: $sortByAFPoint,
                 )
                 if groupID != -1, !sortByAFPoint {
@@ -200,7 +199,7 @@ struct BurstCullingWorkspaceView: View {
                             recordedAFPoints: Dictionary(uniqueKeysWithValues: files.compactMap { file in
                                 file.afFocusNormalized.map { (file.url, $0) }
                             }), currentURL: selectedFile?.url,
-                            isIndexing: similarityModel.isIndexing,
+                            isIndexing: similarityFeature.isIndexing,
                             raw: sourceSelection.selected == .developedRAW,
                             model: closeUps, renderer: closeUpRenderer,
                             activate: { url in
