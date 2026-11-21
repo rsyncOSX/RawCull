@@ -229,60 +229,27 @@ The comparison used one run per revision.
 
 ## Code knowledge graph
 
-`graphify-out/` holds a [graphify](https://github.com/safishamsi/graphify) knowledge graph of the code. It covers the app, `Tools/RawCullMCP`, and the sibling packages `RawCullCore`, `PhotoAIKit` and `PhotoAnalysisKit`, so those must be checked out next to this repository. The folder is in `.gitignore`. Keep these hand-made files when you rebuild:
+`graphify-out/` holds a [graphify](https://github.com/safishamsi/graphify) knowledge graph of the code. The folder is in `.gitignore`.
 
-| File | Purpose |
-|---|---|
-| `rebuild.py` | The build script: one extraction over all five source sets, stub clean-up, clustering, report |
-| `label_overrides.json` | Fixed names for the main communities |
-| `licence_semantic.json` | Saved extraction of the model licence texts (made by an LLM once; not re-run) |
-| `.graphify_python` | Path to the Python that has graphify installed |
+### Rebuild the graph
 
-To rebuild the graph from scratch, run these from the repository root.
+Run these from the repository root. The sibling packages `RawCullCore`, `PhotoAIKit` and `PhotoAnalysisKit` must be checked out next to this repository.
 
-1. Install or upgrade graphify:
-
-   ```bash
-   uv tool install --upgrade graphifyy
-   ```
-
-2. Optional: back up the current graph:
-
-   ```bash
-   mkdir -p graphify-out/backup && cp graphify-out/graph.json graphify-out/GRAPH_REPORT.md graphify-out/backup/
-   ```
-
-3. Clear the extraction cache so every Swift file is parsed again:
+1. Delete the cache so every file is parsed again:
 
    ```bash
    rm -rf graphify-out/cache
    ```
 
-4. Rebuild `graph.json`, `GRAPH_REPORT.md` and the community labels:
+2. Build the full graph:
 
    ```bash
    "$(cat graphify-out/.graphify_python)" graphify-out/rebuild.py
    ```
 
-5. Regenerate the interactive `graph.html`, which `rebuild.py` does not write. The graph has more than 5,000 nodes (graphify's default limit for HTML), so raise the limit. The resulting file is about 10 MB.
+The last line it prints gives the counts, about `Graph: 7488 nodes, …`. This writes `graph.json` and `GRAPH_REPORT.md`, which is all that graph queries need.
 
-   ```bash
-   GRAPHIFY_VIZ_NODE_LIMIT=10000 "$(cat graphify-out/.graphify_python)" - <<'EOF'
-   import json
-   from collections import defaultdict
-   import networkx as nx
-   from graphify.export import to_html
-   d = json.load(open('graphify-out/graph.json'))
-   G = nx.node_link_graph(d, edges='links')
-   comms, labels = defaultdict(list), {}
-   for n in d['nodes']:
-       comms[n['community']].append(n['id'])
-       labels[n['community']] = n['community_name']
-   to_html(G, dict(comms), 'graphify-out/graph.html', community_labels=labels)
-   EOF
-   ```
-
-Each step of `rebuild.py` prints what it changed, and the last line gives the node, edge and community counts. Don't use `/graphify` or `graphify update` on this repository: they scan only one folder and replace the combined graph.
+Use only `rebuild.py`. `/graphify` and `graphify update` scan the app folder alone (about 6,200 nodes) and replace the full graph. Don't delete `rebuild.py`, `label_overrides.json`, `licence_semantic.json` or `.graphify_python` in `graphify-out/`: the rebuild needs them and git doesn't track them. If graphify is missing, install it with `uv tool install --upgrade graphifyy`.
 
 ## Release
 
