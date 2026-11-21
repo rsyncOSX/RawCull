@@ -3,7 +3,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 /// Converts a filled subject mask into a thin, transparent contour for the
-/// Deep Review preview. Keeping this presentation work in RawCull avoids
+/// subject outline (S key). Keeping this presentation work in RawCull avoids
 /// coupling PhotoAnalysisKit's focus analysis to PhotoAIKit segmentation.
 nonisolated enum SubjectMaskOutlineRenderer {
     @concurrent
@@ -13,11 +13,15 @@ nonisolated enum SubjectMaskOutlineRenderer {
         let input = CIImage(cgImage: mask)
         let extent = input.extent
 
-        // Subject masks carry their useful signal in alpha. Normalize that
-        // channel before morphology so RGB contents cannot affect the contour.
+        // Subject masks carry their signal either in alpha (RGBA masks) or in
+        // gray intensity (Review's SAM masks, white = foreground, no alpha).
+        // Reading alpha from an opaque grayscale mask selects the whole frame,
+        // so pick the channel from the mask's encoding before morphology.
         let extractAlpha = CIFilter.colorMatrix()
         extractAlpha.inputImage = input
-        let alphaVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        let alphaVector = usesIntensity(mask)
+            ? CIVector(x: 1, y: 0, z: 0, w: 0)
+            : CIVector(x: 0, y: 0, z: 0, w: 1)
         extractAlpha.rVector = alphaVector
         extractAlpha.gVector = alphaVector
         extractAlpha.bVector = alphaVector
@@ -66,5 +70,13 @@ nonisolated enum SubjectMaskOutlineRenderer {
 
         let context = CIContext(options: [.cacheIntermediates: false, .workingColorSpace: NSNull()])
         return context.createCGImage(output, from: extent)
+    }
+
+    /// True when the mask's foreground is encoded as gray intensity rather than alpha.
+    static func usesIntensity(_ mask: CGImage) -> Bool {
+        if let channel = try? SubjectMaskForeground.channel(mask) {
+            return channel == .grayscaleIntensity
+        }
+        return [.none, .noneSkipFirst, .noneSkipLast].contains(mask.alphaInfo)
     }
 }

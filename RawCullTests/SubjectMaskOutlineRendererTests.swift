@@ -34,6 +34,42 @@ struct SubjectMaskOutlineRendererTests {
         #expect(sample(alpha, x: 16, y: 16, width: outline.width) == 0)
     }
 
+    /// Review's SAM masks are opaque grayscale (white = subject). Reading alpha
+    /// from them outlined the whole frame instead of the subject.
+    @Test
+    func `grayscale mask outlines the subject, not the frame`() async throws {
+        let mask = try #require(makeGrayscaleMask(rectangle: CGRect(x: 8, y: 8, width: 16, height: 16)))
+        let outline = try #require(
+            await SubjectMaskOutlineRenderer.outline(from: mask),
+        )
+        let alpha = try #require(alphaPixels(from: outline))
+
+        #expect(sample(alpha, x: 8, y: 16, width: outline.width) > 0)
+        #expect(sample(alpha, x: 16, y: 16, width: outline.width) == 0)
+        #expect(sample(alpha, x: 0, y: 0, width: outline.width) == 0)
+        #expect(sample(alpha, x: 0, y: 16, width: outline.width) == 0)
+    }
+
+    private func makeGrayscaleMask(rectangle: CGRect) -> CGImage? {
+        let width = 32
+        let height = 32
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue,
+        ) else { return nil }
+
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(rectangle)
+        return context.makeImage()
+    }
+
     private func makeMask() -> CGImage? {
         makeMask(rectangles: [CGRect(x: 8, y: 8, width: 16, height: 16)])
     }
