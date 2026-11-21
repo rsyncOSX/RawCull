@@ -110,7 +110,7 @@ Everything else uses `do/catch` with a `Logger` line, or rethrows.
 |---|---|---|---|
 | 1 | `BurstAnalysisCache.artifactSetDigest` (`(try? encoder.encode(entries)) ?? Data()`) | If encoding fails, the digest is the hash of empty data, **the same for every input**. `JSONEncoder` throws on NaN/±∞ floats, so a bad descriptor value is enough to trigger it. | Make it `throws`, or `preconditionFailure` with a message. Never fall back to a constant. |
 | 2 | `PerFileAnalysisArtifactStore.cacheKey(for:)` (same pattern) | Every identity would map to **one file on disk**, so cached artifacts could be served for the wrong photo. | Same fix. Add a test that a NaN in the identity doesn't produce a shared key. |
-| 3 | `RawCullAIModelRuntime` init, `objectMaskDiskStore = try? ObjectMaskDiskStore(...)` | Object masks silently lose disk caching. The subject-mask store next to it reports a `capability`; this one doesn't. | Mirror the subject-mask pattern: log, and expose the capability. |
+| 3 | `RawCullAIModelRuntime` init, `objectMaskDiskStore = try? ObjectMaskDiskStore(...)` | Object masks silently lose disk caching. The subject-mask store next to it reports a `capability`; this one doesn't. | Mirror the subject-mask pattern: log, and expose the capability. (Since removed: the object mask store was deleted with Objects analysis.) |
 | 4 | `CombinedReviewFeature.persistCancellation` (`try? await store.saveManifest`) | A failed save means the run's state is silently lost. | Log it. |
 | 5 | `CombinedReviewFeature.clearRejectedResponses` / `clearRetainedInputs` | Settings "clear" actions report success even when they failed. | Return the error, or a Bool, and show it in `CacheSettingsTab`. |
 | 6 | `CacheSettingsTab` (`(try? ...usage()) ?? 0`) | Shows "0 bytes" when reading usage failed. | Show "unavailable" instead. |
@@ -135,11 +135,13 @@ Combined Review depends on `SubjectMaskForeground`, `SubjectMaskFocusScorer` and
 
 ### 4.3 Product decision (yours, not a refactor)
 
-Accepted (2026-11-21): [ai-features-decision.md](ai-features-decision.md). One Review feature with Focus check, Describe and Full presets replaces Deep AI Review, Qwen Vision and Objects. The work is on branch `version-3.5.0`, one PR per migration step.
+Accepted (2026-11-21): [ai-features-decision.md](ai-features-decision.md). One Review feature with Focus check, Describe and Full presets replaces Deep AI Review, Qwen Vision and Objects. The migration is done on branch `version-3.4.9`, which now includes the `version-3.5.0` work: Deep AI Review, Qwen Vision, Objects and the AI Analysis view are deleted. Open items are tracked in [ai-features-decision.md](ai-features-decision.md#follow-ups-from-the-code-review-2026-11-21).
+
+The table and question below describe the app **before** the migration and are kept for history.
 
 Correction to the table below: Deep AI Review is no longer in the burst workspace. It is the "SAM 3 + CLIP" tab in AI Analysis. The AI assessment badges, summary and "compare with sharpest" in the burst workspace come from the AI Assessments window (MCP results) and stay.
 
-User-facing AI analysis exists in several places:
+User-facing AI analysis existed in several places:
 
 | Feature | Where in the UI | Engine |
 |---|---|---|
@@ -170,7 +172,7 @@ Leave it as is. One thing to verify: `==` and `hash(into:)` compare **only `id`*
 | 4.1 Move subject-mask primitives | done |
 | Finding 3, steps 3.1–3.5 | done |
 | 4.2 `CombinedReview/` subfolders | done |
-| 4.3 Product decision | decided: accepted, see [ai-features-decision.md](ai-features-decision.md). Migration tracked there. |
+| 4.3 Product decision | done: accepted and migrated on `version-3.4.9`, see [ai-features-decision.md](ai-features-decision.md). Step 2 (output comparison) and the review follow-ups are open there. |
 
 ### Not yet completed
 

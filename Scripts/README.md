@@ -137,20 +137,16 @@ assessments with fresh IDs. A separate `.lock` file prevents two runners from
 using the same progress file simultaneously. JSON writes are atomic and new
 files use private permissions. Keep results outside the repository.
 
-`RunAIAnalysis.py` runs SAM 3 + CLIP, Qwen Vision, and Objects sequentially.
 `RunCombinedReviewSix.py` runs the Combined Review regression; despite its name,
 it selects all filename-sorted ARWs by default. `--frozen` selects the original
 six-file fixture and verifies its recorded hashes.
 
 ```bash
-python3 -B Scripts/RunAIAnalysis.py \
-  --directory "/path/to/ARW catalog" --limit 6 --preflight-only
-
 python3 -B Scripts/RunCombinedReviewSix.py \
   --directory "/path/to/ARW catalog" --output /tmp/rawcull-review-evidence
 ```
 
-Both runners select files nonrecursively and require installed model directories
+The runner selects files nonrecursively and requires installed model directories
 under `~/ModelAssets/Release/Models`: `Qwen/qwen3_vl_2b`, `SAM3`, and
 `CLIP-DataComp`. Override the root with `--models`. `--preflight-only` checks inputs
 without invoking Xcode; omit it to run analysis. `--packages` accepts an existing
@@ -198,7 +194,6 @@ matters: unittest's default lowercase `test*.py` pattern does not find these fil
 | `TestCompareAFSharpness.py` | Pair labels, direction, ties, missing scores, duplicate pairs and burst IDs; optional crop integration. |
 | `TestFreezeCombinedReviewBaseline.py` | Read-only inventory, identity, hashes, decoded payloads, absent exports and PNG headers. |
 | `TestModelProvenance.py` | Current release evidence and rejection of malformed, missing, blocked or inconsistent provenance. |
-| `TestRunAIAnalysis.py` | Sorted/nonrecursive ARW selection, limits, progress parsing, missing evidence and exit codes. |
 | `TestRunCombinedReviewSix.py` | Catalog/frozen selection, terminal progress, empty inputs, missing evidence and exit codes. |
 | `TestRunnerPrivacy.py` | Private output permissions and restoration of the caller's umask on success and failure. |
 | `TestRunCatalogPerformance.py` | Catalog manifests, runner configuration, result aggregation, baseline compatibility and failure handling. |

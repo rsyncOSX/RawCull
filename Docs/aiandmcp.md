@@ -1,6 +1,6 @@
 # Follow-up AI analysis over RawCull MCP
 
-> **Note (version 3.5.0):** Deep AI Review, Qwen Vision and Object Analysis were removed from the app in favour of Review (see [ai-features-decision.md](ai-features-decision.md)). Steps below that route MCP to those features are superseded.
+> **Note (version 3.4.9):** Deep AI Review, Qwen Vision and Object Analysis were removed from the app in favour of Review (see [ai-features-decision.md](ai-features-decision.md)). Steps below that route MCP to those features are superseded.
 
 ## Proposed workflow
 
@@ -13,11 +13,11 @@ The second prompt asks for a closer look at a burst or named photos. For example
 - Use `request_catalog_setup` with `jobType: "burstAnalysis"`, or `start_catalog_analysis` for an already authorized catalog. Poll `get_catalog_setup_status` when setup is needed, then `get_analysis_status` for progress and final coverage. The burst request uses the app’s configured backend. The MCP tool schemas do not accept a Vision or CLIP override.
 - Use `list_bursts` with the completed job’s catalog and job IDs. Follow `nextCursor` to cover the entire list. A page can contain up to 25 bursts. Each entry includes a recommendation, alternate, confidence, reasons, cautions, and evidence for up to five frames. The result can be read after RawCull quits while it remains shared.
 - A client can explain close rankings and select frames for review using that evidence. The exposed tools return metadata and ranking evidence. New pixel-based analysis through MCP requires a new tool and app-side job support.
-- In the app, AI Analysis can run Qwen assessment or Object Analysis on grid selections or tagged photos. Deep AI Review can review a burst using a preset and existing capture evidence. These app entry points are available independently of MCP.
+- In the app, **Review** runs on selected or tagged photos with one of three presets: Focus check (SAM 3 and CLIP, no Qwen), Describe (one Qwen pass) and Full (every stage). Each result ends in Tag, Rate and Mark Reviewed. Review is available independently of MCP, and MCP does not start it.
 
 > Using only the RawCull MCP server, read the completed burst job from this chat. Follow all burst pages and find three low-confidence bursts where the top two are close. Give the recommendation, alternate, and recorded reasons and cautions. Identify what I should check visually.
 
-See [MCP tools and TestFlight checks](mcpserver.md), [AI Analysis input selection](../RawCull/Model/ViewModels/RawCullViewModel%2BAIAnalysis.swift), and [Deep AI Review controller](../RawCull/Intelligence/DeepReview/DeepAIReviewController.swift).
+See [MCP tools and TestFlight checks](mcpserver.md), [Review feature](../RawCull/Intelligence/CombinedReview/CombinedReviewFeature.swift), and [Review presets](../RawCull/Intelligence/CombinedReview/Execution/ReviewRunContract.swift).
 
 ## Where the code is ready
 
@@ -26,10 +26,10 @@ See [MCP tools and TestFlight checks](mcpserver.md), [AI Analysis input selectio
 | Tool transport | The signed stdio helper validates tool calls and uses shared storage to exchange requests and results with RawCull. | Define a typed follow-up request, status, and result. Advertise the capability when the installed app and helper support it. |
 | Execution | The app-side controller handles workspace availability, catalog loading, authorization, progress, cancellation, and publication for burst jobs. | Reuse that lifecycle for a second job and keep the source burst result readable during the follow-up. The current store exposes one current job. Its shareable result is tied to burst coverage and rankings. |
 | Photo identity | The burst controller maps catalog snapshot entries to internal file IDs. Recurring scans can issue new photo IDs. Burst IDs include the source job ID. | Resolve inputs against the exact source snapshot and verify files on reopen. Preserve full burst membership for server-side lookup. Public candidate summaries can omit frames. |
-| Qwen assessment | The feature accepts a file batch and prompt criteria, loads previews, and returns structured assessments, freeform responses, or per-photo errors. Its current UI state owns the prompt, progress, and results, filters out previously analyzed IDs, and can return early when busy or unavailable. | Use a request-scoped runner with typed outcomes and shared access to the model runtime. |
-| Other review modes | Object Analysis already accepts a file batch and criteria. Deep AI Review builds a preset-driven request with burst rank, sharpness, subject label, and AF point when available. | Add these modes once the Qwen flow passes release testing. Per-frame assessments can support a client comparison. A model that compares multiple frames directly would need a separate inference path and validation. |
+| Qwen assessment | Done for MCP: `MCPAnalysisController` runs request-scoped Qwen assessments through `QwenPhotoAssessment` and the shared model runtime (Steps 3–4). The in-app Qwen Vision feature this row first described was removed. | Keep MCP on `QwenPhotoAssessment` and the shared lease; it does not use Review's pipeline. |
+| Other review modes | Superseded. Object Analysis and Deep AI Review were removed; the in-app Review presets replace them. | If MCP later needs masks or focus measurement, route it to a Review preset (for example Focus check) instead of a separate pipeline. A model that compares multiple frames directly would need a separate inference path and validation. |
 
-Source entry points are [AnalysisTools](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisTools.swift), [AnalysisJobStore](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift), [MCPAnalysisController](../RawCull/Main/MCPAnalysisController.swift), [Qwen Analysis](../RawCull/Intelligence/Qwen/RawCullQwenAnalysisFeature.swift), and [Object Analysis](../RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift).
+Source entry points are [AnalysisTools](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisTools.swift), [AnalysisJobStore](../Tools/RawCullMCP/Sources/RawCullMCP/AnalysisJobStore.swift), [MCPAnalysisController](../RawCull/Main/MCPAnalysisController.swift), [Qwen photo assessment](../RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift), and [Review](../RawCull/Intelligence/CombinedReview/CombinedReviewFeature.swift).
 
 ## Proposed first-release contract
 
@@ -150,6 +150,8 @@ Use the [same-chat comparison prompt](prompts.md#compare-the-recommendation-and-
 See [photo assessment controls and lifetime](mcpserver.md#follow-up-photo-assessments) and the [Step 5 TestFlight checklist](mcpserver.md#step-5-release-gate).
 
 ### Step 6 — Add Deep AI Review and Object Analysis as separate increments
+
+> **Superseded (version 3.4.9).** Deep AI Review and Object Analysis no longer exist; see [ai-features-decision.md](ai-features-decision.md). This step will not be built as written. It is kept for history. A future MCP route to masks or focus measurement would target a Review preset.
 
 1. Route a burst and explicit preset to the existing Deep AI Review pipeline. Build candidates from the persisted membership and ranks. Verify the resolved files match the source snapshot before adding available sharpness, subject label, and AF-point evidence. Return job-scoped results and coverage. Key any reused results to source identity, model, and preset.
 2. In a later increment, route bounded photo selections and criteria to Object Analysis. Report model availability, per-photo failures, and the supported evidence fields. Use request-scoped results and include criteria and model identity in any reuse decision.

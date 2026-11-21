@@ -26,7 +26,7 @@ This plan covers the five actions with the largest effect. Done together, they s
 | SwiftLint errors by folder | `RawCullTests` 209, `RawCull` 63, `RawCullReleaseTests` 19, `Scripts` 11, `Tools` 2 | same |
 | Top warnings | `multiline_arguments` 1,401, `line_length` 779, `identifier_name` 324, `cyclomatic_complexity` 54, `file_length` 47, `function_body_length` 43, `force_unwrapping` 39, `type_body_length` 30 | same |
 | SwiftFormat | 157 of 506 files need formatting | `swiftformat --lint .` |
-| Largest type bodies | `SimilarityScoringModel` about 1,050 lines; `DeepAIReviewFeature.swift` holds about 20 types in 1,039 lines | `wc -l`, the graph |
+| Largest type bodies | `SimilarityScoringModel` about 1,050 lines; `DeepAIReviewFeature.swift` holds about 20 types in 1,039 lines (since deleted) | `wc -l`, the graph |
 | Commits, last 30 days | 440, of which 152 "update" and 112 merges | `git log --since=2026-10-22` |
 | Release tags | 46, latest `v3.4.5` | `git tag` |
 | Code coverage | not collected (`RawCull.xctestplan` has no `codeCoverage` option; `test-smoke` passes `-enableCodeCoverage NO`) | test plans, Makefile |
@@ -37,7 +37,7 @@ Things that shape the CI design:
 - **Toolchain.** `MACOSX_DEPLOYMENT_TARGET = 27.0`, Xcode 27.2, Swift 6.2. GitHub's hosted macOS runners usually lag a new Xcode by weeks. Plan for a self-hosted runner on your own Mac, and switch to hosted runners if they catch up.
 - **Package access.** All packages are pinned by HTTPS URL. (`PhotoEvidenceKit` used SSH until 2026-11-21; fixed.)
 - **Signing.** The app uses app groups with a team prefix (`93M47F4H9T.no.blogspot.RawCull.mcp`). Find out whether the test host runs with `CODE_SIGNING_ALLOWED=NO`, or whether CI needs a development certificate.
-- **Existing targets to reuse.** `test-smoke` (with the 424-test manifest check), `test-full` (Thread Sanitizer, serial), `test-scripts`, `test-mcp`, `verify-ai-import-boundary` and `verify-model-provenance`.
+- **Existing targets to reuse.** `test-smoke` (with the manifest check; 384 tests after the AI features cleanup), `test-full` (Thread Sanitizer, serial), `test-scripts`, `test-mcp`, `verify-ai-import-boundary` and `verify-model-provenance`.
 
 ## The order
 
@@ -103,7 +103,7 @@ Done when: `make lint` and `make format-check` pass on a clean tree and fail on 
 
 - **`identifier_name` (281 errors, 209 of them in tests).** Most are short names in tests. Either rename them, or set a looser `identifier_name` for `RawCullTests/` with a nested `.swiftlint.yml`. Choose one way and use it everywhere.
 - **`force_unwrapping` (39).** Fix the ones in app code first: `CombinedReviewResponse.swift` (6) and `ReviewImageSource.swift` (4). The ones in tests and scripts can stay in the baseline.
-- **Split `DeepAIReviewFeature.swift`.** Move `RawCullDeepReviewImageDecoder`, `DeepAIReviewRenderMaskStore` and `RawCullDeepAIReviewPipeline` into their own files next to it. Move the value types (preset, reason, candidate, result, state) into `DeepAIReviewModels.swift`. Only files move; nothing else changes.
+- ~~**Split `DeepAIReviewFeature.swift`.**~~ No longer needed: the file was deleted with Deep AI Review ([ai-features-decision.md](ai-features-decision.md), step 6).
 - **Split `SimilarityScoringModel`.** Split the 1,050-line class along what it does: indexing, distance computation and presentation state. Use `SimilarityScoringModel+Indexing.swift` and similar files, or helper types where the state really is separate. Run `RawCullSimilarityFeatureTests` and `PhotoAIKitSimilarityMigrationTests` before and after.
 - After each PR, run `make lint-baseline` again so the baseline only shrinks. Track the error count in this document.
 
@@ -162,5 +162,5 @@ Done when: the nightly job publishes coverage per folder and enforces the three 
 
 ## Not in scope
 
-- Actions 6–9 from the review: the product decision on overlapping review features, the shared MCP IPC module (refactoring step 17), an architecture overview and a dependency audit.
+- Actions 6–9 from the review: the product decision on overlapping review features (since decided and done, see [ai-features-decision.md](ai-features-decision.md)), the shared MCP IPC module (refactoring step 17), an architecture overview and a dependency audit.
 - Notarization and App Store upload in CI. These stay manual, because they need signing secrets.
