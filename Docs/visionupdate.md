@@ -1,6 +1,6 @@
 # Plan: Make Vision calls safe to run concurrently
 
-Status: phases 1–2 done · phase 3 code done (PhotoAnalysisKit 1.4.0, PhotoAIKit 3.1.0); real-catalog checks pending · 2026-11-21 · branch `version-3.4.9`
+Status: phases 1–3 done (PhotoAnalysisKit 1.4.0, PhotoAIKit 3.1.0); real-catalog checks passed; phase 1 cap removed · open: end-to-end burst run · 2026-11-21 · branch `version-3.4.9`
 
 ## Summary
 
@@ -218,10 +218,45 @@ Checks:
 - The `RawCull` test plan ran three times in a row with `xcodebuild test-without-building` on a 10-core Mac. Every run finished, with 956 passed, 0 failed and 6 skipped (the real-model tests).
 - `Scripts/VerifyAIImportBoundary.sh` passes.
 
+#### Real-catalog checks (2026-11-21)
+
+Catalog: 275 Sony ARW files (27 GB) from `JagerborgDyrehave/DCIM/100MSDCF`, on a 10-core Mac. The release sharpness test ran on a local copy, `~/RawCullCatalogs/100MSDCF`. See the note on volume access below.
+
+**PhotoAnalysisKit 1.3.9 against 1.4.0** (`Scripts/RunPhotoAnalysisCatalog.py --phase before --revision v1.3.9`, then `--phase after --revision v1.4.0`):
+
+- Every number in `analysis.json` was identical for all 275 photos, ignoring timing and revision fields. That covers scores, breakdowns, saliency, focus evidence, calibration, faces, animal regions and feature prints.
+- All 1,650 rendered images (masks and close-up crops) were byte-identical.
+- No burst winner changed. All 275 decodes, batch scores, combined scores and scalar scores succeeded in both runs.
+- Batch scoring took 22.8 s with 1.3.9 and 21.6 s with 1.4.0, which is within noise.
+
+**Sharpness scoring and similarity indexing running at the same time.** This used a temporary, opt-in test in the `RawCull` test host, which was not kept. Sharpness used the app defaults: Fast quality, 512 px, embedded preview, `RawCullPhotoAnalysisAdapter.analyzeBatch`. Similarity used `RawCullVisionSimilarityService.index` at 512 px with decode concurrency 4. The build was Debug, after one warm-up pass. Each row shows two rounds:
+
+| Run | Sharpness | Similarity |
+|---|---|---|
+| Sharpness alone, 5 tasks (phase 1 cap) | 18.1 s / 18.0 s | — |
+| Sharpness alone, 6 tasks (uncapped Fast) | 17.9 s / 17.6 s | — |
+| Similarity alone | — | 1.0 s / 1.0 s |
+| Both, 5 tasks | 18.6 s / 18.4 s wall | 1.6 s / 1.7 s |
+| Both, 6 tasks | 18.1 s / 18.1 s wall | 1.9 s / 1.8 s |
+| Both, 10 tasks (= cores), one run | 16.8 s wall | 8.1 s |
+
+- All 275 photos were scored and indexed in every run, with 0 failures. Scores were identical in every run at every concurrency level.
+- The 10-task stress run puts every pool thread on Vision-heavy work. That is the setup that hung before phase 1, and it now finishes.
+- Sharpness time is dominated by Core Image, so Vision going one at a time costs little. The phase 1 cap costs about 1–2% compared with 6 tasks. Removing it is safe, but it gains little.
+
+**Release sharpness test** (`make releasesharpnesstest RELEASE_CATALOG="$HOME/RawCullCatalogs/100MSDCF"`): **Passed.** All 3,025 comparisons (275 photos × 11 scenarios) finished with valid numbers and 0 failures, in 86 minutes. The report is `~/RawCullCatalogs/100MSDCF/RawCull-Sharpness-6788867F-78C4-4F9C-940A-9C3ACB54F4EF.md`. The test checks completion and valid output, not ranking accuracy: this catalog has no labels.
+
+To run it, the `RawCullReleaseTests` target needed fixing first, in commit `7142f59b`. The target lists its files and packages explicitly, and it had fallen behind refactoring step 18, the extraction of PhotoAnalysisKit, and the move of two types into their own files.
+
+Volume access: `RawCullReleaseTests` is a hostless test bundle, so it runs in Xcode's background `xctest` process. macOS refused that process access to the external drive (`Operation not permitted`), even when `make` was started from a shell that could read the drive. macOS never shows a prompt for it. Either give the `xctest` agent Full Disk Access, or copy the catalog to an unprotected folder in the home directory, as was done here.
+
+#### Phase 1 cap removed (2026-11-21)
+
+`SharpnessScoringModel.visionSafeScoringTaskLimit` is deleted. `effectiveMaxConcurrentScoringTasks` is back to the pre-phase-1 values: Fast 6, Balanced 4, High Precision 3, at most 2 for RAW demosaic. On a 10-core Mac, Fast goes from 5 back to 6. The comments in `SharpnessScoringModel` and `RawCullVisionSimilarityService.index` now point to the gate. The `RawCull` test plan ran three times in a row: 956 passed, 0 failed, 6 skipped each time.
+
 Not done yet:
 
-- The phase 1 cap on sharpness scoring is still in place. Remove it only after timing sharpness scoring and similarity indexing on a real catalog of about 500 images.
-- The release sharpness test and an end-to-end burst analysis on a real catalog.
+- An end-to-end burst analysis through the app (`Scripts/PrepareBursts.py` over MCP). It needs a build of this branch installed as the app, and it replaces the app's shared analysis result.
 
 ## Risks and what to measure
 

@@ -110,23 +110,17 @@ final class SharpnessScoringModel {
         )
     }
 
+    /// No Vision-specific cap: PhotoAnalysisKit runs each task's saliency
+    /// request through `VisionRequestGate`, so waiting tasks suspend instead
+    /// of blocking pool threads. See Docs/visionupdate.md.
     var effectiveMaxConcurrentScoringTasks: Int {
-        let requested = switch scoringSource {
+        switch scoringSource {
         case .embeddedPreview:
             scoringQuality.maxConcurrentScoringTasks
 
         case .rawDemosaic:
             min(2, scoringQuality.maxConcurrentScoringTasks)
         }
-        return min(requested, Self.visionSafeScoringTaskLimit)
-    }
-
-    /// Each scoring task runs a synchronous Vision saliency request, which
-    /// blocks a cooperative-pool thread until Vision finishes. Keeping at most
-    /// half the cores busy this way leaves threads free for Vision to complete
-    /// its own work. See Docs/visionupdate.md.
-    nonisolated static var visionSafeScoringTaskLimit: Int {
-        max(1, ProcessInfo.processInfo.activeProcessorCount / 2)
     }
 
     func reset() {
