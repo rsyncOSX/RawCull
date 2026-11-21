@@ -1541,7 +1541,7 @@
 		};
 		E9FF6C1B30A3026500DEF266 /* XCRemoteSwiftPackageReference "PhotoEvidenceKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@github.com:rsyncOSX/PhotoEvidenceKit.git";
+			repositoryURL = "https://github.com/rsyncOSX/PhotoEvidenceKit.git";
 			requirement = {
 				kind = exactVersion;
 				version = 1.1.5;
