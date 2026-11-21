@@ -5,7 +5,7 @@ import SwiftUI
 struct ZoomOverlayControls: View {
     let zoomOverlay: ZoomOverlayModel
     let catalogController: CatalogController
-    let deepAIReviewController: DeepAIReviewController
+    let subjectMasks: ReviewSubjectMasks
     let session: ZoomSessionModel
     let hasFocusTarget: Bool
     let onRate: (Int) -> Void
@@ -22,7 +22,7 @@ struct ZoomOverlayControls: View {
 
     private var subjectOutlineAvailable: Bool {
         guard let file = catalogController.selectedFile else { return false }
-        return deepAIReviewController.maskCandidate(for: file.id) != nil
+        return subjectMasks.mask(for: file) != nil
     }
 
     private var useThumbnailSourceBinding: Binding<Bool> {

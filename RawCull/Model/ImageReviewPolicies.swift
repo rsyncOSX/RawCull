@@ -290,7 +290,7 @@ nonisolated struct ImageReviewFocusRequestContext: Hashable, Sendable {
 
 nonisolated struct ImageReviewSubjectOutlineRequestContext: Hashable, Sendable {
     let fileID: UUID?
-    let prompt: String?
+    /// The Review mask behind the outline; a new review of the photo reloads it.
+    let maskKey: String?
     let isPresented: Bool
-    var maskStorageKey: SubjectMaskStorageKey?
 }

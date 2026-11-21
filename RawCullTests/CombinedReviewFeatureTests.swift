@@ -789,6 +789,26 @@ struct CombinedReviewFeatureTests {
         #expect(feature.manifest?.snapshot.preset == .focusCheck)
     }
 
+    @Test @MainActor func `review masks feed the subject outline until the photo changes`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend(hasQwen: false, hasSAM: true))
+        feature.preset = .focusCheck
+        let masks = ReviewSubjectMasks(feature: feature)
+        let photo = makeReviewTestFile(fixture.file.url, id: fixture.file.id)
+        #expect(masks.mask(for: photo) == nil)
+
+        await feature.analyze([fixture.file])
+        let mask = try #require(masks.mask(for: photo))
+        #expect(mask.concept == "subject")
+        // A later catalog scan gives the photo a new ID; the mask follows its location.
+        let rescanned = makeReviewTestFile(fixture.file.url)
+        #expect(masks.mask(for: rescanned) == mask)
+        #expect(await masks.image(for: mask, file: rescanned) != nil)
+
+        try Data("edited".utf8).write(to: fixture.file.url)
+        #expect(await masks.image(for: mask, file: rescanned) == nil)
+    }
+
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })

@@ -119,6 +119,9 @@ final class RawCullViewModel {
     /// a user-confirmed recommendation.
     let deepAIReviewController: DeepAIReviewController
 
+    /// Subject masks from Review results, for the subject outline and mask badge.
+    let subjectMasks: ReviewSubjectMasks
+
     /// Burst analysis, review queue, keep-best and undo, and Deep Review context.
     let burstWorkflow: BurstWorkflowController
 
@@ -133,6 +136,7 @@ final class RawCullViewModel {
         similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewController: DeepAIReviewController,
+        subjectMasks: ReviewSubjectMasks = ReviewSubjectMasks(),
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
         sharpnessModel: SharpnessScoringModel = SharpnessScoringModel(),
@@ -151,6 +155,7 @@ final class RawCullViewModel {
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewController = deepAIReviewController
+        self.subjectMasks = subjectMasks
         navigation = WorkspaceNavigationModel(
             zoomOverlay: zoomOverlay, catalog: catalog, similarityModel: similarityModel,
         )

@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 struct ZoomOverlayAnalysisCoordinator {
     let catalogController: CatalogController
-    let deepAIReviewController: DeepAIReviewController
+    let subjectMasks: ReviewSubjectMasks
     let session: ZoomSessionModel
 
     private var maskAnalysisImage: CGImage? {
@@ -14,9 +14,8 @@ struct ZoomOverlayAnalysisCoordinator {
         )
     }
 
-    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
-        guard let fileID = catalogController.selectedFile?.id else { return nil }
-        return deepAIReviewController.maskCandidate(for: fileID)
+    private var subjectOutlineMask: ReviewSubjectMask? {
+        catalogController.selectedFile.flatMap(subjectMasks.mask)
     }
 
     func regenerateMaskFromCG() async {
@@ -68,12 +67,12 @@ struct ZoomOverlayAnalysisCoordinator {
         session.isLoadingSubjectOutline = false
         guard session.showSubjectOutline,
               let file = catalogController.selectedFile,
-              let candidate = subjectOutlineCandidate
+              let mask = subjectOutlineMask
         else { return }
 
         session.isLoadingSubjectOutline = true
         let outline = await ImageReviewSubjectOutlineLoader.load(
-            file: file, candidate: candidate, controller: deepAIReviewController,
+            file: file, mask: mask, masks: subjectMasks,
         )
         guard !Task.isCancelled, catalogController.selectedFile?.id == file.id else { return }
         session.subjectOutline = outline

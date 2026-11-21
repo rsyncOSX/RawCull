@@ -21,7 +21,7 @@ struct ZoomOverlayView: View {
     @Environment(CatalogController.self) private var catalogController
     @Environment(CullingController.self) private var culling
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
-    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(ReviewSubjectMasks.self) private var subjectMasks
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = ZoomSessionModel()
     @State private var rawClippingOverlay: CGImage?
@@ -60,17 +60,15 @@ struct ZoomOverlayView: View {
         )
     }
 
-    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
-        guard let fileID = catalogController.selectedFile?.id else { return nil }
-        return deepAIReviewController.maskCandidate(for: fileID)
+    private var subjectOutlineMask: ReviewSubjectMask? {
+        catalogController.selectedFile.flatMap(subjectMasks.mask)
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         ImageReviewSubjectOutlineRequestContext(
             fileID: catalogController.selectedFile?.id,
-            prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
+            maskKey: subjectOutlineMask?.maskKey,
             isPresented: session.showSubjectOutline,
-            maskStorageKey: subjectOutlineCandidate?.maskStorageKey,
         )
     }
 
@@ -89,7 +87,7 @@ struct ZoomOverlayView: View {
 
     private var keyboardController: ZoomKeyboardController {
         ZoomKeyboardController(
-            session: session, hasSubjectOutline: subjectOutlineCandidate != nil,
+            session: session, hasSubjectOutline: subjectOutlineMask != nil,
             navigate: navigateSelection(by:), dismiss: dismiss,
             increaseZoom: increaseZoom, decreaseZoom: decreaseZoom, applyRating: applyRating,
         )
@@ -98,7 +96,7 @@ struct ZoomOverlayView: View {
     private var analysisCoordinator: ZoomOverlayAnalysisCoordinator {
         ZoomOverlayAnalysisCoordinator(
             catalogController: catalogController,
-            deepAIReviewController: deepAIReviewController,
+            subjectMasks: subjectMasks,
             session: session,
         )
     }
@@ -149,7 +147,7 @@ struct ZoomOverlayView: View {
 
                 ZoomOverlayControls(
                     zoomOverlay: zoomOverlay, catalogController: catalogController,
-                    deepAIReviewController: deepAIReviewController,
+                    subjectMasks: subjectMasks,
                     session: session, hasFocusTarget: focusTarget != nil,
                     onRate: { rating in _ = applyRating(rating) },
                     onZoomOut: decreaseZoom,

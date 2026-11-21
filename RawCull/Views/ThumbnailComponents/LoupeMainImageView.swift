@@ -8,7 +8,7 @@ struct LoupeMainImageView: View {
     @Environment(LoupeViewportModel.self) private var loupeViewport
     @Environment(WorkspaceNavigationModel.self) private var navigation
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
-    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(ReviewSubjectMasks.self) private var subjectMasks
     @State private var keyboardScope = ReviewKeyboardScope()
     @State private var session = LoupeSessionModel()
 
@@ -29,17 +29,15 @@ struct LoupeMainImageView: View {
     @State private var subjectOutlineKeyMonitor = ReviewKeyMonitor()
     @FocusState private var isImageFocused: Bool
 
-    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
-        guard let file else { return nil }
-        return deepAIReviewController.maskCandidate(for: file.id)
+    private var subjectOutlineMask: ReviewSubjectMask? {
+        file.flatMap(subjectMasks.mask)
     }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         ImageReviewSubjectOutlineRequestContext(
             fileID: file?.id,
-            prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
+            maskKey: subjectOutlineMask?.maskKey,
             isPresented: outlinePresentation.isPresented,
-            maskStorageKey: subjectOutlineCandidate?.maskStorageKey,
         )
     }
 
@@ -62,7 +60,7 @@ struct LoupeMainImageView: View {
                                 loupeViewport: loupeViewport, session: session, file: file,
                                 showFocusMask: $focusPresentation.isPresented,
                                 showSubjectOutline: $outlinePresentation.isPresented, showFocusPoints: $showFocusPoints,
-                                focusMaskAvailable: currentDisplayedImage != nil, outlineAvailable: subjectOutlineCandidate != nil,
+                                focusMaskAvailable: currentDisplayedImage != nil, outlineAvailable: subjectOutlineMask != nil,
                                 outlineIsLoading: outlinePresentation.isLoading, hasFocusPoints: focusPoints != nil,
                             )
                         } metadata: {
@@ -168,7 +166,7 @@ struct LoupeMainImageView: View {
             presentation: presentation, loupeViewport: loupeViewport,
             navigation: navigation, session: session,
             focusPresentation: focusPresentation, outlinePresentation: outlinePresentation,
-            hasSubjectOutline: subjectOutlineCandidate != nil, showFocusPoints: $showFocusPoints,
+            hasSubjectOutline: subjectOutlineMask != nil, showFocusPoints: $showFocusPoints,
         )
     }
 
@@ -226,11 +224,11 @@ struct LoupeMainImageView: View {
 
     private func loadSubjectOutline() async {
         let file = file
-        let candidate = subjectOutlineCandidate
+        let mask = subjectOutlineMask
         await outlinePresentation.load {
-            guard let file, let candidate else { return nil }
+            guard let file, let mask else { return nil }
             return await ImageReviewSubjectOutlineLoader.load(
-                file: file, candidate: candidate, controller: deepAIReviewController,
+                file: file, mask: mask, masks: subjectMasks,
             )
         }
     }

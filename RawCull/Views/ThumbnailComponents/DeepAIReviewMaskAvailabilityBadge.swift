@@ -9,7 +9,7 @@ struct DeepAIReviewMaskAvailabilityBadge: View {
             .background(.orange.opacity(0.9), in: Circle())
             .overlay { Circle().strokeBorder(.white.opacity(0.45), lineWidth: 0.5) }
             .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-            .help("Deep Review subject mask available")
-            .accessibilityLabel("Deep Review subject mask available")
+            .help("Review subject mask available")
+            .accessibilityLabel("Review subject mask available")
     }
 }

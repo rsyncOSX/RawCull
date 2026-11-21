@@ -254,11 +254,13 @@ struct RawCullApplicationState {
         let deepAIReviewController = DeepAIReviewController(
             feature: deepAIReviewFeature,
         )
+        let subjectMasks = ReviewSubjectMasks()
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewController: deepAIReviewController,
+            subjectMasks: subjectMasks,
         )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             modelRuntime: modelRuntime,
@@ -272,6 +274,7 @@ struct RawCullApplicationState {
         )
         semanticSearchFeature.bindApplicationTarget(viewModel.catalogController)
         settingsModel.bindConfigurationConsumer(intelligenceRuntime)
+        subjectMasks.bind(intelligenceRuntime.combinedReviewFeature)
 
         assert(viewModel.similarityFeature === intelligenceRuntime.similarityFeature)
         assert(semanticSearchFeature.sharesSimilarityFeatureIdentity(with: similarityFeature))

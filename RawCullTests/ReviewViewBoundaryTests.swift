@@ -14,7 +14,7 @@ struct ReviewViewBoundaryTests {
         let session = ZoomSessionModel()
         let controls = ZoomOverlayControls(
             zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
-            deepAIReviewController: viewModel.deepAIReviewController,
+            subjectMasks: viewModel.subjectMasks,
             session: session, hasFocusTarget: false,
             onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
         )
@@ -82,7 +82,7 @@ struct ReviewViewBoundaryTests {
             )
             ZoomOverlayControls(
                 zoomOverlay: viewModel.zoomOverlay, catalogController: viewModel.catalogController,
-                deepAIReviewController: viewModel.deepAIReviewController,
+                subjectMasks: viewModel.subjectMasks,
                 session: session, hasFocusTarget: false,
                 onRate: { _ in }, onZoomOut: {}, onZoomReset: {}, onZoomIn: {},
             )

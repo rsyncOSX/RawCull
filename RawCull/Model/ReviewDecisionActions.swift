@@ -70,10 +70,7 @@ struct ReviewDecisionActions {
 
     /// True when the file on disk is the one that was reviewed.
     func isUnchanged(_ file: FileItem, since review: ReviewFileSnapshot) -> Bool {
-        // URL caches resource values per instance; read the file as it is now.
-        var url = file.url
-        url.removeAllCachedResourceValues()
-        return (try? ReviewFileSnapshot.fingerprint(url)) == review.fingerprint
+        ReviewFileSnapshot.currentFingerprint(file.url) == review.fingerprint
     }
 }
 

@@ -232,5 +232,6 @@ extension View {
             .environment(workspace.sharpnessModel)
             .environment(workspace.similarityFeature)
             .environment(workspace.deepAIReviewController)
+            .environment(workspace.subjectMasks)
     }
 }

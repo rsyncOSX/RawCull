@@ -180,7 +180,7 @@ private struct SemanticResultRankBadgeView: View {
 struct ImageItemView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(BurstWorkflowController.self) private var burstWorkflow
-    @Environment(DeepAIReviewController.self) private var deepAIReviewController
+    @Environment(ReviewSubjectMasks.self) private var subjectMasks
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @Environment(RawCullSimilarityFeature.self) private var similarityFeature
 
@@ -327,7 +327,7 @@ struct ImageItemView: View {
     }
 
     private var hasDeepReviewMask: Bool {
-        deepAIReviewController.maskCandidate(for: file.id) != nil
+        subjectMasks.mask(for: file) != nil
     }
 
     private var borderColor: Color {
