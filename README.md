@@ -281,7 +281,16 @@ Run these checks before every release build:
      the zoom overlay.
    - Rate, tag and reject a photo. Check that the grid, filters and selection update
      and that the next photo is selected.
-   - Group bursts and open the burst workspace. Run a Focus check Review on one burst and toggle the subject outline.
+   - Group bursts and open the burst workspace. Run a Focus check Review on one
+     burst and toggle the subject outline (S) in the loupe, zoom and burst workspace.
+   - Run Review with each preset (Focus check, Describe and Full) on selected and on
+     tagged photos. Focus check must run without the Qwen model installed. In a
+     result, tag, rate and mark reviewed, and check that the grid updates. Reopen
+     the review and check that the rating has not changed. Click a finding and check
+     that **Evidence & details** opens on its masks or crops.
+   - After updating from an earlier build, check that the AI Analysis view and the
+     "Show legacy AI Analysis" setting are gone and that the app launches cleanly
+     with an old Objects mask cache on disk.
    - Copy or export one file.
    - Run one end-to-end MCP job from a desktop AI client: catalog approval, analysis,
      and retrieving the ranked burst recommendations.
