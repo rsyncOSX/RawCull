@@ -219,7 +219,8 @@ Run these checks before every release build:
 2. **Build numbers.** Check that the app and the `RawCullModelDownloader` extension
    have the same `CURRENT_PROJECT_VERSION`. `release.sh` sets both when Xcode
    manages build numbers or when `BUILD_NUMBER` is set. `make build` uses the
-   values in the project as they are.
+   values in the project as they are. `ReleaseMetadataTests`, which runs in
+   `make test-full`, fails when the two differ.
 3. **Manual smoke test in the app.** The workspace state is now split into separate
    models that views read from the SwiftUI environment (see
    [Architecture](#architecture)). The automated tests do not run the full UI, so
