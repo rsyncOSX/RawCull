@@ -1,5 +1,5 @@
 {
-  "originHash" : "50dd7006830c39c8b47da714f731e4794a120f09c7e32f17ff742308f4ba963f",
+  "originHash" : "56674d192d421d7dcfd3562fcc876c9ff8385a02130185ecb96efb062520ebc1",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -58,7 +58,7 @@
     {
       "identity" : "photoevidencekit",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:rsyncOSX/PhotoEvidenceKit.git",
+      "location" : "https://github.com/rsyncOSX/PhotoEvidenceKit.git",
       "state" : {
         "revision" : "e49d34adcfa2e2c43a4240c2e962dbe9defa4cad",
         "version" : "1.1.5"
