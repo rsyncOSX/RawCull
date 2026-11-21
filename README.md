@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.4.8**. Build **461**.
+Current project version: **3.4.9**. Build **462**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -71,8 +71,6 @@ resolution. Completed previews share a 256 MiB memory cache, and compatible
 persisted developed JPEGs can be reused across launches. The current image stays
 visible while a higher-resolution preview loads.
 
-See the [development summary](Docs/summary.md#raw-9-zoom-previews) for benchmark and validation results.
-
 ## Workflow
 
 ```text
@@ -107,6 +105,20 @@ The app keeps UI, workflow, caching, persistence, and culling policy in RawCull 
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) | Shared catalog, EXIF, burst grouping, ranking, and review models |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) + [RsyncProcessStreaming](https://github.com/rsyncOSX/RsyncProcessStreaming) | Safe copy configuration and streaming execution |
 | [DecodeEncodeGeneric](https://github.com/rsyncOSX/DecodeEncodeGeneric) | Codable persistence helpers |
+
+Inside the app, `RawCullViewModel` creates and owns the workspace models. Each model
+owns one area of state: `CatalogWorkspace`, `SelectionModel`, `RatingsModel`,
+`WorkspacePresentationModel`, `FileOperationsModel`, `ZoomOverlayModel`,
+`LoupeViewportModel`, `BurstWorkflowController` and `WorkspaceNavigationModel`.
+`CatalogController` and `CullingController` run the operations that span several
+models, such as loading and sorting the catalog or rating a photo and moving to the
+next one. `workspaceEnvironment(_:)` in
+[`RawCullApp.swift`](RawCull/Main/RawCullApp.swift) puts these models, plus the
+sharpness, similarity and Deep Review models, into the SwiftUI environment. Views
+read only the models they need. The only files that use the view model directly are
+the view model itself, `RawCullApp`, `RawCullMainView` and the MCP and intelligence
+bindings. The refactoring steps are recorded in
+[the refactoring order plan](Docs/refactoring-order-plan.md).
 
 Remote dependencies are pinned in [`Package.resolved`](RawCull.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved). The current resolved versions are:
 
@@ -182,23 +194,50 @@ records logs, JSON measurements, and a Markdown report; it supports comparison
 with a compatible baseline. These component timings measure image readiness,
 not the first painted frame.
 
-See the [development summary](Docs/summary.md#catalog-performance) for measured results and the
-[scripts guide](Scripts/README.md) for tool entry points.
+See the [scripts guide](Scripts/README.md) for tool entry points.
 
 A standalone PhotoAnalysisKit comparison on 227 RAW files measured **30% less
 time for serial batch analysis** (25.09 s to 17.48 s) and **49% less median time
 for combined analysis and focus mask generation** (194.12 ms to 99.38 ms).
-The comparison used one run per revision. [Benchmark details](Docs/summary.md#photoanalysiskit-performance)
+The comparison used one run per revision.
 
 ## Release
 
-Validate the AI boundary and release inputs before building:
+### Release checklist
 
-```bash
-make verify-ai-import-boundary
-make release-preflight
-make build
-```
+Run these checks before every release build:
+
+1. **Automated checks.** Run them from a clean worktree on the release commit:
+
+   ```bash
+   make verify-ai-import-boundary  # Restricted AI imports
+   make release-preflight          # Clean worktree, version and tag, model provenance
+   make test-smoke                 # App integration and critical paths
+   make test-mcp-release           # MCP helper tests, plus the shared job stores compiled in Release
+   ```
+
+2. **Build numbers.** Check that the app and the `RawCullModelDownloader` extension
+   have the same `CURRENT_PROJECT_VERSION`. `release.sh` sets both when Xcode
+   manages build numbers or when `BUILD_NUMBER` is set. `make build` uses the
+   values in the project as they are.
+3. **Manual smoke test in the app.** The workspace state is now split into separate
+   models that views read from the SwiftUI environment (see
+   [Architecture](#architecture)). The automated tests do not run the full UI, so
+   check these by hand on the built app:
+   - Open a catalog. Switch through every view mode: loupe, grid, similarity grid,
+     rated grid, comparison grid, AI Analysis and Combined Review. Open and close
+     the zoom overlay.
+   - Rate, tag and reject a photo. Check that the grid, filters and selection update
+     and that the next photo is selected.
+   - Group bursts and open the burst workspace. Run Deep Review on one burst.
+   - Copy or export one file.
+   - Run one end-to-end MCP job from a desktop AI client: catalog approval, analysis,
+     and retrieving the ranked burst recommendations.
+4. **Build:**
+
+   ```bash
+   make build
+   ```
 
 `make build` creates the signed, notarized, and stapled app and DMG. It requires the configured Developer ID identity, notarytool keychain profile, and `create-dmg` at `../create-dmg/create-dmg`.
 
@@ -206,7 +245,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.8.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.9.dmg
 ```
 
 ### App Store Connect and TestFlight uploads
