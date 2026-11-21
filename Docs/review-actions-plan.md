@@ -1,6 +1,6 @@
 # Plan: Review actions 1–5 (CI, lint, Vision, history, coverage)
 
-Status: draft · 2026-11-21 · branch `version-3.4.9`
+Status: draft · 2026-11-21 · branch `version-3.4.9` · steps 5–6 done (Vision phases 2–3), except the end-to-end burst run
 
 ## Why
 
@@ -10,7 +10,7 @@ A review of the codebase on 2026-11-21 scored RawCull about 6.9 / 10. The code i
 |---|---|---|
 | Build, CI and release | 4.0 | No CI in the app repo or in the packages. Releases are manual. |
 | Process and history | 4.5 | 440 commits in 30 days. 152 of them are titled "update". |
-| Concurrency | 6.5 | The Vision hang is mitigated (phase 1), not fixed. |
+| Concurrency | 6.5 | The Vision hang is mitigated (phase 1), not fixed. (Fixed since: phases 2–3 are done.) |
 | Testing | 7.5 | About 1,070 tests, but no coverage numbers. |
 | Code quality | 7.5 | Clean code, but the SwiftLint rules are not enforced. |
 
@@ -30,7 +30,7 @@ This plan covers the five actions with the largest effect. Done together, they s
 | Commits, last 30 days | 440, of which 152 "update" and 112 merges | `git log --since=2026-10-22` |
 | Release tags | 46, latest `v3.4.5` | `git tag` |
 | Code coverage | not collected (`RawCull.xctestplan` has no `codeCoverage` option; `test-smoke` passes `-enableCodeCoverage NO`) | test plans, Makefile |
-| Vision worst case | 8 requests for 10 pool threads (10-core), 7 for 8 (8-core) | [visionupdate.md](visionupdate.md#phase-1-result-2026-11-21) |
+| Vision worst case | 8 requests for 10 pool threads (10-core), 7 for 8 (8-core). Since phases 2–3: 1 request at a time, waiting callers suspend | [visionupdate.md](visionupdate.md#phase-1-result-2026-11-21) |
 
 Things that shape the CI design:
 
@@ -46,14 +46,14 @@ Things that shape the CI design:
 | 1 | `make lint` and `make format-check` with a baseline | S | none | not started |
 | 2 | CI for RawCull (pull requests: lint + smoke; nightly: full) | M | low | not started |
 | 3 | CI for the five packages | S | none | not started |
-| 4 | Vision hang regression test and serialized Vision suites | S | low | not started |
-| 5 | Vision phase 2 (PhotoAnalysisKit) | M | medium | not started, see [visionupdate.md](visionupdate.md#phase-2-fix-it-in-photoanalysiskit-next-package-release) |
-| 6 | Vision phase 3 (PhotoAIKit and RawCull) | M | medium | not started, see [visionupdate.md](visionupdate.md#phase-3-photoaikit-and-rawcull-after-phase-2) |
+| 4 | Vision hang regression test | S | low | not started |
+| 5 | Vision phase 2 (PhotoAnalysisKit) | M | medium | done (PhotoAnalysisKit 1.4.0), see [visionupdate.md](visionupdate.md#phase-2-result-2026-11-21) |
+| 6 | Vision phase 3 (PhotoAIKit and RawCull) | M | medium | done (PhotoAIKit 3.1.0) except the end-to-end burst run, see [visionupdate.md](visionupdate.md#phase-1-cap-removed-2026-11-21) |
 | 7 | Pay down lint errors and split the two largest types | M | low | not started |
 | 8 | Commit and release hygiene | XS | none | not started |
 | 9 | Coverage collection and floors | S | none | not started |
 
-Step 1 comes first because CI (step 2) needs a lint command that passes today. Step 4 comes before CI turns on parallel tests, so CI does not inherit the hang. Steps 8 and 9 can be done at any time.
+Step 1 comes first because CI (step 2) needs a lint command that passes today. Step 4 should land before CI turns on parallel tests, so a return of the hang fails a run instead of stalling it. Steps 8 and 9 can be done at any time.
 
 ## Action 1: Add CI
 
@@ -111,22 +111,26 @@ Done when: errors in `RawCull/` are 0, and no app type body is over 600 lines.
 
 ## Action 3: Finish the Vision fix
 
-### Step 4: Protect against a regression now (app only, one PR)
+### Step 4: Guard against a regression (app only, one PR)
 
-1. Add `VisionConcurrencyRegressionTests` to `RawCullTests`. It starts `activeProcessorCount × 3` concurrent feature prints, through the shared `VisionFeaturePrintBackend` from `RawCullAIModelRuntime`. It also starts the same number of `SharpnessScoringModel` scorings on small fixture images. Give it `.timeLimit(.minutes(1))`. Today this test should pass because of phase 1. It is the test that phases 2–3 must keep green.
-2. Mark the suites that run real Vision work `.serialized`, so that parallel test runs cannot go past the phase 1 limits. Candidates are `SharpnessScoringTests`, the suites that use `BurstAnalysisCoordinatorTestSupport`, and `CullingGridCoordinatorTests`. Check each one, and leave suites that use fakes unchanged.
-3. Time a 500-image catalog for similarity indexing, as phase 1 asks, and write the result into `visionupdate.md`.
+Phases 2–3 shipped without this test. It now guards the fix, not the phase 1 mitigation.
+
+1. Add `VisionConcurrencyRegressionTests` to `RawCullTests`. It starts `activeProcessorCount × 3` concurrent feature prints through the shared `VisionFeaturePrintBackend` from `RawCullAIModelRuntime`, and the same number of `SharpnessScoringModel` scorings on small fixture images, all at once. Give it `.timeLimit(.minutes(1))`. The PhotoAIKit 3.1.0 test (3 × cores feature prints in one minute) covers the package alone; this one covers the app, where both packages share `VisionRequestGate.shared`.
+2. Marking the Vision suites `.serialized` is no longer needed: every Vision request now goes through the gate, so parallel test runs cannot exhaust the pool. Leave the suites as they are.
+3. Optional: time similarity indexing on a 500-image catalog, as [visionupdate.md](visionupdate.md#phase-1-result-2026-11-21) asks. The 275-photo real-catalog check already showed 1.0 s alone and 1.8 s next to sharpness scoring.
 
 Done when: the new test passes 3 runs in a row in the nightly job.
 
-### Steps 5–6: Phases 2 and 3
+### Steps 5–6: Phases 2 and 3 (done)
 
-Follow [visionupdate.md](visionupdate.md) as written. Two additions:
+Done on 2026-11-21, see [visionupdate.md](visionupdate.md):
 
-- Plan them for the next package release, not a "quieter" one. Phase 1 leaves only 1–2 pool threads free.
-- In phase 2, record `FocusMaskEngine.runCancellableWorker` as the next issue of the same kind. It runs Core Image rendering synchronously on the pool. Decide whether it moves onto its own queue, as the gate does, or whether a test shows it never needs a pool thread to finish.
+- PhotoAnalysisKit 1.4.0 and PhotoAIKit 3.1.0 are released and pinned. Every Vision request in the app goes through `VisionRequestGate.shared`.
+- The `RawCull` test plan ran three times in a row with no failures, the release sharpness test passed, and sharpness scoring plus similarity indexing at 10 tasks on a 10-core Mac finished.
+- The phase 1 cap on sharpness scoring is removed.
+- `FocusMaskEngine.runCancellableWorker` is recorded as the next issue of the same kind, under Risks in visionupdate.md.
 
-Done when: phase 3 step 4 passes, the phase 1 cap on sharpness scoring is reverted or the reason to keep it is written down, and the regression test from step 4 still passes.
+Still open: the end-to-end burst analysis through the app (`Scripts/PrepareBursts.py` over MCP), which needs a build of this branch installed as the app. The step 4 regression test does not exist yet.
 
 ## Action 4: Commit and release hygiene (step 8)
 

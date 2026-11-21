@@ -799,7 +799,7 @@ The remaining signed checks are missing-model handling and partial and all-unrea
 
 On 2026-11-17, the installed TestFlight helper reported build 454, version 0.7.0, and all four assessment tools. Strict signature verification passed for the installed app and helper. At source commit `84d36822`, all 19 helper tests and all 18 tests in the isolated Release lifecycle harness passed. The Release run used `sh Scripts/TestMCPRelease.sh --no-parallel`.
 
-The [build 454 prompt log](test3prompts.md) contains seven populated checks. The original source job `41A75EB4-66D4-4040-9DEC-132FCAD38DDE` is no longer current and all six recorded assessment IDs returned `unavailable` when checked. The following audit describes what the preserved excerpts establish.
+The build 454 prompt log (since removed; it is in git history as `Docs/test3prompts.md`) contained seven populated checks. The original source job `41A75EB4-66D4-4040-9DEC-132FCAD38DDE` is no longer current and all six recorded assessment IDs returned `unavailable` when checked. The following audit describes what the preserved excerpts establish.
 
 | Logged check | Evidence and limits |
 | --- | --- |
@@ -858,6 +858,12 @@ Use a disposable macOS profile and copied RAWs for the signed upgrade, missing-m
 | Disable switch | Open **Settings → MCP** before starting the request so opening Settings cannot refresh the model during inference. When the assessment is running, turn off **Enable MCP photo assessments**. Confirm `rawcull_status` reports `photoAssessmentsEnabled: false`, assessment calls return `assessmentDisabled`, and the baseline rankings and grant are readable. Re-enable, check that the old assessment stays unavailable, and run a new burst and assessment. |
 | Cancel, quit, and process death | Use separate requests. Cancel a running request and confirm `cancelled` with no result. Quit normally during inference and confirm the same after quit. Force-quit a worker during another inference, then query status for `interrupted`. Confirm no result, the original source is still readable, and a new request can run after relaunch. |
 | Clear and revoke | Clear an individual assessment and verify `resultCleared`, inaccessible findings, and readable rankings. Clear the last shared burst and verify dependent assessments disappear. In a separate run with a saved disposable grant, revoke during inference. Verify the grant disappears, source and assessment become inaccessible, and fresh assessment returns `permissionRequired`. |
-| Missing Qwen and diagnostic privacy | In a profile without Qwen, run a valid assessment and confirm `modelUnavailable`, no findings, and readable source rankings. For private fixture markers and file capture, follow [the diagnostic prompts](test3prompts.md#11-check-diagnostic-privacy-clear-and-revoke). |
+| Missing Qwen and diagnostic privacy | In a profile without Qwen, run a valid assessment and confirm `modelUnavailable`, no findings, and readable source rankings. For private fixture markers and file capture, follow [the diagnostic privacy check](#diagnostic-privacy-check). |
+
+#### Diagnostic privacy check
+
+On a disposable catalog, give the folder and copied RAW filenames unique marker strings. If launching with `RAWCULL_AI_CAPTURE_DIR`, point it at an empty destination that RawCull can write to.
+
+> Use only RawCull MCP. Assess two explicit photo IDs from the disposable source with rubric `["composition"]`. After completion, inspect the full structured assessment response for the folder and filename markers `<folder marker>` and `<filename marker>`. Report whether either appears and whether the response contains image bytes, filesystem paths, raw model output, or unrequested findings. I’ll check the diagnostic destination separately for new files.
 
 **Step 5 verdict — open pending the signed TestFlight matrix.**
