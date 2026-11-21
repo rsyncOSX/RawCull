@@ -120,9 +120,9 @@ class MCP:
         self.process.stdout.close()
 
 
-def heartbeat(client, method, **arguments):
-    """Probe a status endpoint, tolerating the helper's transient storage lock."""
-    deadline = time.monotonic() + 30
+def heartbeat(client, method, patience=30, **arguments):
+    """Call an idempotent endpoint, tolerating the helper's transient storage lock."""
+    deadline = time.monotonic() + patience
     delay = 0.5
     while True:
         try:
@@ -130,7 +130,7 @@ def heartbeat(client, method, **arguments):
         except MCPBusyError:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise RuntimeError(f'{method}: assessment storage remained busy for 30 seconds.') from None
+                raise RuntimeError(f'{method}: assessment storage remained busy for {patience} seconds.') from None
             client.check_time()
             time.sleep(min(delay, remaining))
             delay = min(delay * 2, 5)
@@ -217,7 +217,10 @@ def run(client, path, state, limit):
         arguments = dict(catalogId=state['catalogId'], sourceJobId=state['sourceJobId'],
                          burstId=burst['id'], rubric=state['rubric'], requestId=entry['requestId'])
         # Identical replay recovers admission if the prior process lost its response.
-        status = client.call('start_photo_assessment', **arguments)
+        # RawCull holds the worker lease briefly after publishing the previous result,
+        # and a foreign pending request blocks admission for up to 120 seconds, so
+        # a busy reply here is retried with the same request ID.
+        status = heartbeat(client, 'start_photo_assessment', patience=150, **arguments)
         while status['state'] in ('queued', 'running'):
             client.pause()
             status = heartbeat(client, 'get_photo_assessment_status',
@@ -226,7 +229,8 @@ def run(client, path, state, limit):
         save(path, state)
         if status['state'] in ('completed', 'failed'):
             # Failed requests may still carry useful per-photo failure evidence.
-            entry['result'] = client.call('get_photo_assessment_result', requestId=entry['requestId'])
+            entry['result'] = heartbeat(client, 'get_photo_assessment_result',
+                                        requestId=entry['requestId'])
         entry['finished'] = True
         save(path, state)
         processed += 1
