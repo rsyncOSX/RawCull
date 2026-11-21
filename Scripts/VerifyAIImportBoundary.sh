@@ -49,6 +49,15 @@ is_allowed_import() {
         PhotoAIWorkflows:RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift) return 0 ;;
         PhotoAIWorkflows:RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) return 0 ;;
+        # Builds burst snapshots from SimilarityArtifact values and their backend descriptors.
+        PhotoAIContracts:RawCull/Intelligence/BurstAnalysis/BurstAnalysisSnapshotFactory.swift) return 0 ;;
+        # Validates stored SimilarityArtifact values against AIImageSource fingerprints.
+        PhotoAIContracts:RawCull/Intelligence/SemanticSearch/RawCullSemanticSearchModel.swift) return 0 ;;
+        # Outside Intelligence/: the MCP workspace protocol hands similarity embeddings
+        # ([UUID: SimilarityArtifact]) to the MCP job.
+        PhotoAIContracts:RawCull/Main/MCPAnalysisWorkspace.swift) return 0 ;;
+        # Outside Intelligence/: review policies carry the Deep Review SubjectMaskStorageKey.
+        PhotoAIContracts:RawCull/Model/ImageReviewPolicies.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Composition/RawCullIntelligenceRuntime.swift) return 0 ;;
         # Response decoding maps model JSON into the shared review contracts.
