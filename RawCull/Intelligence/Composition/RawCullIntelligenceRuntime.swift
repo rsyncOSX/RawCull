@@ -57,6 +57,8 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let combinedReviewFeature: CombinedReviewFeature
+    /// Which review the record window shows; shared by Review and that window.
+    let reviewRecordNavigation = CombinedReviewRecordNavigation()
     let settingsModel: RawCullAISettingsModel
     let modelDownloadsModel: RawCullAIModelDownloadsModel
     private(set) var lastAppliedConfigurationIdentity:

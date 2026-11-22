@@ -1,381 +1,247 @@
 import SwiftUI
 
+/// The review's main view: the photo stays in place on the left while the inspector on the
+/// right drills down from the summary to a finding and to the region behind it.
 struct CombinedReviewPhotoLayout: View {
     let feature: CombinedReviewFeature
     let result: CombinedReviewResult
     let presentation: CombinedReviewPresentation
     let canChooseRegion: Bool
+    @Binding var route: CombinedReviewRoute
     let inspect: (String?) -> Void
-    let inspectFinding: (CombinedReviewFinding) -> Void
-    let showEvidence: () -> Void
-    @State private var showRegions = false
+    let openRecord: (CombinedReviewRecordTab) -> Void
+    @State private var showRegions = true
+    @State private var showMask = false
+    @State private var showGeometry = false
     @State private var chooseRegion = false
 
     var body: some View {
-        CombinedReviewResizableColumns(leadingFraction: 0.68) {
-            CombinedReviewPhotoPreview(
-                feature: feature, inputKey: result.overviewInputReference, source: result.source,
-                regions: result.regions, showRegions: $showRegions, chooseRegion: $chooseRegion,
-                canChooseRegion: canChooseRegion, inspect: inspect,
-            ).frame(maxWidth: .infinity, alignment: .topLeading)
+        let highlighted = route.highlightedRegion(in: result, presentation: presentation)
+        CombinedReviewResizableColumns(leadingFraction: 0.62) {
+            VStack(alignment: .leading, spacing: 10) {
+                CombinedReviewPhotoCanvas(
+                    feature: feature, result: result, highlightedRegionID: highlighted,
+                    showRegions: showRegions, showMask: showMask, showGeometry: showGeometry && highlighted != nil,
+                    canChooseRegion: canChooseRegion, chooseRegion: chooseRegion && canChooseRegion,
+                    selectRegion: { id in route = .region(id, from: route.findingID) },
+                )
+                CombinedReviewLayerBar(showRegions: $showRegions, showMask: $showMask, showGeometry: $showGeometry,
+                                       hasRegions: !result.regions.isEmpty,
+                                       hasMask: result.subjects.contains { $0.maskInputReference != nil },
+                                       hasHighlight: highlighted != nil)
+                if let source = result.source {
+                    Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if canChooseRegion {
+                    Toggle("Choose region for next rerun", isOn: $chooseRegion).toggleStyle(.checkbox)
+                        .disabled(feature.isRunning || result.overviewInputReference == nil)
+                    if chooseRegion {
+                        Text("Drag across the photo. Choosing a location does not establish subject or eye identity.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         } trailing: {
-            CombinedReviewSummary(presentation: presentation, inspectFinding: inspectFinding, showEvidence: showEvidence)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+            CombinedReviewInspectorPane(feature: feature, result: result, presentation: presentation, route: $route,
+                                        inProgress: feature.isRunning
+                                            && feature.manifest?.snapshot.files.contains { $0.id == result.file.id } == true,
+                                        showGeometry: $showGeometry, inspect: inspect, openRecord: openRecord)
         }
     }
 }
 
-private struct CombinedReviewPhotoPreview: View {
-    let feature: CombinedReviewFeature
-    let inputKey: String?
-    let source: ReviewSourceRecord?
-    let regions: [ReviewRegionRecord]
+/// Layer toggles for the photo. They replace the old colour legend.
+private struct CombinedReviewLayerBar: View {
     @Binding var showRegions: Bool
-    @Binding var chooseRegion: Bool
-    let canChooseRegion: Bool
-    let inspect: (String?) -> Void
-    @State private var image: CGImage?
+    @Binding var showMask: Bool
+    @Binding var showGeometry: Bool
+    let hasRegions: Bool
+    let hasMask: Bool
+    let hasHighlight: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GeometryReader { geometry in
-                if let image {
-                    let aspect = CGFloat(image.width) / CGFloat(image.height)
-                    let width = min(geometry.size.width, geometry.size.height * aspect)
-                    let height = width / aspect
-                    ZStack(alignment: .topLeading) {
-                        Image(decorative: image, scale: 1).resizable().frame(width: width, height: height)
-                            .accessibilityLabel("Overview supplied to the review models")
-                        if showRegions, let source {
-                            ForEach(regions, id: \.id) { region in
-                                Rectangle().stroke(.yellow, lineWidth: 2)
-                                    .frame(width: region.sourceRect.width / CGFloat(source.width) * width,
-                                           height: region.sourceRect.height / CGFloat(source.height) * height)
-                                    .offset(x: region.sourceRect.minX / CGFloat(source.width) * width,
-                                            y: region.sourceRect.minY / CGFloat(source.height) * height)
-                            }
+        HStack(spacing: 14) {
+            Text("Show").foregroundStyle(.secondary)
+            Toggle("Regions", isOn: $showRegions).disabled(!hasRegions)
+            Toggle("Subject mask", isOn: $showMask).disabled(!hasMask)
+            Toggle("Crop geometry", isOn: $showGeometry).disabled(!hasHighlight)
+                .help(hasHighlight ? "Requested, padded, clipped and model-retained crop rectangles"
+                    : "Select a finding or region to show its crop geometry")
+        }
+        .toggleStyle(.checkbox)
+        .font(.callout)
+    }
+}
+
+/// The reviewed photo with its regions. A highlighted region is outlined in white and the rest
+/// of the photo is dimmed; clicking a region opens it in the inspector.
+private struct CombinedReviewPhotoCanvas: View {
+    let feature: CombinedReviewFeature
+    let result: CombinedReviewResult
+    let highlightedRegionID: ReviewRegionID?
+    let showRegions: Bool
+    let showMask: Bool
+    let showGeometry: Bool
+    let canChooseRegion: Bool
+    let chooseRegion: Bool
+    let selectRegion: (ReviewRegionID) -> Void
+    @State private var image: CGImage?
+    @State private var tint: CGImage?
+
+    private var highlighted: ReviewRegionRecord? {
+        highlightedRegionID.flatMap { id in result.regions.first { $0.id == id } }
+    }
+
+    /// The mask follows the highlighted region's subject, else the first subject with a mask.
+    private var maskKey: String? {
+        guard showMask else { return nil }
+        let subject = highlighted?.subjectID.flatMap { id in result.subjects.first { $0.id == id } }
+        return subject?.maskInputReference ?? result.subjects.first { $0.maskInputReference != nil }?.maskInputReference
+    }
+
+    /// Larger regions first so smaller, nested regions sit on top and stay clickable.
+    private var orderedRegions: [ReviewRegionRecord] {
+        result.regions.sorted { $0.sourceRect.width * $0.sourceRect.height > $1.sourceRect.width * $1.sourceRect.height }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            if let image {
+                let aspect = CGFloat(image.width) / CGFloat(image.height)
+                let width = min(geometry.size.width, geometry.size.height * aspect)
+                let size = CGSize(width: width, height: width / aspect)
+                let sourceSize = result.source.map { CGSize(width: $0.width, height: $0.height) }
+                    ?? CGSize(width: image.width, height: image.height)
+                ZStack(alignment: .topLeading) {
+                    CombinedReviewInspectionCanvas(image: image, tint: showMask ? tint : nil, sourceSize: sourceSize,
+                                                   region: showGeometry ? highlighted : nil)
+                        .frame(width: size.width, height: size.height)
+                        .allowsHitTesting(false)
+                        .accessibilityLabel("Overview supplied to the review models")
+                    if let highlighted {
+                        let rect = ReviewInspectionOverlay.displayRect(highlighted.sourceRect, sourceSize: sourceSize, displaySize: size)
+                        Path { path in
+                            path.addRect(CGRect(origin: .zero, size: size))
+                            path.addRect(rect)
                         }
-                        if let rect = feature.userRegion, canChooseRegion {
-                            Rectangle().stroke(.cyan, style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                                .frame(width: rect.width * width, height: rect.height * height)
-                                .offset(x: rect.minX * width, y: rect.minY * height)
+                        .fill(.black.opacity(0.45), style: FillStyle(eoFill: true))
+                        .allowsHitTesting(false)
+                    }
+                    ForEach(orderedRegions, id: \.id) { region in
+                        let isHighlighted = region.id == highlightedRegionID
+                        if showRegions || isHighlighted {
+                            regionBox(region, isHighlighted: isHighlighted, sourceSize: sourceSize, size: size)
                         }
                     }
-                    .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 10).onEnded { value in
-                        guard chooseRegion, canChooseRegion, !feature.isRunning else { return }
-                        let rect = CGRect(
-                            x: min(value.startLocation.x, value.location.x) / width,
-                            y: min(value.startLocation.y, value.location.y) / height,
-                            width: abs(value.location.x - value.startLocation.x) / width,
-                            height: abs(value.location.y - value.startLocation.y) / height,
-                        ).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
-                        if rect.width > 0.01, rect.height > 0.01 {
-                            feature.userRegion = rect
-                        }
-                    })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ContentUnavailableView("Review preview unavailable",
-                                           systemImage: "photo",
-                                           description: Text("Exact inputs were not retained, were evicted, or have been cleared. Findings remain available."))
+                    if let rect = feature.userRegion, canChooseRegion {
+                        Rectangle().stroke(.cyan, style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                            .frame(width: rect.width * size.width, height: rect.height * size.height)
+                            .offset(x: rect.minX * size.width, y: rect.minY * size.height)
+                            .allowsHitTesting(false)
+                    }
                 }
-            }
-            .aspectRatio(image.map { CGFloat($0.width) / CGFloat($0.height) } ?? 1.5, contentMode: .fit)
-            .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
-            if let source {
-                Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
-                    Spacer()
-                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
-                }
-                VStack(alignment: .leading) {
-                    Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
-                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
-                }
-            }
-            if canChooseRegion {
-                Toggle("Choose region for next rerun", isOn: $chooseRegion).toggleStyle(.checkbox)
-                    .disabled(feature.isRunning || image == nil)
-                if chooseRegion {
-                    Text("Drag across the preview. Choosing a location does not establish subject or eye identity.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 10).onEnded { value in
+                    guard chooseRegion, !feature.isRunning else { return }
+                    let rect = CGRect(
+                        x: min(value.startLocation.x, value.location.x) / size.width,
+                        y: min(value.startLocation.y, value.location.y) / size.height,
+                        width: abs(value.location.x - value.startLocation.x) / size.width,
+                        height: abs(value.location.y - value.startLocation.y) / size.height,
+                    ).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+                    if rect.width > 0.01, rect.height > 0.01 {
+                        feature.userRegion = rect
+                    }
+                })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ContentUnavailableView("Review preview unavailable",
+                                       systemImage: "photo",
+                                       description: Text("Exact inputs were not retained, were evicted, or have been cleared. Findings remain available."))
             }
         }
-        .task(id: inputKey) {
+        .aspectRatio(image.map { CGFloat($0.width) / CGFloat($0.height) } ?? 1.5, contentMode: .fit)
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
+        .overlay(alignment: .bottom) {
+            CombinedReviewRunProgressCard(feature: feature, imageID: result.file.id).padding(16)
+        }
+        .animation(.easeInOut(duration: 0.2), value: feature.isRunning)
+        .task(id: result.overviewInputReference) {
             image = nil
-            guard let inputKey else { return }
-            let loaded = await feature.exactInput(inputKey)
+            guard let key = result.overviewInputReference else { return }
+            let loaded = await feature.exactInput(key)
             guard !Task.isCancelled else { return }
             image = loaded
         }
-    }
-}
-
-private struct CombinedReviewSummary: View {
-    let presentation: CombinedReviewPresentation
-    let inspectFinding: (CombinedReviewFinding) -> Void
-    let showEvidence: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(presentation.incomplete ? "Review with limitations" : "Review complete",
-                  systemImage: presentation.incomplete ? "exclamationmark.circle" : "checkmark.circle")
-                .font(.title3)
-            if presentation.incomplete {
-                Text("Some checks or image regions could not be fully assessed. Open evidence & limitations for details.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            CombinedReviewImportantLimits(limits: presentation.importantLimits)
-            if presentation.findings.isEmpty {
-                Text("Insufficient validated evidence for a finding. Completed stages remain in the technical record.")
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(presentation.findings) { finding in
-                CombinedReviewFindingRow(finding: finding, isSelected: false, select: { inspectFinding(finding) })
-            }
-            Text("Model observations. Same-model reconciliation is not independent confirmation. Measurements are uncalibrated.")
-                .font(.caption).foregroundStyle(.secondary)
-            CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
-            Button("View evidence & limitations", action: showEvidence)
-        }.padding(16).background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
-    }
-}
-
-struct CombinedReviewFindingRow: View {
-    let finding: CombinedReviewFinding
-    let isSelected: Bool
-    let select: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(finding.title).font(.headline)
-            Text(finding.text).textSelection(.enabled)
-            if !finding.uncertainty.isEmpty {
-                Text(finding.uncertainty).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            if finding.isObservationOnly {
-                Text("Observation only; no synthesized conclusion").font(.caption).foregroundStyle(.secondary)
-            }
-            if !finding.contradictions.isEmpty {
-                Label("Conflicting evidence", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
-            }
-            Button("Inspect evidence", action: select)
-                .accessibilityValue(isSelected ? "Selected finding" : "")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 8))
-        .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-private struct CombinedReviewImportantLimits: View {
-    let limits: [String]
-    var body: some View {
-        if !limits.isEmpty {
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(limits, id: \.self) { Text($0) }
-            }.font(.callout).padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.orange.opacity(0.1), in: .rect(cornerRadius: 8))
+        .task(id: maskKey) {
+            tint = nil
+            guard let key = maskKey, let mask = await feature.exactInput(key) else { return }
+            let loaded = try? await Task { @concurrent in try ReviewInspectionOverlay.tint(mask) }.value
+            guard !Task.isCancelled, maskKey == key else { return }
+            tint = loaded
         }
     }
-}
 
-private struct CombinedReviewCoverageCount: View {
-    let inspected: Int?
-    let uninspected: Int?
-    var body: some View {
-        if let inspected, let uninspected {
-            Text("\(inspected) regions inspected · \(uninspected) uninspected").font(.caption).foregroundStyle(.secondary)
-        } else {
-            Text("Coverage report not available yet").font(.caption).foregroundStyle(.secondary)
-        }
+    private func regionBox(_ region: ReviewRegionRecord, isHighlighted: Bool, sourceSize: CGSize, size: CGSize) -> some View {
+        let rect = ReviewInspectionOverlay.displayRect(region.sourceRect, sourceSize: sourceSize, displaySize: size)
+        let dimmed = highlightedRegionID != nil && !isHighlighted
+        let color: Color = isHighlighted ? .white : dimmed ? .white.opacity(0.35) : .yellow
+        let name = CombinedReviewPresentation.regionName(region, subjects: result.subjects)
+        return Rectangle()
+            .stroke(color, lineWidth: isHighlighted ? 3 : 2)
+            .overlay(alignment: .topLeading) {
+                Text(name)
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(color, in: .rect(cornerRadius: 2))
+                    .foregroundStyle(.black)
+            }
+            .frame(width: rect.width, height: rect.height)
+            .contentShape(Rectangle())
+            .onTapGesture { selectRegion(region.id) }
+            .allowsHitTesting(!chooseRegion)
+            .offset(x: rect.minX, y: rect.minY)
+            .help("Show details for \(name)")
+            .accessibilityElement()
+            .accessibilityLabel("Region \(name)")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { selectRegion(region.id) }
     }
 }
 
-struct CombinedReviewEvidenceLayout: View {
+/// What the running review is doing, shown on the photo it is reviewing. The bar counts this
+/// photo's finished tasks; the run adds crop tasks as it goes, so the total can grow.
+struct CombinedReviewRunProgressCard: View {
     let feature: CombinedReviewFeature
-    let result: CombinedReviewResult
-    let presentation: CombinedReviewPresentation
-    let topic: CombinedReviewEvidenceTopic
-    let selectedFindingID: String?
-    @Binding var selectedRegionID: String
-    let inspect: (String?) -> Void
-    let selectFinding: (CombinedReviewFinding) -> Void
+    /// The photo to report on. Nil reports the whole run.
+    let imageID: ReviewImageID?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            switch topic {
-            case .findings:
-                CombinedReviewResizableColumns(leadingFraction: 0.38) {
-                    CombinedReviewFindingsList(findings: presentation.findings, selectedID: selectedFindingID,
-                                               select: selectFinding).frame(maxWidth: .infinity, alignment: .topLeading)
-                } trailing: {
-                    CombinedReviewEvidenceInspector(feature: feature, result: result, regionID: $selectedRegionID)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+        if feature.isRunning, let run = feature.manifest,
+           imageID == nil || run.snapshot.files.contains(where: { $0.id == imageID }) {
+            let own = run.work.filter { $0.imageID == imageID }
+            let items = own.isEmpty ? run.work : own
+            let done = items.filter(\.state.terminal).count
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(feature.progress).font(.headline).lineLimit(1)
+                    Spacer(minLength: 12)
+                    Text("\(done) of \(items.count) tasks").font(.callout).monospacedDigit().foregroundStyle(.secondary)
                 }
-                if let finding = presentation.findings.first(where: { $0.id == selectedFindingID }) {
-                    CombinedReviewFindingEvidence(finding: finding, result: result, inspect: inspect)
-                }
-
-            case .coverage:
-                CombinedReviewCoverageDetails(presentation: presentation, source: result.source, omissions: result.omissions)
-
-            case .technical:
-                CombinedReviewRecordCopy(result: result)
-                CombinedReviewTechnicalDetails(feature: feature, result: result, inspect: inspect)
+                ProgressView(value: Double(done), total: Double(max(items.count, 1)))
+                    .accessibilityLabel("Review progress")
+                    .accessibilityValue("\(done) of \(items.count) tasks")
             }
-            CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct CombinedReviewFindingsList: View {
-    let findings: [CombinedReviewFinding]
-    let selectedID: String?
-    let select: (CombinedReviewFinding) -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Findings").font(.headline)
-            if findings.isEmpty {
-                Text("No validated findings. Inspect coverage and the completed technical stages.").foregroundStyle(.secondary)
-            }
-            ForEach(findings) { finding in
-                CombinedReviewFindingRow(finding: finding, isSelected: finding.id == selectedID, select: { select(finding) })
-            }
-        }
-    }
-}
-
-private struct CombinedReviewEvidenceInspector: View {
-    let feature: CombinedReviewFeature
-    let result: CombinedReviewResult
-    @Binding var regionID: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let key = result.overviewInputReference {
-                CombinedReviewInspector(feature: feature, inputKey: key, source: result.source,
-                                        subjects: result.subjects, regions: result.regions, regionID: $regionID)
-            } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    Label("Retained input unavailable", systemImage: "photo").font(.headline)
-                    Text("Evidence references and measurements remain in the technical record.").foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, minHeight: 180, alignment: .center)
-            }
-        }.padding(16).background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
-    }
-}
-
-private struct CombinedReviewFindingEvidence: View {
-    let finding: CombinedReviewFinding
-    let result: CombinedReviewResult
-    let inspect: (String?) -> Void
-    var body: some View {
-        DisclosureGroup("Supporting references & conflicts") {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(finding.evidence, id: \.self) { ref in
-                    CombinedReviewEvidenceReferenceRow(reference: ref, result: result, inspect: inspect)
-                }
-                if !finding.contradictions.isEmpty {
-                    Text("Conflicting references").font(.headline)
-                    ForEach(finding.contradictions, id: \.self) { ref in
-                        CombinedReviewEvidenceReferenceRow(reference: ref, result: result, inspect: inspect)
-                    }
-                }
-            }.padding(.top, 8)
-        }
-    }
-}
-
-private struct CombinedReviewEvidenceReferenceRow: View {
-    let reference: ReviewEvidenceReference
-    let result: CombinedReviewResult
-    let inspect: (String?) -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(reference.kind.rawValue) · \(reference.id)").font(.caption).textSelection(.enabled)
-            if let observation = result.observations.first(where: { $0.id.rawValue == reference.id }) {
-                Text(observation.text).textSelection(.enabled)
-                Text(observation.uncertainty).font(.caption).foregroundStyle(.secondary)
-                Button("Inspect exact input") { inspect(observation.provenance.inputReference) }
-            } else if let region = result.regions.first(where: { $0.id.rawValue == reference.id }) {
-                Button("Inspect exact crop") { inspect(region.inputReference) }
-            } else if reference.kind == .image {
-                Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(result.overviewInputReference) }
-            }
-        }
-    }
-}
-
-private struct CombinedReviewCoverageDetails: View {
-    let presentation: CombinedReviewPresentation
-    let source: ReviewSourceRecord?
-    let omissions: [ReviewRegionOmission]
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Coverage & limits").font(.title3)
-            CombinedReviewImportantLimits(limits: presentation.importantLimits)
-            Text("Full limitations").font(.headline)
-            ForEach(presentation.limitations, id: \.id) { limitation in
-                Text(limitation.reason).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if let source {
-                DisclosureGroup("Source limitations") {
-                    ForEach(source.limitations, id: \.self) { Text($0).font(.caption).textSelection(.enabled) }
-                }
-            }
-            if !omissions.isEmpty {
-                DisclosureGroup("Uninspected regions") {
-                    ForEach(omissions, id: \.regionID) { omission in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(omission.detail)
-                            Text("\(omission.reason.rawValue) · \(omission.regionID.rawValue)").font(.caption).textSelection(.enabled)
-                        }
-                    }
-                }
-            }
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct CombinedReviewRecordCopy: View {
-    let result: CombinedReviewResult
-    @State private var message: String?
-    @State private var showRecord = false
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button("Copy full technical record") {
-                    do {
-                        let json = try CombinedReviewTechnicalRecord(result).json()
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(json, forType: .string)
-                        message = String(localized: "Copied with full precision and provenance.")
-                    } catch {
-                        message = String(localized: "Could not encode the technical record.")
-                    }
-                }
-                if let message {
-                    Text(message).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            DisclosureGroup("Full structured record") {
-                if showRecord, let record = try? CombinedReviewTechnicalRecord(result).json() {
-                    Text(record).font(.caption.monospaced()).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Button("Show full record") { showRecord = true }
-                }
-            }
-        }
-        .onChange(of: result.file.id) { _, _ in
-            showRecord = false
-            message = nil
+            .padding(14)
+            .frame(maxWidth: 520)
+            .background(.regularMaterial, in: .rect(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+            .transition(.opacity)
         }
     }
 }

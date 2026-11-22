@@ -56,7 +56,7 @@ Open **Review** from the toolbar, then choose selected or tagged images as the i
 - **Describe**: one Qwen assessment of the whole photo.
 - **Full**: everything, including per-object crops and a written report.
 
-Each result shows the photo, its findings, and Tag, Rate and Mark Reviewed, with the grid's rating keys. Running or reopening a review never changes a rating. **Evidence & details** below the findings holds the supporting masks and crops, coverage limits and the technical record; clicking a finding opens it there. Focus check and Full also supply the subject outline (the S key) in the loupe, zoom and burst workspace.
+Each result shows the photo, its findings, and Tag, Rate and Mark Reviewed, with the grid's rating keys. Running or reopening a review never changes a rating. The photo stays in place while the panel beside it drills down: click a finding to see its crop and highlight its region on the photo, then **Region details** for the subject, crop geometry and provenance. The ↑ and ↓ keys step through findings and Esc goes back. Layer toggles under the photo show the regions, the subject mask and the crop geometry. **Coverage & limits**, the full technical record and run history open in a separate, resizable Review Record window that follows the selected photo. While a review runs, a card on the photo shows the current step and a progress bar. Focus check and Full also supply the subject outline (the S key) in the loupe, zoom and burst workspace.
 
 Describe and Full need at least 16 GB of unified memory; 32 GB is recommended.
 
@@ -287,7 +287,8 @@ Run these checks before every release build:
      tagged photos. Focus check must run without the Qwen model installed. In a
      result, tag, rate and mark reviewed, and check that the grid updates. Reopen
      the review and check that the rating has not changed. Click a finding and check
-     that **Evidence & details** opens on its masks or crops.
+     that its region lights up on the photo and its crop shows beside it; use ↑ ↓
+     and Esc, open **Region details**, and open the Review Record window.
    - Rate a photo 4 stars, open its review and check that the tag button reads
      **Tagged** and is disabled, so it can't erase the stars. Check the same in the
      AI Assessments window.

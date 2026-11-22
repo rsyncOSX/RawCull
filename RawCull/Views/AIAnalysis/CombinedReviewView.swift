@@ -1,16 +1,5 @@
 import SwiftUI
 
-enum CombinedReviewEvidenceTopic: String, CaseIterable {
-    case findings, coverage, technical
-    var title: LocalizedStringResource {
-        switch self {
-        case .findings: "Findings"
-        case .coverage: "Coverage & limits"
-        case .technical: "Technical record"
-        }
-    }
-}
-
 struct CombinedReviewView: View {
     @Bindable var feature: CombinedReviewFeature
     let selection: SelectionModel
@@ -19,13 +8,11 @@ struct CombinedReviewView: View {
     @Environment(RatingsModel.self) private var ratings
     @Environment(CullingController.self) private var culling
     @Environment(BurstWorkflowController.self) private var burstWorkflow
-    /// Evidence is for checking a finding, so it stays collapsed until asked for.
-    @State private var evidenceExpanded = false
-    @State private var topic: CombinedReviewEvidenceTopic = .findings
-    @State private var selectedFindingID: String?
-    @State private var selectedRegionID = ""
-    @State private var inspectedInput: CGImage?
-    @State private var showInput = false
+    /// Where the inspector beside the photo is: summary, a finding, or a region.
+    @State private var route: CombinedReviewRoute = .summary
+    @Environment(CombinedReviewRecordNavigation.self) private var recordNavigation
+    @Environment(\.openWindow) private var openWindow
+    @State private var inputRequest: CombinedReviewInputRequest?
     @State private var settingsExpanded = false
 
     private var selectedResult: CombinedReviewResult? {
@@ -47,58 +34,46 @@ struct CombinedReviewView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollViewReader { scroller in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        CombinedReviewRunBar(feature: feature, files: files)
-                        DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
-                            CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    CombinedReviewRunBar(feature: feature, files: files)
+                    DisclosureGroup("Review settings & retained data", isExpanded: $settingsExpanded) {
+                        CombinedReviewRunControls(feature: feature, files: files).padding(.top, 10)
+                    }
+                    if let error = feature.failureMessage {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange).textSelection(.enabled)
+                    }
+                    if let selection = feature.selectionReport {
+                        DisclosureGroup("Selection comparison") {
+                            CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
                         }
-                        if let error = feature.failureMessage {
-                            Label(error, systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange).textSelection(.enabled)
-                        }
-                        if let selection = feature.selectionReport {
-                            DisclosureGroup("Selection comparison") {
-                                CombinedReviewComparison(feature: feature, report: selection, inspect: inspect)
-                            }
-                        }
-                        if !feature.displayedResults.isEmpty {
-                            CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
-                        }
-                        if let result = selectedResult {
-                            let presentation = CombinedReviewPresentation(result: result)
-                            Text(result.file.displayName).font(.title2).textSelection(.enabled)
-                            CombinedReviewDecisionBar(review: result.file, decisions: decisions)
-                            CombinedReviewPhotoLayout(
-                                feature: feature, result: result, presentation: presentation,
-                                canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
-                                inspect: inspect,
-                                inspectFinding: { openEvidence($0, result: result, scroller: scroller) },
-                                showEvidence: { openEvidence(.coverage, scroller: scroller) },
-                            )
-                            DisclosureGroup("Evidence & details", isExpanded: $evidenceExpanded) {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Picker("Evidence section", selection: $topic) {
-                                        ForEach(CombinedReviewEvidenceTopic.allCases, id: \.rawValue) { Text($0.title).tag($0) }
-                                    }.pickerStyle(.segmented).frame(maxWidth: 560)
-                                    CombinedReviewEvidenceLayout(
-                                        feature: feature, result: result, presentation: presentation, topic: topic,
-                                        selectedFindingID: selectedFindingID, selectedRegionID: $selectedRegionID,
-                                        inspect: inspect, selectFinding: { openEvidence($0, result: result, scroller: scroller) },
-                                    )
-                                }.padding(.top, 10)
-                            }
-                            .id(Self.evidenceAnchor)
-                        } else {
-                            ContentUnavailableView(
-                                feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
-                                systemImage: "photo.badge.magnifyingglass",
-                                description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    if !feature.displayedResults.isEmpty {
+                        CombinedReviewFilePicker(results: feature.displayedResults, files: files, selection: Bindable(selection).selectedFileID)
+                    }
+                    if let result = selectedResult {
+                        Text(result.file.displayName).font(.title2).textSelection(.enabled)
+                        CombinedReviewDecisionBar(review: result.file, decisions: decisions)
+                        CombinedReviewPhotoLayout(
+                            feature: feature, result: result, presentation: CombinedReviewPresentation(result: result),
+                            canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
+                            route: $route, inspect: inspect, openRecord: { openRecord($0, for: result) },
+                        )
+                    } else if feature.isRunning {
+                        // Nothing to show until the first photo's overview arrives; say what is happening.
+                        CombinedReviewRunProgressCard(feature: feature, imageID: nil)
+                            .frame(maxWidth: .infinity, minHeight: 320)
                             .aiAnalysisResultsContainer()
-                        }
+                    } else {
+                        ContentUnavailableView(
+                            feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
+                            systemImage: "photo.badge.magnifyingglass",
+                            description: Text("Select 1–8 images and start a local analyze. Saved analyzis remain available in the image picker."),
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aiAnalysisResultsContainer()
+                        // Without a review there is no record sheet, so a failed run's history stays here.
                         if !feature.taskHistory.isEmpty {
                             DisclosureGroup("Run history & diagnostics") {
                                 CombinedReviewTaskHistory(
@@ -108,13 +83,14 @@ struct CombinedReviewView: View {
                             }
                         }
                     }
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: selectedResult == nil ? max(0, geometry.size.height - 40) : 0,
-                        alignment: .topLeading,
-                    )
-                    .padding(20)
                 }
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: selectedResult == nil ? max(0, geometry.size.height - 40) : 0,
+                    alignment: .topLeading,
+                )
+                .padding(20)
+                .combinedReviewInputSheet($inputRequest, feature: feature)
             }
         }
         .focusable()
@@ -122,6 +98,9 @@ struct CombinedReviewView: View {
         .onKeyPress(characters: CharacterSet(charactersIn: "xXpP012345tT")) { press in
             handleRatingKey(press)
         }
+        .onKeyPress(.escape) { navigate { current, _ in current == .summary ? nil : current.back } }
+        .onKeyPress(.upArrow) { navigate { $0.stepped(-1, findings: $1) } }
+        .onKeyPress(.downArrow) { navigate { $0.stepped(1, findings: $1) } }
         .task { await feature.restoreStoredRun() }
         .task(id: "\(files.map { "\($0.id)-\($0.url.absoluteString)-\(String(describing: $0.afFocusNormalized))" })-\(feature.isRunning)") {
             await feature.prepareParameters(files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized, iso: $0.exifData?.isoValue) })
@@ -130,52 +109,36 @@ struct CombinedReviewView: View {
             await feature.prepareResumeParameters()
         }
         .onChange(of: selectedResult?.file.id) { _, _ in
-            selectedFindingID = nil
-            selectedRegionID = ""
+            route = .summary
+        }
+        .onChange(of: selectedResult?.file.fileID, initial: true) { _, fileID in
+            // An open record window follows the photo shown here.
+            recordNavigation.fileID = fileID
         }
         .onChange(of: feature.displayedResults.map(\.file.fileID), initial: true) { _, ids in
             if selection.selectedFileID == nil {
                 selection.selectedFileID = ids.first
             }
         }
-        .sheet(isPresented: $showInput) {
-            VStack(spacing: 12) {
-                Text("Retained request image before model preprocessing").font(.headline)
-                if let inspectedInput {
-                    Image(decorative: inspectedInput, scale: 1).resizable().scaledToFit()
-                        .frame(maxWidth: 900, maxHeight: 650).accessibilityLabel("Retained review input")
-                } else {
-                    Text("Input unavailable: compact retention, cache eviction, or cleanup.")
-                }
-                Button("Close") { showInput = false }
-            }.padding(20)
-        }
     }
 
-    private static let evidenceAnchor = "evidence"
-
-    private func openEvidence(_ finding: CombinedReviewFinding, result: CombinedReviewResult, scroller: ScrollViewProxy) {
-        selectedFindingID = finding.id
-        selectedRegionID = CombinedReviewPresentation.supportingRegion(for: finding, in: result)?.rawValue ?? ""
-        openEvidence(.findings, scroller: scroller)
+    /// Moves the inspector with the keyboard. Text fields and other controls keep their own keys.
+    private func navigate(_ next: (CombinedReviewRoute, [CombinedReviewFinding]) -> CombinedReviewRoute?) -> KeyPress.Result {
+        guard !ReviewKeyboardScope.controlOwnsKeys(NSApp.keyWindow?.firstResponder),
+              let result = selectedResult,
+              let route = next(route, CombinedReviewPresentation(result: result).findings) else { return .ignored }
+        self.route = route
+        return .handled
     }
 
-    /// Opens the evidence section at a topic and scrolls it into view.
-    private func openEvidence(_ topic: CombinedReviewEvidenceTopic, scroller: ScrollViewProxy) {
-        self.topic = topic
-        evidenceExpanded = true
-        withAnimation { scroller.scrollTo(Self.evidenceAnchor, anchor: .top) }
+    private func openRecord(_ tab: CombinedReviewRecordTab, for result: CombinedReviewResult) {
+        recordNavigation.fileID = result.file.fileID
+        recordNavigation.tab = tab
+        openWindow(id: CombinedReviewRecordWindow.id)
     }
 
     private func inspect(_ key: String?) {
-        Task {
-            inspectedInput = if let key {
-                await feature.exactInput(key)
-            } else {
-                nil
-            }
-            showInput = true
-        }
+        inputRequest = .init(key: key)
     }
 }
 
@@ -347,91 +310,6 @@ private struct CombinedReviewRunControls: View {
             clearError = nil
         } catch {
             clearError = "Could not clear \(what): \(error.localizedDescription)"
-        }
-    }
-}
-
-private struct CombinedReviewTaskHistory: View {
-    let feature: CombinedReviewFeature
-    let runs: [CombinedReviewRunV1]
-    let activeRunID: UUID?
-    @State private var expandedRuns: Set<UUID> = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Task history").font(.headline)
-            ForEach(runs, id: \.snapshot.id) { run in
-                DisclosureGroup(isExpanded: Binding(
-                    get: { expandedRuns.contains(run.snapshot.id) },
-                    set: { expanded in
-                        if expanded {
-                            expandedRuns.insert(run.snapshot.id)
-                        } else {
-                            expandedRuns.remove(run.snapshot.id)
-                        }
-                    },
-                )) {
-                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
-                        GridRow {
-                            Text("Task").fontWeight(.semibold)
-                            Text("Status").fontWeight(.semibold)
-                            Text("Attempts").fontWeight(.semibold)
-                            Text("Details").fontWeight(.semibold)
-                        }
-                        Divider().gridCellColumns(4)
-                        ForEach(run.work, id: \.id) { item in
-                            GridRow(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(title(item.stage))
-                                    Text(item.id.rawValue.components(separatedBy: ":").dropFirst().joined(separator: ":"))
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                                HStack(spacing: 5) {
-                                    if item.state == .running, run.snapshot.id == activeRunID {
-                                        ProgressView().controlSize(.mini)
-                                    }
-                                    Text(item.state == .running && run.snapshot.id != activeRunID ? "Interrupted" : item.state.rawValue.capitalized)
-                                }
-                                Text(item.attempts.formatted()).monospacedDigit()
-                                VStack(alignment: .leading) {
-                                    Text(item.reason ?? "—").foregroundStyle(.secondary).textSelection(.enabled)
-                                    if let diagnostic = item.diagnostic {
-                                        CombinedReviewDiagnosticView(feature: feature, diagnostic: diagnostic)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .font(.caption)
-                    .padding(.top, 8)
-                } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(run.snapshot.files.first?.displayName ?? "Review")
-                        Text(run.snapshot.created.formatted(date: .abbreviated, time: .standard))
-                            .font(.caption).foregroundStyle(.secondary)
-                        let completed = run.work.filter { $0.state == .completed }.count
-                        Text("\(completed) of \(run.work.count) tasks completed")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding(12)
-        .background(.quaternary, in: .rect(cornerRadius: 8))
-    }
-
-    private func title(_ stage: ReviewStage) -> String {
-        switch stage {
-        case .source: "Prepare image"
-        case .overview: "Overview analysis"
-        case .identity: "Identify subjects"
-        case .segmentation: "Subject masks"
-        case .clip: "CLIP relevance"
-        case .measurement: "Measure subject detail"
-        case .cropObservation: "Inspect crop"
-        case .reconciliation: "Reconcile evidence"
-        case .report: "Generate report"
-        case .comparison: "Compare images"
         }
     }
 }
