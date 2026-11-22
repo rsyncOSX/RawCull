@@ -158,7 +158,7 @@ What was built:
 - "Show legacy AI Analysis" (`RawCullAI.showLegacyAIAnalysis`) is off by default. Turning it off while the old view is open switches to Review.
 - Full stays the default preset on Macs with 16 GB or more.
 - After step 5: the "Photo-first / Evidence workspace" switch is gone. Review has one view; the evidence (findings with their masks and crops, coverage and limits, technical record) is a collapsed "Evidence & details" section under the findings. Clicking a finding opens it there.
-- Later on 3.4.9: the collapsed section is replaced by a drill-down inspector beside the photo (Summary → Finding → Region). The selected finding's region is highlighted on the photo, layer toggles replace the colour legend, and coverage, the technical record and run history moved into a sheet.
+- Later on 3.4.9: the collapsed section is replaced by a drill-down inspector beside the photo (Summary → Finding → Region). The selected finding's region is highlighted on the photo, layer toggles replace the colour legend, and coverage, the technical record and run history moved into a resizable Review Record window that follows the selected photo. A progress card with a bar sits on the photo while a review runs.
 
 ### Step 6: Delete
 

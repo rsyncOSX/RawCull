@@ -164,6 +164,10 @@ private struct CombinedReviewPhotoCanvas: View {
         }
         .aspectRatio(image.map { CGFloat($0.width) / CGFloat($0.height) } ?? 1.5, contentMode: .fit)
         .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
+        .overlay(alignment: .bottom) {
+            CombinedReviewRunProgressCard(feature: feature, imageID: result.file.id).padding(16)
+        }
+        .animation(.easeInOut(duration: 0.2), value: feature.isRunning)
         .task(id: result.overviewInputReference) {
             image = nil
             guard let key = result.overviewInputReference else { return }
@@ -204,6 +208,39 @@ private struct CombinedReviewPhotoCanvas: View {
             .accessibilityLabel("Region \(name)")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { selectRegion(region.id) }
+    }
+}
+
+/// What the running review is doing, shown on the photo it is reviewing. The bar counts this
+/// photo's finished tasks; the run adds crop tasks as it goes, so the total can grow.
+struct CombinedReviewRunProgressCard: View {
+    let feature: CombinedReviewFeature
+    /// The photo to report on. Nil reports the whole run.
+    let imageID: ReviewImageID?
+
+    var body: some View {
+        if feature.isRunning, let run = feature.manifest,
+           imageID == nil || run.snapshot.files.contains(where: { $0.id == imageID }) {
+            let own = run.work.filter { $0.imageID == imageID }
+            let items = own.isEmpty ? run.work : own
+            let done = items.filter(\.state.terminal).count
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(feature.progress).font(.headline).lineLimit(1)
+                    Spacer(minLength: 12)
+                    Text("\(done) of \(items.count) tasks").font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                }
+                ProgressView(value: Double(done), total: Double(max(items.count, 1)))
+                    .accessibilityLabel("Review progress")
+                    .accessibilityValue("\(done) of \(items.count) tasks")
+            }
+            .padding(14)
+            .frame(maxWidth: 520)
+            .background(.regularMaterial, in: .rect(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+            .transition(.opacity)
+        }
     }
 }
 

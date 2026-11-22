@@ -157,6 +157,7 @@ struct RawCullApp: App {
             .background(.windowBackground)
             .workspaceEnvironment(viewModel)
             .environment(assessmentNavigation)
+            .environment(intelligenceRuntime.reviewRecordNavigation)
             .task { await assessmentNavigation.observeResults() }
             .task {
                 await viewModel.ratings.cullingModel.ensureLoaded()
@@ -184,6 +185,15 @@ struct RawCullApp: App {
             SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .workspaceEnvironment(viewModel)
         }
+
+        Window("Review Record", id: CombinedReviewRecordWindow.id) {
+            CombinedReviewRecordWindow(feature: intelligenceRuntime.combinedReviewFeature)
+                .background(.windowBackground)
+                .workspaceEnvironment(viewModel)
+                .environment(intelligenceRuntime.reviewRecordNavigation)
+        }
+        .defaultSize(width: 860, height: 720)
+        .windowResizability(.contentMinSize)
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()

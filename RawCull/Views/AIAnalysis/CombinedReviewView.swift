@@ -10,7 +10,8 @@ struct CombinedReviewView: View {
     @Environment(BurstWorkflowController.self) private var burstWorkflow
     /// Where the inspector beside the photo is: summary, a finding, or a region.
     @State private var route: CombinedReviewRoute = .summary
-    @State private var recordTab: CombinedReviewRecordTab?
+    @Environment(CombinedReviewRecordNavigation.self) private var recordNavigation
+    @Environment(\.openWindow) private var openWindow
     @State private var inputRequest: CombinedReviewInputRequest?
     @State private var settingsExpanded = false
 
@@ -57,8 +58,13 @@ struct CombinedReviewView: View {
                         CombinedReviewPhotoLayout(
                             feature: feature, result: result, presentation: CombinedReviewPresentation(result: result),
                             canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
-                            route: $route, inspect: inspect, openRecord: { recordTab = $0 },
+                            route: $route, inspect: inspect, openRecord: { openRecord($0, for: result) },
                         )
+                    } else if feature.isRunning {
+                        // Nothing to show until the first photo's overview arrives; say what is happening.
+                        CombinedReviewRunProgressCard(feature: feature, imageID: nil)
+                            .frame(maxWidth: .infinity, minHeight: 320)
+                            .aiAnalysisResultsContainer()
                     } else {
                         ContentUnavailableView(
                             feature.displayedResults.isEmpty ? "Ready to Analyze" : "No review for this image",
@@ -104,16 +110,14 @@ struct CombinedReviewView: View {
         }
         .onChange(of: selectedResult?.file.id) { _, _ in
             route = .summary
-            recordTab = nil
+        }
+        .onChange(of: selectedResult?.file.fileID, initial: true) { _, fileID in
+            // An open record window follows the photo shown here.
+            recordNavigation.fileID = fileID
         }
         .onChange(of: feature.displayedResults.map(\.file.fileID), initial: true) { _, ids in
             if selection.selectedFileID == nil {
                 selection.selectedFileID = ids.first
-            }
-        }
-        .sheet(item: $recordTab) { tab in
-            if let result = selectedResult {
-                CombinedReviewRecordSheet(feature: feature, result: result, tab: tab)
             }
         }
     }
@@ -125,6 +129,12 @@ struct CombinedReviewView: View {
               let route = next(route, CombinedReviewPresentation(result: result).findings) else { return .ignored }
         self.route = route
         return .handled
+    }
+
+    private func openRecord(_ tab: CombinedReviewRecordTab, for result: CombinedReviewResult) {
+        recordNavigation.fileID = result.file.fileID
+        recordNavigation.tab = tab
+        openWindow(id: CombinedReviewRecordWindow.id)
     }
 
     private func inspect(_ key: String?) {

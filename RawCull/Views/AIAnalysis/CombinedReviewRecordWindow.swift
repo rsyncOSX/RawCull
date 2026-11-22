@@ -1,55 +1,80 @@
 import SwiftUI
 
-/// Everything needed to troubleshoot a review, kept out of the review flow:
-/// full limitations and coverage, the structured technical record, and the run's task history.
-struct CombinedReviewRecordSheet: View {
-    let feature: CombinedReviewFeature
-    let result: CombinedReviewResult
-    @State var tab: CombinedReviewRecordTab
-    @State private var inputRequest: CombinedReviewInputRequest?
-    @Environment(\.dismiss) private var dismiss
+/// Which review the record window shows. Review keeps it on the photo selected there,
+/// so the window follows the selection while it is open.
+@Observable @MainActor
+final class CombinedReviewRecordNavigation {
+    var fileID: UUID?
+    var tab: CombinedReviewRecordTab = .coverage
+}
 
-    private var tabs: [CombinedReviewRecordTab] {
-        feature.taskHistory.isEmpty ? [.coverage, .technical] : CombinedReviewRecordTab.allCases
+/// Everything needed to troubleshoot a review, in its own resizable window beside Review:
+/// full limitations and coverage, the structured technical record, and the run's task history.
+struct CombinedReviewRecordWindow: View {
+    static let id = "review-record"
+    let feature: CombinedReviewFeature
+    @Environment(CombinedReviewRecordNavigation.self) private var navigation
+    @State private var inputRequest: CombinedReviewInputRequest?
+
+    private var result: CombinedReviewResult? {
+        CombinedReviewPresentation.selectedResult(in: feature.displayedResults, fileID: navigation.fileID)
     }
 
     var body: some View {
+        @Bindable var navigation = navigation
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Text(result.file.displayName).font(.headline)
-                Picker("Section", selection: $tab) {
-                    ForEach(tabs) { Text($0.title).tag($0) }
+                Text(result?.file.displayName ?? String(localized: "No review")).font(.headline)
+                Picker("Section", selection: $navigation.tab) {
+                    ForEach(CombinedReviewRecordTab.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(maxWidth: 460)
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            .padding(16)
+            .padding(.horizontal, 16).padding(.vertical, 12)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    switch tab {
+                    switch navigation.tab {
                     case .coverage:
-                        CombinedReviewCoverageDetails(presentation: CombinedReviewPresentation(result: result),
-                                                      source: result.source, omissions: result.omissions)
+                        if let result {
+                            CombinedReviewCoverageDetails(presentation: CombinedReviewPresentation(result: result),
+                                                          source: result.source, omissions: result.omissions)
+                        } else {
+                            empty
+                        }
                     case .technical:
-                        Text("For troubleshooting a review. Nothing here is needed to rate the photo.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        CombinedReviewRecordCopy(result: result)
-                        CombinedReviewTechnicalDetails(feature: feature, result: result, inspect: inspect)
+                        if let result {
+                            Text("For troubleshooting a review. Nothing here is needed to rate the photo.")
+                                .font(.callout).foregroundStyle(.secondary)
+                            CombinedReviewRecordCopy(result: result)
+                            CombinedReviewTechnicalDetails(feature: feature, result: result, inspect: inspect)
+                        } else {
+                            empty
+                        }
                     case .history:
-                        CombinedReviewTaskHistory(feature: feature, runs: feature.taskHistory,
-                                                  activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
+                        if feature.taskHistory.isEmpty {
+                            Text("No runs recorded yet.").foregroundStyle(.secondary)
+                        } else {
+                            CombinedReviewTaskHistory(feature: feature, runs: feature.taskHistory,
+                                                      activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
             }
         }
-        .frame(minWidth: 680, idealWidth: 860, minHeight: 480, idealHeight: 680)
+        .frame(minWidth: 520, minHeight: 360)
         .combinedReviewInputSheet($inputRequest, feature: feature)
+    }
+
+    private var empty: some View {
+        ContentUnavailableView("No review selected", systemImage: "doc.text.magnifyingglass",
+                               description: Text("Select a reviewed photo in Review."))
+            .frame(maxWidth: .infinity, minHeight: 240)
     }
 
     private func inspect(_ key: String?) {
