@@ -60,7 +60,7 @@ struct AIAssessmentWorkspace: View {
                 .padding(.vertical, 8)
             }
 
-            if let entry = navigation.entries.first(where: { $0.id == navigation.presentedID }) {
+            if let entry = presentedEntry {
                 catalogContext(for: entry)
                 AIAssessmentComparison(
                     entry: entry, access: currentAccess,
@@ -108,10 +108,10 @@ struct AIAssessmentWorkspace: View {
                 catalogController.loadPersistedScoringandSaliency()
             }
         }
-        .task(id: AccessRequest(sourceJobID: navigation.entries.first?.request.sourceJobID, retryID: accessRetryID)) {
+        .task(id: AccessRequest(sourceJobID: presentedEntry?.request.sourceJobID, retryID: accessRetryID)) {
             access = nil
             accessJobID = nil
-            guard let request = navigation.entries.first?.request else { return }
+            guard let request = presentedEntry?.request else { return }
             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while !Task.isCancelled {
                 do {
@@ -186,8 +186,12 @@ struct AIAssessmentWorkspace: View {
     }
 
     private var currentAccess: RawCullCatalogGrant? {
-        guard accessJobID == navigation.entries.first?.request.sourceJobID else { return nil }
+        guard accessJobID == presentedEntry?.request.sourceJobID else { return nil }
         return access
+    }
+
+    private var presentedEntry: AIAssessmentEntry? {
+        navigation.entries.first { $0.id == navigation.presentedID }
     }
 
     private func neighborID(by offset: Int) -> UUID? {

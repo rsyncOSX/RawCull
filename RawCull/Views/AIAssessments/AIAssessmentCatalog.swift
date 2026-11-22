@@ -25,6 +25,9 @@ nonisolated struct AIAssessmentEntry: Identifiable, Equatable, Sendable {
     let frames: [Frame]
     let recommendation: String?
     let alternate: String?
+    /// Set for results from an in-app burst assessment run. They live only in
+    /// memory, so they are not read from or checked against the MCP store.
+    var sessionCatalog: URL?
 
     var id: UUID {
         request.id
@@ -95,6 +98,7 @@ nonisolated struct AIAssessmentEntry: Identifiable, Equatable, Sendable {
 
     @concurrent
     func isAvailable() async -> Bool {
+        guard sessionCatalog == nil else { return true }
         let jobs = AnalysisJobStore(directory: CatalogGrantStore.shared().directory)
         return (try? jobs.readFollowUpResult(id)) != nil
     }
@@ -142,25 +146,47 @@ final class AIAssessmentNavigation {
         entries.first { $0.matches(files: files, catalog: catalog) }
     }
 
-    private(set) var entries: [AIAssessmentEntry] = []
+    /// In-app results first, then results shared through MCP.
+    var entries: [AIAssessmentEntry] {
+        sessionEntries + storedEntries
+    }
+
+    private(set) var storedEntries: [AIAssessmentEntry] = []
+    private(set) var sessionEntries: [AIAssessmentEntry] = []
     private(set) var loadFailed = false
+
+    func appendSessionEntry(_ entry: AIAssessmentEntry) {
+        sessionEntries.append(entry)
+    }
+
+    func clearSessionEntries() {
+        if let presentedID, sessionEntries.contains(where: { $0.id == presentedID }) {
+            self.presentedID = nil
+        }
+        sessionEntries = []
+    }
+
+    /// The catalog an in-app result came from, or nil for MCP results.
+    func sessionCatalog(for request: AnalysisJobStore.FollowUpRequest) -> URL? {
+        sessionEntries.first { $0.request.id == request.id }?.sessionCatalog
+    }
 
     func observeResults() async {
         while !Task.isCancelled {
             do {
                 let latest = try await AIAssessmentEntry.available()
                 guard !Task.isCancelled else { return }
-                if latest != entries {
-                    entries = latest
+                if latest != storedEntries {
+                    storedEntries = latest
                 }
                 loadFailed = false
             } catch AnalysisJobStore.StoreError.busy {
                 // The writer still owns the store. Retry without changing selection.
             } catch FollowUpSourceSnapshot.SourceError.unavailable {
-                entries = []
+                storedEntries = []
                 loadFailed = false
             } catch {
-                entries = []
+                storedEntries = []
                 loadFailed = true
             }
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
@@ -175,7 +201,8 @@ struct BurstAssessmentButton: View {
 
     var body: some View {
         if let navigation, let catalogURL = catalog.selectedSource?.url,
-           let entry = navigation.entry(matching: files, catalog: catalogURL) {
+           let entry = navigation.entry(matching: files, catalog: catalogURL)
+        {
             Button {
                 navigation.openFromBurstList(entry.id)
             } label: {
