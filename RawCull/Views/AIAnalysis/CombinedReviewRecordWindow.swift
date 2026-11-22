@@ -82,44 +82,73 @@ struct CombinedReviewRecordWindow: View {
     }
 }
 
+/// Coverage and limits in plain language, grouped by what they affect. The pipeline's own
+/// wording, with region and crop IDs, stays one toggle away.
 private struct CombinedReviewCoverageDetails: View {
     let presentation: CombinedReviewPresentation
     let source: ReviewSourceRecord?
     let omissions: [ReviewRegionOmission]
+    @AppStorage("combinedReview.showTechnicalWording") private var showTechnical = false
+
+    private var notes: [CombinedReviewLimitNote] {
+        CombinedReviewLimitDigest.notes(limitations: presentation.limitations,
+                                        sourceLimitations: source?.limitations ?? [], omissions: omissions)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if !presentation.importantLimits.isEmpty {
-                VStack(alignment: .leading, spacing: 5) {
-                    ForEach(presentation.importantLimits, id: \.self) { Text($0) }
-                }
-                .font(.callout).padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.orange.opacity(0.1), in: .rect(cornerRadius: 8))
+        let notes = notes
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
+                Spacer()
+                Toggle("Show technical wording", isOn: $showTechnical).toggleStyle(.checkbox)
             }
-            CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
-            Text("Full limitations").font(.headline)
-            if presentation.limitations.isEmpty {
+            if notes.isEmpty {
                 Text("No limitations were recorded.").foregroundStyle(.secondary)
             }
-            ForEach(presentation.limitations, id: \.id) { limitation in
-                Text(limitation.reason).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if let source, !source.limitations.isEmpty {
-                Text("Source limitations").font(.headline)
-                ForEach(source.limitations, id: \.self) { Text($0).font(.callout).textSelection(.enabled) }
-            }
-            if !omissions.isEmpty {
-                Text("Uninspected regions").font(.headline)
-                ForEach(omissions, id: \.regionID) { omission in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(omission.detail)
-                        Text("\(omission.reason.rawValue) · \(omission.regionID.rawValue)")
-                            .font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+            ForEach(CombinedReviewLimitNote.Group.allCases, id: \.self) { group in
+                let rows = notes.filter { $0.group == group }
+                if !rows.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(group.title).font(.headline)
+                        ForEach(rows) { note in
+                            CombinedReviewLimitRow(note: note, showTechnical: showTechnical)
+                        }
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct CombinedReviewLimitRow: View {
+    let note: CombinedReviewLimitNote
+    let showTechnical: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(note.text).textSelection(.enabled)
+                if note.count > 1 {
+                    Text("×\(note.count)").font(.caption).monospacedDigit()
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(.quaternary, in: .capsule)
+                        .help("Recorded \(note.count) times")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if showTechnical {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(note.details.enumerated()), id: \.offset) { _, detail in
+                        Text(detail).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.leading, 12)
+            }
+        }
     }
 }
 

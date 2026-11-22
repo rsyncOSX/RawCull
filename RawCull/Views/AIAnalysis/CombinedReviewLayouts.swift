@@ -45,6 +45,8 @@ struct CombinedReviewPhotoLayout: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         } trailing: {
             CombinedReviewInspectorPane(feature: feature, result: result, presentation: presentation, route: $route,
+                                        inProgress: feature.isRunning
+                                            && feature.manifest?.snapshot.files.contains { $0.id == result.file.id } == true,
                                         showGeometry: $showGeometry, inspect: inspect, openRecord: openRecord)
         }
     }

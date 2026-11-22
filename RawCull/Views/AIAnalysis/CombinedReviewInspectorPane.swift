@@ -65,6 +65,8 @@ struct CombinedReviewInspectorPane: View {
     let result: CombinedReviewResult
     let presentation: CombinedReviewPresentation
     @Binding var route: CombinedReviewRoute
+    /// This photo is still being reviewed, so missing findings and coverage are not results yet.
+    let inProgress: Bool
     @Binding var showGeometry: Bool
     let inspect: (String?) -> Void
     let openRecord: (CombinedReviewRecordTab) -> Void
@@ -73,7 +75,7 @@ struct CombinedReviewInspectorPane: View {
         VStack(alignment: .leading, spacing: 16) {
             switch route {
             case .summary:
-                CombinedReviewSummaryPage(presentation: presentation, route: $route, openRecord: openRecord)
+                CombinedReviewSummaryPage(presentation: presentation, inProgress: inProgress, route: $route, openRecord: openRecord)
             case let .finding(id):
                 if let finding = presentation.findings.first(where: { $0.id == id }) {
                     CombinedReviewFindingPage(feature: feature, result: result, presentation: presentation,
@@ -108,22 +110,34 @@ struct CombinedReviewInspectorPane: View {
 
 private struct CombinedReviewSummaryPage: View {
     let presentation: CombinedReviewPresentation
+    let inProgress: Bool
     @Binding var route: CombinedReviewRoute
     let openRecord: (CombinedReviewRecordTab) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label(presentation.incomplete ? "Review with limitations" : "Review complete",
-                  systemImage: presentation.incomplete ? "exclamationmark.circle" : "checkmark.circle")
-                .font(.title3)
-            if presentation.incomplete {
-                Text("Some checks or image regions could not be fully assessed.")
+            if inProgress {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Review in progress").font(.title3)
+                }
+                Text("Findings and coverage appear here when the review finishes.")
                     .font(.callout).foregroundStyle(.secondary)
+            } else {
+                Label(presentation.incomplete ? "Review with limitations" : "Review complete",
+                      systemImage: presentation.incomplete ? "exclamationmark.circle" : "checkmark.circle")
+                    .font(.title3)
+                if presentation.incomplete {
+                    Text("Some checks or image regions could not be fully assessed.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
             }
         }
         VStack(alignment: .leading, spacing: 4) {
             CombinedReviewSectionTitle("Findings")
-            if presentation.findings.isEmpty {
+            if presentation.findings.isEmpty, inProgress {
+                Text("No findings yet.").font(.callout).foregroundStyle(.secondary)
+            } else if presentation.findings.isEmpty {
                 Text("Insufficient validated evidence for a finding. Completed stages remain in the technical record.")
                     .font(.callout).foregroundStyle(.secondary)
             }
@@ -133,7 +147,7 @@ private struct CombinedReviewSummaryPage: View {
         }
         if !presentation.importantLimits.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                CombinedReviewSectionTitle("Could not assess")
+                CombinedReviewSectionTitle(inProgress ? "Could not assess so far" : "Could not assess")
                 ForEach(presentation.importantLimits, id: \.self) { limit in
                     Label(limit, systemImage: "exclamationmark.triangle")
                         .font(.callout)
@@ -147,7 +161,9 @@ private struct CombinedReviewSummaryPage: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Model observations. Same-model reconciliation is not independent confirmation. Measurements are uncalibrated.")
                 .font(.caption).foregroundStyle(.secondary)
-            CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
+            if !inProgress {
+                CombinedReviewCoverageCount(inspected: presentation.inspectedCount, uninspected: presentation.uninspectedCount)
+            }
             HStack {
                 Button("Coverage & limits") { openRecord(.coverage) }
                 Button("Technical record") { openRecord(.technical) }
