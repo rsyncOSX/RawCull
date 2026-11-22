@@ -14,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let mcpAnalysis = MCPAnalysisController()
     private var terminationTask: Task<Void, Never>?
 
-    func configure(viewModel: RawCullViewModel, runtime: RawCullIntelligenceRuntime) {
+    func configure(viewModel: RawCullViewModel, runtime: RawCullIntelligenceRuntime, burstBatch: BurstBatchAssessment) {
         Logger.process.debugMessageOnly("AppDelegate.configure()")
         self.viewModel = viewModel
         mcpAnalysis.start(
@@ -25,8 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await runtime.settingsModel.refresh()
             },
             preparePhotoAssessment: { await runtime.settingsModel.refresh() },
-            canStart: {
-                !runtime.combinedReviewFeature.isRunning
+            canStart: { [weak burstBatch] in
+                !runtime.combinedReviewFeature.isRunning && burstBatch?.isRunning != true
             },
         )
     }
@@ -131,16 +131,33 @@ struct RawCullApp: App {
     @State private var viewModel: RawCullViewModel
     @State private var intelligenceRuntime: RawCullIntelligenceRuntime
     @State private var assessmentNavigation = AIAssessmentNavigation()
+    @State private var burstBatchAssessment: BurstBatchAssessment
 
     init() {
         Logger.process.debugMessageOnly("RawCullApp.init()")
         let applicationState = RawCullApplicationState.live()
+        let runtime = applicationState.intelligenceRuntime
         _viewModel = State(
             initialValue: applicationState.viewModel,
         )
         _intelligenceRuntime = State(
-            initialValue: applicationState.intelligenceRuntime,
+            initialValue: runtime,
         )
+        _burstBatchAssessment = State(initialValue: BurstBatchAssessment(
+            qwen: runtime.modelRuntime.qwenInference as? QwenInferenceRuntime,
+            prepareModel: { await runtime.settingsModel.refresh() },
+            unavailableReason: runtime.settingsModel.canRunQwenReview
+                ? nil : String(localized: "AI assessment needs at least 16 GB of unified memory."),
+        ))
+    }
+
+    /// In-app burst results use the open catalog's access; MCP results use the job's saved grant.
+    private func assessmentPhotoAccess(for request: AnalysisJobStore.FollowUpRequest) throws -> RawCullCatalogGrant {
+        if let url = assessmentNavigation.sessionCatalog(for: request) {
+            guard let grant = viewModel.retainSecurityScopedAccess(for: url) else { throw CocoaError(.fileReadNoPermission) }
+            return grant
+        }
+        return try appDelegate.assessmentPhotoAccess(for: request)
     }
 
     var body: some Scene {
@@ -152,11 +169,12 @@ struct RawCullApp: App {
                 combinedReviewFeature: intelligenceRuntime.combinedReviewFeature,
                 aiSettingsModel: intelligenceRuntime.settingsModel,
                 assessmentNavigation: assessmentNavigation,
-                assessmentPhotoAccess: appDelegate.assessmentPhotoAccess,
+                assessmentPhotoAccess: assessmentPhotoAccess,
             )
             .background(.windowBackground)
             .workspaceEnvironment(viewModel)
             .environment(assessmentNavigation)
+            .environment(burstBatchAssessment)
             .environment(intelligenceRuntime.reviewRecordNavigation)
             .task { await assessmentNavigation.observeResults() }
             .task {
@@ -169,7 +187,7 @@ struct RawCullApp: App {
                 await intelligenceRuntime.settingsModel.refresh()
             }
             .onAppear {
-                appDelegate.configure(viewModel: viewModel, runtime: intelligenceRuntime)
+                appDelegate.configure(viewModel: viewModel, runtime: intelligenceRuntime, burstBatch: burstBatchAssessment)
             }
         }
         .windowToolbarStyle(.unified)

@@ -7,6 +7,9 @@ struct BurstGroupsHomeView: View {
     @Environment(BurstWorkflowController.self) private var burstWorkflow
     @Environment(CatalogController.self) private var catalogController
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
+    @Environment(CatalogWorkspace.self) private var catalog
+    @Environment(BurstBatchAssessment.self) private var burstBatch: BurstBatchAssessment?
+    @Environment(AIAssessmentNavigation.self) private var assessmentNavigation: AIAssessmentNavigation?
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
@@ -49,6 +52,16 @@ struct BurstGroupsHomeView: View {
                             .padding(.horizontal, 4)
 
                         queueCards
+
+                        if let burstBatch {
+                            BurstBatchAssessmentCard(
+                                batch: burstBatch,
+                                disabledReason: batchDisabledReason(burstBatch),
+                                hasResults: !(assessmentNavigation?.sessionEntries.isEmpty ?? true),
+                                start: startBatchAssessment,
+                                viewResults: viewBatchResults,
+                            )
+                        }
 
                         Text("Recent groups")
                             .font(.headline)
@@ -253,6 +266,50 @@ struct BurstGroupsHomeView: View {
             }
             .prefix(3)
             .map { $0 }
+    }
+
+    /// Start is enabled only when every burst list is ready and no other heavy work runs.
+    private func batchDisabledReason(_ batch: BurstBatchAssessment) -> String? {
+        if let reason = batch.unavailableReason {
+            return reason
+        }
+        if !resultsAreAvailable {
+            return String(localized: "Available when the burst lists are ready.")
+        }
+        if controlsAreBusy {
+            return String(localized: "Available when catalog preparation finishes.")
+        }
+        if batch.isBlockedByOtherAIWork {
+            return String(localized: "Another AI task is running.")
+        }
+        if catalog.selectedSource == nil || burstGroupCount == 0 {
+            return String(localized: "No bursts to assess.")
+        }
+        return nil
+    }
+
+    private func startBatchAssessment() {
+        guard let burstBatch, let assessmentNavigation, let source = catalog.selectedSource,
+              batchDisabledReason(burstBatch) == nil else { return }
+        Logger.process.debugMessageOnly("BurstGroupsHomeView.startBatchAssessment()")
+        let generation = burstWorkflow.burstAnalysisGeneration
+        let plan = BurstBatchAssessment.makePlan(
+            catalog: source.url, catalogName: source.name, generation: generation,
+            groups: burstWorkflow.burstGroupsInActiveCatalogScope,
+            results: burstWorkflow.burstAnalysisResults,
+            files: catalogController.activeCatalogFiles,
+        )
+        let workflow = burstWorkflow
+        let catalog = catalog
+        burstBatch.start(plan, navigation: assessmentNavigation) {
+            workflow.burstAnalysisGeneration == generation && workflow.hasCompletedBurstAnalysis
+                && catalog.selectedSource?.url.standardizedFileURL == source.url.standardizedFileURL
+        }
+    }
+
+    private func viewBatchResults() {
+        guard let assessmentNavigation, let first = assessmentNavigation.sessionEntries.first else { return }
+        assessmentNavigation.openFromBurstList(first.id)
     }
 
     private func showResults(_ filter: BurstReviewQueueFilter) {
