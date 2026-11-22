@@ -1,6 +1,6 @@
 # Plan: Code-quality follow-ups (findings 2–5)
 
-Status: in progress · updated 2026-11-21 · branch `version-3.4.9`
+Status: in progress · updated 2026-11-22 · branch `version-3.4.9`
 Finding 1 (breaking up `RawCullViewModel`) is done; its plan has been removed.
 
 ## Verdict per finding
@@ -156,7 +156,9 @@ The question to answer: **is Deep AI Review now a subset of Combined Review?** I
 
 ---
 
-## Finding 2: `RawCullFileItem` (no refactor, one check)
+## Finding 2: `RawCullFileItem` (no refactor, one check) — done
+
+Done 2026-11-22: the check below passed and the rule is now a comment on `==` in `RawCullFileItem.swift`.
 
 Leave it as is. One thing to verify: `==` and `hash(into:)` compare **only `id`**. That's fine as long as an item's metadata never changes while it keeps its `id`. If any path rebuilds a `FileItem` with the same `id` but new EXIF or size, SwiftUI `onChange(of: file)` and any set-based diffing will miss the change. If that can happen, either regenerate the `id` or compare all fields and use `id` only for `Identifiable`.
 
@@ -173,10 +175,10 @@ Leave it as is. One thing to verify: `==` and `hash(into:)` compare **only `id`*
 | Finding 3, steps 3.1–3.5 | done |
 | 4.2 `CombinedReview/` subfolders | done |
 | 4.3 Product decision | done: accepted and migrated on `version-3.4.9`, see [ai-features-decision.md](ai-features-decision.md). Step 2 (output comparison) and the review follow-ups are open there. |
+| Finding 2: identity-only `==` on `RawCullFileItem` | done (2026-11-22): no refactor. Checked again: the only production construction site is `ScanFiles`, which always creates a fresh `UUID`, and no code decodes saved items, so the stale-metadata case can't happen. Added a comment on `==`/`hash(into:)` stating the rule (immutable, metadata only, per-photo state kept separately by `id`) and when to switch to all-field equality. |
 
 ### Not yet completed
 
 | Item | Status | Next step |
 |---|---|---|
-| Finding 2: identity-only `==` on `RawCullFileItem` | **not completed**: checked, no change to logic needed | `==` and `hash(into:)` still compare only `id`. No production code passes an existing `id` to `RawCullFileItem(...)`, so each scan gets fresh UUIDs and the stale-metadata case can't happen today. Remaining: add a comment on `==` saying this rule must hold. |
 | 3.6 Shared MCP IPC module (optional) | **not completed**: not started | Add a `RawCullMCPShared` product to `Tools/RawCullMCP/Package.swift` and drop the pbxproj file references to the helper's sources. |
