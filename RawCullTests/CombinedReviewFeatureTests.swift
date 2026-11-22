@@ -843,7 +843,9 @@ struct CombinedReviewFeatureTests {
             _ = decisions.unavailableReason(for: result.file)
             if let file = decisions.liveFile(for: result.file) {
                 _ = decisions.rating(for: file); _ = decisions.isTagged(file); _ = decisions.burstGroupID(for: file)
-                if let mask = masks.mask(for: file) { _ = await masks.image(for: mask, file: file) }
+                if let mask = masks.mask(for: file) {
+                    _ = await masks.image(for: mask, file: file)
+                }
             }
         }
 
