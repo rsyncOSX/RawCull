@@ -73,7 +73,6 @@ struct CombinedReviewView: View {
                             CombinedReviewPhotoLayout(
                                 feature: feature, result: result, presentation: presentation,
                                 canChooseRegion: files.count == 1 && files.first?.id == result.file.fileID,
-                                inspect: inspect,
                                 inspectFinding: { openEvidence($0, result: result, scroller: scroller) },
                                 showEvidence: { openEvidence(.coverage, scroller: scroller) },
                             )

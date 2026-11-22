@@ -5,7 +5,6 @@ struct CombinedReviewPhotoLayout: View {
     let result: CombinedReviewResult
     let presentation: CombinedReviewPresentation
     let canChooseRegion: Bool
-    let inspect: (String?) -> Void
     let inspectFinding: (CombinedReviewFinding) -> Void
     let showEvidence: () -> Void
     @State private var showRegions = false
@@ -16,7 +15,7 @@ struct CombinedReviewPhotoLayout: View {
             CombinedReviewPhotoPreview(
                 feature: feature, inputKey: result.overviewInputReference, source: result.source,
                 regions: result.regions, showRegions: $showRegions, chooseRegion: $chooseRegion,
-                canChooseRegion: canChooseRegion, inspect: inspect,
+                canChooseRegion: canChooseRegion,
             ).frame(maxWidth: .infinity, alignment: .topLeading)
         } trailing: {
             CombinedReviewSummary(presentation: presentation, inspectFinding: inspectFinding, showEvidence: showEvidence)
@@ -33,7 +32,6 @@ private struct CombinedReviewPhotoPreview: View {
     @Binding var showRegions: Bool
     @Binding var chooseRegion: Bool
     let canChooseRegion: Bool
-    let inspect: (String?) -> Void
     @State private var image: CGImage?
 
     var body: some View {
@@ -87,17 +85,7 @@ private struct CombinedReviewPhotoPreview: View {
                 Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
-                    Spacer()
-                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
-                }
-                VStack(alignment: .leading) {
-                    Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
-                    Button("Enlarge review image", systemImage: "magnifyingglass") { inspect(inputKey) }.disabled(inputKey == nil)
-                }
-            }
+            Toggle("Show reviewed regions", isOn: $showRegions).toggleStyle(.checkbox)
             if canChooseRegion {
                 Toggle("Choose region for next rerun", isOn: $chooseRegion).toggleStyle(.checkbox)
                     .disabled(feature.isRunning || image == nil)
