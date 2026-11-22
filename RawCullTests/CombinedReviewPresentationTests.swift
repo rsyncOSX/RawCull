@@ -21,10 +21,11 @@ struct CombinedReviewPresentationTests {
                                             lease: CombinedReviewLease(), backendFactory: { throw ReviewRunError.modelUnavailable })
         let presentation = CombinedReviewPresentation(result: result)
         let photo = CombinedReviewPhotoLayout(feature: feature, result: result, presentation: presentation, canChooseRegion: false,
-                                              inspect: { _ in }, inspectFinding: { _ in }, showEvidence: {})
+                                              route: .constant(.summary), inspect: { _ in }, openRecord: { _ in })
             .padding(20).frame(width: width).background(Color(nsColor: .windowBackgroundColor))
-        let evidence = CombinedReviewEvidenceLayout(feature: feature, result: result, presentation: presentation, topic: .findings,
-                                                    selectedFindingID: nil, selectedRegionID: .constant(""), inspect: { _ in }, selectFinding: { _ in })
+        let findingID = try #require(presentation.findings.first?.id)
+        let evidence = CombinedReviewPhotoLayout(feature: feature, result: result, presentation: presentation, canChooseRegion: false,
+                                                 route: .constant(.finding(findingID)), inspect: { _ in }, openRecord: { _ in })
             .padding(20).frame(width: width).background(Color(nsColor: .windowBackgroundColor))
         try verifyRendering(photo, width: width, name: "photo")
         try verifyRendering(evidence, width: width, name: "evidence")
