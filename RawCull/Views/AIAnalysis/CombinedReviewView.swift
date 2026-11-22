@@ -160,27 +160,7 @@ private struct CombinedReviewRunBar: View {
             } else if feature.preset.usedModels.contains("qwen"), let notice = feature.qwenMemoryNotice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
             }
-            progressRow
-        }
-    }
-
-    private var progressRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack {
-                Label(feature.progress, systemImage: "sparkles").font(.headline)
-                if feature.isRunning {
-                    ProgressView().controlSize(.small)
-                }
-                Spacer()
-                CombinedReviewRunActions(feature: feature, files: files)
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                Text(feature.progress).font(.headline)
-                if feature.isRunning {
-                    ProgressView().controlSize(.small)
-                }
-                CombinedReviewRunActions(feature: feature, files: files)
-            }
+            CombinedReviewRunActions(feature: feature, files: files)
         }
     }
 
