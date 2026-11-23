@@ -2,7 +2,6 @@ opt_in_rules:
   - force_unwrapping
   - force_cast
   - trailing_whitespace
-  - unused_import
   - explicit_init
   - empty_count
   - file_header
@@ -16,8 +15,13 @@ opt_in_rules:
   - multiline_parameters
   - vertical_whitespace_closing_braces
   - redundant_nil_coalescing
-  - unused_declaration
   - weak_delegate
+
+# These rules need the compiler's index, so they run only with
+# `swiftlint analyze --compiler-log-path <xcodebuild log>`, not `swiftlint lint`.
+analyzer_rules:
+  - unused_declaration
+  - unused_import
 
 empty_count:
   only_after_dot: true
