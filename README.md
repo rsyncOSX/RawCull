@@ -259,7 +259,13 @@ Use only `rebuild.py`. `/graphify` and `graphify update` scan the app folder alo
 
 Run these checks before every release build:
 
-1. **Automated checks.** Run them from a clean worktree on the release commit:
+1. **Automated checks.** Tag the release commit first, then run the checks from a
+   clean worktree on that commit. `release-preflight` fails when the `vX.Y.Z` tag for
+   the app's `MARKETING_VERSION` is missing or points to another commit.
+
+   ```bash
+   git tag -a v3.4.9 -m "RawCull 3.4.9"
+   ```
 
    ```bash
    make release-check
@@ -268,7 +274,7 @@ Run these checks before every release build:
    It runs these in order and stops at the first failure:
 
    ```bash
-   make release-preflight          # Clean worktree, version and tag, model provenance
+   make release-preflight          # Clean worktree, version, tag on HEAD, model provenance
    make verify-ai-import-boundary  # Restricted AI imports
    make test-mcp-release           # MCP helper tests, plus the shared job stores compiled in Release
    make test-smoke                 # App integration and critical paths
