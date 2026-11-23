@@ -257,11 +257,16 @@ Use only `rebuild.py`. `/graphify` and `graphify update` scan the app folder alo
 
 ### Release checklist
 
-Run these checks before every release build:
+RawCull is released through the App Store. The AI models download as Apple-hosted
+Managed Background Assets, which work only in a TestFlight or App Store build, so a
+Developer ID DMG cannot download them (see [Developer ID DMG](#developer-id-dmg-not-for-releases)).
+
+Follow these steps for every release:
 
 1. **Automated checks.** Tag the release commit first, then run the checks from a
    clean worktree on that commit. `release-preflight` fails when the `vX.Y.Z` tag for
-   the app's `MARKETING_VERSION` is missing or points to another commit.
+   the app's `MARKETING_VERSION` is missing or points to another commit. Keep the tag
+   local until step 5, so you can move it if a fix is needed.
 
    ```bash
    git tag -a v3.4.9 -m "RawCull 3.4.9"
@@ -282,13 +287,21 @@ Run these checks before every release build:
 
 2. **Build numbers.** Check that the app and the `RawCullModelDownloader` extension
    have the same `CURRENT_PROJECT_VERSION`. `release.sh` sets both when Xcode
-   manages build numbers or when `BUILD_NUMBER` is set. `make build` uses the
-   values in the project as they are. `ReleaseMetadataTests`, which runs in
-   `make test-full`, fails when the two differ.
-3. **Manual smoke test in the app.** The workspace state is now split into separate
-   models that views read from the SwiftUI environment (see
-   [Architecture](#architecture)). The automated tests do not run the full UI, so
-   check these by hand on the built app:
+   manages build numbers or when `BUILD_NUMBER` is set. `ReleaseMetadataTests`,
+   which runs in `make test-full`, fails when the two differ.
+3. **Upload to TestFlight.** Use `appstore`, so the build you test is the one you
+   later submit (see [App Store Connect and TestFlight uploads](#app-store-connect-and-testflight-uploads)):
+
+   ```bash
+   make upload-app-store
+   ```
+
+4. **Manual smoke test on the TestFlight build.** Install the build from TestFlight,
+   not from Xcode, so the model downloads run as they will for users. The workspace
+   state is split into separate models that views read from the SwiftUI environment
+   (see [Architecture](#architecture)). The automated tests do not run the full UI,
+   so check these by hand:
+   - Download the AI models from the app and check that they install and load.
    - Open a catalog. Switch through every view mode: loupe, grid, similarity grid,
      rated grid, comparison grid and Review. Open and close
      the zoom overlay.
@@ -311,20 +324,15 @@ Run these checks before every release build:
    - Copy or export one file.
    - Run one end-to-end MCP job from a desktop AI client: catalog approval, analysis,
      and retrieving the ranked burst recommendations.
-4. **Build:**
+
+   If a check fails, fix it on the branch, move the local tag to the new commit
+   (`git tag -f -a vX.Y.Z -m "RawCull X.Y.Z"`) and start again at step 1.
+5. **Submit and publish the tag.** Submit the build for review in App Store Connect;
+   the upload commands do not do that. Then push the tag:
 
    ```bash
-   make build
+   git push origin v3.4.9
    ```
-
-`make build` creates the signed, notarized, and stapled app and DMG. It requires the configured Developer ID identity, notarytool keychain profile, and `create-dmg` at `../create-dmg/create-dmg`.
-
-After publishing, verify the downloaded artifact against the generated SHA-256 file:
-
-```bash
-make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.9.dmg
-```
 
 ### App Store Connect and TestFlight uploads
 
@@ -351,6 +359,24 @@ After Apple processes the upload, check the build in App Store Connect and assig
 it to an internal TestFlight group if automatic distribution is not enabled.
 An `internal` upload cannot be used for external TestFlight or App Store submission;
 use `appstore` if you want to submit that same tested build later.
+
+### Developer ID DMG (not for releases)
+
+`make build` creates a signed, notarized and stapled app and DMG for direct
+download. Don't use it for releases: outside the App Store, the app cannot download
+the AI models. It requires the configured Developer ID identity, notarytool keychain
+profile, and `create-dmg` at `../create-dmg/create-dmg`.
+
+```bash
+make build
+```
+
+To verify a downloaded DMG against the generated SHA-256 file:
+
+```bash
+make verify-downloaded-dmg \
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.9.dmg
+```
 
 ### Local release integration tests
 
