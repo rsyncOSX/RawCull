@@ -347,11 +347,14 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
         return bytes
     }
 
+    /// One context for every render. Creating a CIContext is expensive and goes through
+    /// Metal's shared shader-cache database; CIContext is thread-safe to share.
+    private static let renderContext = CIContext(options: [.cacheIntermediates: false,
+                                                           .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!])
+
     static func render(_ image: CIImage, extent: CGRect) -> CGImage? {
         let space = CGColorSpace(name: CGColorSpace.sRGB)!
-        let context = CIContext(options: [.cacheIntermediates: false,
-                                          .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!])
-        return context.createCGImage(image, from: extent, format: .RGBA8, colorSpace: space)
+        return renderContext.createCGImage(image, from: extent, format: .RGBA8, colorSpace: space)
     }
 
     private static func overview(_ image: CGImage, maximumDimension: Int) throws -> CGImage {

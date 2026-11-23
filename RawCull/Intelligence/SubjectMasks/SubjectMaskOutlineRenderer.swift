@@ -68,9 +68,12 @@ nonisolated enum SubjectMaskOutlineRenderer {
               !Task.isCancelled
         else { return nil }
 
-        let context = CIContext(options: [.cacheIntermediates: false, .workingColorSpace: NSNull()])
         return context.createCGImage(output, from: extent)
     }
+
+    /// One context for every outline. Creating a CIContext is expensive and goes through
+    /// Metal's shared shader-cache database; CIContext is thread-safe to share.
+    private static let context = CIContext(options: [.cacheIntermediates: false, .workingColorSpace: NSNull()])
 
     /// True when the mask's foreground is encoded as gray intensity rather than alpha.
     static func usesIntensity(_ mask: CGImage) -> Bool {

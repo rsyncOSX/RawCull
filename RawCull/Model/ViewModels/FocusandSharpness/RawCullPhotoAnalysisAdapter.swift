@@ -191,6 +191,13 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
 /// gamma-encoded sRGB, so the render goes through Core Image's default colour
 /// management and is written as 8-bit sRGB, matching `RAWPreviewRenderer`.
 nonisolated enum RawScoringDemosaic {
+    /// One context for every scoring render. Creating a CIContext is expensive and goes
+    /// through Metal's shared shader-cache database; CIContext is thread-safe to share.
+    private static let context = CIContext(options: [
+        .cacheIntermediates: false,
+        .workingFormat: CIFormat.RGBAh
+    ])
+
     static func render(url: URL, maximumPixelSize: Int) -> CGImage? {
         guard !Task.isCancelled, let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
 
@@ -215,10 +222,6 @@ nonisolated enum RawScoringDemosaic {
         guard !Task.isCancelled,
               let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
         else { return nil }
-        let context = CIContext(options: [
-            .cacheIntermediates: false,
-            .workingFormat: CIFormat.RGBAh
-        ])
         return context.createCGImage(
             image,
             from: image.extent,
