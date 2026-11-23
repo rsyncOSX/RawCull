@@ -137,6 +137,21 @@ test-performance: verify-performance-manifest
 verify-ai-import-boundary:
 	./Scripts/VerifyAIImportBoundary.sh
 
+# SwiftLint analyzer rules (unused_declaration, unused_import) need a compiler log
+# from a clean build. build-for-testing also compiles the test targets, so code used
+# only by tests is not reported as unused. Uses its own DerivedData so it does not
+# touch Xcode's cache.
+ANALYZE_PATH = $(BUILD_PATH)/Analyze
+ANALYZE_LOG = $(ANALYZE_PATH)/xcodebuild.log
+.PHONY: analyze
+analyze:
+	@mkdir -p "$(ANALYZE_PATH)"
+	@echo "Building for analysis (log: $(ANALYZE_LOG))..."
+	@xcodebuild clean build-for-testing $(XCODE_TEST_FLAGS) -configuration Debug \
+		-derivedDataPath "$(ANALYZE_PATH)/DerivedData" CODE_SIGNING_ALLOWED=NO \
+		> "$(ANALYZE_LOG)" 2>&1 || (tail -20 "$(ANALYZE_LOG)"; echo "Build failed, see $(ANALYZE_LOG)"; exit 1)
+	swiftlint analyze --compiler-log-path "$(ANALYZE_LOG)"
+
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
