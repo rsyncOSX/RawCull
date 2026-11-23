@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.4.9**. Build **464**.
+Current project version: **3.4.9**. Build **466**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -22,9 +22,10 @@ RawCull is a native macOS app for reviewing and culling RAW photographs. It comb
 | 🔍 | **Close-ups** | Compare magnified crops across selected burst frames using recorded autofocus points, detected faces, or manually selected regions. |
 | 🔎 | **Search by meaning** | Find photos with natural-language queries using local CLIP embeddings. |
 | 🖼️ | **Review** | Ask what is wrong with a photo. Focus check measures subject sharpness with SAM 3 masks; Describe gives a Qwen assessment; Full adds per-object crops and a written report. Tag, rate and mark reviewed from the result. |
+| 🤖 | **Burst AI assessment** | Run a local Qwen assessment of the recommended and alternate frame in every burst, with progress and cancel. Results open in the AI Assessments window. |
 | ⭐️ | **A complete culling flow** | Tag, reject, rate, filter, compare, and persist your decisions. |
 | 📦 | **Flexible export** | Export JPEG previews or copy selected RAW files with live rsync progress. |
-| 🔌 | **MCP server (in development)** | Query an authorized catalog and retrieve ranked burst recommendations from a compatible desktop AI client. |
+| 🔌 | **MCP server** | Query an authorized catalog and retrieve ranked burst recommendations from a compatible desktop AI client. |
 
 RawCull also reads core EXIF data, supports developed RAW previews, caches compatible analysis across sessions, and monitors cache usage and memory pressure.
 
@@ -36,17 +37,17 @@ RawCull's AI features run locally on the Mac. Model downloads and validation are
 |---|---|---|
 | **DataComp CLIP** | Understands image/text similarity | Semantic search, visual similarity, burst grouping, and coarse subject labels |
 | **SAM 3** | Finds where a prompted subject is | Subject masks, AF-point checks, the subject outline, and Review's focus measurement |
-| **Qwen3-VL** | Describes and evaluates a photograph | Review's Describe and Full presets, and MCP photo assessments |
+| **Qwen3-VL** | Describes and evaluates a photograph | Review's Describe and Full presets, burst AI assessment, and MCP photo assessments |
 
 CLIP image embeddings are computed once and reused for later searches. SAM 3 masks and compatible analysis artifacts can also be cached. Qwen assessments are advisory: RawCull validates their structure, but the photographer remains the final judge.
 
-## RawCull MCP server (in development)
+## RawCull MCP server
 
 The bundled Model Context Protocol (MCP) server lets you work with an authorized RawCull catalog from a compatible desktop AI client such as Codex. You can ask for photo counts, capture dates, and camera information while RawCull is closed. With burst analysis enabled, a prompt can open RawCull, run its on-device analysis, and retrieve ranked burst recommendations and coverage in chat.
 
 You choose which catalog to share and whether the client can start analysis in **Settings → MCP**. The helper runs locally and returns authorized catalog metadata and analysis results. The AI client may send those results to its configured model provider.
 
-Prompt-driven catalog setup, job approval, and saved-grant reuse have been verified on TestFlight. [Copy-ready prompts](Docs/prompts.md) · [MCP server setup and TestFlight results](Docs/mcpserver.md)
+A prompt can ask RawCull to set up a catalog, and each job asks for your approval, either for that job only or remembered for later jobs. [Copy-ready prompts](Docs/prompts.md) · [MCP server setup and supported tools](Docs/mcpserver.md)
 
 ## Review
 
