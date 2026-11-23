@@ -233,6 +233,22 @@ The comparison used one run per revision.
 
 `graphify-out/` holds a [graphify](https://github.com/safishamsi/graphify) knowledge graph of the code. The folder is in `.gitignore`.
 
+### Install and update graphify
+
+graphify is published on PyPI as `graphifyy` (two y's); the command it installs is `graphify`. Install it with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install graphifyy
+```
+
+Update it to the latest version:
+
+```bash
+uv tool upgrade graphifyy
+```
+
+`uv tool install --upgrade graphifyy` does both: it installs graphify if it is missing and upgrades it otherwise.
+
 ### Rebuild the graph
 
 Run these from the repository root. The sibling packages `RawCullCore`, `PhotoAIKit` and `PhotoAnalysisKit` must be checked out next to this repository.
@@ -251,7 +267,7 @@ Run these from the repository root. The sibling packages `RawCullCore`, `PhotoAI
 
 The last line it prints gives the counts, about `Graph: 7488 nodes, …`. This writes `graph.json` and `GRAPH_REPORT.md`, which is all that graph queries need.
 
-Use only `rebuild.py`. `/graphify` and `graphify update` scan the app folder alone (about 6,200 nodes) and replace the full graph. Don't delete `rebuild.py`, `label_overrides.json`, `licence_semantic.json` or `.graphify_python` in `graphify-out/`: the rebuild needs them and git doesn't track them. If graphify is missing, install it with `uv tool install --upgrade graphifyy`.
+Use only `rebuild.py`. `/graphify` and `graphify update` scan the app folder alone (about 6,200 nodes) and replace the full graph. Don't delete `rebuild.py`, `label_overrides.json`, `licence_semantic.json` or `.graphify_python` in `graphify-out/`: the rebuild needs them and git doesn't track them.
 
 ## Release
 
