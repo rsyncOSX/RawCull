@@ -1,7 +1,10 @@
 #  sudo ditto "build/RawCull.app" "/Applications/RawCull.app"
 APP = RawCull
 BUNDLE_ID = no.blogspot.$(APP)
-MARKETING_VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCull.xcodeproj/project.pbxproj | awk -F' = ' '{print $$2}' | tr -d ';')
+# The app target's version, from Xcode. Other targets (tests) have their own
+# MARKETING_VERSION, so grepping project.pbxproj picks the wrong one. Looked up
+# once, only when a target uses it, because -showBuildSettings takes ~2 s.
+MARKETING_VERSION = $(eval MARKETING_VERSION := $(shell xcodebuild -showBuildSettings -project RawCull.xcodeproj -scheme $(APP) -configuration Release 2>/dev/null | awk '/^ +MARKETING_VERSION = / {print $$3; exit}'))$(MARKETING_VERSION)
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(MARKETING_VERSION).zip"
@@ -151,6 +154,16 @@ analyze:
 		-derivedDataPath "$(ANALYZE_PATH)/DerivedData" CODE_SIGNING_ALLOWED=NO \
 		> "$(ANALYZE_LOG)" 2>&1 || (tail -20 "$(ANALYZE_LOG)"; echo "Build failed, see $(ANALYZE_LOG)"; exit 1)
 	swiftlint analyze --compiler-log-path "$(ANALYZE_LOG)"
+
+# All automated release checks from the README checklist, in order, fastest first.
+# Run on a clean worktree at the release commit before `make build` or an upload.
+.PHONY: release-check
+release-check:
+	$(MAKE) release-preflight
+	$(MAKE) verify-ai-import-boundary
+	$(MAKE) test-mcp-release
+	$(MAKE) test-smoke
+	@echo "✅ Release checks passed for $(MARKETING_VERSION)"
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
