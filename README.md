@@ -262,10 +262,16 @@ Run these checks before every release build:
 1. **Automated checks.** Run them from a clean worktree on the release commit:
 
    ```bash
-   make verify-ai-import-boundary  # Restricted AI imports
+   make release-check
+   ```
+
+   It runs these in order and stops at the first failure:
+
+   ```bash
    make release-preflight          # Clean worktree, version and tag, model provenance
-   make test-smoke                 # App integration and critical paths
+   make verify-ai-import-boundary  # Restricted AI imports
    make test-mcp-release           # MCP helper tests, plus the shared job stores compiled in Release
+   make test-smoke                 # App integration and critical paths
    ```
 
 2. **Build numbers.** Check that the app and the `RawCullModelDownloader` extension
