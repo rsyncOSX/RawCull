@@ -170,8 +170,12 @@ release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
 	@test -n "$(MARKETING_VERSION)" || (echo "Release blocked: MARKETING_VERSION is empty"; exit 1)
 	@TAG_COMMIT=$$(git rev-parse --verify --quiet "refs/tags/v$(MARKETING_VERSION)^{commit}" || git rev-parse --verify --quiet "refs/tags/$(MARKETING_VERSION)^{commit}" || true); \
-		if test -n "$$TAG_COMMIT" && test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
-			echo "Release blocked: existing $(MARKETING_VERSION) tag does not point to this release candidate"; \
+		if test -z "$$TAG_COMMIT"; then \
+			echo "Release blocked: no v$(MARKETING_VERSION) tag. Tag the release commit first: git tag -a v$(MARKETING_VERSION) -m \"RawCull $(MARKETING_VERSION)\""; \
+			exit 1; \
+		fi; \
+		if test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
+			echo "Release blocked: the $(MARKETING_VERSION) tag does not point to this release candidate (HEAD)"; \
 			exit 1; \
 		fi
 	@python3 Scripts/VerifyModelProvenance.py

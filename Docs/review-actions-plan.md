@@ -136,7 +136,7 @@ Still open: the end-to-end burst analysis through the app (`Scripts/PrepareBurst
 
 1. **Commit messages.** Use the imperative, and say what changed and in which area. For example: "Cap sharpness scoring at half the cores (Vision plan phase 1, step 3)". Recent plan commits already do this. Stop using "update" and "updates". A `commit-msg` hook in `Scripts/hooks/` can reject those two words alone; install it with `make install-hooks`.
 2. **Merging.** Squash-merge feature and plan branches into `main`, one commit per plan step. That cuts the 112 merge commits and makes `git bisect` usable.
-3. **Tags.** Tag every TestFlight and App Store build as `vX.Y.Z`. Today the latest tag is `v3.4.5`, while the branch is 3.4.9. `release-preflight` already checks the tag. Also make it fail when the tag is missing.
+3. **Tags.** Tag every TestFlight and App Store build as `vX.Y.Z`. Today the latest tag is `v3.4.5`, while the branch is 3.4.9. `release-preflight` checks the tag. Done (2026-11-23): it also fails when the tag is missing, and `make release-check` runs it first.
 4. **Changelog.** Keep `CHANGELOG.md` with one section per tagged version. Write it from the squashed commit titles.
 5. Add these rules to [contributing.md](contributing.md).
 
