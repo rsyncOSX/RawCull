@@ -151,3 +151,69 @@ None of these five edges establishes a package dependency back into the app. A s
 ## Open product question
 
 Should **Clear caches** or a model-driven reindex erase reviewed and deferred decisions? Today these decisions occupy the same snapshot as derived scores, and the purge path clears that cache. If photographers expect review progress to survive either operation, a bounded filename and visible save failures address only part of RC-02. [Snapshot fields](../RawCull/Intelligence/Persistence/BurstAnalysisCache.swift#L22) · [Purge action](../RawCull/Views/Settings/CacheSettingsTab.swift#L214)
+
+## Reviewer comments (Claude, November 23, 2026)
+
+Each finding below was checked against the current source. All seven point at real code. Some severities and fixes are adjusted.
+
+### Per-finding comments
+
+**RC-02 · Burst decisions may not be saved. Agree, Medium.**
+- Confirmed: `cacheFileName(for:)` base64-encodes the whole catalog path. Paths of roughly 188 bytes or more exceed the 255-byte filename limit. Uncommon, but plausible for deeply nested folders on external volumes.
+- Only the manual-decision save discards the result. The post-analysis save (`BurstAnalysisCoordinator.swift:149`) already checks it. The one that drops it is `save(_:catalog:)` at line 321.
+- The SHA-256 fix fits. `FaceEvidenceCache.recordURL` already does this, using `standardizedFileURL.absoluteString`. Use the same normalization here.
+- Keep migration small: on a miss, read the legacy filename only when it is 255 bytes or fewer. Delete it only after the new write succeeds.
+- The "visibly pending decisions" UI is more than needed. A non-blocking "Couldn't save review state" notice plus a log entry covers most of the value.
+- The open product question matters more than the filename bug. If **Clear caches** or a reindex erases reviewed/deferred states, users lose work through a normal action. Store manual decisions apart from derived scores, as ratings already are in `CullingModel`. That removes this class of bug.
+
+**RC-03 · A one-pane reload can strand other panes. Agree, narrow trigger.**
+- Confirmed: `reload` bumps the session-wide `imageMutationRevision`, so any in-flight bulk load is discarded entirely.
+- Trigger: switching the image source on one pane while the group's first bulk load is still running. The other panes keep stale state or keep spinning until the group is re-entered.
+- Per-file revisions are correct but heavier than needed. Smaller fix: keep a `Set<FileItem.ID>` of files reloaded since the bulk load started. If the generation still matches, publish the bulk result for every file not in that set.
+- Minor: a rejected bulk load returns without clearing `bulkLoadTask` and `bulkLoadGeneration`.
+
+**RC-04 · A late focus result can overwrite a newer group. Agree.**
+- Confirmed: `loadImages` never bumps `imageMutationRevision`, so a late focus result still passes the revision check.
+- Trigger: the only call site is `.onChange(of: sharpnessModel.effectiveFocusConfig)`. It takes a focus-setting change, then switching groups before regeneration finishes. Uncommon, but the panes then show wrong images.
+- Minimal fix: at the top of `loadImages`, call `focusRegenerationTask?.cancel()` and bump the revision. The field-level merge proposed above is the better long-term shape; do it together with RC-03.
+- Minor: that `onChange` starts an unstructured `Task {}` not tied to the view's lifetime.
+
+**RC-05 · The rsync details table drops diagnostics. Agree with the bug, not the fix.**
+- Confirmed: `handleProcessTermination` appends the failure message to the output, and `RsyncOutputRowView` then removes it with `dropLast(11)`.
+- Passing `originalRecords` directly would be a regression. `dropLast(11)` hides the `--stats` summary on successful runs.
+- Better fix: keep failure diagnostics separate from the rsync output (or append them after the stats are removed), and show them in their own section.
+- The fixed count of 11 is fragile. macOS openrsync and GNU rsync 3.x print different numbers of stats lines. Detect the start of the stats block (for example "Number of files:") instead of counting from the end.
+- This is the most user-visible of the seven. Do it first.
+
+**RC-06 · Repeated catalog-wide lookup. Agree, Low.**
+- Confirmed: `bestFrameFiles` builds a dictionary over the whole active catalog each time, and `files`, `selectedFile` and `closeUpFiles` each evaluate it again.
+- Cheap fix: `let ids = Set(rankedIDs)`, filter the catalog once, then order by rank. Or reuse an existing ID lookup on the catalog controller.
+- With a few thousand files this is likely under a millisecond per evaluation. Measure before prioritizing it.
+
+**RC-01 · Cached 200-pixel image can satisfy a preview-size request. Downgrade to Nit.**
+- No caller passes `targetSize: 0` today. Grid callers pass 220, 180, `thumbnailSize` and `gridCacheTargetSize`. The loupe uses the `.list` path, which bypasses the loader.
+- This is an API hazard, not a current bug. The two-line reorder is still worth doing: resolve the size before the `<= 200` check.
+
+**RC-07 · The sort comparator isn't a strict ordering. Agree, Nit/Low.**
+- Confirmed: comparing the anchor with itself returns `true`, which `sort(by:)` does not allow.
+- Swift's sort rarely compares an element with itself, so this is unlikely to show, but the fix is one line: `if lhs.id == anchorID { return rhs.id != anchorID }`.
+
+### On the report overall
+
+- Good calibration. It separates "confirmed in source" from "impact unmeasured" and does not inflate severity.
+- The graph triage held up. The strongest refutation, the `SubjectMaskDiskStore` to app `Logger` edge, was spot-checked and is a false link.
+- Keep its conclusions to retain the low-degree symbols; that code is not dead.
+- It is thinner than the prompt asked for on actor reentrancy (`ScanAndCreateThumbnails`, `SharedMemoryCache`, `DiskCacheManager`), the 16 `Task.detached` uses, MCP job lifecycle and grant scope, and the large SwiftUI views. Seven findings for a 50k-line app means it went deep on a few areas rather than across all dimensions. Treat it as a partial pass, not a clean bill of health.
+- Not verified here: the filesystem reproduction for RC-02, and the exact stats line counts for each rsync variant.
+
+### Suggested order
+
+| Order | Work | Notes |
+|---|---|---|
+| 1 | RC-05 | Keep diagnostics separate from the stats trailer; detect the stats block instead of dropping 11 lines. |
+| 2 | RC-07 | One-line comparator fix. |
+| 3 | RC-01 | Resolve the size before the grid-cache branch. |
+| 4 | RC-04 minimal fix | Cancel pending focus work and bump the revision at the start of `loadImages`. |
+| 5 | RC-02 | SHA-256 filename, small legacy fallback, surface save failures. Decide at the same time where manual review state lives and whether **Clear caches** may erase it. |
+| 6 | RC-03 + RC-04 full fix | One publication rule for bulk loads, reloads and focus results (reloaded-file set or per-file revisions). |
+| 7 | RC-06 | Measure first, then filter by group IDs instead of building a catalog-wide dictionary. |
