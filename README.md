@@ -1,6 +1,6 @@
 # RawCull
 
-Current project version: **3.4.9**. Build **466**.
+Current project version: **3.5.0**. Build **469**.
 
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
@@ -285,7 +285,7 @@ Follow these steps for every release:
    local until step 5, so you can move it if a fix is needed.
 
    ```bash
-   git tag -a v3.4.9 -m "RawCull 3.4.9"
+   git tag -a v3.5.0 -m "RawCull 3.5.0"
    ```
 
    ```bash
@@ -347,7 +347,7 @@ Follow these steps for every release:
    the upload commands do not do that. Then push the tag:
 
    ```bash
-   git push origin v3.4.9
+   git push origin v3.5.0
    ```
 
 ### App Store Connect and TestFlight uploads
@@ -391,7 +391,7 @@ To verify a downloaded DMG against the generated SHA-256 file:
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.4.9.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.5.0.dmg
 ```
 
 ### Local release integration tests
