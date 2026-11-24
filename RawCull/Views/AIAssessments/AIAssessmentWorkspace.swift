@@ -25,12 +25,24 @@ struct AIAssessmentWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: returnToBursts) {
-                    Label(navigation.returnsToBurstViewer ? "Back to burst" : "Burst list", systemImage: "chevron.left")
+                if navigation.returnsToBurstViewer {
+                    Button(action: returnToBursts) {
+                        Label("Back to burst", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("Return to the burst you came from (R)")
+                    Button(action: returnToBurstList) {
+                        Label("Burst list", systemImage: "list.bullet")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Return to Burst list")
+                } else {
+                    Button(action: returnToBurstList) {
+                        Label("Burst list", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("Return to Burst list (R)")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                .help(navigation.returnsToBurstViewer ? "Return to the burst viewer (R)" : "Return to Burst list (R)")
                 Spacer()
                 Button("Previous Assessment", systemImage: "chevron.left") {
                     navigate(by: -1)
@@ -207,10 +219,16 @@ struct AIAssessmentWorkspace: View {
         }
     }
 
+    /// Returns to where the assessment was opened from: the burst viewer or the Burst list.
     private func returnToBursts() {
         if !navigation.returnsToBurstViewer {
             burstWorkflow.returnToActiveBurstGroupView()
         }
+        navigation.presentedID = nil
+    }
+
+    private func returnToBurstList() {
+        burstWorkflow.returnToActiveBurstGroupView()
         navigation.presentedID = nil
     }
 }
