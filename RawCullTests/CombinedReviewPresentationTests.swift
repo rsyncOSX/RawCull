@@ -32,7 +32,7 @@ struct CombinedReviewPresentationTests {
     }
 
     @MainActor private func verifyRendering(_ view: some View, width: Double, name: String) throws {
-        let renderer = ImageRenderer(content: view)
+        let renderer = ImageRenderer(content: view.environment(SharpnessScoringModel()))
         renderer.proposedSize = .init(width: width, height: nil)
         let image = try #require(renderer.cgImage)
         #expect(image.width == Int(width))

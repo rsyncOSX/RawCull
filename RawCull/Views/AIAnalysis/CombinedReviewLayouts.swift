@@ -13,9 +13,11 @@ struct CombinedReviewPhotoLayout: View {
     @State private var showRegions = true
     @State private var showMask = false
     @State private var showGeometry = false
-    @State private var showFocusPoint = true
-    @State private var showFocusMask = true
+    @State private var showFocusPoint = false
+    @State private var showFocusMask = false
     @State private var chooseRegion = false
+    /// Magnifier zoom in percent of the review preview's pixels; 0 is off.
+    @AppStorage("reviewMagnifierZoom") private var magnifierZoom = 0
 
     var body: some View {
         let highlighted = route.highlightedRegion(in: result, presentation: presentation)
@@ -25,6 +27,7 @@ struct CombinedReviewPhotoLayout: View {
                     feature: feature, result: result, highlightedRegionID: highlighted,
                     showRegions: showRegions, showMask: showMask, showGeometry: showGeometry && highlighted != nil,
                     showFocusPoint: showFocusPoint, showFocusMask: showFocusMask,
+                    magnifierZoom: chooseRegion && canChooseRegion ? 0 : magnifierZoom,
                     canChooseRegion: canChooseRegion, chooseRegion: chooseRegion && canChooseRegion,
                     selectRegion: { id in route = .region(id, from: route.findingID) },
                 )
@@ -35,9 +38,13 @@ struct CombinedReviewPhotoLayout: View {
                                        hasHighlight: highlighted != nil,
                                        hasFocusPoint: result.file.normalizedAFPoint != nil,
                                        hasOverview: result.overviewInputReference != nil)
-                if let source = result.source {
-                    Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
-                        .font(.caption).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    if let source = result.source {
+                        Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 12)
+                    ReviewMagnifierPicker(zoom: $magnifierZoom).disabled(result.overviewInputReference == nil)
                 }
                 if canChooseRegion {
                     Toggle("Choose region for next rerun", isOn: $chooseRegion).toggleStyle(.checkbox)
@@ -100,6 +107,7 @@ private struct CombinedReviewPhotoCanvas: View {
     let showGeometry: Bool
     let showFocusPoint: Bool
     let showFocusMask: Bool
+    let magnifierZoom: Int
     let canChooseRegion: Bool
     let chooseRegion: Bool
     let selectRegion: (ReviewRegionID) -> Void
@@ -179,6 +187,7 @@ private struct CombinedReviewPhotoCanvas: View {
                 }
                 .frame(width: size.width, height: size.height)
                 .clipped()
+                .reviewMagnifier(image: image, zoom: magnifierZoom, displaySize: size)
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 10).onEnded { value in
                     guard chooseRegion, !feature.isRunning else { return }
