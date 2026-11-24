@@ -120,7 +120,11 @@ combinedselectiontest:
 	xcodebuild test $(XCODE_TEST_FLAGS) -enableCodeCoverage NO \
 		-parallel-testing-enabled NO -only-testing:RawCullTests/CombinedReviewRealModelTests
 
-test-full:
+# Copies the app version and build number from the Xcode project into README.md.
+sync-readme-version:
+	./Scripts/SyncReadmeVersion.sh
+
+test-full: sync-readme-version
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES \
 		-parallel-testing-enabled NO
 
@@ -345,7 +349,7 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: combinedreviewtest combinedselectiontest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: combinedreviewtest sync-readme-version combinedselectiontest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
 
 # Real ARW catalog benchmark. Output must be a new directory outside this checkout.
 # Example: make catalog-performance CATALOG="/Volumes/Photos/Catalog" PERF_ARGS='--output /tmp/rawcull-before'
