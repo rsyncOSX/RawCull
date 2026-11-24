@@ -136,6 +136,12 @@ final class AIAssessmentNavigation {
         presentedID = id
     }
 
+    /// Opened from the burst viewer, which stays underneath to return to.
+    func openFromBurstViewer(_ id: UUID) {
+        returnsToBurstViewer = true
+        presentedID = id
+    }
+
     func compareSharpness(in entry: AIAssessmentEntry, recommended: String, sharpest: String) {
         returnsToBurstViewer = true
         presentedID = entry.id
@@ -197,13 +203,18 @@ final class AIAssessmentNavigation {
 struct BurstAssessmentButton: View {
     let catalog: CatalogWorkspace
     let files: [FileItem]
+    var fromBurstViewer = false
     @Environment(AIAssessmentNavigation.self) private var navigation: AIAssessmentNavigation?
 
     var body: some View {
         if let navigation, let catalogURL = catalog.selectedSource?.url,
            let entry = navigation.entry(matching: files, catalog: catalogURL) {
             Button {
-                navigation.openFromBurstList(entry.id)
+                if fromBurstViewer {
+                    navigation.openFromBurstViewer(entry.id)
+                } else {
+                    navigation.openFromBurstList(entry.id)
+                }
             } label: {
                 Label("View AI Assessment", systemImage: "sparkles")
             }

@@ -54,6 +54,7 @@ struct BurstWorkspaceHeader: View {
                 files: catalog.files.filter { file in
                     similarityFeature.burstGroups.first(where: { $0.id == groupID })?.fileIDs.contains(file.id) == true
                 },
+                fromBurstViewer: true,
             )
             reviewButton
         }
