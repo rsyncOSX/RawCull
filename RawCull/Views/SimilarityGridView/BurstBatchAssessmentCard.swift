@@ -11,6 +11,8 @@ struct BurstBatchAssessmentCard: View {
     let start: () -> Void
     let viewResults: () -> Void
 
+    @State private var confirmReassess = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 16) {
@@ -44,15 +46,20 @@ struct BurstBatchAssessmentCard: View {
                     HStack(spacing: 8) {
                         if hasResults {
                             Button("View Results", systemImage: "rectangle.on.rectangle", action: viewResults)
+                                .buttonStyle(.borderedProminent)
                                 .controlSize(.large)
+                                .keyboardShortcut(.defaultAction)
                         }
-                        Button(action: start) {
-                            Label("Assess All Bursts", systemImage: "sparkles")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(disabledReason != nil)
-                        .help(disabledReason ?? "Assess the top two frames of every burst")
+                        assessButton
+                    }
+                    .confirmationDialog(
+                        "Clear the current AI assessments and assess again?",
+                        isPresented: $confirmReassess,
+                    ) {
+                        Button("Clear and Reassess", role: .destructive, action: start)
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("The present results are removed and every burst is assessed again with the local Qwen model.")
                     }
                 }
             }
@@ -101,6 +108,32 @@ struct BurstBatchAssessmentCard: View {
                 .stroke(.separator.opacity(0.65), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// Prominent when nothing has been assessed yet; secondary once results
+    /// exist, and then it asks before clearing them.
+    @ViewBuilder
+    private var assessButton: some View {
+        let button = Button {
+            if hasResults {
+                confirmReassess = true
+            } else {
+                start()
+            }
+        } label: {
+            Label(hasResults ? "Reassess" : "Assess All Bursts", systemImage: "sparkles")
+        }
+        .controlSize(.large)
+        .disabled(disabledReason != nil)
+        .help(disabledReason ?? (hasResults
+                ? "Clear the current results and assess every burst again"
+                : "Assess the top two frames of every burst"))
+
+        if hasResults {
+            button.buttonStyle(.bordered)
+        } else {
+            button.buttonStyle(.borderedProminent)
+        }
     }
 
     private var statusSymbol: String {
