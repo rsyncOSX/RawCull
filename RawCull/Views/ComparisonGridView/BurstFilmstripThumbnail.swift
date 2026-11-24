@@ -9,8 +9,7 @@ struct BurstFilmstripThumbnail: View {
     let isSuggested: Bool
     let isDeferred: Bool
     var isIncludedInCloseUps = false
-    var isSharpest = false
-    var hasAIAssessment = false
+    var marks = BurstFrameMarks()
     let action: () -> Void
 
     var body: some View {
@@ -33,7 +32,7 @@ struct BurstFilmstripThumbnail: View {
                     }
                 }
                 .overlay(alignment: .topLeading) {
-                    if isSharpest {
+                    if marks.isSharpest {
                         Text("Sharpest")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 5)
@@ -43,19 +42,17 @@ struct BurstFilmstripThumbnail: View {
                             .help("Highest measured sharpness in this burst.")
                     }
                 }
-                HStack(spacing: 4) {
-                    Text(file.name)
-                        .lineLimit(1)
-                    if hasAIAssessment {
-                        Image(systemName: "sparkles")
-                            .accessibilityLabel("AI assessed")
-                            .help("Saved AI assessment available")
+                .overlay(alignment: .bottomTrailing) {
+                    if let score = marks.aiScore {
+                        aiChip(score: score)
                     }
                 }
-                .font(.caption2.monospaced())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 5)
+                Text(file.name)
+                    .lineLimit(1)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 5)
             }
             .frame(width: Self.width)
             .contentShape(.rect)
@@ -70,5 +67,26 @@ struct BurstFilmstripThumbnail: View {
                     lineWidth: isSelected ? 3 : (isIncludedInCloseUps ? 2 : 1),
                 )
         }
+    }
+
+    private func aiChip(score: Double) -> some View {
+        let value = BurstFrameMarks.formatted(score)
+        return Label(marks.isAITop ? "AI top \(value)" : "AI \(value)", systemImage: "sparkles")
+            .font(.caption2.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(marks.isAITop ? Color.white : Color.primary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background {
+                if marks.isAITop {
+                    RoundedRectangle(cornerRadius: 4).fill(Color.purple)
+                } else {
+                    RoundedRectangle(cornerRadius: 4).fill(.regularMaterial)
+                }
+            }
+            .padding(5)
+            .help(marks.isAITop
+                ? "Highest AI assessment score in this burst (mean of rubric scores, 1–5)."
+                : "AI assessment score (mean of rubric scores, 1–5).")
     }
 }
