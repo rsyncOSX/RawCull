@@ -147,6 +147,7 @@ struct CombinedReviewFeatureTests {
         let backend = ReviewFakeBackend(hasSAM: true)
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                                             scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         var file = fixture.file
         file.normalizedAFPoint = CGPoint(x: 0.5, y: 0.5)
         await feature.analyze([file])
@@ -164,6 +165,7 @@ struct CombinedReviewFeatureTests {
         let backend = ReviewFakeBackend(hasSAM: true)
         let store = ReviewArtifactStore(root: fixture.root.appendingPathComponent("store"))
         let feature = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         await feature.analyze([fixture.file])
         let measurement = try #require(feature.result?.measurements.first)
         #expect(measurement.hasCurrentMaskSemantics)
@@ -395,6 +397,7 @@ struct CombinedReviewFeatureTests {
         let backend = ReviewFakeBackend()
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                                             sourceLoader: ReviewPreviewOnlySource(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         feature.sourcePreference = .rawDetail
         await feature.analyze([fixture.file])
         let refusedRun = try #require(feature.manifest)
@@ -497,6 +500,7 @@ struct CombinedReviewFeatureTests {
         let backend = ReviewFakeBackend()
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                                             sourceLoader: ReviewPreviewOnlySource(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         await feature.analyze([fixture.file, .init(id: UUID(), url: broken, name: "broken.png")])
         #expect(feature.results.count == 2)
         #expect(feature.results.contains { $0.report != nil })
@@ -854,9 +858,12 @@ struct CombinedReviewFeatureTests {
         #expect(viewModel.ratings.rating(for: photos[1]) == -1)
     }
 
+    /// Starts on Full, the preset these tests were written against; the app preselects Focus check.
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
-        CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
-                              scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
+                                            scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
+        return feature
     }
 }
 

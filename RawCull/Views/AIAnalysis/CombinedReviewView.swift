@@ -147,16 +147,20 @@ private struct CombinedReviewRunBar: View {
     let files: [FileItem]
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Preset", selection: $feature.preset) {
+            // Radio buttons read as a choice; the prominent button below is the only action.
+            Picker("Review type", selection: $feature.preset) {
                 ForEach(ReviewPreset.allCases, id: \.rawValue) { preset in
                     Text(preset.title).tag(preset)
                         .disabled(feature.qwenUnavailableReason != nil && preset.usedModels.contains("qwen"))
                 }
-            }.pickerStyle(.segmented).frame(maxWidth: 360)
+            }.pickerStyle(.radioGroup).horizontalRadioGroupLayout()
                 .disabled(feature.isRunning)
             Text(presetSummary).font(.caption).foregroundStyle(.secondary)
             if let status = feature.presetStatus {
                 Text(status).font(.caption).foregroundStyle(.orange)
+            } else if let reason = feature.qwenUnavailableReason {
+                // Explains why Describe and Full are greyed out.
+                Text(reason).font(.caption).foregroundStyle(.secondary)
             } else if feature.preset.usedModels.contains("qwen"), let notice = feature.qwenMemoryNotice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
             }
@@ -181,9 +185,19 @@ private struct CombinedReviewRunBar: View {
 private struct CombinedReviewRunActions: View {
     let feature: CombinedReviewFeature
     let files: [FileItem]
+
+    /// Names the chosen review type so the button says what it will run.
+    private var runTitle: String {
+        switch feature.preset {
+        case .focusCheck: String(localized: "Run Focus Check")
+        case .describe: String(localized: "Run Describe")
+        case .full: String(localized: "Run Full Review")
+        }
+    }
+
     var body: some View {
         HStack {
-            Button("Review") {
+            Button(runTitle) {
                 let selected = files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name, normalizedAFPoint: $0.afFocusNormalized, iso: $0.exifData?.isoValue) }
                 Task { await feature.analyze(selected) }
             }.buttonStyle(.borderedProminent)

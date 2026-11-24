@@ -29,6 +29,7 @@ struct CombinedReviewRealModelTests {
         let backend = ReviewRecordingBackend(live: CombinedReviewLiveBackend(qwen: runtime, qwenURL: modelURL, segmentation: segmentation,
                                                                              samIdentity: samURL?.path, clipProvider: clipProvider, clipURL: clipURL))
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: root), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         await feature.analyze([.init(id: UUID(), url: imageURL, name: imageURL.lastPathComponent)])
         let result = try #require(feature.result)
         let run = try #require(feature.manifest)
@@ -104,6 +105,7 @@ struct CombinedReviewRealModelTests {
                                                                              segmentation: segmentation, samIdentity: samURL.path,
                                                                              clipProvider: clip, clipURL: clipURL))
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: root), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         feature.retainInputs = true
         feature.retainRejectedResponses = true
         await feature.analyze(urls.map { .init(id: UUID(), url: $0, name: $0.lastPathComponent) })
@@ -171,6 +173,7 @@ struct CombinedReviewRealModelTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let backend = ReviewRecordingBackend(live: CombinedReviewLiveBackend(qwen: runtime, qwenURL: modelURL, segmentation: nil, samIdentity: nil, clipProvider: nil, clipURL: nil))
         let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: root), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.preset = .full
         var sourceChecks: [[String: String]] = []
         for url in urls {
             let loader = ReviewImageSourceService()
