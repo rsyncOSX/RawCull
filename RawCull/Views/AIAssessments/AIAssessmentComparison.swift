@@ -61,8 +61,10 @@ struct AIAssessmentComparison: View {
                     .padding(8)
                 Divider()
 
+                BurstFramePicksBar(picks: framePicks)
                 AIAssessmentFilmstrip(
                     frames: entry.frames, leftID: leftFrame?.id, rightID: rightFrame?.id,
+                    suggestedID: entry.recommendation, marks: frameMarks,
                     access: access, liveFile: liveFile, select: select, reset: resetPair, canReset: leftID != nil || rightID != nil || activeInitialPair != nil,
                 )
             }
@@ -88,6 +90,44 @@ struct AIAssessmentComparison: View {
         .onChange(of: linked) {
             if !linked {
                 rightViewport = leftViewport
+            }
+        }
+    }
+
+    /// Measured sharpness leader among the live frames, else the saved comparison pair's.
+    private var sharpestFrameID: String? {
+        let files = entry.frames.compactMap { frame in liveFile(frame).map { (frame.id, $0) } }
+        if files.count == entry.frames.count {
+            let id = BurstFrameMarks.sharpestID(in: files.map(\.1), scores: sharpnessModel.scores)
+            return files.first { $0.1.id == id }?.0
+        }
+        return initialPair?.sharpest
+    }
+
+    private var frameMarks: [String: BurstFrameMarks] {
+        let sharpest = sharpestFrameID
+        let top = entry.aiTopFrameID
+        return Dictionary(uniqueKeysWithValues: entry.frames.map { frame in
+            (frame.id, BurstFrameMarks(isSharpest: frame.id == sharpest, aiScore: frame.aiScore, isAITop: frame.id == top))
+        })
+    }
+
+    private var framePicks: [BurstFramePick] {
+        let candidates: [(BurstFramePick.Kind, String?)] = [
+            (.aiTop, entry.aiTopFrameID), (.suggested, entry.recommendation), (.sharpest, sharpestFrameID)
+        ]
+        return candidates.compactMap { kind, id in
+            guard let id, let frame = frame(id) else { return nil }
+            return BurstFramePick(kind: kind, fileName: frame.name) {
+                if id == leftFrame?.id {
+                    activeSide = .left
+                    hasKeyboardFocus = true
+                } else if id == rightFrame?.id {
+                    activeSide = .right
+                    hasKeyboardFocus = true
+                } else {
+                    select(id, side: .right)
+                }
             }
         }
     }

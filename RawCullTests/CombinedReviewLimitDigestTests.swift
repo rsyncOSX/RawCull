@@ -17,7 +17,7 @@ struct CombinedReviewLimitDigestTests {
             "Selected visibility replaced with the highest-priority validated criterion row o2.",
             "No supported detail claim; abstained because admitted observations did not establish this criterion.",
             "Eye localization unavailable. Head and subject masks do not establish eye detail.",
-            "Something the digest has never seen.",
+            "Something the digest has never seen."
         ]
         let source = ["Preview reduced from 9984×6656 to 4096×2731 to fit the review memory budget; fine-detail evidence is limited"]
         let omission = ReviewRegionOmission(regionID: .init(rawValue: "4466e5ef"), subjectID: nil, reason: .ambiguousAnatomy,

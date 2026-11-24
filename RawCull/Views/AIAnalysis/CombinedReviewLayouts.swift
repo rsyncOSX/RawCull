@@ -13,6 +13,8 @@ struct CombinedReviewPhotoLayout: View {
     @State private var showRegions = true
     @State private var showMask = false
     @State private var showGeometry = false
+    @State private var showFocusPoint = true
+    @State private var showFocusMask = true
     @State private var chooseRegion = false
 
     var body: some View {
@@ -22,13 +24,17 @@ struct CombinedReviewPhotoLayout: View {
                 CombinedReviewPhotoCanvas(
                     feature: feature, result: result, highlightedRegionID: highlighted,
                     showRegions: showRegions, showMask: showMask, showGeometry: showGeometry && highlighted != nil,
+                    showFocusPoint: showFocusPoint, showFocusMask: showFocusMask,
                     canChooseRegion: canChooseRegion, chooseRegion: chooseRegion && canChooseRegion,
                     selectRegion: { id in route = .region(id, from: route.findingID) },
                 )
                 CombinedReviewLayerBar(showRegions: $showRegions, showMask: $showMask, showGeometry: $showGeometry,
+                                       showFocusPoint: $showFocusPoint, showFocusMask: $showFocusMask,
                                        hasRegions: !result.regions.isEmpty,
                                        hasMask: result.subjects.contains { $0.maskInputReference != nil },
-                                       hasHighlight: highlighted != nil)
+                                       hasHighlight: highlighted != nil,
+                                       hasFocusPoint: result.file.normalizedAFPoint != nil,
+                                       hasOverview: result.overviewInputReference != nil)
                 if let source = result.source {
                     Text("\(source.fidelity) · \(source.width) × \(source.height) · \(source.colorSpace)")
                         .font(.caption).foregroundStyle(.secondary)
@@ -57,15 +63,23 @@ private struct CombinedReviewLayerBar: View {
     @Binding var showRegions: Bool
     @Binding var showMask: Bool
     @Binding var showGeometry: Bool
+    @Binding var showFocusPoint: Bool
+    @Binding var showFocusMask: Bool
     let hasRegions: Bool
     let hasMask: Bool
     let hasHighlight: Bool
+    let hasFocusPoint: Bool
+    let hasOverview: Bool
 
     var body: some View {
         HStack(spacing: 14) {
             Text("Show").foregroundStyle(.secondary)
             Toggle("Regions", isOn: $showRegions).disabled(!hasRegions)
             Toggle("Subject mask", isOn: $showMask).disabled(!hasMask)
+            Toggle("Focus point", isOn: $showFocusPoint).disabled(!hasFocusPoint)
+                .help(hasFocusPoint ? "The camera's autofocus point" : "The photo has no recorded autofocus point")
+            Toggle("Focus mask", isOn: $showFocusMask).disabled(!hasOverview)
+                .help("Areas measured as in focus, to compare with the focus point")
             Toggle("Crop geometry", isOn: $showGeometry).disabled(!hasHighlight)
                 .help(hasHighlight ? "Requested, padded, clipped and model-retained crop rectangles"
                     : "Select a finding or region to show its crop geometry")
@@ -84,11 +98,21 @@ private struct CombinedReviewPhotoCanvas: View {
     let showRegions: Bool
     let showMask: Bool
     let showGeometry: Bool
+    let showFocusPoint: Bool
+    let showFocusMask: Bool
     let canChooseRegion: Bool
     let chooseRegion: Bool
     let selectRegion: (ReviewRegionID) -> Void
+    @Environment(SharpnessScoringModel.self) private var sharpnessModel
     @State private var image: CGImage?
     @State private var tint: CGImage?
+    @State private var focusMask: NSImage?
+
+    /// Changes when the focus mask must be generated again; nil when it is hidden or has no image.
+    private var focusMaskKey: String? {
+        guard showFocusMask, image != nil, let key = result.overviewInputReference else { return nil }
+        return key
+    }
 
     private var highlighted: ReviewRegionRecord? {
         highlightedRegionID.flatMap { id in result.regions.first { $0.id == id } }
@@ -120,6 +144,9 @@ private struct CombinedReviewPhotoCanvas: View {
                         .frame(width: size.width, height: size.height)
                         .allowsHitTesting(false)
                         .accessibilityLabel("Overview supplied to the review models")
+                    if showFocusMask, let focusMask {
+                        ImageReviewRasterOverlay(image: Image(nsImage: focusMask), size: size, kind: .focusMap)
+                    }
                     if let highlighted {
                         let rect = ReviewInspectionOverlay.displayRect(highlighted.sourceRect, sourceSize: sourceSize, displaySize: size)
                         Path { path in
@@ -140,6 +167,14 @@ private struct CombinedReviewPhotoCanvas: View {
                             .frame(width: rect.width * size.width, height: rect.height * size.height)
                             .offset(x: rect.minX * size.width, y: rect.minY * size.height)
                             .allowsHitTesting(false)
+                    }
+                    if showFocusPoint, let point = result.file.normalizedAFPoint {
+                        FocusPointMarker(normalizedX: point.x, normalizedY: point.y, boxSize: 28)
+                            .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .shadow(color: .black.opacity(0.8), radius: 2)
+                            .frame(width: size.width, height: size.height)
+                            .allowsHitTesting(false)
+                            .accessibilityLabel("Autofocus point")
                     }
                 }
                 .frame(width: size.width, height: size.height)
@@ -183,6 +218,20 @@ private struct CombinedReviewPhotoCanvas: View {
             let loaded = try? await Task { @concurrent in try ReviewInspectionOverlay.tint(mask) }.value
             guard !Task.isCancelled, maskKey == key else { return }
             tint = loaded
+        }
+        .task(id: focusMaskKey) {
+            focusMask = nil
+            guard let key = focusMaskKey, let image else { return }
+            var config = sharpnessModel.effectiveFocusConfig
+            let iso = result.file.iso ?? 400
+            config.iso = iso
+            let mask = await sharpnessModel.focusMaskModel.generateFocusMask(
+                from: NSImage(cgImage: image, size: CGSize(width: image.width, height: image.height)),
+                scale: 1.0, configOverride: config,
+                afPoint: result.file.normalizedAFPoint, iso: iso,
+            )
+            guard !Task.isCancelled, focusMaskKey == key else { return }
+            focusMask = mask
         }
     }
 

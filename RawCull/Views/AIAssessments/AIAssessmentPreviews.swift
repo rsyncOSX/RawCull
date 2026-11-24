@@ -319,6 +319,8 @@ struct AIAssessmentFilmstrip: View {
     let frames: [AIAssessmentEntry.Frame]
     let leftID: String?
     let rightID: String?
+    var suggestedID: String?
+    var marks: [String: BurstFrameMarks] = [:]
     let access: RawCullCatalogGrant?
     let liveFile: (AIAssessmentEntry.Frame) -> FileItem?
     let select: (String, AIAssessmentSide) -> Void
@@ -339,6 +341,7 @@ struct AIAssessmentFilmstrip: View {
                     ForEach(orderedFrames) { frame in
                         AIAssessmentFilmstripItem(
                             frame: frame, access: access, file: liveFile(frame), isLeft: frame.id == leftID, isRight: frame.id == rightID,
+                            isSuggested: frame.id == suggestedID, marks: marks[frame.id] ?? BurstFrameMarks(),
                             select: select,
                         )
                     }
@@ -369,6 +372,8 @@ private struct AIAssessmentFilmstripItem: View {
     let file: FileItem?
     let isLeft: Bool
     let isRight: Bool
+    var isSuggested = false
+    var marks = BurstFrameMarks()
     let select: (String, AIAssessmentSide) -> Void
 
     @State private var showsPaneChoices = false
@@ -378,7 +383,7 @@ private struct AIAssessmentFilmstripItem: View {
             if let file {
                 BurstFilmstripThumbnail(
                     file: file, isSelected: isLeft || isRight,
-                    isSuggested: false, isDeferred: false,
+                    isSuggested: isSuggested, isDeferred: false, marks: marks,
                     action: { showsPaneChoices = true },
                 )
             } else {
@@ -396,8 +401,13 @@ private struct AIAssessmentFilmstripItem: View {
                 Text("Best Frame #\(rank)").foregroundStyle(.secondary)
             }
             HStack(spacing: 6) {
-                if frame.outcome?.findings != nil {
-                    Label("Assessed", systemImage: "sparkles")
+                if file == nil, let score = marks.aiScore {
+                    // The live thumbnail shows the AI chip; the saved preview has none.
+                    let value = BurstFrameMarks.formatted(score)
+                    Label(marks.isAITop ? "AI top \(value)" : "AI \(value)", systemImage: "sparkles")
+                }
+                if file == nil, marks.isSharpest {
+                    Text("Sharpest")
                 }
                 if isLeft, isRight {
                     Text("Both panes")

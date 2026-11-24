@@ -124,12 +124,8 @@ struct BurstCullingWorkspaceView: View {
         let catalogURL = catalog.selectedSource?.url
         let assessment = catalogURL.flatMap { assessmentNavigation?.entry(matching: displayedFiles, catalog: $0) }
         let assessedFrame = selectedFile.flatMap { file in catalogURL.flatMap { assessment?.frame(for: file, in: $0) } }
-        let assessedURLs = catalogURL.map { url in
-            Set((assessment?.frames ?? []).compactMap { frame in
-                frame.outcome?.findings == nil ? nil : url.appendingPathComponent(frame.source.relativePath).standardizedFileURL
-            })
-        } ?? []
         let sharpest = sharpnessLeader(in: displayedFiles)
+        let frameMarks = marks(for: displayedFiles, assessment: assessment, catalog: catalogURL, sharpestID: sharpest?.id)
         let sharpestFrame = sharpest.flatMap { file in catalogURL.flatMap { assessment?.frame(for: file, in: $0) } }
         VStack(spacing: 0) {
             HStack(spacing: 0) {
@@ -214,6 +210,7 @@ struct BurstCullingWorkspaceView: View {
                     }
                 }
                 Divider()
+                BurstFramePicksBar(picks: picks(in: displayedFiles, marks: frameMarks, sharpestID: sharpest?.id))
                 BurstWorkspaceFilmstrip(
                     selection: selection, files: files, analysis: analysis, burstNumber: burstNumber, isSingleImages: groupID == -1,
                     canNavigatePrevious: navigationDestination(by: -1) != nil,
@@ -221,8 +218,7 @@ struct BurstCullingWorkspaceView: View {
                     navigate: navigate,
                     closeUpSelection: Set(closeUpFiles.map(\.url)),
                     mostFaceDetail: mostFaceDetail,
-                    sharpestID: sharpest?.id,
-                    assessedURLs: assessedURLs,
+                    marks: frameMarks,
                     faceSizesVary: faceSizesVary,
                     selectCloseUp: { url, modifiers in
                         closeUpSelection = BurstCloseUpSelection.select(
@@ -351,15 +347,37 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func sharpnessLeader(in files: [FileItem]) -> FileItem? {
-        guard groupID != -1 else { return nil }
-        let scores = sharpnessModel.scores
-        let measured = files.compactMap { file -> (FileItem, Float)? in
-            guard let score = scores[file.id], score.isFinite else { return nil }
-            return (file, score)
+        guard groupID != -1,
+              let id = BurstFrameMarks.sharpestID(in: files, scores: sharpnessModel.scores) else { return nil }
+        return files.first { $0.id == id }
+    }
+
+    private func marks(
+        for files: [FileItem], assessment: AIAssessmentEntry?, catalog: URL?, sharpestID: FileItem.ID?,
+    ) -> [FileItem.ID: BurstFrameMarks] {
+        let topID = assessment?.aiTopFrameID
+        return Dictionary(uniqueKeysWithValues: files.map { file in
+            let frame = catalog.flatMap { assessment?.frame(for: file, in: $0) }
+            return (file.id, BurstFrameMarks(
+                isSharpest: file.id == sharpestID,
+                aiScore: frame?.aiScore,
+                isAITop: frame != nil && frame?.id == topID,
+            ))
+        })
+    }
+
+    private func picks(
+        in files: [FileItem], marks: [FileItem.ID: BurstFrameMarks], sharpestID: FileItem.ID?,
+    ) -> [BurstFramePick] {
+        let candidates: [(BurstFramePick.Kind, FileItem.ID?)] = [
+            (.aiTop, files.first { marks[$0.id]?.isAITop == true }?.id),
+            (.suggested, analysis?.recommendedFileID),
+            (.sharpest, sharpestID)
+        ]
+        return candidates.compactMap { kind, id in
+            guard let file = files.first(where: { $0.id == id }) else { return nil }
+            return BurstFramePick(kind: kind, fileName: file.name) { selection.selectedFileID = file.id }
         }
-        guard measured.count > 1, let best = measured.max(by: { $0.1 < $1.1 }),
-              measured.count(where: { $0.1 == best.1 }) == 1 else { return nil }
-        return best.0
     }
 
     private func comparisonAction(

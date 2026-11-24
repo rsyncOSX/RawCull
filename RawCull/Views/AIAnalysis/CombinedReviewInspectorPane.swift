@@ -29,8 +29,10 @@ enum CombinedReviewRoute: Equatable {
         switch self {
         case .summary:
             nil
+
         case let .finding(id):
             presentation.findings.first { $0.id == id }.flatMap { CombinedReviewPresentation.supportingRegion(for: $0, in: result) }
+
         case let .region(id, _):
             id
         }
@@ -50,7 +52,10 @@ enum CombinedReviewRoute: Equatable {
 /// The parts of the technical record sheet.
 enum CombinedReviewRecordTab: String, CaseIterable, Identifiable {
     case coverage, technical, history
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
+
     var title: LocalizedStringResource {
         switch self {
         case .coverage: "Coverage & limits"
@@ -76,6 +81,7 @@ struct CombinedReviewInspectorPane: View {
             switch route {
             case .summary:
                 CombinedReviewSummaryPage(presentation: presentation, inProgress: inProgress, route: $route, openRecord: openRecord)
+
             case let .finding(id):
                 if let finding = presentation.findings.first(where: { $0.id == id }) {
                     CombinedReviewFindingPage(feature: feature, result: result, presentation: presentation,
@@ -83,6 +89,7 @@ struct CombinedReviewInspectorPane: View {
                 } else {
                     missing
                 }
+
             case let .region(id, from):
                 if let region = result.regions.first(where: { $0.id == id }) {
                     CombinedReviewRegionPage(feature: feature, result: result, presentation: presentation, region: region,
@@ -483,7 +490,10 @@ struct CombinedReviewSwatch: View {
 
 private struct CombinedReviewSectionTitle: View {
     let title: LocalizedStringResource
-    init(_ title: LocalizedStringResource) { self.title = title }
+    init(_ title: LocalizedStringResource) {
+        self.title = title
+    }
+
     var body: some View {
         Text(title).font(.caption.weight(.semibold)).textCase(.uppercase).foregroundStyle(.secondary)
     }
