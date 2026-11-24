@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct RawCullMainView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openWindow) var openWindow
+    @Environment(BurstBatchAssessment.self) private var burstBatch: BurstBatchAssessment?
 
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
@@ -437,6 +438,11 @@ struct RawCullMainView: View {
             focusPoints: viewModel.catalog.focusPoints,
             rating: viewModel.selectedFile.map { viewModel.ratings.getRating(for: $0) } ?? 0,
         )
+    }
+
+    /// True while AI Review or the burst AI assessment runs, so the main toolbar is disabled.
+    var toolbarIsDisabled: Bool {
+        combinedReviewFeature.isRunning || burstBatch?.isRunning == true
     }
 
     // MARK: - Actions

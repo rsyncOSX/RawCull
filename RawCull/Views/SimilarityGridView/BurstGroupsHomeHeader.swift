@@ -3,7 +3,6 @@ import SwiftUI
 
 struct BurstGroupsHomeHeader: View {
     let maintenanceActionsAreDisabled: Bool
-    let showScoringParameters: () -> Void
     let reindex: () -> Void
     let indexSimilarity: () -> Void
 
@@ -21,12 +20,6 @@ struct BurstGroupsHomeHeader: View {
             Spacer()
 
             Menu {
-                Button(action: showScoringParameters) {
-                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
-                }
-
-                Divider()
-
                 Button(action: reindex) {
                     Label("Re-index Catalog", systemImage: "arrow.clockwise")
                 }

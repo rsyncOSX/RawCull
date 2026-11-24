@@ -3,7 +3,6 @@ import SwiftUI
 
 struct BurstGroupsHomeView: View {
     @Environment(SelectionModel.self) private var selection
-    @Environment(WorkspacePresentationModel.self) private var presentation
     @Environment(BurstWorkflowController.self) private var burstWorkflow
     @Environment(CatalogController.self) private var catalogController
     @Environment(SharpnessScoringModel.self) private var sharpnessModel
@@ -30,8 +29,7 @@ struct BurstGroupsHomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         BurstGroupsHomeHeader(
-                            maintenanceActionsAreDisabled: controlsAreBusy,
-                            showScoringParameters: { presentation.activeSheet = .scoringParams },
+                            maintenanceActionsAreDisabled: controlsAreBusy || burstBatch?.isRunning == true,
                             reindex: reindex,
                             indexSimilarity: indexSimilarity,
                         )
