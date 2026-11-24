@@ -21,8 +21,13 @@ nonisolated struct CombinedReviewLimitNote: Identifiable, Sendable {
     let text: String
     /// The original reasons, unchanged, for anyone who needs the exact wording.
     let details: [String]
-    var count: Int { details.count }
-    var id: String { "\(group.rawValue)|\(text)" }
+    var count: Int {
+        details.count
+    }
+
+    var id: String {
+        "\(group.rawValue)|\(text)"
+    }
 }
 
 /// Turns the review's pipeline wording into sentences a photographer can read.
@@ -56,7 +61,9 @@ nonisolated enum CombinedReviewLimitDigest {
     }
 
     static func plain(_ reason: String) -> (CombinedReviewLimitNote.Group, String) {
-        func starts(_ prefix: String) -> Bool { reason.hasPrefix(prefix) }
+        func starts(_ prefix: String) -> Bool {
+            reason.hasPrefix(prefix)
+        }
         func match(_ pattern: String) -> [String]? {
             guard let regex = try? NSRegularExpression(pattern: pattern),
                   let found = regex.firstMatch(in: reason, range: NSRange(reason.startIndex..., in: reason)) else { return nil }
@@ -146,7 +153,7 @@ nonisolated enum CombinedReviewLimitDigest {
         if starts("CLIP unavailable") {
             return (.pipeline, String(localized: "Relevance matching (CLIP) was unavailable."))
         }
-        if starts("Stage ") && reason.contains(" unavailable: ") {
+        if starts("Stage "), reason.contains(" unavailable: ") {
             return (.pipeline, String(localized: "A review step did not finish."))
         }
         if starts("Technical render alignment unavailable") {

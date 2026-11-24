@@ -104,16 +104,22 @@ final class BurstBatchAssessment {
         switch phase {
         case .idle:
             ""
+
         case .preparing:
             String(localized: "Loading the Qwen model…")
+
         case .running:
             String(localized: "Assessing burst \(min(completedBursts + 1, totalBursts)) of \(totalBursts)")
+
         case .cancelling:
             String(localized: "Cancelling after the current photo…")
+
         case .finished:
             String(localized: "Assessed \(completedBursts) bursts: \(assessedPhotos) photos assessed, \(failedPhotos) failed.")
+
         case .cancelled:
             String(localized: "Cancelled after \(completedBursts) of \(totalBursts) bursts.")
+
         case let .failed(message):
             message
         }

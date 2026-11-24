@@ -45,6 +45,7 @@ struct CombinedReviewRecordWindow: View {
                         } else {
                             empty
                         }
+
                     case .technical:
                         if let result {
                             Text("For troubleshooting a review. Nothing here is needed to rate the photo.")
@@ -54,6 +55,7 @@ struct CombinedReviewRecordWindow: View {
                         } else {
                             empty
                         }
+
                     case .history:
                         if feature.taskHistory.isEmpty {
                             Text("No runs recorded yet.").foregroundStyle(.secondary)
