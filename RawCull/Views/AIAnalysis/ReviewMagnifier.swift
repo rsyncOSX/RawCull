@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A round lens centred on the pointer that shows the photo at a fixed pixel scale.
-/// 100% maps one preview pixel to one screen pixel.
+/// 100% maps one pixel of `image` (the full-size embedded preview when available) to one screen pixel.
 private struct ReviewMagnifier: View {
     let image: CGImage
     let location: CGPoint
@@ -42,7 +42,7 @@ struct ReviewMagnifierPicker: View {
         .pickerStyle(.segmented)
         .controlSize(.small)
         .fixedSize()
-        .help("Hover over the photo to magnify the review preview at 100% or 200%")
+        .help("Hover over the photo to magnify the full-size preview at 100% or 200% of its pixels")
     }
 }
 

@@ -16,7 +16,7 @@ struct CombinedReviewPhotoLayout: View {
     @State private var showFocusPoint = false
     @State private var showFocusMask = false
     @State private var chooseRegion = false
-    /// Magnifier zoom in percent of the review preview's pixels; 0 is off.
+    /// Magnifier zoom in percent of the full-size preview's pixels; 0 is off.
     @AppStorage("reviewMagnifierZoom") private var magnifierZoom = 0
 
     var body: some View {
@@ -115,6 +115,8 @@ private struct CombinedReviewPhotoCanvas: View {
     @State private var image: CGImage?
     @State private var tint: CGImage?
     @State private var focusMask: NSImage?
+    /// Full-resolution embedded preview for the magnifier, loaded only while it is on.
+    @State private var magnifierImage: CGImage?
 
     /// Changes when the focus mask must be generated again; nil when it is hidden or has no image.
     private var focusMaskKey: String? {
@@ -131,6 +133,19 @@ private struct CombinedReviewPhotoCanvas: View {
         guard showMask else { return nil }
         let subject = highlighted?.subjectID.flatMap { id in result.subjects.first { $0.id == id } }
         return subject?.maskInputReference ?? result.subjects.first { $0.maskInputReference != nil }?.maskInputReference
+    }
+
+    /// The RAW file whose full-size preview the magnifier needs; nil while the magnifier is off.
+    private var magnifierKey: URL? {
+        magnifierZoom > 0 ? result.file.url : nil
+    }
+
+    /// The full-resolution preview when it frames the same picture as the overview, else the overview.
+    private func magnifierSource(for overview: CGImage) -> CGImage {
+        guard let full = magnifierImage else { return overview }
+        let fullAspect = CGFloat(full.width) / CGFloat(full.height)
+        let overviewAspect = CGFloat(overview.width) / CGFloat(overview.height)
+        return abs(fullAspect - overviewAspect) / overviewAspect < 0.01 ? full : overview
     }
 
     /// Larger regions first so smaller, nested regions sit on top and stay clickable.
@@ -187,7 +202,7 @@ private struct CombinedReviewPhotoCanvas: View {
                 }
                 .frame(width: size.width, height: size.height)
                 .clipped()
-                .reviewMagnifier(image: image, zoom: magnifierZoom, displaySize: size)
+                .reviewMagnifier(image: magnifierSource(for: image), zoom: magnifierZoom, displaySize: size)
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 10).onEnded { value in
                     guard chooseRegion, !feature.isRunning else { return }
@@ -220,6 +235,15 @@ private struct CombinedReviewPhotoCanvas: View {
             let loaded = await feature.exactInput(key)
             guard !Task.isCancelled else { return }
             image = loaded
+        }
+        .task(id: magnifierKey) {
+            guard let url = magnifierKey else {
+                magnifierImage = nil
+                return
+            }
+            let loaded = await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+            guard !Task.isCancelled, magnifierKey == url else { return }
+            magnifierImage = loaded
         }
         .task(id: maskKey) {
             tint = nil
