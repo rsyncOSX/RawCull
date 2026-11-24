@@ -27,7 +27,7 @@ nonisolated struct CombinedReviewResult: Sendable {
 final class CombinedReviewFeature {
     static let stageVersions = ReviewPipelineContract.stageVersions
     var criteria = "Describe composition, exposure, subject visibility and technical detail."
-    var preset: ReviewPreset = .full
+    var preset: ReviewPreset = .focusCheck
     /// Set at launch when this Mac has too little memory for the Qwen presets.
     var qwenUnavailableReason: String? {
         didSet {
