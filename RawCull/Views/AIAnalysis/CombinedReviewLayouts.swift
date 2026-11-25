@@ -16,8 +16,8 @@ struct CombinedReviewPhotoLayout: View {
     @State private var showFocusPoint = false
     @State private var showFocusMask = false
     @State private var chooseRegion = false
-    /// Magnifier zoom in percent of the full-size preview's pixels; 0 is off.
-    @AppStorage("reviewMagnifierZoom") private var magnifierZoom = 0
+    /// Magnifier zoom in percent of the full-size preview's pixels; 0 is off. Not persisted, so Review always opens with it off.
+    @State private var magnifierZoom = 0
 
     var body: some View {
         let highlighted = route.highlightedRegion(in: result, presentation: presentation)
