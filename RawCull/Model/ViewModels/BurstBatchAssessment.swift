@@ -226,7 +226,7 @@ final class BurstBatchAssessment {
         isStillCurrent: @MainActor () -> Bool,
     ) async {
         if await qwen.assessmentIdentity() == nil {
-            await prepareModel()
+            await lease.refreshModels(for: runID, prepareModel)
         }
         guard let identity = await qwen.assessmentIdentity() else {
             phase = .failed(String(localized: "The Qwen model could not be loaded. Check AI models in Settings."))

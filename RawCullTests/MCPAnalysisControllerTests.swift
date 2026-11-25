@@ -269,6 +269,37 @@ struct MCPAnalysisControllerTests {
         #expect(try fixture.jobs.followUpStatus(request.id).errorCode == MCPAssessmentStopReason.modelChanged.rawValue)
     }
 
+    /// Preparing the model refreshes the real model runtime, which stops whoever
+    /// holds the AI lease. The follow-up that asked for it must carry on: here it
+    /// gets as far as the missing catalog bookmark.
+    @Test func `refreshing the models does not stop the follow up that asked for it`() async throws {
+        let fixture = try MCPControllerFixture()
+        let workspace = FakeMCPWorkspace()
+        let controller = fixture.makeController()
+        let qwen = LazyMCPPhotoAssessor()
+        let modelRuntime = RawCullAIModelRuntime(paths: RawCullAIPaths(
+            applicationSupportRoot: fixture.directory, cachesRoot: fixture.directory,
+        ))
+        controller.attach(
+            viewModel: workspace, qwen: qwen, prepare: {},
+            preparePhotoAssessment: {
+                do {
+                    _ = try await modelRuntime.applyManagedModelLocations([:])
+                    _ = try await modelRuntime.refreshCapabilities()
+                    await qwen.load()
+                } catch {}
+            },
+            canStart: { true },
+        )
+        let request = try fixture.queueFollowUp()
+
+        await controller.tick()
+
+        #expect(try await fixture.settle { try fixture.jobs.followUpStatus(request.id).state != .running })
+        #expect(try fixture.jobs.followUpStatus(request.id).errorCode
+            == MCPAssessmentStopReason.reauthorizationRequired.rawValue)
+    }
+
     @Test func `cancellation requested by the helper stops a follow up`() async throws {
         let fixture = try MCPControllerFixture()
         let workspace = FakeMCPWorkspace()

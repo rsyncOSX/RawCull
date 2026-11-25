@@ -76,7 +76,7 @@ extension MCPAnalysisController {
             }
             do {
                 if await qwen.assessmentIdentity() == nil {
-                    await prepare()
+                    await lease.refreshModels(for: id, prepare)
                 }
                 try Task.checkCancellation()
                 let output = try await assessFollowUp(worker, qwen: qwen)

@@ -85,6 +85,53 @@ struct BurstBatchAssessmentTests {
         }
     }
 
+    /// A model refresh stops whoever holds the AI lease. The batch refreshes the
+    /// models for itself, so that refresh must not stop the batch.
+    @Test func `refreshing the models does not cancel the batch that asked for it`() async throws {
+        let lease = CombinedReviewLease()
+        let qwen = LazyMCPPhotoAssessor()
+        let batch = BurstBatchAssessment(qwen: qwen, prepareModel: {
+            do {
+                try await lease.invalidateAndWait()
+                await qwen.load()
+            } catch {}
+        }, lease: lease)
+        let files = [file("missing1.ARW"), file("missing2.ARW")]
+        let plan = BurstBatchAssessment.makePlan(
+            catalog: catalog, catalogName: "Test", generation: 1,
+            groups: [BurstGroup(id: 1, fileIDs: files.map(\.id))],
+            results: [1: result(group: 1, files: files, recommended: files[0].id, second: files[1].id)],
+            files: files,
+        )
+        batch.start(plan, navigation: AIAssessmentNavigation()) { true }
+        while batch.isRunning {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(batch.phase == .finished)
+        #expect(batch.completedBursts == 1)
+    }
+
+    @Test func `another refresh still stops a batch that is preparing`() async throws {
+        let lease = CombinedReviewLease()
+        let batch = BurstBatchAssessment(qwen: LazyMCPPhotoAssessor(), prepareModel: {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+        }, lease: lease)
+        let files = [file("a.ARW"), file("b.ARW")]
+        let plan = BurstBatchAssessment.makePlan(
+            catalog: catalog, catalogName: "Test", generation: 1,
+            groups: [BurstGroup(id: 1, fileIDs: files.map(\.id))],
+            results: [1: result(group: 1, files: files, recommended: files[0].id, second: files[1].id)],
+            files: files,
+        )
+        batch.start(plan, navigation: AIAssessmentNavigation()) { true }
+        try await Task.sleep(for: .milliseconds(30))
+        try await lease.invalidateAndWait()
+        #expect(!batch.isRunning)
+        #expect(!lease.isHeld)
+    }
+
     @Test func `cancel stops the run`() async throws {
         let lease = CombinedReviewLease()
         let batch = BurstBatchAssessment(qwen: FakeMCPPhotoAssessor(identity: .init(name: "fake", generation: 1)),

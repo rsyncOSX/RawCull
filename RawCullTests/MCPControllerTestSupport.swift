@@ -256,3 +256,27 @@ nonisolated struct FakeMCPPhotoAssessor: MCPPhotoAssessing {
         throw QwenModelError.invalidStructuredResponse
     }
 }
+
+/// A Qwen surface with no model until `load()` runs, like a real model that
+/// only becomes available after a Settings refresh.
+actor LazyMCPPhotoAssessor {
+    private var identity: QwenInferenceRuntime.Identity?
+
+    func load() {
+        identity = .init(name: "Lazy Qwen", generation: 1)
+    }
+
+    func assessmentIdentity() -> QwenInferenceRuntime.Identity? {
+        identity
+    }
+
+    func assessForMCP(
+        rubric _: [String], image _: CGImage, identity _: QwenInferenceRuntime.Identity,
+    ) async throws -> QwenPhotoAssessment {
+        throw QwenModelError.invalidStructuredResponse
+    }
+}
+
+/// In an extension, like `QwenInferenceRuntime`: naming the nonisolated protocol on
+/// the actor itself makes its synchronous initializer invalid.
+extension LazyMCPPhotoAssessor: MCPPhotoAssessing {}
