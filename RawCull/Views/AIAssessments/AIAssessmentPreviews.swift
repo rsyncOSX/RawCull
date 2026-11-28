@@ -330,8 +330,18 @@ struct AIAssessmentFilmstrip: View {
     @State private var sortByRank = false
 
     private var orderedFrames: [AIAssessmentEntry.Frame] {
-        guard sortByRank else { return frames }
-        return frames.sorted { ($0.rank ?? Int.max) < ($1.rank ?? Int.max) }
+        if sortByRank {
+            return frames.sorted { ($0.rank ?? Int.max) < ($1.rank ?? Int.max) }
+        }
+        // Keep the strip in the panes' order: the left pane's frame sits before the
+        // right pane's. Only those two swap places; every other frame stays put.
+        var ordered = frames
+        if let leftIndex = ordered.firstIndex(where: { $0.id == leftID }),
+           let rightIndex = ordered.firstIndex(where: { $0.id == rightID }),
+           leftIndex > rightIndex {
+            ordered.swapAt(leftIndex, rightIndex)
+        }
+        return ordered
     }
 
     var body: some View {
