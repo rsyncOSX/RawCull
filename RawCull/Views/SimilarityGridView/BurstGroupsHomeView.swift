@@ -56,6 +56,10 @@ struct BurstGroupsHomeView: View {
                                 batch: burstBatch,
                                 disabledReason: batchDisabledReason(burstBatch),
                                 hasResults: !(assessmentNavigation?.sessionEntries.isEmpty ?? true),
+                                closestCallCount: resultsAreAvailable ? BurstBatchAssessment.closestCallCount(
+                                    groups: burstWorkflow.burstGroupsInActiveCatalogScope,
+                                    results: burstWorkflow.burstAnalysisResults,
+                                ) : 0,
                                 start: startBatchAssessment,
                                 viewResults: viewBatchResults,
                             )
@@ -286,16 +290,17 @@ struct BurstGroupsHomeView: View {
         return nil
     }
 
-    private func startBatchAssessment() {
+    private func startBatchAssessment(_ scope: BurstBatchAssessment.Scope) {
         guard let burstBatch, let assessmentNavigation, let source = catalog.selectedSource,
               batchDisabledReason(burstBatch) == nil else { return }
-        Logger.process.debugMessageOnly("BurstGroupsHomeView.startBatchAssessment()")
+        Logger.process.debugMessageOnly("BurstGroupsHomeView.startBatchAssessment(\(scope))")
         let generation = burstWorkflow.burstAnalysisGeneration
         let plan = BurstBatchAssessment.makePlan(
             catalog: source.url, catalogName: source.name, generation: generation,
             groups: burstWorkflow.burstGroupsInActiveCatalogScope,
             results: burstWorkflow.burstAnalysisResults,
             files: catalogController.activeCatalogFiles,
+            scope: scope,
         )
         let workflow = burstWorkflow
         let catalog = catalog

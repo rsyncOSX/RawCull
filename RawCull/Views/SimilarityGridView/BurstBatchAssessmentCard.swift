@@ -2,16 +2,19 @@ import OSLog
 import SwiftUI
 
 /// Burst list card that runs the local Qwen assessment on the top two frames
-/// of every burst, with progress and Cancel.
+/// of every burst, or only of the close calls, with progress and Cancel.
 struct BurstBatchAssessmentCard: View {
     let batch: BurstBatchAssessment
     /// Why Start is disabled, or nil when every burst list is ready.
     let disabledReason: String?
     let hasResults: Bool
-    let start: () -> Void
+    /// Low- and medium-confidence bursts with two distinct top frames.
+    let closestCallCount: Int
+    let start: (BurstBatchAssessment.Scope) -> Void
     let viewResults: () -> Void
 
-    @State private var confirmReassess = false
+    /// The scope waiting for the user to confirm clearing the present results.
+    @State private var pendingScope: BurstBatchAssessment.Scope?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -25,7 +28,8 @@ struct BurstBatchAssessmentCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("AI assessment").font(.headline)
                     Text(
-                        "Assess the recommended and alternate frame of every burst with the local Qwen model. "
+                        "Assess the recommended and alternate frame with the local Qwen model: only the close calls, "
+                            + "where the analysis is unsure between them, or every burst. "
                             + "Findings may be inaccurate; ratings are not changed.",
                     )
                     .font(.callout)
@@ -50,16 +54,20 @@ struct BurstBatchAssessmentCard: View {
                                 .controlSize(.large)
                                 .keyboardShortcut(.defaultAction)
                         }
-                        assessButton
+                        assessButton(.closestCalls)
+                        assessButton(.all)
                     }
                     .confirmationDialog(
                         "Clear the current AI assessments and assess again?",
-                        isPresented: $confirmReassess,
-                    ) {
-                        Button("Clear and Reassess", role: .destructive, action: start)
+                        isPresented: Binding(get: { pendingScope != nil }, set: { if !$0 { pendingScope = nil } }),
+                        presenting: pendingScope,
+                    ) { scope in
+                        Button("Clear and Reassess", role: .destructive) { start(scope) }
                         Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("The present results are removed and every burst is assessed again with the local Qwen model.")
+                    } message: { scope in
+                        Text(scope == .closestCalls
+                            ? "The present results are removed and the close calls are assessed with the local Qwen model."
+                            : "The present results are removed and every burst is assessed again with the local Qwen model.")
                     }
                 }
             }
@@ -110,29 +118,36 @@ struct BurstBatchAssessmentCard: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Prominent when nothing has been assessed yet; secondary once results
-    /// exist, and then it asks before clearing them.
+    /// Closest calls is the prominent action until results exist; then both
+    /// are secondary and ask before clearing the present results.
     @ViewBuilder
-    private var assessButton: some View {
+    private func assessButton(_ scope: BurstBatchAssessment.Scope) -> some View {
+        let closest = scope == .closestCalls
+        let reason = disabledReason
+            ?? (closest && closestCallCount == 0 ? String(localized: "Every burst has a clear pick.") : nil)
         let button = Button {
             if hasResults {
-                confirmReassess = true
+                pendingScope = scope
             } else {
-                start()
+                start(scope)
             }
         } label: {
-            Label(hasResults ? "Reassess" : "Assess All Bursts", systemImage: "sparkles")
+            if closest {
+                Label("Assess Closest Calls (\(closestCallCount))", systemImage: "sparkles")
+            } else {
+                Label("Assess All Bursts", systemImage: "square.stack.3d.up")
+            }
         }
         .controlSize(.large)
-        .disabled(disabledReason != nil)
-        .help(disabledReason ?? (hasResults
-                ? "Clear the current results and assess every burst again"
+        .disabled(reason != nil)
+        .help(reason ?? (closest
+                ? "Assess the top two frames of the low- and medium-confidence bursts, lowest first"
                 : "Assess the top two frames of every burst"))
 
-        if hasResults {
-            button.buttonStyle(.bordered)
-        } else {
+        if closest, !hasResults {
             button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered)
         }
     }
 

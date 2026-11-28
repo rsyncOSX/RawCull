@@ -4,8 +4,9 @@
 //
 //  Runs the local Qwen photo assessment on the recommended and alternate
 //  frames of every burst in the open catalog — the in-app counterpart of
-//  Scripts/AssessBursts.py. Results are session-only `AIAssessmentEntry`
-//  values shown in the existing AI Assessment workspace.
+//  Scripts/AssessBursts.py. The closest-calls scope assesses only bursts
+//  whose two top frames are hard to choose between. Results are session-only
+//  `AIAssessmentEntry` values shown in the existing AI Assessment workspace.
 //
 
 import CoreGraphics
@@ -18,6 +19,15 @@ import RawCullCore
 final class BurstBatchAssessment {
     /// Same rubric as Scripts/AssessBursts.py.
     static let rubric = ["composition", "exposure", "subjectVisibility"]
+
+    /// Which bursts a run assesses.
+    nonisolated enum Scope: Sendable, Equatable {
+        /// Every ranked burst with two or more frames, in group order.
+        case all
+        /// Low- and medium-confidence bursts with two distinct top frames,
+        /// low first, keeping group order within each level.
+        case closestCalls
+    }
 
     enum Phase: Equatable {
         case idle
@@ -55,6 +65,7 @@ final class BurstBatchAssessment {
         let catalogName: String
         let generation: Int
         let items: [Item]
+        var scope: Scope = .all
     }
 
     private(set) var phase: Phase = .idle
@@ -63,6 +74,8 @@ final class BurstBatchAssessment {
     private(set) var assessedPhotos = 0
     private(set) var failedPhotos = 0
     private(set) var currentGroupID: Int?
+    /// The scope of the current or last run.
+    private(set) var scope: Scope = .all
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private let qwen: (any MCPPhotoAssessing)?
@@ -109,13 +122,17 @@ final class BurstBatchAssessment {
             String(localized: "Loading the Qwen model…")
 
         case .running:
-            String(localized: "Assessing burst \(min(completedBursts + 1, totalBursts)) of \(totalBursts)")
+            scope == .closestCalls
+                ? String(localized: "Assessing close call \(min(completedBursts + 1, totalBursts)) of \(totalBursts)")
+                : String(localized: "Assessing burst \(min(completedBursts + 1, totalBursts)) of \(totalBursts)")
 
         case .cancelling:
             String(localized: "Cancelling after the current photo…")
 
         case .finished:
-            String(localized: "Assessed \(completedBursts) bursts: \(assessedPhotos) photos assessed, \(failedPhotos) failed.")
+            scope == .closestCalls
+                ? String(localized: "Assessed \(completedBursts) close calls: \(assessedPhotos) photos assessed, \(failedPhotos) failed.")
+                : String(localized: "Assessed \(completedBursts) bursts: \(assessedPhotos) photos assessed, \(failedPhotos) failed.")
 
         case .cancelled:
             String(localized: "Cancelled after \(completedBursts) of \(totalBursts) bursts.")
@@ -127,16 +144,34 @@ final class BurstBatchAssessment {
 
     // MARK: Plan
 
-    /// Bursts with at least two frames and a ranked recommendation, in group order.
+    /// True when the analysis was unsure between two distinct top frames.
+    nonisolated static func isClosestCall(_ result: BurstAnalysisResult) -> Bool {
+        guard result.confidence != .high, let recommended = result.recommendedFileID,
+              let alternate = result.secondBestFileID else { return false }
+        return recommended != alternate
+    }
+
+    /// Upper bound on the bursts a closest-calls run assesses; files that
+    /// left the catalog are dropped only when the plan is made.
+    nonisolated static func closestCallCount(groups: [BurstGroup], results: [Int: BurstAnalysisResult]) -> Int {
+        groups.count { group in
+            guard group.id != -1, group.fileIDs.count > 1, let result = results[group.id] else { return false }
+            return isClosestCall(result)
+        }
+    }
+
+    /// Bursts with at least two frames and a ranked recommendation, in group
+    /// order; for `.closestCalls`, only the close calls, low confidence first.
     static func makePlan(
         catalog: URL, catalogName: String, generation: Int, groups: [BurstGroup],
-        results: [Int: BurstAnalysisResult], files: [FileItem],
+        results: [Int: BurstAnalysisResult], files: [FileItem], scope: Scope = .all,
     ) -> Plan {
         let root = catalog.standardizedFileURL.pathComponents
         let filesByID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let items = groups.sorted { $0.id < $1.id }.compactMap { group -> Item? in
             guard group.id != -1, group.fileIDs.count > 1, let result = results[group.id],
-                  Set(result.fileIDs) == Set(group.fileIDs) else { return nil }
+                  Set(result.fileIDs) == Set(group.fileIDs),
+                  scope == .all || isClosestCall(result) else { return nil }
             var ranks: [UUID: Int] = [:]
             for (index, candidate) in result.candidates.enumerated() where ranks[candidate.fileID] == nil {
                 ranks[candidate.fileID] = index + 1
@@ -160,12 +195,20 @@ final class BurstBatchAssessment {
             )
             return item.targets.isEmpty ? nil : item
         }
-        return Plan(catalog: catalog, catalogName: catalogName, generation: generation, items: items)
+        let ordered = switch scope {
+        case .all:
+            items
+        case .closestCalls:
+            // Stable: low before medium, group order within each level.
+            items.filter { $0.confidence == BurstDecisionConfidence.low.rawValue }
+                + items.filter { $0.confidence != BurstDecisionConfidence.low.rawValue }
+        }
+        return Plan(catalog: catalog, catalogName: catalogName, generation: generation, items: ordered, scope: scope)
     }
 
     // MARK: Run
 
-    /// Starts assessing every burst in `plan`. `isStillCurrent` is checked
+    /// Starts assessing the bursts in `plan`. `isStillCurrent` is checked
     /// between bursts so a re-analysis or catalog change stops the run.
     func start(
         _ plan: Plan, navigation: AIAssessmentNavigation,
@@ -176,8 +219,11 @@ final class BurstBatchAssessment {
             phase = .failed(unavailableReason ?? String(localized: "The Qwen assessment model is unavailable."))
             return
         }
+        scope = plan.scope
         guard !plan.items.isEmpty else {
-            phase = .failed(String(localized: "No bursts with two or more frames to assess."))
+            phase = .failed(plan.scope == .closestCalls
+                ? String(localized: "No close calls to assess: every burst has a clear pick.")
+                : String(localized: "No bursts with two or more frames to assess."))
             return
         }
         let runID = UUID()

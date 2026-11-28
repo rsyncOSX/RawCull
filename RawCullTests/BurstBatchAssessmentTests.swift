@@ -13,9 +13,12 @@ struct BurstBatchAssessmentTests {
                  dateModified: .distantPast, exifData: nil, afFocusNormalized: nil)
     }
 
-    private func result(group: Int, files: [FileItem], recommended: UUID?, second: UUID?) -> BurstAnalysisResult {
+    private func result(
+        group: Int, files: [FileItem], recommended: UUID?, second: UUID?,
+        confidence: BurstDecisionConfidence = .medium,
+    ) -> BurstAnalysisResult {
         BurstAnalysisResult(groupID: group, fileIDs: files.map(\.id), candidates: [], recommendedFileID: recommended,
-                            secondBestFileID: second, confidence: .medium, reviewState: .algorithmReviewed,
+                            secondBestFileID: second, confidence: confidence, reviewState: .algorithmReviewed,
                             isSafeForOneClickCulling: true, reasons: [], cautions: [])
     }
 
@@ -35,6 +38,52 @@ struct BurstBatchAssessmentTests {
         #expect(plan.items.map(\.groupID) == [2])
         #expect(plan.items[0].targets == [burst[1].id.uuidString, burst[0].id.uuidString])
         #expect(plan.items[0].frames.map(\.photo.relativePath) == ["a.ARW", "b.ARW", "c.ARW"])
+    }
+
+    @Test func `closest calls keep unsure bursts with two picks, low confidence first`() {
+        let high = [file("h1.ARW"), file("h2.ARW")]
+        let medium = [file("m1.ARW"), file("m2.ARW")]
+        let low = [file("l1.ARW"), file("l2.ARW")]
+        let samePick = [file("s1.ARW"), file("s2.ARW")]
+        let lowLater = [file("x1.ARW"), file("x2.ARW")]
+        let groups = [high, medium, low, samePick, lowLater].enumerated().map {
+            BurstGroup(id: $0.offset + 1, fileIDs: $0.element.map(\.id))
+        }
+        let results: [Int: BurstAnalysisResult] = [
+            1: result(group: 1, files: high, recommended: high[0].id, second: high[1].id, confidence: .high),
+            2: result(group: 2, files: medium, recommended: medium[0].id, second: medium[1].id, confidence: .medium),
+            3: result(group: 3, files: low, recommended: low[0].id, second: low[1].id, confidence: .low),
+            4: result(group: 4, files: samePick, recommended: samePick[0].id, second: samePick[0].id, confidence: .low),
+            5: result(group: 5, files: lowLater, recommended: lowLater[1].id, second: lowLater[0].id, confidence: .low),
+        ]
+        let files = high + medium + low + samePick + lowLater
+        let closest = BurstBatchAssessment.makePlan(
+            catalog: catalog, catalogName: "Test", generation: 1, groups: groups, results: results, files: files,
+            scope: .closestCalls,
+        )
+        #expect(closest.scope == .closestCalls)
+        #expect(closest.items.map(\.groupID) == [3, 5, 2])
+        #expect(closest.items.allSatisfy { $0.targets.count == 2 })
+        #expect(BurstBatchAssessment.closestCallCount(groups: groups, results: results) == 3)
+
+        let all = BurstBatchAssessment.makePlan(
+            catalog: catalog, catalogName: "Test", generation: 1, groups: groups, results: results, files: files,
+        )
+        #expect(all.items.map(\.groupID) == [1, 2, 3, 4, 5])
+    }
+
+    @Test func `closest calls with none to assess explain why`() {
+        let batch = BurstBatchAssessment(qwen: FakeMCPPhotoAssessor(identity: .init(name: "fake", generation: 1)),
+                                         prepareModel: {}, lease: CombinedReviewLease())
+        let files = [file("a.ARW"), file("b.ARW")]
+        let plan = BurstBatchAssessment.makePlan(
+            catalog: catalog, catalogName: "Test", generation: 1,
+            groups: [BurstGroup(id: 1, fileIDs: files.map(\.id))],
+            results: [1: result(group: 1, files: files, recommended: files[0].id, second: files[1].id, confidence: .high)],
+            files: files, scope: .closestCalls,
+        )
+        batch.start(plan, navigation: AIAssessmentNavigation()) { true }
+        #expect(batch.phase == .failed("No close calls to assess: every burst has a clear pick."))
     }
 
     @Test func `run reports progress, finishes and releases the lease`() async throws {
